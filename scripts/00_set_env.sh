@@ -16,5 +16,8 @@ export IPR_USER="${IPR_USER:-meibye}"
 # Default project root - change this to your development directory
 export IPR_PROJECT_ROOT="${IPR_PROJECT_ROOT:-/home/meibye/dev}"
 
-echo "[ENV] Using IPR_USER: $IPR_USER"
-echo "[ENV] Using IPR_PROJECT_ROOT: $IPR_PROJECT_ROOT"
+# Optional: Set IPR_ENV_DEBUG=1 to see environment variable values
+if [[ "${IPR_ENV_DEBUG:-0}" == "1" ]]; then
+  echo "[ENV] Using IPR_USER: $IPR_USER"
+  echo "[ENV] Using IPR_PROJECT_ROOT: $IPR_PROJECT_ROOT"
+fi
