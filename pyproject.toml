@@ -1,0 +1,25 @@
+[project]
+name = "ipr-keyboard"
+version = "0.1.0"
+description = "IrisPen to Bluetooth keyboard bridge for Raspberry Pi"
+readme = "README.md"
+authors = [
+    { name = "Michael Eibye", email = "michael@eibye.name" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "flask>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[project.scripts]
+ipr-keyboard = "ipr_keyboard.main:main"
