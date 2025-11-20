@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
+
 echo "[05] Installing systemd service ipr_keyboard.service"
 
 if [[ $EUID -ne 0 ]]; then
@@ -12,9 +17,9 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 SERVICE_FILE="/etc/systemd/system/ipr_keyboard.service"
-PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
-USER_NAME="meibye"
+USER_NAME="$IPR_USER"
 
 cat <<EOF > "$SERVICE_FILE"
 [Unit]

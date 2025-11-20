@@ -3,13 +3,18 @@
 # systemd-based end-to-end demo.
 # This version:
 # - Uses the existing ipr_keyboard.service.
-# - Adjusts config using your uv venv as user meibye.
+# - Adjusts config using your uv venv .
 # - Creates a test file in /mnt/irispen.
 # - Waits for the service to process it.
 # - Shows both the app log and relevant journalctl entries.
 # - Restores the service’s original active/inactive state.
 
 set -euo pipefail
+
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 
 echo "[09] Running systemd-based end-to-end demo for ipr_keyboard"
 
@@ -18,12 +23,12 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
 IRISPEN_MOUNT="/mnt/irispen"
 LOG_FILE="$PROJECT_DIR/logs/ipr_keyboard.log"
 SERVICE_NAME="ipr_keyboard.service"
-APP_USER="meibye"
+APP_USER="$IPR_USER"
 
 if [[ ! -d "$PROJECT_DIR" ]]; then
   echo "Project directory not found: $PROJECT_DIR"
@@ -49,7 +54,7 @@ echo "[09] Service:           $SERVICE_NAME"
 echo "[09] App user:          $APP_USER"
 
 ###############################################################################
-# 1) Ensure IrisPenFolder exists and config is set (as user 'meibye')
+# 1) Ensure IrisPenFolder exists and config is set
 ###############################################################################
 echo
 echo "[09] 1) Ensuring IrisPenFolder directory and config..."

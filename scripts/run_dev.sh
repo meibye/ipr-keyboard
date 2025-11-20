@@ -4,7 +4,12 @@
 
 set -euo pipefail
 
-PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
+
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
 
 if [[ ! -d "$PROJECT_DIR" ]]; then
