@@ -21,7 +21,7 @@ class AppConfig:
         IrisPenFolder: Path to the folder containing scanned text files from IrisPen.
         DeleteFiles: Whether to delete files after processing them.
         Logging: Whether logging is enabled.
-        MaxFileSize: Maximum file size in bytes to process (default: 1MB).
+        MaxFileSize: Maximum file size in bytes to process (default: 1MB = 1048576 bytes).
         LogPort: Port number for the web/log server.
     """
     IrisPenFolder: str = "/mnt/irispen"    # folder with scanned text files
