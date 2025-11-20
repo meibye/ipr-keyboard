@@ -10,14 +10,19 @@
 
 set -euo pipefail
 
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
+
 echo "[08] Running end-to-end demo for ipr_keyboard"
 
 if [[ $EUID -eq 0 ]]; then
-  echo "Do NOT run this as root. Run as user 'meibye'."
+  echo "Do NOT run this as root. Run as user '$IPR_USER'."
   exit 1
 fi
 
-PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
 IRISPEN_MOUNT="/mnt/irispen"
 LOG_FILE="$PROJECT_DIR/logs/ipr_keyboard.log"

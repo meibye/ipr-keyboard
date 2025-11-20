@@ -1,3 +1,23 @@
+# ipr-keyboard Setup Scripts
+
+## Environment Configuration
+
+Before running any scripts, you need to configure the environment variables.
+
+### Option 1: Edit the environment script (Recommended)
+Edit `scripts/00_set_env.sh` and set:
+- `IPR_USER`: Your username (default: meibye)
+- `IPR_PROJECT_ROOT`: Your development directory path (default: /home/meibye/dev)
+
+### Option 2: Export in your shell profile
+Add these to your `~/.bashrc` or `~/.bash_profile`:
+```bash
+export IPR_USER="your_username"
+export IPR_PROJECT_ROOT="/your/dev/path"
+```
+
+## Installation on the Pi
+
 On the Pi:
 
 ### save the scripts below into scripts/
@@ -6,7 +26,7 @@ chmod +x scripts/*.sh
 
 You’d typically run them in this order:
 
-cd /home/meibye/dev/ipr-keyboard
+cd ${IPR_PROJECT_ROOT}/ipr-keyboard
 
 ### 1) OS packages & Bluetooth base
 sudo ./scripts/01_system_setup.sh
@@ -18,7 +38,7 @@ sudo ./scripts/02_configure_bluetooth.sh
 sudo ./scripts/03_install_bt_helper.sh
 
 ### 4) Python env + deps via uv
-./scripts/04_setup_venv.sh   # as user meibye
+./scripts/04_setup_venv.sh   # as your configured user
 
 ### 5) Systemd service
 sudo ./scripts/05_install_service.sh
@@ -27,7 +47,7 @@ sudo ./scripts/05_install_service.sh
 
 System + Bluetooth base (root):
 
-cd /home/meibye/dev/ipr-keyboard
+cd ${IPR_PROJECT_ROOT}/ipr-keyboard
 sudo ./scripts/01_system_setup.sh
 sudo ./scripts/02_configure_bluetooth.sh
 sudo ./scripts/03_install_bt_helper.sh

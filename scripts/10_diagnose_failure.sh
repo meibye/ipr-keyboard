@@ -11,7 +11,7 @@
 # - Bluetooth helper availability (BluetoothKeyboard.is_available())
 #
 # Optional --test-file flag that:
-# - Reads IrisPenFolder from the current config (using Python in the venv as user meibye).
+# - Reads IrisPenFolder from the current config (using Python in the venv).
 # - Creates a unique test file in that folder.
 # - Prints the path + content.
 # - Waits a bit so the service has a chance to process it.
@@ -19,14 +19,19 @@
 
 set -euo pipefail
 
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
+
 echo "[10] ipr_keyboard diagnostic script"
 
-PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
 IRISPEN_MOUNT="/mnt/irispen"
 LOG_FILE="$PROJECT_DIR/logs/ipr_keyboard.log"
 SERVICE_NAME="ipr_keyboard.service"
-APP_USER="meibye"
+APP_USER="$IPR_USER"
 
 TEST_FILE_MODE=0
 
