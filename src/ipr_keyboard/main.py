@@ -1,3 +1,8 @@
+"""Main entry point for the ipr-keyboard application.
+
+This module orchestrates the USB monitoring and Bluetooth forwarding functionality,
+along with a web server for configuration and log viewing.
+"""
 from __future__ import annotations
 
 import threading
@@ -14,6 +19,11 @@ logger = get_logger()
 
 
 def run_web_server():
+    """Run the Flask web server for configuration and log viewing.
+    
+    Starts the web server on the port specified in the configuration,
+    binding to all interfaces (0.0.0.0) to allow remote access.
+    """
     from .config.manager import ConfigManager
 
     cfg = ConfigManager.instance().get()
@@ -24,6 +34,14 @@ def run_web_server():
 
 
 def run_usb_bt_loop():
+    """Main USB monitoring and Bluetooth forwarding loop.
+    
+    Continuously monitors the configured IrisPenFolder for new text files,
+    reads their content, sends it via Bluetooth keyboard emulation, and
+    optionally deletes the processed files.
+    
+    This function runs indefinitely and should be executed in a separate thread.
+    """
     cfg_mgr = ConfigManager.instance()
     kb = BluetoothKeyboard()
 
@@ -71,6 +89,11 @@ def run_usb_bt_loop():
 
 
 def main():
+    """Main entry point for the ipr-keyboard application.
+    
+    Initializes the configuration, starts the web server and USB monitoring
+    threads, and keeps the application running until interrupted with Ctrl+C.
+    """
     cfg = ConfigManager.instance().get()
     logger.info("Starting ipr_keyboard with config: %s", cfg.to_dict())
 

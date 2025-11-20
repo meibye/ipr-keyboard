@@ -1,9 +1,18 @@
+"""Tests for configuration manager.
+
+Tests the AppConfig and ConfigManager classes for loading and updating configuration.
+"""
 from pathlib import Path
 from ipr_keyboard.config.manager import AppConfig, ConfigManager
 from ipr_keyboard.utils.helpers import save_json
 
 
 def test_config_load_and_update(tmp_path, monkeypatch):
+    """Test configuration loading and updating.
+    
+    Verifies that ConfigManager correctly loads config from JSON,
+    retrieves values, and updates them persistently.
+    """
     cfg_file = tmp_path / "config.json"
     save_json(cfg_file, {"IrisPenFolder": "/tmp/iris", "DeleteFiles": False})
 

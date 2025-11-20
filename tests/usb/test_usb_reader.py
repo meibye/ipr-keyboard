@@ -1,8 +1,17 @@
+"""Tests for USB file operations.
+
+Tests file detection, reading, and deletion functionality.
+"""
 from pathlib import Path
 from ipr_keyboard.usb import reader, detector, deleter
 
 
 def test_newest_and_read(tmp_path):
+    """Test detecting, reading, and deleting the newest file.
+    
+    Verifies that the newest file is correctly identified, its content
+    is read properly, and it can be deleted.
+    """
     f1 = tmp_path / "a.txt"
     f2 = tmp_path / "b.txt"
     f1.write_text("first", encoding="utf-8")

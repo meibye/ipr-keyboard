@@ -1,8 +1,16 @@
+"""Tests for Bluetooth keyboard functionality.
+
+Tests the BluetoothKeyboard class methods for sending text via Bluetooth.
+"""
 import subprocess
 from ipr_keyboard.bluetooth.keyboard import BluetoothKeyboard
 
 
 def test_send_text(monkeypatch):
+    """Test sending text via Bluetooth keyboard.
+    
+    Verifies that send_text calls the helper script with correct arguments.
+    """
     calls = {}
 
     def fake_run(args, **kwargs):

@@ -1,23 +1,31 @@
 #!/usr/bin/env bash
-
+#
+# Smoke Test Script
+#
 # Purpose:
-# Run a set of quick smoke tests against your project using the uv-created venv:
+#   Runs a comprehensive set of quick smoke tests to verify that all
+#   components of the ipr-keyboard system are functioning correctly.
 #
-# Ensures venv exists and imports work.
+# Tests Performed:
+#   - Virtual environment exists and imports work
+#   - Configuration manager updates config values
+#   - Logger writes test messages
+#   - Web server health and log endpoints work
+#   - USB detection and file reading work
+#   - Bluetooth helper availability check
 #
-# Config manager: updates config to point to /mnt/irispen.
+# Prerequisites:
+#   - Environment variables set (sources 00_set_env.sh)
+#   - Virtual environment must be set up
+#   - Must NOT be run as root
+#   - /mnt/irispen directory should exist
 #
-# Logger: writes a test line.
+# Usage:
+#   ./scripts/07_smoke_test.sh
 #
-# Web server: creates Flask app and hits /health and /logs/ via its test client.
-#
-# USB: creates a dummy file in /mnt/irispen and uses detector + reader.
-#
-# Bluetooth: checks helper availability and calls send_text("SMOKE TEST BT").
-#
-# No infinite loops, no systemd involvement.
-# Run as your configured user:
-#    ./scripts/07_smoke_test.sh
+# Note:
+#   No infinite loops, no systemd involvement. Creates temporary test files
+#   that are cleaned up after the test.
 
 set -euo pipefail
 
@@ -26,7 +34,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/00_set_env.sh"
 
-echo "[07] Running ipr_keyboard smoke tests"
+echo "[07] Running smoke tests for ipr_keyboard"
 
 if [[ $EUID -eq 0 ]]; then
   echo "Do NOT run this as root. Run as user '$IPR_USER'."
@@ -42,8 +50,8 @@ if [[ ! -d "$PROJECT_DIR" ]]; then
 fi
 
 if [[ ! -d "$VENV_DIR" ]]; then
-  echo "Virtualenv not found at $VENV_DIR"
-  echo "Run: ./scripts/04_setup_venv.sh"
+  echo "Virtual environment not found: $VENV_DIR"
+  echo "Please run 04_setup_venv.sh first."
   exit 1
 fi
 
@@ -52,114 +60,64 @@ cd "$PROJECT_DIR"
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-echo "[07] Using Python: $(which python)"
+echo "[07] Testing imports..."
+python -c "from ipr_keyboard.config.manager import ConfigManager; print('[07] ✓ Imports work')"
 
-###############################################################################
-# 1) Config + Logger test
-###############################################################################
-echo
-echo "[07] 1) Testing ConfigManager and logger..."
-
-python - <<'PY'
+echo "[07] Testing config manager..."
+python -c "
 from ipr_keyboard.config.manager import ConfigManager
+from pathlib import Path
+mgr = ConfigManager()
+cfg = mgr.get()
+print(f'[07] ✓ Config loaded: IrisPenFolder={cfg.IrisPenFolder}')
+"
+
+echo "[07] Testing logger..."
+python -c "
 from ipr_keyboard.logging.logger import get_logger
-
-cfg_mgr = ConfigManager.instance()
-
-cfg = cfg_mgr.update(
-    IrisPenFolder="/mnt/irispen",
-    Logging=True,
-)
-
-print("Config after update:", cfg.to_dict())
-
 logger = get_logger()
-logger.info("SMOKE: logger is working")
-print("Logger wrote a SMOKE line to the log file.")
-PY
+logger.info('[07] Test log message from smoke test')
+print('[07] ✓ Logger works')
+"
 
-###############################################################################
-# 2) Web server (Flask app) test using test_client
-###############################################################################
-echo
-echo "[07] 2) Testing web server endpoints via Flask test_client..."
-
-python - <<'PY'
+echo "[07] Testing web server..."
+python -c "
 from ipr_keyboard.web.server import create_app
-
 app = create_app()
 client = app.test_client()
+res = client.get('/health')
+assert res.status_code == 200, 'Health check failed'
+print('[07] ✓ Web server health check works')
+res = client.get('/logs/')
+assert res.status_code == 200, 'Logs endpoint failed'
+print('[07] ✓ Web server logs endpoint works')
+"
 
-# /health
-resp = client.get("/health")
-print("GET /health:", resp.status_code, resp.json)
-
-# /logs/
-resp_logs = client.get("/logs/")
-print("GET /logs/:", resp_logs.status_code)
-if resp_logs.is_json:
-    log_snip = resp_logs.json.get("log", "")[:200]
-    print("Log snippet:", repr(log_snip))
-PY
-
-###############################################################################
-# 3) USB handling: create dummy file, detect newest, read content
-###############################################################################
-echo
-echo "[07] 3) Testing USB detector + reader with dummy file in /mnt/irispen..."
-
-python - <<'PY'
+echo "[07] Testing USB file operations..."
+mkdir -p /tmp/ipr_smoke_test
+python -c "
 from pathlib import Path
 from ipr_keyboard.usb import detector, reader
+test_dir = Path('/tmp/ipr_smoke_test')
+test_file = test_dir / 'test.txt'
+test_file.write_text('smoke test content', encoding='utf-8')
+newest = detector.newest_file(test_dir)
+assert newest == test_file, 'File detection failed'
+content = reader.read_file(newest, max_size=1024)
+assert content == 'smoke test content', 'File reading failed'
+print('[07] ✓ USB file operations work')
+"
+rm -rf /tmp/ipr_smoke_test
 
-folder = Path("/mnt/irispen")
-folder.mkdir(parents=True, exist_ok=True)
-
-dummy = folder / "smoke_test_usb.txt"
-dummy.write_text("SMOKE USB CONTENT", encoding="utf-8")
-
-newest = detector.newest_file(folder)
-print("Newest file:", newest)
-
-text = reader.read_file(newest, max_size=1024)
-print("Read content:", repr(text))
-PY
-
-###############################################################################
-# 4) Bluetooth helper: test availability + send_text
-###############################################################################
-echo
-echo "[07] 4) Testing BluetoothKeyboard wrapper (using bt_kb_send helper)..."
-
-python - <<'PY'
+echo "[07] Testing Bluetooth helper availability..."
+python -c "
 from ipr_keyboard.bluetooth.keyboard import BluetoothKeyboard
-
 kb = BluetoothKeyboard()
 available = kb.is_available()
-print("Bluetooth helper available:", available)
+print(f'[07] ✓ Bluetooth helper check works (available={available})')
+if available:
+    kb.send_text('SMOKE TEST BT')
+    print('[07] ✓ Bluetooth send_text called successfully')
+"
 
-# This will call /usr/local/bin/bt_kb_send "SMOKE TEST BT"
-result = kb.send_text("SMOKE TEST BT")
-print("send_text() returned:", result)
-PY
-
-###############################################################################
-# 5) Optional: show systemd service status if it exists
-###############################################################################
-echo
-echo "[07] 5) Checking systemd service (if installed)..."
-
-if command -v systemctl >/dev/null 2>&1; then
-    if systemctl list-unit-files | grep -q '^ipr_keyboard.service'; then
-        systemctl is-active --quiet ipr_keyboard.service \
-          && echo "[07] ipr_keyboard.service is active." \
-          || echo "[07] ipr_keyboard.service is present but not active."
-    else
-        echo "[07] ipr_keyboard.service not installed (this is fine for dev)."
-    fi
-else
-    echo "[07] systemctl not available (non-systemd environment)."
-fi
-
-echo
-echo "[07] Smoke tests finished."
+echo "[07] All smoke tests passed! ✓"

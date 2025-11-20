@@ -1,89 +1,89 @@
 #!/usr/bin/env bash
-
+#
+# Setup IrisPen USB Mount Point
+#
 # Purpose:
-# Create and configure a persistent mount point for the IrisPen USB drive, e.g.:
+#   Creates and configures a persistent mount point for the IrisPen USB drive.
+#   Adds the mount entry to /etc/fstab using the device's UUID for reliability.
 #
-# Device: /dev/sda1 (or whatever you pass as argument)
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - IrisPen USB device must be plugged in
+#   - Device path must be provided as first argument
 #
-# Mount point: /mnt/irispen by default
+# Usage:
+#   sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1
+#   sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1 /media/irispen
 #
-# Writes a proper UUID=… entry into /etc/fstab, using the actual filesystem type.
+# Arguments:
+#   $1 - Device path (e.g., /dev/sda1) - Required
+#   $2 - Mount point (default: /mnt/irispen) - Optional
 #
-# Usage example:
-#
-# sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1
-#    or with custom mountpoint:
-# sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1 /media/irispen
+# Note:
+#   Creates a backup of /etc/fstab before modifying it.
 
 set -euo pipefail
 
 echo "[06] Setup persistent mount for IrisPen USB drive"
 
 if [[ $EUID -ne 0 ]]; then
-  echo "Please run as root: sudo $0 /dev/sdXN [/mnt/irispen]"
+  echo "Please run as root: sudo $0 <device>"
   exit 1
 fi
 
-if [[ $# -lt 1 ]]; then
-  echo "Usage: sudo $0 /dev/sdXN [/mnt/irispen]"
-  echo
-  echo "Example:"
-  echo "  sudo $0 /dev/sda1 /mnt/irispen"
-  echo
-  echo "Available block devices:"
-  lsblk -fp
+DEVICE="${1:-}"
+if [[ -z "$DEVICE" ]]; then
+  echo "Usage: $0 <device> [mount_point]"
+  echo "Example: $0 /dev/sda1"
+  echo "         $0 /dev/sda1 /media/irispen"
   exit 1
 fi
-
-DEVICE="$1"
-MOUNTPOINT="${2:-/mnt/irispen}"
 
 if [[ ! -b "$DEVICE" ]]; then
-  echo "Error: $DEVICE is not a block device."
-  echo "Check with: lsblk -fp"
+  echo "Error: $DEVICE is not a block device"
   exit 1
 fi
 
-echo "[06] Using device: $DEVICE"
-echo "[06] Mountpoint: $MOUNTPOINT"
+MOUNT_POINT="${2:-/mnt/irispen}"
 
-mkdir -p "$MOUNTPOINT"
-
-UUID=$(blkid -s UUID -o value "$DEVICE" || true)
-FSTYPE=$(blkid -s TYPE -o value "$DEVICE" || true)
+# Get UUID and filesystem type
+UUID=$(blkid -s UUID -o value "$DEVICE")
+FSTYPE=$(blkid -s TYPE -o value "$DEVICE")
 
 if [[ -z "$UUID" || -z "$FSTYPE" ]]; then
-  echo "Error: Could not determine UUID or filesystem type for $DEVICE."
-  echo "blkid output:"
-  blkid "$DEVICE" || true
+  echo "Error: Could not determine UUID or filesystem type for $DEVICE"
   exit 1
 fi
 
-echo "[06] Detected UUID:   $UUID"
-echo "[06] Detected FSType: $FSTYPE"
+echo "[06] Device: $DEVICE"
+echo "[06] UUID: $UUID"
+echo "[06] Filesystem: $FSTYPE"
+echo "[06] Mount point: $MOUNT_POINT"
 
-FSTAB="/etc/fstab"
-BACKUP="/etc/fstab.bak.$(date +%Y%m%d%H%M%S)"
+# Create mount point
+mkdir -p "$MOUNT_POINT"
 
-echo "[06] Backing up $FSTAB to $BACKUP"
-cp "$FSTAB" "$BACKUP"
+# Backup fstab
+FSTAB_BACKUP="/etc/fstab.bak.$(date +%Y%m%d%H%M%S)"
+cp /etc/fstab "$FSTAB_BACKUP"
+echo "[06] Backed up /etc/fstab to $FSTAB_BACKUP"
 
-# Remove any existing lines referencing this UUID or mountpoint to avoid duplicates
-sed -i "\|UUID=$UUID|d" "$FSTAB"
-sed -i "\| $MOUNTPOINT |d" "$FSTAB"
+# Check if already in fstab
+if grep -q "$UUID" /etc/fstab; then
+  echo "[06] Warning: UUID $UUID already exists in /etc/fstab"
+  echo "[06] Skipping fstab entry"
+else
+  # Add to fstab
+  echo "UUID=$UUID  $MOUNT_POINT  $FSTYPE  defaults,nofail  0  2" >> /etc/fstab
+  echo "[06] Added entry to /etc/fstab"
+fi
 
-# Append new fstab line
-cat <<EOF >> "$FSTAB"
-# IrisPen USB drive (added by 06_setup_irispen_mount.sh)
-UUID=$UUID  $MOUNTPOINT  $FSTYPE  defaults,nofail  0  0
-EOF
+# Mount now
+if mountpoint -q "$MOUNT_POINT"; then
+  echo "[06] $MOUNT_POINT is already mounted"
+else
+  mount "$MOUNT_POINT"
+  echo "[06] Mounted $MOUNT_POINT"
+fi
 
-echo "[06] Updated $FSTAB with IrisPen entry."
-echo "[06] Mounting $MOUNTPOINT..."
-
-mount "$MOUNTPOINT"
-
-echo "[06] Mountpoint status:"
-mount | grep " $MOUNTPOINT " || echo "Warning: $MOUNTPOINT not found in mount output."
-
-echo "[06] Done. You can now set IrisPenFolder to $MOUNTPOINT in config.json."
+echo "[06] Done. Mount point configured and ready."

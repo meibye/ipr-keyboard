@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
-
-# Creates and enables the ipr_keyboard systemd service
+#
+# Install systemd Service
+#
+# Purpose:
+#   Creates and enables the ipr_keyboard systemd service that runs the
+#   application automatically on system boot.
+#
+# Prerequisites:
+#   - Environment variables set (sources 00_set_env.sh)
+#   - Must be run as root (uses sudo)
+#   - Virtual environment must already be set up
+#
+# Usage:
+#   sudo ./scripts/05_install_service.sh
+#
+# Environment Variables:
+#   IPR_USER - Username to run the service as
+#   IPR_PROJECT_ROOT - Path to development directory
+#
+# Note:
+#   The service runs as the configured user (not root) for security.
 
 set -euo pipefail
 
@@ -19,16 +38,26 @@ fi
 SERVICE_FILE="/etc/systemd/system/ipr_keyboard.service"
 PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
-USER_NAME="$IPR_USER"
+
+if [[ ! -d "$PROJECT_DIR" ]]; then
+  echo "Project directory not found: $PROJECT_DIR"
+  exit 1
+fi
+
+if [[ ! -d "$VENV_DIR" ]]; then
+  echo "Virtual environment not found: $VENV_DIR"
+  echo "Please run 04_setup_venv.sh first."
+  exit 1
+fi
 
 cat <<EOF > "$SERVICE_FILE"
 [Unit]
-Description=IrisPen Bluetooth keyboard service
+Description=IrisPen to Bluetooth Keyboard Bridge
 After=network.target bluetooth.target
 
 [Service]
 Type=simple
-User=$USER_NAME
+User=$IPR_USER
 WorkingDirectory=$PROJECT_DIR
 ExecStart=$VENV_DIR/bin/python -m ipr_keyboard.main
 Restart=on-failure
@@ -39,7 +68,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now ipr_keyboard.service
+systemctl enable ipr_keyboard.service
 
-echo "[05] Service installed and started."
-echo "Check status with: sudo systemctl status ipr_keyboard.service"
+echo "[05] Service installed and enabled."
+echo "     Start now:   sudo systemctl start ipr_keyboard"
+echo "     Check status: sudo systemctl status ipr_keyboard"
