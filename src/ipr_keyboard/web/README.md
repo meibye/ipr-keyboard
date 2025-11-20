@@ -167,6 +167,7 @@ JSON responses are displayed in the browser (or use a JSON formatter extension).
 - Use SSH tunnel for remote access:
   ```bash
   ssh -L 8080:localhost:8080 pi@raspberry-pi
+  # Note: Replace 8080 with your configured LogPort value
   ```
 
 ## Error Handling
@@ -245,7 +246,7 @@ Web server operations are logged:
 
 ## Port Configuration
 
-The web server port is configurable:
+The web server port is configurable via the `LogPort` setting:
 
 1. **Via config.json**:
    ```json
@@ -254,14 +255,14 @@ The web server port is configurable:
    }
    ```
 
-2. **Via API** (requires restart to take effect):
+2. **Via API**:
    ```bash
    curl -X POST http://localhost:8080/config/ \
      -H "Content-Type: application/json" \
      -d '{"LogPort": 9000}'
    ```
 
-Note: Changing the port requires restarting the application.
+**Important**: Changing the port requires restarting the application for the change to take effect.
 
 ## Troubleshooting
 

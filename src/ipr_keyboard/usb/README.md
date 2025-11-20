@@ -85,11 +85,11 @@ Functions for deleting files after processing.
 Delete a single file.
 
 - **Parameters**: `path` - File to delete
-- **Returns**: `True` if successful, `False` on error
+- **Returns**: `True` if no error occurred (file deleted or didn't exist), `False` on error
 - **Safety**: 
   - Checks file exists and is a regular file
   - Catches `OSError` exceptions
-  - Returns `True` even if file doesn't exist
+  - Returns `True` if file doesn't exist (idempotent operation)
 
 ### `delete_all(folder: Path) -> List[Path]`
 Delete all files in a folder.

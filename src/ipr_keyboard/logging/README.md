@@ -29,11 +29,11 @@ Logs are stored at: `<project_root>/logs/ipr_keyboard.log`
 
 The logger uses `RotatingFileHandler` with:
 - **Max size**: 256 KB per file
-- **Backup count**: 5 files
+- **Backup count**: 5 backup files (plus 1 active file = 6 total)
 - **Encoding**: UTF-8
 - **Rotation**: Automatic when size limit reached
 
-Total log storage: ~1.5 MB (256 KB × 6 files including active)
+Total log storage: ~1.5 MB (256 KB × 6 files: 1 active + 5 backups)
 
 ### Log Format
 
