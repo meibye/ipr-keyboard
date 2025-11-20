@@ -1,7 +1,22 @@
 #!/usr/bin/env bash
-
-# Installs a placeholder /usr/local/bin/bt_kb_send script.
-# You’ll later replace its internals with a real HID implementation; the Python code only cares that this command exists.
+#
+# Install Bluetooth Keyboard Helper Script
+#
+# Purpose:
+#   Installs a placeholder Bluetooth HID keyboard helper script at
+#   /usr/local/bin/bt_kb_send. The Python application calls this script
+#   to send text via Bluetooth keyboard emulation.
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#
+# Usage:
+#   sudo ./scripts/03_install_bt_helper.sh
+#
+# Note:
+#   This installs a placeholder that logs messages. Replace the script's
+#   internals with a real HID implementation for actual Bluetooth keyboard
+#   functionality.
 
 set -euo pipefail
 

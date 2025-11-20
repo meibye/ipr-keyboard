@@ -1,3 +1,7 @@
+"""USB file detection and monitoring utilities.
+
+Provides functions for detecting and waiting for new files from the IrisPen scanner.
+"""
 from __future__ import annotations
 
 import time
@@ -6,6 +10,15 @@ from typing import List, Optional
 
 
 def list_files(folder: Path) -> List[Path]:
+    """List all files in a folder, sorted by modification time.
+    
+    Args:
+        folder: Path to the folder to list files from.
+        
+    Returns:
+        List of Path objects sorted by modification time (oldest first),
+        or an empty list if the folder doesn't exist.
+    """
     if not folder.exists():
         return []
     return sorted(
@@ -15,6 +28,14 @@ def list_files(folder: Path) -> List[Path]:
 
 
 def newest_file(folder: Path) -> Optional[Path]:
+    """Get the newest file in a folder by modification time.
+    
+    Args:
+        folder: Path to the folder to search.
+        
+    Returns:
+        Path to the newest file, or None if the folder is empty or doesn't exist.
+    """
     files = list_files(folder)
     if not files:
         return None
@@ -24,9 +45,20 @@ def newest_file(folder: Path) -> Optional[Path]:
 def wait_for_new_file(
     folder: Path, last_seen_mtime: float, interval: float = 1.0
 ) -> Optional[Path]:
-    """
-    Poll 'folder' until a file with newer mtime than 'last_seen_mtime'
-    appears. Returns that file or None if folder doesn't exist.
+    """Poll a folder until a new file appears.
+    
+    Continuously polls the folder at the specified interval until a file
+    with a modification time newer than last_seen_mtime is found.
+    
+    Args:
+        folder: Path to the folder to monitor.
+        last_seen_mtime: Timestamp of the last seen file. Only files newer
+            than this will be detected.
+        interval: Sleep interval in seconds between checks (default: 1.0).
+        
+    Returns:
+        Path to the new file, or None if the folder doesn't exist.
+        Note: This function will block indefinitely until a new file appears.
     """
     while True:
         if not folder.exists():

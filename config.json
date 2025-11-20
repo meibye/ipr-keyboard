@@ -1,0 +1,7 @@
+{
+  "DeleteFiles": true,
+  "IrisPenFolder": "/mnt/irispen",
+  "LogPort": 8080,
+  "Logging": true,
+  "MaxFileSize": 1048576
+}

@@ -1,3 +1,7 @@
+"""Logging configuration and utilities.
+
+Provides a centralized logger with rotating file handler and console output.
+"""
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -10,6 +14,14 @@ _LOG_FILE = project_root() / "logs" / "ipr_keyboard.log"
 
 
 def get_logger() -> logging.Logger:
+    """Get or create the application logger.
+    
+    Creates a logger with both file and console handlers on first call.
+    The file handler uses rotation (max 256KB per file, 5 backups).
+    
+    Returns:
+        The configured Logger instance.
+    """
     global _LOGGER
     if _LOGGER is not None:
         return _LOGGER
@@ -38,4 +50,9 @@ def get_logger() -> logging.Logger:
 
 
 def log_path() -> Path:
+    """Get the path to the log file.
+    
+    Returns:
+        Path to the application log file.
+    """
     return _LOG_FILE

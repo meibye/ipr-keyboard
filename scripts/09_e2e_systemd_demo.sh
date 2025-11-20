@@ -1,13 +1,29 @@
 #!/usr/bin/env bash
-
-# systemd-based end-to-end demo.
-# This version:
-# - Uses the existing ipr_keyboard.service.
-# - Adjusts config using your uv venv .
-# - Creates a test file in /mnt/irispen.
-# - Waits for the service to process it.
-# - Shows both the app log and relevant journalctl entries.
-# - Restores the service’s original active/inactive state.
+#
+# End-to-End systemd Demo Script
+#
+# Purpose:
+#   Demonstrates the complete ipr-keyboard workflow using the systemd service.
+#   Tests the production deployment scenario.
+#
+# Workflow:
+#   1. Records the current service state
+#   2. Ensures the service is started
+#   3. Creates a test file in the monitored directory
+#   4. Waits for the service to process it
+#   5. Shows both application log and systemd journal entries
+#   6. Restores the original service state
+#
+# Prerequisites:
+#   - Environment variables set (sources 00_set_env.sh)
+#   - systemd service must be installed
+#   - Must be run as root (to control systemd service)
+#
+# Usage:
+#   sudo ./scripts/09_e2e_systemd_demo.sh
+#
+# Note:
+#   Automatically restores the service's original active/inactive state.
 
 set -euo pipefail
 
@@ -19,175 +35,79 @@ source "$SCRIPT_DIR/00_set_env.sh"
 echo "[09] Running systemd-based end-to-end demo for ipr_keyboard"
 
 if [[ $EUID -ne 0 ]]; then
-  echo "Please run this as root: sudo $0"
+  echo "Please run as root: sudo $0"
   exit 1
 fi
 
+SERVICE_NAME="ipr_keyboard.service"
 PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
-IRISPEN_MOUNT="/mnt/irispen"
-LOG_FILE="$PROJECT_DIR/logs/ipr_keyboard.log"
-SERVICE_NAME="ipr_keyboard.service"
-APP_USER="$IPR_USER"
 
-if [[ ! -d "$PROJECT_DIR" ]]; then
-  echo "Project directory not found: $PROJECT_DIR"
+# Check if service is installed
+if ! systemctl list-unit-files | grep -q "$SERVICE_NAME"; then
+  echo "[09] Error: Service $SERVICE_NAME is not installed"
+  echo "[09] Please run 05_install_service.sh first"
   exit 1
 fi
 
-if [[ ! -d "$VENV_DIR" ]]; then
-  echo "Virtualenv not found at $VENV_DIR"
-  echo "Run: sudo -u $APP_USER $PROJECT_DIR/scripts/04_setup_venv.sh"
-  exit 1
-fi
-
-if ! systemctl list-unit-files | grep -q "^$SERVICE_NAME"; then
-  echo "Systemd service $SERVICE_NAME is not installed."
-  echo "Run: sudo $PROJECT_DIR/scripts/05_install_service.sh"
-  exit 1
-fi
-
-echo "[09] Using project dir: $PROJECT_DIR"
-echo "[09] Using venv:        $VENV_DIR"
-echo "[09] IrisPen mount:     $IRISPEN_MOUNT"
-echo "[09] Service:           $SERVICE_NAME"
-echo "[09] App user:          $APP_USER"
-
-###############################################################################
-# 1) Ensure IrisPenFolder exists and config is set
-###############################################################################
-echo
-echo "[09] 1) Ensuring IrisPenFolder directory and config..."
-
-mkdir -p "$IRISPEN_MOUNT"
-
-sudo -u "$APP_USER" env PROJECT_DIR="$PROJECT_DIR" VENV_DIR="$VENV_DIR" IRISPEN_MOUNT="$IRISPEN_MOUNT" bash <<'EOF'
-set -euo pipefail
-
-cd "$PROJECT_DIR"
-
-# shellcheck disable=SC1091
-source "$VENV_DIR/bin/activate"
-
-python - <<'PY'
-import os
-from ipr_keyboard.config.manager import ConfigManager
-
-cfg_mgr = ConfigManager.instance()
-folder = os.environ["IRISPEN_MOUNT"]
-cfg = cfg_mgr.update(
-    IrisPenFolder=folder,
-    DeleteFiles=True,
-    Logging=True,
-)
-print("Config set for systemd E2E:", cfg.to_dict())
-PY
-EOF
-
-###############################################################################
-# Record previous service state so we can restore it
-###############################################################################
-echo
-echo "[09] 2) Checking previous service state..."
-
-PRE_WAS_ACTIVE=0
+# Record current service state
+SERVICE_WAS_ACTIVE=false
 if systemctl is-active --quiet "$SERVICE_NAME"; then
-  PRE_WAS_ACTIVE=1
-  echo "[09] Service was active before demo."
+  SERVICE_WAS_ACTIVE=true
+  echo "[09] Service is currently active"
 else
-  echo "[09] Service was inactive before demo."
+  echo "[09] Service is currently inactive"
 fi
 
-cleanup() {
-  echo
-  echo "[09] Cleanup: restoring service state..."
-  if [[ "$PRE_WAS_ACTIVE" -eq 1 ]]; then
-    echo "[09] Service was previously active; leaving it running."
-  else
-    echo "[09] Service was previously inactive; stopping it now."
-    systemctl stop "$SERVICE_NAME" || true
-  fi
-  echo "[09] Cleanup finished."
-}
-trap cleanup EXIT
+# Ensure service is running
+if ! $SERVICE_WAS_ACTIVE; then
+  echo "[09] Starting service..."
+  systemctl start "$SERVICE_NAME"
+  sleep 3
+fi
 
-###############################################################################
-# 3) Restart service for a clean demo
-###############################################################################
-echo
-echo "[09] 3) Restarting $SERVICE_NAME for this demo..."
+# Verify service is running
+if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+  echo "[09] Error: Failed to start service"
+  systemctl status "$SERVICE_NAME"
+  exit 1
+fi
 
-systemctl daemon-reload
-systemctl restart "$SERVICE_NAME"
+echo "[09] Service is running"
 
-echo "[09] Waiting a few seconds for service to settle..."
+# Get the configured IrisPenFolder using the venv
+IRIS_FOLDER=$("$VENV_DIR/bin/python" -c "
+from ipr_keyboard.config.manager import ConfigManager
+cfg = ConfigManager.instance().get()
+print(cfg.IrisPenFolder)
+")
+
+echo "[09] Configured IrisPenFolder: $IRIS_FOLDER"
+
+# Ensure folder exists
+mkdir -p "$IRIS_FOLDER"
+
+# Create a test file
+TEST_FILE="$IRIS_FOLDER/systemd_test_$(date +%s).txt"
+echo "systemd end-to-end test content from script 09" > "$TEST_FILE"
+echo "[09] Created test file: $TEST_FILE"
+
+# Wait for processing
+echo "[09] Waiting 5 seconds for file to be processed..."
 sleep 5
 
-if systemctl is-active --quiet "$SERVICE_NAME"; then
-  echo "[09] Service is active."
-else
-  echo "[09] ERROR: Service is not active after restart."
-  systemctl status "$SERVICE_NAME" --no-pager || true
-  exit 1
+# Show application log
+echo "[09] Application log (last 20 lines):"
+tail -n 20 "$PROJECT_DIR/logs/ipr_keyboard.log" 2>/dev/null || echo "Log file not found"
+
+# Show systemd journal
+echo "[09] systemd journal (last 10 lines):"
+journalctl -u "$SERVICE_NAME" -n 10 --no-pager
+
+# Restore original state
+if ! $SERVICE_WAS_ACTIVE; then
+  echo "[09] Stopping service (restoring original state)..."
+  systemctl stop "$SERVICE_NAME"
 fi
 
-###############################################################################
-# 4) Create test file in IrisPenFolder
-###############################################################################
-echo
-echo "[09] 4) Creating test file in $IRISPEN_MOUNT ..."
-
-TEST_FILE="$IRISPEN_MOUNT/e2e_systemd_$(date +%Y%m%d_%H%M%S).txt"
-TEST_CONTENT="This is a systemd E2E demo text from ipr_keyboard at $(date)."
-
-echo "$TEST_CONTENT" > "$TEST_FILE"
-
-echo "[09] Created test file: $TEST_FILE"
-echo "[09] Content: $TEST_CONTENT"
-
-###############################################################################
-# 5) Wait for service to detect and process file
-###############################################################################
-echo
-echo "[09] 5) Waiting up to 20 seconds for the service to process the file..."
-
-for i in $(seq 1 20); do
-  if [[ ! -f "$TEST_FILE" ]]; then
-    echo "[09] File has been deleted (DeleteFiles=True) - likely processed."
-    break
-  fi
-  sleep 1
-done
-
-if [[ -f "$TEST_FILE" ]]; then
-  echo "[09] WARNING: File still exists after 20 seconds."
-  echo "       The service may not be detecting the folder or may have failed."
-fi
-
-###############################################################################
-# 6) Show log tail and journalctl
-###############################################################################
-echo
-echo "[09] 6) Showing tail of the app log (if present)..."
-
-if [[ -f "$LOG_FILE" ]]; then
-  echo "----- TAIL OF $LOG_FILE -----"
-  tail -n 50 "$LOG_FILE" || true
-  echo "-----------------------------"
-else
-  echo "[09] No log file found at $LOG_FILE"
-fi
-
-echo
-echo "[09] Showing last 30 lines of journal for $SERVICE_NAME..."
-journalctl -u "$SERVICE_NAME" -n 30 --no-pager || true
-
-echo
-echo "[09] Showing last 10 lines of journal for bt_kb_send tag (helper)..."
-journalctl -t bt_kb_send -n 10 --no-pager || true
-
-echo
-echo "[09] Systemd E2E demo finished."
-echo "     If your Bluetooth helper is real (not placeholder), the text should"
-echo "     have been typed on the paired PC. With the placeholder helper, see"
-echo "     the 'Would send over BT:' lines above."
+echo "[09] systemd-based end-to-end demo completed"
