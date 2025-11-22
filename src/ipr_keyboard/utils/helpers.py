@@ -11,9 +11,12 @@ def project_root() -> Path:
     """Get the project root directory.
     
     Returns:
-        Path to the project root (two levels up from this file).
++        Path to the project root (repository root).
++        Layout:
++          <repo>/src/ipr_keyboard/utils/helpers.py
++          -> project root is three levels up.
     """
-    return Path(__file__).resolve().parents[2]
+    return Path(__file__).resolve().parents[3]
 
 
 def config_path() -> Path:
