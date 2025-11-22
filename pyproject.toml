@@ -17,9 +17,18 @@ dev = [
     "pytest-cov",
 ]
 
+[project.scripts]
+ipr-keyboard = "ipr_keyboard.main:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 
-[project.scripts]
-ipr-keyboard = "ipr_keyboard.main:main"
+# Tell uv (and other PEP 517 build tools) how to build the package
+[build-system]
+requires = ["hatchling>=1.0"]
+build-backend = "hatchling.build"
+
+# Explicitly mark this as a packaged project for uv
+[tool.uv]
+package = true

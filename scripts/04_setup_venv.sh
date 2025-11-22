@@ -56,7 +56,7 @@ fi
 
 # 2. Create venv using uv (faster than python -m venv)
 echo "[04] Creating virtualenv at $VENV_DIR using uv venv..."
-uv venv "$VENV_DIR"
+uv venv  --allow-existing "$VENV_DIR"
 
 # 3. Activate venv
 #    Not strictly needed for uv pip, but convenient if you run more commands after.
