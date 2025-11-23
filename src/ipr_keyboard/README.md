@@ -1,96 +1,41 @@
 # ipr_keyboard - Main Application Module
 
-This directory contains the core implementation of the ipr-keyboard application.
+This directory contains the core implementation of the ipr-keyboard application, which bridges IrisPen USB scanner output to a paired device via Bluetooth HID keyboard emulation.
 
-## Module Overview
-
-The application is structured as a modular Python package with the following components:
-
-### Core Files
-
-- **`main.py`** - Application entry point that coordinates all modules
-  - Runs web server in a background thread
-  - Monitors USB folder for new files in the main loop
-  - Forwards text via Bluetooth keyboard
-  - Handles graceful shutdown
-
-- **`__init__.py`** - Package initialization
-
-### Submodules
-
-Each subdirectory is a focused module with specific responsibilities:
-
-- **[bluetooth/](bluetooth/README.md)** - Bluetooth HID keyboard communication
-- **[config/](config/README.md)** - Configuration management and persistence
-- **[logging/](logging/README.md)** - Centralized logging with rotation
-- **[usb/](usb/README.md)** - USB file detection, reading, and cleanup
-- **[utils/](utils/README.md)** - Utility functions and helpers
-- **[web/](web/README.md)** - Flask web server for API and monitoring
+## Structure
+- **main.py**: Application entry point. Starts the web server and USB/Bluetooth monitor threads, coordinates all modules, and handles graceful shutdown.
+- **__init__.py**: Package initialization.
+- **bluetooth/**: Bluetooth HID keyboard communication (see `bluetooth/README.md`).
+- **config/**: Thread-safe configuration management and persistence (see `config/README.md`).
+- **logging/**: Centralized logging with rotation and web API (see `logging/README.md`).
+- **usb/**: USB file detection, reading, and cleanup (see `usb/README.md`).
+- **utils/**: Utility functions for path resolution and JSON file operations (see `utils/README.md`).
+- **web/**: Flask web server for configuration/log viewing and health checks (see `web/README.md`).
 
 ## Application Flow
-
-1. **Startup** (`main.py:main()`)
-   - Load configuration from `config.json`
-   - Initialize logger
-   - Start web server thread on configured port
-   - Start USB/Bluetooth monitoring loop
-
-2. **USB Monitoring Loop** (`main.py:run_usb_bt_loop()`)
-   - Check if IrisPen folder exists
-   - Wait for new files (based on modification time)
-   - Read file content when detected
-   - Send text via Bluetooth keyboard
-   - Optionally delete processed files
-   - Log all operations
-
-3. **Web Server** (`main.py:run_web_server()`)
-   - Serve configuration API
-   - Provide log viewing endpoints
-   - Health check endpoint
+1. **Startup**: Loads config, initializes logger, starts web server and USB/Bluetooth monitor threads.
+2. **USB Monitoring**: Watches configured folder for new files, reads content, sends via Bluetooth, optionally deletes files, logs all actions.
+3. **Web API**: Exposes `/config/`, `/logs/`, and `/health` endpoints for runtime config/log access.
 
 ## Threading Model
-
-The application uses a simple threading model:
-- **Main thread**: Keeps application alive, handles Ctrl+C
-- **Web server thread**: Flask application (daemon)
-- **USB monitor thread**: File detection and Bluetooth forwarding (daemon)
-
-Configuration is thread-safe via `ConfigManager` using locks.
+- Main thread: Keeps app alive, handles Ctrl+C
+- Web server thread: Flask app (daemon)
+- USB monitor thread: File detection and Bluetooth forwarding (daemon)
 
 ## Entry Point
-
-The application can be started via:
-
+Run as:
 ```bash
-# As installed script
-ipr-keyboard
-
-# Or directly
 python -m ipr_keyboard.main
+# or if installed:
+
 ```
+Entry point is defined in `pyproject.toml`.
 
-The entry point is defined in `pyproject.toml`:
-```toml
-[project.scripts]
-ipr-keyboard = "ipr_keyboard.main:main"
-```
-
-## Dependencies
-
-Core dependencies:
-- **Flask** - Web server for configuration and monitoring
-- **Python 3.13+** - Uses modern Python features (dataclasses, type hints, etc.)
-
-External system dependencies:
-- `/usr/local/bin/bt_kb_send` - Bluetooth HID helper script (see bluetooth module)
-
-## Configuration
-
-See [config/README.md](config/README.md) for details on configuration management.
-
-Default configuration is loaded from `config.json` in the project root with the following fields:
-- `IrisPenFolder` - Path to USB mount point
-- `DeleteFiles` - Whether to delete files after processing
-- `Logging` - Enable/disable logging
-- `MaxFileSize` - Maximum file size to read (bytes)
-- `LogPort` - Web server port
+## See Also
+- [bluetooth/README.md](bluetooth/README.md)
+- [config/README.md](config/README.md)
+- [logging/README.md](logging/README.md)
+- [usb/README.md](usb/README.md)
+- [utils/README.md](utils/README.md)
+- [web/README.md](web/README.md)
+   - Read file content when detected

@@ -1,44 +1,35 @@
 # ipr-keyboard
 
-IrisPen to Bluetooth keyboard bridge for Raspberry Pi. This project allows you to use an IrisPen scanner connected via USB to a Raspberry Pi, which then forwards the scanned text to a paired computer via Bluetooth keyboard emulation.
+**IrisPen to Bluetooth keyboard bridge for Raspberry Pi**
 
-## Overview
+This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID keyboard emulation. It monitors a USB or MTP mount for new text files created by the IrisPen, reads their content, and sends the text to a paired computer as keyboard input. All actions are logged, and configuration/logs are accessible via a web API.
 
-The ipr-keyboard project monitors a USB mount point for new text files created by an IrisPen scanner, reads the content, and sends it to a paired device using Bluetooth HID (Human Interface Device) keyboard protocol. This enables seamless integration of the IrisPen scanner with any Bluetooth-enabled device.
-
-### Key Features
-
-- **USB File Monitoring**: Automatically detects new files from IrisPen scanner
-- **Bluetooth Keyboard Emulation**: Forwards scanned text as keyboard input via Bluetooth HID
-- **Web-based Configuration**: Manage settings through a simple web interface
-- **Logging and Monitoring**: Built-in logging with web-based log viewing
-- **Automatic File Cleanup**: Optionally delete processed files after transmission
-- **Thread-safe Configuration**: Runtime configuration updates without restart
+## Main Features
+- **USB File Monitoring**: Detects new text files from IrisPen (configurable folder)
+- **Bluetooth Keyboard Emulation**: Sends scanned text to paired device using a system helper (`/usr/local/bin/bt_kb_send`)
+- **Web API**: View/update config and logs at `/config/`, `/logs/`, `/health` (Flask-based)
+- **Logging**: Rotating file logger (`logs/ipr_keyboard.log`) and console output
+- **Automatic File Cleanup**: Optionally deletes processed files
+- **Thread-safe Configuration**: Live updates via web or file
 
 ## Architecture
+- **Entry Point**: `src/ipr_keyboard/main.py` (starts web server and USB/Bluetooth monitor threads)
+- **Bluetooth**: `src/ipr_keyboard/bluetooth/keyboard.py` (wraps system helper)
+- **USB Handling**: `src/ipr_keyboard/usb/` (file detection, reading, deletion)
+- **Config**: `src/ipr_keyboard/config/manager.py` (singleton, JSON-backed)
+- **Logging**: `src/ipr_keyboard/logging/logger.py` (rotating file + console)
+- **Web API**: `src/ipr_keyboard/web/server.py` (Flask, blueprints)
+- **Utilities**: `src/ipr_keyboard/utils/helpers.py` (project root, config path, JSON helpers)
 
-The application consists of several main components:
-
-- **Main Loop** (`main.py`): Orchestrates the USB monitoring and Bluetooth forwarding
-- **Bluetooth Module** (`bluetooth/`): Handles Bluetooth HID keyboard communication
-- **USB Module** (`usb/`): Detects, reads, and optionally deletes files from USB mount
-- **Config Module** (`config/`): Thread-safe configuration management with JSON persistence
-- **Logging Module** (`logging/`): Centralized logging with rotation and web access
-- **Web Server** (`web/`): Flask-based API for configuration and log viewing
-- **Utils** (`utils/`): Helper functions for file operations and paths
-
-## Quick Start
-
-1. Clone the repository to your Raspberry Pi
-2. Run the setup scripts in order (see `scripts/README.md` for details)
-3. Configure your IrisPen mount point in `config.json`
-4. Start the service with systemd or run manually
-
-For detailed installation and setup instructions, see the [scripts/README.md](scripts/README.md) file.
+## Developer Workflows
+- **Setup**: Use scripts in `scripts/` (see `scripts/README.md` for order)
+- **Run in Dev Mode**: `./scripts/run_dev.sh` (foreground, logs to console)
+- **Testing**: `pytest` or `pytest --cov=ipr_keyboard` (see `tests/README.md`)
+- **Service Mode**: Installed as systemd service via `05_install_service.sh`
+- **Diagnostics**: `./scripts/10_diagnose_failure.sh` for troubleshooting
 
 ## Configuration
-
-The application is configured via `config.json` in the project root:
+Edit `config.json` in the project root or use the web API:
 
 ```json
 {
@@ -50,58 +41,27 @@ The application is configured via `config.json` in the project root:
 }
 ```
 
-Configuration can be updated at runtime via the web API (`POST /config/`) or by editing the JSON file and reloading.
+## Usage Examples
+- **Send text via Bluetooth**:
+  ```python
+  from ipr_keyboard.bluetooth.keyboard import BluetoothKeyboard
+  kb = BluetoothKeyboard()
+  if kb.is_available():
+      kb.send_text("Hello world!")
+  ```
+- **Update config via web API**:
+  ```bash
+  curl -X POST http://localhost:8080/config/ -H "Content-Type: application/json" -d '{"DeleteFiles": false}'
+  ```
+- **View logs via web API**:
+  ```bash
+  curl http://localhost:8080/logs/tail?lines=50
+  ```
 
-## Usage
+## References
+- [scripts/README.md](scripts/README.md) — Setup and workflow scripts
+- [src/ipr_keyboard/README.md](src/ipr_keyboard/README.md) — Code structure
+- [tests/README.md](tests/README.md) — Test suite
 
-### Running the Application
-
-```bash
-# Using uv (recommended)
-uv run ipr-keyboard
-
-# Or activate the virtual environment
-source .venv/bin/activate
-ipr-keyboard
-```
-
-### Web Interface
-
-Access the web interface at `http://<pi-ip>:8080` (default port):
-
-- `GET /health` - Health check endpoint
-- `GET /config/` - View current configuration
-- `POST /config/` - Update configuration
-- `GET /logs/` - View full log
-- `GET /logs/tail?lines=N` - View last N lines of log
-
-## Development
-
-The project uses modern Python tooling:
-
-- **Python 3.13+** required
-- **uv** for dependency management
-- **pytest** for testing
-- **Flask** for web server
-
-See individual module README files for detailed documentation:
-
-- [src/ipr_keyboard/](src/ipr_keyboard/README.md) - Main application modules
-- [scripts/](scripts/README.md) - Installation and setup scripts
-- [tests/](tests/README.md) - Test suite documentation
-
-## Requirements
-
-- Raspberry Pi (tested on Pi 4)
-- IrisPen scanner with USB interface
-- Bluetooth capability (built-in or USB dongle)
-- Python 3.13 or higher
-- Linux with systemd (for service mode)
-
-## License
-
-See project metadata for license information.
-
-## Author
-
+---
 Michael Eibye <michael@eibye.name>
