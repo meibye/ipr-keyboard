@@ -1,12 +1,7 @@
-"""Bluetooth keyboard abstraction.
+"""Bluetooth HID keyboard emulation module.
 
-This module provides a thin wrapper around the system-level helper script
-(`/usr/local/bin/bt_kb_send`) which is responsible for delivering text to the
-active keyboard backend (uinput or BLE HID over GATT).
-
-The backend is selected outside this module via configuration and systemd
-services; from the application perspective this class is a simple "send text"
-API.
+Provides a wrapper around the system-level Bluetooth HID helper script
+for sending keyboard input to paired devices.
 """
 
 from __future__ import annotations
@@ -22,15 +17,16 @@ logger = get_logger()
 class BluetoothKeyboard:
     """High-level Bluetooth keyboard interface.
 
-    The actual transport (local uinput or BLE HID) is handled by the
-    system-level helper script and its associated daemon(s).
+    This class is intentionally thin: it delegates to the system-level
+    helper script (`/usr/local/bin/bt_kb_send`), which in turn feeds the
+    active keyboard backend (uinput or BLE HID over GATT).
     """
 
     def __init__(self, helper_path: str = "/usr/local/bin/bt_kb_send") -> None:
         self.helper_path = helper_path
 
     def send_text(self, text: str) -> bool:
-        """Send text via the configured keyboard backend.
+        """Send text via the configured Bluetooth keyboard backend.
 
         Args:
             text: The text to send as keystrokes.
@@ -58,6 +54,6 @@ class BluetoothKeyboard:
         except FileNotFoundError:
             logger.error("BT helper not found: %s", self.helper_path)
             return False
-        except subprocess.CalledProcessError as exc:
-            logger.error("BT helper exited with error: %s", exc)
+        except subprocess.CalledProcessError as e:
+            logger.error("BT helper exited with error: %s", e)
             return False

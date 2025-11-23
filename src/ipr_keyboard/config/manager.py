@@ -19,20 +19,21 @@ class AppConfig:
     """Application configuration dataclass.
 
     Attributes:
-        IrisPenFolder: Path to the folder containing scanned text files.
+        IrisPenFolder: Path to the folder containing scanned text files from IrisPen.
         DeleteFiles: Whether to delete files after processing them.
         Logging: Whether logging is enabled.
-        MaxFileSize: Maximum file size in bytes to process.
+        MaxFileSize: Maximum file size in bytes to process (default: 1MB = 1048576 bytes).
         LogPort: Port number for the web/log server.
-        KeyboardBackend: Which keyboard backend to use: "uinput" or "ble".
+        KeyboardBackend: Backend used by the Bluetooth keyboard helper:
+                         "uinput" (local virtual keyboard) or "ble" (BLE HID GATT).
     """
 
-    IrisPenFolder: str = "/mnt/irispen"
+    IrisPenFolder: str = "/mnt/irispen"  # folder with scanned text files
     DeleteFiles: bool = True
     Logging: bool = True
-    MaxFileSize: int = 1024 * 1024
-    LogPort: int = 8080
-    KeyboardBackend: str = "uinput"
+    MaxFileSize: int = 1024 * 1024  # bytes
+    LogPort: int = 8080  # for web/log server
+    KeyboardBackend: str = "uinput"  # "uinput" or "ble"
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":
@@ -42,15 +43,20 @@ class AppConfig:
             if field in data:
                 setattr(base, field, data[field])
 
-        # Normalise KeyboardBackend
+        # Normalize KeyboardBackend
         kb = getattr(base, "KeyboardBackend", "uinput")
         if kb not in ("uinput", "ble"):
             kb = "uinput"
         base.KeyboardBackend = kb
+
         return base
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert the AppConfig to a dictionary."""
+        """Convert the AppConfig to a dictionary.
+
+        Returns:
+            Dictionary representation of the configuration.
+        """
         return asdict(self)
 
 
@@ -68,7 +74,6 @@ class ConfigManager:
         """Initialise the configuration manager."""
         self._path: Path = path or config_path()
         self._cfg_lock = threading.RLock()
-        # Load initial config
         raw = load_json(self._path)
         self._cfg = AppConfig.from_dict(raw)
 
@@ -91,14 +96,18 @@ class ConfigManager:
         Only known AppConfig fields are updated; unknown keys are ignored.
         """
         with self._cfg_lock:
-            for key, value in kwargs.items():
-                if hasattr(self._cfg, key):
-                    setattr(self._cfg, key, value)
+            for k, v in kwargs.items():
+                if hasattr(self._cfg, k):
+                    setattr(self._cfg, k, v)
             save_json(self._path, self._cfg.to_dict())
             return self.get()
 
     def reload(self) -> AppConfig:
-        """Reload configuration from disk and return the new config."""
+        """Reload configuration from disk.
+
+        Returns:
+            Reloaded AppConfig instance.
+        """
         with self._cfg_lock:
             data = load_json(self._path)
             self._cfg = AppConfig.from_dict(data)

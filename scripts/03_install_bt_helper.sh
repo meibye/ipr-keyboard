@@ -1,33 +1,25 @@
-
 #!/usr/bin/env bash
 set -euo pipefail
-
-# Load environment variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
 
 #
 # 03_install_bt_helper.sh
 #
-# Install the Bluetooth keyboard helper and backend daemons.
+# Install Bluetooth Keyboard Helper Script and backend daemons.
 #
-# This script installs:
+# Installs:
 #   - /usr/local/bin/bt_kb_send
-#       → writes text into a FIFO (/run/ipr_bt_keyboard_fifo)
+#       → writes text into /run/ipr_bt_keyboard_fifo
 #   - /usr/local/bin/bt_hid_uinput_daemon.py
-#       → reads FIFO and types on the Pi via uinput (local virtual keyboard)
+#       → reads FIFO, types on the Pi via uinput (local virtual keyboard)
 #   - /usr/local/bin/bt_hid_ble_daemon.py
-#       → scaffold for a future BLE HID over GATT implementation
-#   - systemd units:
+#       → scaffold for BLE HID over GATT (future remote keyboard)
+#   - systemd services:
 #       * bt_hid_uinput.service
 #       * bt_hid_ble.service
 #
-# The active backend is controlled via:
-#   - Config:  KeyboardBackend in config.json ("uinput" or "ble")
-#   - Service: enable/disable the corresponding systemd service
-#
-# By default this script enables the uinput backend.
+# The active backend is controlled by:
+#   - KeyboardBackend in config.json ("uinput" or "ble")
+#   - Enabling/disabling the corresponding systemd units
 #
 
 FIFO_PATH="/run/ipr_bt_keyboard_fifo"
@@ -148,7 +140,7 @@ KEYMAP = {
     "\n": (e.KEY_ENTER, False),
     "\r": (e.KEY_ENTER, False),
 
-    # Danish letters (assuming Danish keyboard layout on the Pi):
+    # Danish letters (Danish keyboard layout on the Pi):
     #   å / Å  → key right of P      → KEY_LEFTBRACE
     #   ø / Ø  → key right of Å      → KEY_APOSTROPHE
     #   æ / Æ  → key right of L      → KEY_SEMICOLON
@@ -163,6 +155,9 @@ KEYMAP = {
 
 def send_key(ui: UInput, keycode: int, shift: bool) -> None:
     """Emit a single key press + release, with optional shift."""
+    if keycode == 0:
+        return
+
     if shift:
         ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 1)
         ui.syn()
@@ -265,7 +260,7 @@ def main() -> None:
     while True:
         with open(FIFO_PATH, "r", encoding="utf-8") as fifo:
             for line in fifo:
-                text = line.rstrip("\\n")
+                text = line.rstrip("\n")
                 if not text:
                     continue
                 print(f"[ble] Would send via BLE HID: {text!r}")
@@ -322,4 +317,4 @@ echo "=== [03] Installation complete. ==="
 echo "  - Helper:        $HELPER_PATH"
 echo "  - FIFO:          $FIFO_PATH"
 echo "  - Backends:      uinput (active), ble (scaffold only)"
-echo "To switch backend later, use the switch script (e.g. scripts/14_switch_keyboard_backend.sh)."
+echo "To switch backend later, use: scripts/15_switch_keyboard_backend.sh."
