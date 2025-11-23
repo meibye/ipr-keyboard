@@ -1,6 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
+# ipr-keyboard IrisPen MTP Sync Script
+#
+# Purpose:
+#   Copies files from the IrisPen MTP mount to a local cache directory.
+#   Useful for working around MTP limitations and for offline processing.
+#
+# Usage:
+#   ./scripts/12_sync_irispen_to_cache.sh
+#
+# Prerequisites:
+#   - Must NOT be run as root
+#   - IrisPen MTP must be mounted
+#   - Environment variables set (sources 00_set_env.sh)
+#
+# Note:
+#   Default cache dir is $IPR_PROJECT_ROOT/.irispen_cache
+
+set -euo pipefail
+
+source "$SCRIPT_DIR/00_set_env.sh"
 PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
 MTP_ROOT="/mnt/irispen"

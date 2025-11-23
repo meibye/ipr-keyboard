@@ -22,47 +22,54 @@ Scripts are numbered to indicate the recommended execution order:
 - `10_` - Diagnostic tools
 - `run_dev.sh` - Development helper
 
+
 ## Environment Configuration
 
-Before running any scripts, configure the environment variables.
-
-### Option 1: Edit the environment script (Recommended)
-Edit `scripts/00_set_env.sh` and set:
+All scripts (except `00_set_env.sh` itself) source `00_set_env.sh` to ensure consistent environment variables for user, project root, and other settings. Edit `scripts/00_set_env.sh` to set:
 - `IPR_USER`: Your username (default: meibye)
 - `IPR_PROJECT_ROOT`: Your development directory path (default: /home/meibye/dev)
 
-### Option 2: Export in your shell profile
-Add these to your `~/.bashrc` or `~/.bash_profile`:
+Alternatively, export these in your shell profile:
 ```bash
 export IPR_USER="your_username"
 export IPR_PROJECT_ROOT="/your/dev/path"
 ```
 
-## Installation Scripts
+**Note:** All scripts expect these variables to be set and will fail early if not.
+
+
+## Script Descriptions
+
+All scripts begin with a description header explaining their purpose, usage, prerequisites, and environment variable requirements. All scripts (except `00_set_env.sh`) source the environment script for consistency.
 
 ### Core Installation (Run in Order)
 
-#### 1. System Setup
-```bash
-sudo ./scripts/01_system_setup.sh
-```
-- Installs system packages (Python, Bluetooth tools, etc.)
-- Updates package lists
-- Prepares base system dependencies
+- **01_system_setup.sh**: System package installation and base setup. Must be run as root. Sources environment variables.
+- **02_configure_bluetooth.sh**: Configures Bluetooth for HID keyboard profile. Must be run as root. Sources environment variables.
+- **03_install_bt_helper.sh**: Installs the Bluetooth HID helper script at `/usr/local/bin/bt_kb_send`. This is the ONLY script that creates or updates the helper. Must be run as root. Sources environment variables.
+- **04_setup_venv.sh**: Sets up Python virtual environment using uv. Must NOT be run as root. Sources environment variables.
+- **05_install_service.sh**: Installs and enables the systemd service. Must be run as root. Sources environment variables.
 
-#### 2. Bluetooth Configuration
-```bash
-sudo ./scripts/02_configure_bluetooth.sh
-```
-- Configures Bluetooth HID settings
-- Sets up Bluetooth pairing
-- Prepares system for keyboard emulation
+### Optional and Utility Scripts
+
+- **06_setup_irispen_mount.sh**: Sets up a persistent mount for the IrisPen USB device. Must be run as root. Sources environment variables.
+- **07_smoke_test.sh**: Runs quick smoke tests for all major components. Must NOT be run as root. Sources environment variables.
+- **08_e2e_demo.sh**: End-to-end workflow demo (foreground, not systemd). Must NOT be run as root. Sources environment variables.
+- **09_e2e_systemd_demo.sh**: End-to-end workflow demo using systemd service. Must be run as root. Sources environment variables.
+- **10_diagnose_failure.sh**: Comprehensive diagnostic tool for troubleshooting. Can be run as user or root. Sources environment variables.
+- **11_mount_irispen_mtp.sh**: Mounts or unmounts the IrisPen MTP device. Must be run as root. Sources environment variables.
+- **12_sync_irispen_to_cache.sh**: Syncs files from MTP mount to local cache. Must NOT be run as root. Sources environment variables.
+- **13_install_bt_hid_daemon.sh**: Installs/configures a Bluetooth HID daemon (advanced/optional). References `/usr/local/bin/bt_kb_send` but does NOT overwrite it. Must be run as root. Sources environment variables.
+- **14_test_bt_keyboard.sh**: Sends a test string via Bluetooth HID helper/daemon. For manual testing. Sources environment variables.
+- **run_dev.sh**: Runs the application in foreground for development. Must NOT be run as root. Sources environment variables.
+
+See the top of each script for details on usage and requirements.
 
 #### 3. Install Bluetooth Helper
 ```bash
 sudo ./scripts/03_install_bt_helper.sh
 ```
-- Installs Bluetooth HID helper script at `/usr/local/bin/bt_kb_send`
+- Installs Bluetooth HID helper script at `/usr/local/bin/bt_kb_send` (the ONLY script that creates/updates it)
 - Sets up keyboard emulation utilities
 - May be a placeholder that needs customization
 
@@ -235,7 +242,7 @@ If installation fails:
 - All scripts source `00_set_env.sh` for consistent configuration
 - Some scripts require root privileges (use `sudo`)
 - Python environment uses `uv` for dependency management
-- The Bluetooth helper (`bt_kb_send`) may need customization for your setup
+- The Bluetooth helper (`bt_kb_send`) may need customization for your setup. Only `03_install_bt_helper.sh` creates or updates this helper; `13_install_bt_hid_daemon.sh` references it but does not overwrite it.
 
 ## See Also
 

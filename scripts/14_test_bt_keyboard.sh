@@ -8,26 +8,32 @@
 # Usage:
 #   ./scripts/14_test_bt_keyboard.sh
 #
+  echo "[14] ERROR: service $SERVICE not running or failed." >&2
+#!/usr/bin/env bash
+#
+# ipr-keyboard Bluetooth Keyboard Test Script
+#
+# Purpose:
+#   Sends a test string via the Bluetooth HID helper or daemon.
+#   Useful for manual testing of Bluetooth keyboard functionality.
+#
+# Usage:
+#   ./scripts/14_test_bt_keyboard.sh "Hello world!"
+#
 # Prerequisites:
-#   - Bluetooth helper script (`/usr/local/bin/bt_kb_send`) must be installed
-#   - Target device must be paired and connected
+#   - Must NOT be run as root
+#   - Bluetooth helper or daemon must be installed
+#   - Environment variables set (sources 00_set_env.sh)
 #
 # Note:
-#   This script is safe to run multiple times. It is intended for manual testing.
+#   For manual testing only. Not used in automated workflows.
 
-#!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== [14] Test Bluetooth keyboard pipeline (FIFO + daemon) ==="
-
-FIFO="/run/bt_keyboard_fifo"
-SERVICE="bt_hid_daemon.service"
-
-echo "--- Checking service status ---"
-if ! sudo systemctl status "$SERVICE" --no-pager >/dev/null 2>&1; then
-  echo "[14] ERROR: service $SERVICE not running or failed." >&2
-  echo "     Check logs with: sudo journalctl -u $SERVICE -f" >&2
-  exit 1
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 fi
 
 if [[ ! -p "$FIFO" ]]; then

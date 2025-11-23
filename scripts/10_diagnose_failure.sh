@@ -1,35 +1,28 @@
 #!/usr/bin/env bash
 #
-# Diagnostic Script for Troubleshooting
+# ipr-keyboard Diagnostic Script
 #
 # Purpose:
-#   Comprehensive diagnostic tool that checks all common failure points
-#   in the ipr-keyboard system and provides detailed troubleshooting information.
-#
-# Checks Performed:
-#   - Project and virtual environment presence
-#   - Python module imports
-#   - Configuration values and files
-#   - Mount point and filesystem status
-#   - systemd service status
-#   - Application log file
-#   - systemd journal entries
-#   - Bluetooth helper availability
-#   - Optional test file creation and monitoring
+#   Runs a comprehensive set of diagnostic checks for the ipr-keyboard system.
+#   Identifies common installation, configuration, and runtime issues.
 #
 # Prerequisites:
 #   - Environment variables set (sources 00_set_env.sh)
+#   - Project must be installed
 #
 # Usage:
 #   ./scripts/10_diagnose_failure.sh
 #   ./scripts/10_diagnose_failure.sh --test-file
 #
-# Options:
-#   --test-file    Create a test file and monitor service processing
-#
 # Note:
-#   Can be run as regular user or root. Some checks provide more info when
-#   run as root.
+#   Can be run as user or root. Does not modify system state.
+
+set -euo pipefail
+
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 
 set -euo pipefail
 

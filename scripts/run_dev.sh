@@ -24,7 +24,29 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/00_set_env.sh"
 
+
+#!/usr/bin/env bash
+#
+# ipr-keyboard Development Run Script
+#
+# Purpose:
+#   Runs the ipr-keyboard application in foreground for development and debugging.
+#   Logs output to console.
+#
+# Usage:
+#   ./scripts/run_dev.sh
+#
+# Prerequisites:
+#   - Must NOT be run as root
+#   - Python venv must be set up
+#   - Environment variables set (sources 00_set_env.sh)
+#
+# Note:
+#   Press Ctrl+C to stop. Does not run as a service.
+
 PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
+
+# Load environment variables
 VENV_DIR="$PROJECT_DIR/.venv"
 
 if [[ ! -d "$PROJECT_DIR" ]]; then

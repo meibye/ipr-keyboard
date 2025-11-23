@@ -1,28 +1,31 @@
+
 #!/usr/bin/env bash
 #
-# Setup IrisPen USB Mount Point
+# IrisPen USB Mount Setup Script
 #
 # Purpose:
 #   Creates and configures a persistent mount point for the IrisPen USB drive.
 #   Adds the mount entry to /etc/fstab using the device's UUID for reliability.
 #
-# Prerequisites:
-#   - Must be run as root (uses sudo)
-#   - IrisPen USB device must be plugged in
-#   - Device path must be provided as first argument
-#
 # Usage:
 #   sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1
 #   sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1 /media/irispen
 #
-# Arguments:
-#   $1 - Device path (e.g., /dev/sda1) - Required
-#   $2 - Mount point (default: /mnt/irispen) - Optional
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - IrisPen USB device must be plugged in
+#   - Device path must be provided as first argument
+#   - Environment variables set (sources 00_set_env.sh)
 #
 # Note:
 #   Creates a backup of /etc/fstab before modifying it.
 
 set -euo pipefail
+
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 
 echo "[06] Setup persistent mount for IrisPen USB drive"
 

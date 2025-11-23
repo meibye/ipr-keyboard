@@ -2,28 +2,25 @@
 #
 # End-to-End systemd Demo Script
 #
+#!/usr/bin/env bash
+#
+# ipr-keyboard End-to-End Systemd Demo Script
+#
 # Purpose:
-#   Demonstrates the complete ipr-keyboard workflow using the systemd service.
-#   Tests the production deployment scenario.
-#
-# Workflow:
-#   1. Records the current service state
-#   2. Ensures the service is started
-#   3. Creates a test file in the monitored directory
-#   4. Waits for the service to process it
-#   5. Shows both application log and systemd journal entries
-#   6. Restores the original service state
-#
-# Prerequisites:
-#   - Environment variables set (sources 00_set_env.sh)
-#   - systemd service must be installed
-#   - Must be run as root (to control systemd service)
+#   Tests the ipr-keyboard systemd service end-to-end.
+#   Verifies service is running, processes files, and logs actions.
 #
 # Usage:
 #   sudo ./scripts/09_e2e_systemd_demo.sh
 #
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - Service must be installed and enabled
+#   - Environment variables set (sources 00_set_env.sh)
+#   - IrisPenFolder configured and accessible
+#
 # Note:
-#   Automatically restores the service's original active/inactive state.
+#   This script tests the systemd service, not foreground mode.
 
 set -euo pipefail
 
@@ -32,16 +29,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/00_set_env.sh"
 
-echo "[09] Running systemd-based end-to-end demo for ipr_keyboard"
-
-if [[ $EUID -ne 0 ]]; then
-  echo "Please run as root: sudo $0"
-  exit 1
-fi
-
-SERVICE_NAME="ipr_keyboard.service"
-PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
-VENV_DIR="$PROJECT_DIR/.venv"
 
 # Check if service is installed
 if ! systemctl list-unit-files | grep -q "$SERVICE_NAME"; then

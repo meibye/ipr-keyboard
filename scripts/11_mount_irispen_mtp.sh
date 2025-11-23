@@ -1,8 +1,33 @@
-#!/usr/bin/env bash
 
-# Toggles between mounted / unmounted.
+#!/usr/bin/env bash
+#
+# ipr-keyboard IrisPen MTP Mount Script
+#
+# Purpose:
+#   Mounts or unmounts the IrisPen as an MTP device for file access.
+#   Useful for devices that do not present as USB mass storage.
+#
+# Usage:
+#   sudo ./scripts/11_mount_irispen_mtp.sh mount
+#   sudo ./scripts/11_mount_irispen_mtp.sh unmount
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - Environment variables set (sources 00_set_env.sh)
+#
+# Arguments:
+#   mount   - Mount the device
+#   unmount - Unmount the device
+#
+# Note:
+#   Requires mtp-tools and simple-mtpfs.
 
 set -euo pipefail
+
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 
 MOUNTPOINT="/mnt/irispen"
 

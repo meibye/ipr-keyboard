@@ -1,22 +1,18 @@
+
 #!/usr/bin/env bash
 #
-# Setup Python Virtual Environment
+# Python Virtual Environment Setup Script
 #
 # Purpose:
-#   Creates a Python virtual environment using uv and installs the
-#   ipr-keyboard package in editable mode with development dependencies.
-#
-# Prerequisites:
-#   - Environment variables set (sources 00_set_env.sh)
-#   - Must NOT be run as root
-#   - Project directory must exist
+#   Creates a Python virtual environment using uv and installs the ipr-keyboard package in editable mode with development dependencies.
 #
 # Usage:
 #   ./scripts/04_setup_venv.sh
 #
-# Environment Variables:
-#   IPR_USER - Username for the project
-#   IPR_PROJECT_ROOT - Path to development directory
+# Prerequisites:
+#   - Must NOT be run as root
+#   - Project directory must exist
+#   - Environment variables set (sources 00_set_env.sh)
 #
 # Note:
 #   Installs uv package manager if not already present.

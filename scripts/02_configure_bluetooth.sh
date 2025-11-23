@@ -1,10 +1,27 @@
 #!/usr/bin/env bash
-
-# Configures /etc/bluetooth/main.conf with appropriate Class and AutoEnable.
-# It makes a backup first.
+#
+# Bluetooth Configuration Script
+#
+# Purpose:
+#   Configures /etc/bluetooth/main.conf with appropriate Class and AutoEnable for HID keyboard profile.
+#   Makes a backup before modifying. Must be run as root.
+#
+# Usage:
+#   sudo ./scripts/02_configure_bluetooth.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - Environment variables set (sources 00_set_env.sh)
+#
+# Note:
+#   This script is required for enabling Bluetooth HID keyboard emulation.
 
 set -euo pipefail
 
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 echo "[02] Configure /etc/bluetooth/main.conf for HID keyboard profile"
 
 if [[ $EUID -ne 0 ]]; then

@@ -1,22 +1,18 @@
+
 #!/usr/bin/env bash
 #
-# Install systemd Service
+# Systemd Service Installation Script
 #
 # Purpose:
-#   Creates and enables the ipr_keyboard systemd service that runs the
-#   application automatically on system boot.
-#
-# Prerequisites:
-#   - Environment variables set (sources 00_set_env.sh)
-#   - Must be run as root (uses sudo)
-#   - Virtual environment must already be set up
+#   Creates and enables the ipr_keyboard systemd service that runs the application automatically on system boot.
 #
 # Usage:
 #   sudo ./scripts/05_install_service.sh
 #
-# Environment Variables:
-#   IPR_USER - Username to run the service as
-#   IPR_PROJECT_ROOT - Path to development directory
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - Virtual environment must already be set up
+#   - Environment variables set (sources 00_set_env.sh)
 #
 # Note:
 #   The service runs as the configured user (not root) for security.

@@ -41,25 +41,31 @@ sudo apt install -y \
 ########################################
 echo "=== [13] Writing /usr/local/bin/bt_hid_daemon.py ==="
 sudo tee /usr/local/bin/bt_hid_daemon.py > /dev/null << 'EOF'
-#!/usr/bin/env python3
-"""
-bt_hid_daemon.py
 
-Virtual keyboard daemon that:
+#!/usr/bin/env bash
+#
+# ipr-keyboard Bluetooth HID Daemon Install Script
+#
+# Purpose:
+#   Installs and configures a Bluetooth HID daemon for advanced keyboard emulation.
+#   Optional alternative to the default bt_kb_send helper.
+#
+# Usage:
+#   sudo ./scripts/13_install_bt_hid_daemon.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - Environment variables set (sources 00_set_env.sh)
+#
+# Note:
+#   Advanced/optional. Not required for most setups.
 
-- Creates /run/bt_keyboard_fifo (FIFO)
-- Creates a uinput virtual keyboard
-- Reads text lines from the FIFO
-- Sends key events with Danish layout support (æ, ø, å, Æ, Ø, Å)
+set -euo pipefail
 
-NOTE:
-This daemon currently sends key events into the local Linux input stack via
-uinput. It gives you an end-to-end testable path:
-  bt_kb_send "text" -> virtual keyboard -> typed on the Pi.
-
-To make the Pi act as a *remote Bluetooth keyboard* for a PC, you later need
-a BT HID bridge that turns these events (or the text) into BT HID reports.
-"""
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 
 import os
 import time
@@ -194,31 +200,12 @@ EOF
 sudo chmod +x /usr/local/bin/bt_hid_daemon.py
 
 
+
 ########################################
-# 3. Create /usr/local/bin/bt_kb_send
+# 3. Reference /usr/local/bin/bt_kb_send (do not overwrite)
 ########################################
-echo "=== [13] Writing /usr/local/bin/bt_kb_send ==="
-sudo tee /usr/local/bin/bt_kb_send > /dev/null << 'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-FIFO="/run/bt_keyboard_fifo"
-
-if [[ ! -p "$FIFO" ]]; then
-  echo "bt_kb_send: FIFO $FIFO not found or not a pipe" >&2
-  exit 1
-fi
-
-if [[ $# -lt 1 ]]; then
-  echo "Usage: bt_kb_send \"text to send\"" >&2
-  exit 1
-fi
-
-TEXT="$*"
-printf '%s\n' "$TEXT" > "$FIFO"
-EOF
-
-sudo chmod +x /usr/local/bin/bt_kb_send
+echo "=== [13] Skipping creation of /usr/local/bin/bt_kb_send (managed by 03_install_bt_helper.sh) ==="
+echo "If you need to update the Bluetooth keyboard helper, edit or reinstall via scripts/03_install_bt_helper.sh."
 
 
 ########################################

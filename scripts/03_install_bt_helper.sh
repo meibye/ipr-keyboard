@@ -6,6 +6,8 @@
 #   Installs a placeholder Bluetooth HID keyboard helper script at
 #   /usr/local/bin/bt_kb_send. The Python application calls this script
 #   to send text via Bluetooth keyboard emulation.
+#   This is the ONLY script that creates or updates /usr/local/bin/bt_kb_send.
+#   For advanced daemon-based setups, see scripts/13_install_bt_hid_daemon.sh.
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)

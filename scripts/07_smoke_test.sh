@@ -1,33 +1,29 @@
+
 #!/usr/bin/env bash
 #
-# Smoke Test Script
+# ipr-keyboard Smoke Test Script
 #
 # Purpose:
-#   Runs a comprehensive set of quick smoke tests to verify that all
-#   components of the ipr-keyboard system are functioning correctly.
-#
-# Tests Performed:
-#   - Virtual environment exists and imports work
-#   - Configuration manager updates config values
-#   - Logger writes test messages
-#   - Web server health and log endpoints work
-#   - USB detection and file reading work
-#   - Bluetooth helper availability check
-#
-# Prerequisites:
-#   - Environment variables set (sources 00_set_env.sh)
-#   - Virtual environment must be set up
-#   - Must NOT be run as root
-#   - /mnt/irispen directory should exist
+#   Runs basic functionality tests for all major components.
+#   Verifies installation and setup.
 #
 # Usage:
 #   ./scripts/07_smoke_test.sh
 #
+# Prerequisites:
+#   - Must NOT be run as root
+#   - Python venv must be set up
+#   - Environment variables set (sources 00_set_env.sh)
+#
 # Note:
-#   No infinite loops, no systemd involvement. Creates temporary test files
-#   that are cleaned up after the test.
+#   Should be run after setup scripts and before installing as a service.
 
 set -euo pipefail
+
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

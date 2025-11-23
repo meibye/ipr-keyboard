@@ -63,9 +63,6 @@ if ! grep -q "Experimental=true" /etc/bluetooth/main.conf; then
 fi
 
 sudo systemctl enable bluetooth
-sudo systemctl start bluetooth
-
-
 ########################################
 # 6. Install uv (Python package manager)
 ########################################
@@ -103,6 +100,28 @@ echo "=== Creating project directories ==="
 mkdir -p "$PROJECT_DIR/logs"
 mkdir -p "$PROJECT_DIR/cache/irispen"
 sudo mkdir -p /mnt/irispen
+#!/usr/bin/env bash
+#
+# System Setup Script
+#
+# Purpose:
+#   Installs all required system packages and prepares the base environment for ipr-keyboard.
+#   Must be run as root. Sources environment variables from 00_set_env.sh.
+#
+# Usage:
+#   sudo ./scripts/01_system_setup.sh
+#
+# Prerequisites:
+#   - Environment variables set in 00_set_env.sh
+#   - Run as root (sudo)
+#
+set -euo pipefail
+
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
+
 
 
 ########################################
