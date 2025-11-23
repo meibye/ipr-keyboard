@@ -1,5 +1,11 @@
+
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 
 echo "=== [01] System Setup for ipr_keyboard on Raspberry Pi ==="
 

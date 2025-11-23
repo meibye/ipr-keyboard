@@ -16,10 +16,14 @@
 #   This script is optional and not required for the default ipr-keyboard workflow.
 #   Use only if you need a system-wide Bluetooth HID daemon.
 
+
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
+# Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/00_set_env.sh"
 
 echo "=== [13] Install / update Bluetooth HID daemon and helper ==="
 

@@ -26,9 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/00_set_env.sh"
 
 # Load environment variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
+echo "[07] Running smoke tests for ipr_keyboard"
 
 echo "[07] Running smoke tests for ipr_keyboard"
 

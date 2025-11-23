@@ -22,6 +22,14 @@
 # Note:
 #   Requires mtp-tools and simple-mtpfs.
 
+#!/usr/bin/env bash
+#
+# ipr-keyboard IrisPen MTP Mount Script
+#
+# Purpose:
+#   Mounts or unmounts the IrisPen as an MTP device for file access.
+#   Useful for devices that do not present as USB mass storage.
+
 set -euo pipefail
 
 # Load environment variables

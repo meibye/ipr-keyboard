@@ -19,119 +19,86 @@ class AppConfig:
     """Application configuration dataclass.
 
     Attributes:
-        IrisPenFolder: Path to the folder containing scanned text files from IrisPen.
+        IrisPenFolder: Path to the folder containing scanned text files.
         DeleteFiles: Whether to delete files after processing them.
         Logging: Whether logging is enabled.
-        MaxFileSize: Maximum file size in bytes to process (default: 1MB = 1048576 bytes).
+        MaxFileSize: Maximum file size in bytes to process.
         LogPort: Port number for the web/log server.
-        KeyboardBackend: select keyboard backend, either "uinput" or "ble". uinput is for USB keyboards, ble is for Bluetooth keyboards.
+        KeyboardBackend: Which keyboard backend to use: "uinput" or "ble".
     """
 
-    IrisPenFolder: str = "/mnt/irispen"  # folder with scanned text files
+    IrisPenFolder: str = "/mnt/irispen"
     DeleteFiles: bool = True
     Logging: bool = True
-    MaxFileSize: int = 1024 * 1024  # bytes
-    LogPort: int = 8080  # for web/log server
-    KeyboardBackend: str = "uinput"  # "uinput" or "ble"
+    MaxFileSize: int = 1024 * 1024
+    LogPort: int = 8080
+    KeyboardBackend: str = "uinput"
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":
-        """Create an AppConfig instance from a dictionary.
-
-        Args:
-            data: Dictionary containing configuration key-value pairs.
-
-        Returns:
-            AppConfig instance with values from the dictionary, using defaults
-            for any missing keys.
-        """
+        """Create an AppConfig instance from a dictionary."""
         base = cls()
         for field in asdict(base).keys():
             if field in data:
                 setattr(base, field, data[field])
+
+        # Normalise KeyboardBackend
+        kb = getattr(base, "KeyboardBackend", "uinput")
+        if kb not in ("uinput", "ble"):
+            kb = "uinput"
+        base.KeyboardBackend = kb
         return base
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert the AppConfig to a dictionary.
-
-        Returns:
-            Dictionary representation of the configuration.
-        """
+        """Convert the AppConfig to a dictionary."""
         return asdict(self)
 
 
 class ConfigManager:
     """Thread-safe configuration manager with JSON backing.
 
-    Implements the singleton pattern to provide a single, application-wide
-    configuration instance. All operations are thread-safe.
-
-    Attributes:
-        _instance: Singleton instance of ConfigManager.
-        _lock: Class-level lock for singleton instance creation.
+    Implements a simple singleton so the whole application shares the same
+    loaded configuration instance. All access is protected by a re-entrant lock.
     """
 
     _instance: Optional["ConfigManager"] = None
     _lock = threading.Lock()
 
     def __init__(self, path: Optional[Path] = None) -> None:
-        """Initialize the configuration manager.
-
-        Args:
-            path: Path to the config JSON file. If None, uses the default
-                path from config_path().
-        """
-        self._path = path or config_path()
-        self._cfg = AppConfig.from_dict(load_json(self._path))
+        """Initialise the configuration manager."""
+        self._path: Path = path or config_path()
         self._cfg_lock = threading.RLock()
+        # Load initial config
+        raw = load_json(self._path)
+        self._cfg = AppConfig.from_dict(raw)
 
     @classmethod
     def instance(cls) -> "ConfigManager":
-        """Get the singleton ConfigManager instance.
-
-        Creates the instance on first call, subsequent calls return the same instance.
-
-        Returns:
-            The singleton ConfigManager instance.
-        """
+        """Get the singleton ConfigManager instance."""
         with cls._lock:
             if cls._instance is None:
                 cls._instance = ConfigManager()
             return cls._instance
 
     def get(self) -> AppConfig:
-        """Get a copy of the current configuration.
-
-        Returns:
-            A shallow copy of the current AppConfig to avoid accidental mutation.
-        """
+        """Return a shallow copy of the current configuration."""
         with self._cfg_lock:
-            # return a shallow copy to avoid accidental mutation
             return AppConfig.from_dict(self._cfg.to_dict())
 
     def update(self, **kwargs: Any) -> AppConfig:
-        """Update configuration values and persist to disk.
+        """Update configuration values and persist them to disk.
 
-        Args:
-            **kwargs: Configuration key-value pairs to update. Only existing
-                configuration fields will be updated.
-
-        Returns:
-            Updated AppConfig instance.
+        Only known AppConfig fields are updated; unknown keys are ignored.
         """
         with self._cfg_lock:
-            for k, v in kwargs.items():
-                if hasattr(self._cfg, k):
-                    setattr(self._cfg, k, v)
+            for key, value in kwargs.items():
+                if hasattr(self._cfg, key):
+                    setattr(self._cfg, key, value)
             save_json(self._path, self._cfg.to_dict())
             return self.get()
 
     def reload(self) -> AppConfig:
-        """Reload configuration from disk.
-
-        Returns:
-            Reloaded AppConfig instance.
-        """
+        """Reload configuration from disk and return the new config."""
         with self._cfg_lock:
             data = load_json(self._path)
             self._cfg = AppConfig.from_dict(data)

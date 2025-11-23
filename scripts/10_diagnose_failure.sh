@@ -24,13 +24,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/00_set_env.sh"
 
-set -euo pipefail
-
-# Load environment variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
-
 echo "======================================"
 echo "[10] ipr_keyboard Diagnostic Tool"
 echo "======================================"
