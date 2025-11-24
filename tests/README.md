@@ -1,16 +1,40 @@
 # Tests
 
-This directory contains the test suite for the ipr-keyboard project using pytest.
+This directory contains the comprehensive test suite for the ipr-keyboard project using pytest.
+
+## Test Coverage
+
+Current test coverage: **94%** (129 tests)
 
 ## Test Structure
 
 The tests are organized to mirror the source code structure:
 
-- `bluetooth/` - Tests for Bluetooth keyboard functionality
-- `config/` - Tests for configuration management
-- `logging/` - Tests for logging functionality
-- `usb/` - Tests for USB file detection, reading, and deletion
-- `web/` - Tests for web API endpoints
+```
+tests/
+├── conftest.py              # Shared fixtures and configuration
+├── bluetooth/
+│   └── test_keyboard.py     # Bluetooth keyboard unit tests (14 tests)
+├── config/
+│   └── test_manager.py      # Configuration manager unit tests (14 tests)
+├── logging/
+│   └── test_logger.py       # Logger unit tests (6 tests)
+├── usb/
+│   ├── test_detector.py     # File detection tests (11 tests)
+│   ├── test_usb_reader.py   # File reading tests (11 tests)
+│   ├── test_deleter.py      # File deletion tests (13 tests)
+│   └── test_mtp_sync.py     # MTP sync tests (11 tests)
+├── utils/
+│   └── test_helpers.py      # Helper utilities tests (9 tests)
+├── web/
+│   ├── test_server.py       # Flask app tests (6 tests)
+│   ├── test_config_api.py   # Config API tests (8 tests)
+│   └── test_logs_api.py     # Logs API tests (8 tests)
+└── integration/
+    ├── test_usb_flow.py     # USB integration tests (7 tests)
+    ├── test_web_integration.py  # Web API integration tests (6 tests)
+    └── test_main.py         # Main module integration tests (5 tests)
+```
 
 ## Running Tests
 
@@ -24,6 +48,8 @@ pytest
 
 ```bash
 pytest --cov=ipr_keyboard
+pytest --cov=ipr_keyboard --cov-report=term-missing  # Show missing lines
+pytest --cov=ipr_keyboard --cov-report=html          # Generate HTML report
 ```
 
 ### Run specific test module
@@ -31,24 +57,118 @@ pytest --cov=ipr_keyboard
 ```bash
 pytest tests/config/
 pytest tests/bluetooth/test_keyboard.py
+pytest tests/usb/ -v  # Verbose output
 ```
 
-## Test Modules
+### Run by marker or keyword
 
-### Bluetooth Tests (`bluetooth/`)
-- `test_keyboard.py` - Tests for BluetoothKeyboard wrapper and helper script interaction
+```bash
+pytest -k "bluetooth"     # Run tests with "bluetooth" in name
+pytest -k "not slow"      # Skip slow tests
+```
 
-### Configuration Tests (`config/`)
-- `test_manager.py` - Tests for ConfigManager singleton, thread-safety, and JSON persistence
+## Test Categories
 
-### Logging Tests (`logging/`)
-- `test_logger.py` - Tests for logger initialization and file handling
+### Unit Tests
 
-### USB Tests (`usb/`)
-- `test_usb_reader.py` - Tests for file reading and detection functionality
+#### Bluetooth Tests (`bluetooth/`)
+- `test_keyboard.py` - Tests for BluetoothKeyboard class:
+  - send_text success/failure scenarios
+  - is_available helper detection
+  - Error handling (FileNotFoundError, CalledProcessError)
+  - Unicode and multiline text handling
 
-### Web Tests (`web/`)
-- `test_config_api.py` - Tests for configuration REST API endpoints
+#### Configuration Tests (`config/`)
+- `test_manager.py` - Tests for AppConfig and ConfigManager:
+  - Default values and validation
+  - JSON serialization/deserialization
+  - Singleton pattern and thread safety
+  - Config persistence and reload
+  - Keyboard backend normalization
+
+#### Logging Tests (`logging/`)
+- `test_logger.py` - Tests for logger:
+  - Logger creation and singleton pattern
+  - File and console handlers
+  - Log file rotation
+  - Directory creation
+
+#### USB Tests (`usb/`)
+- `test_detector.py` - File detection and monitoring
+- `test_usb_reader.py` - File reading with size limits
+- `test_deleter.py` - File and folder deletion
+- `test_mtp_sync.py` - MTP mount synchronization
+
+#### Utility Tests (`utils/`)
+- `test_helpers.py` - Path resolution and JSON operations
+
+#### Web Tests (`web/`)
+- `test_server.py` - Flask app factory and health check
+- `test_config_api.py` - Configuration REST API
+- `test_logs_api.py` - Log viewing API
+
+### Integration Tests
+
+#### USB Flow (`integration/test_usb_flow.py`)
+- Complete file detection → read → delete workflow
+- Multiple file processing
+- UTF-8 content handling
+
+#### Web Integration (`integration/test_web_integration.py`)
+- Config round-trip operations
+- Log entries after operations
+- Error handling
+
+#### Main Module (`integration/test_main.py`)
+- Application startup
+- USB/BT loop with mocks
+- Bluetooth unavailable handling
+
+## Fixtures (conftest.py)
+
+Common fixtures for all tests:
+
+- `temp_config` - Temporary config file with ConfigManager reset
+- `temp_log_dir` - Temporary log directory with logger reset
+- `mock_bt_helper` - Mock for Bluetooth subprocess calls
+- `flask_client` - Flask test client with temp config
+- `usb_folder` - Temporary USB folder
+- `sample_text_files` - Pre-created test files
+- `reset_config_manager` - Singleton reset fixture
+
+## External Interface Testing
+
+### Bluetooth (mocked in tests)
+- Tests mock `subprocess.run` to simulate helper behavior
+- For actual Bluetooth testing: `./scripts/14_test_bt_keyboard.sh`
+
+### USB (temporary directories)
+- Tests use `tmp_path` fixture for isolation
+- For actual USB testing: `./scripts/06_setup_irispen_mount.sh`
+
+### Web API (Flask test client)
+- Tests use Flask's built-in test client
+- For manual API testing:
+  ```bash
+  ./scripts/run_dev.sh
+  curl http://localhost:8080/health
+  curl http://localhost:8080/config/
+  ```
+
+## End-to-End Testing (Scripts)
+
+For full system testing, use the provided scripts:
+
+```bash
+# Smoke test (component checks)
+./scripts/07_smoke_test.sh
+
+# Full E2E demo (foreground mode)
+./scripts/08_e2e_demo.sh
+
+# Systemd service E2E test
+sudo ./scripts/09_e2e_systemd_demo.sh
+```
 
 ## Writing Tests
 
@@ -57,9 +177,39 @@ Tests follow pytest conventions:
 - Test functions are named `test_*`
 - Use fixtures for common setup/teardown
 - Keep tests isolated and independent
+- Use `monkeypatch` for mocking
+
+### Example Test
+
+```python
+def test_example(temp_config, usb_folder):
+    """Test description.
+    
+    Verifies that...
+    """
+    # Arrange
+    test_file = usb_folder / "test.txt"
+    test_file.write_text("content")
+    
+    # Act
+    result = some_function(test_file)
+    
+    # Assert
+    assert result == expected
+```
 
 ## Dependencies
 
 Test dependencies are defined in `pyproject.toml` under `[project.optional-dependencies]`:
 - pytest
 - pytest-cov (for coverage reports)
+
+Install with:
+```bash
+pip install -e ".[dev]"
+```
+
+## See Also
+
+- [TESTING_PLAN.md](../TESTING_PLAN.md) - Detailed testing strategy
+- [scripts/README.md](../scripts/README.md) - Script documentation

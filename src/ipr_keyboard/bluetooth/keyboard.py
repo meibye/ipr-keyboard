@@ -29,6 +29,15 @@ class BluetoothKeyboard:
     def __init__(self, helper_path: str = "/usr/local/bin/bt_kb_send") -> None:
         self.helper_path = helper_path
 
+    def is_available(self) -> bool:
+        """Check if the Bluetooth helper script is available.
+
+        Returns:
+            True if the helper script exists and is executable, False otherwise.
+        """
+        import os
+        return os.path.isfile(self.helper_path) and os.access(self.helper_path, os.X_OK)
+
     def send_text(self, text: str) -> bool:
         """Send text via the configured keyboard backend.
 
