@@ -1,15 +1,16 @@
 # ipr-keyboard Setup Scripts
 
-This directory contains installation and setup scripts for deploying the ipr-keyboard application on a Raspberry Pi.
+This directory contains installation, setup, backend management, and diagnostic scripts for deploying and maintaining the ipr-keyboard application on a Raspberry Pi.
 
 ## Overview
 
-The scripts automate the complete setup process from system configuration to service installation. They handle:
+The scripts automate the complete setup process from system configuration to service installation, backend switching, and troubleshooting. They handle:
 - System package installation
 - Bluetooth configuration
 - Python environment setup with uv
 - Systemd service installation
 - USB mount configuration
+- Keyboard backend switching (uinput/BLE)
 - Testing and diagnostics
 
 ## Script Organization
@@ -25,7 +26,7 @@ Scripts are numbered to indicate the recommended execution order:
 
 ## Environment Configuration
 
-All scripts (except `00_set_env.sh` itself) source `00_set_env.sh` to ensure consistent environment variables for user, project root, and other settings. Edit `scripts/00_set_env.sh` to set:
+All scripts (except `00_set_env.sh` itself) source `00_set_env.sh` to ensure consistent environment variables for user, project root, and other settings. This enables dynamic project directory resolution and consistent configuration. Edit `scripts/00_set_env.sh` to set:
 - `IPR_USER`: Your username (default: meibye)
 - `IPR_PROJECT_ROOT`: Your development directory path (default: /home/meibye/dev)
 
@@ -46,7 +47,7 @@ All scripts begin with a description header explaining their purpose, usage, pre
 
 - **01_system_setup.sh**: System package installation and base setup. Must be run as root. Sources environment variables.
 - **02_configure_bluetooth.sh**: Configures Bluetooth for HID keyboard profile. Must be run as root. Sources environment variables.
-- **03_install_bt_helper.sh**: Installs the Bluetooth HID helper script at `/usr/local/bin/bt_kb_send`. This is the ONLY script that creates or updates the helper. Must be run as root. Sources environment variables.
+- **03_install_bt_helper.sh**: Installs the Bluetooth HID helper script at `/usr/local/bin/bt_kb_send` and related backend daemons. This is the ONLY script that creates or updates the helper. Must be run as root. Sources environment variables for project directory and configuration.
 - **04_setup_venv.sh**: Sets up Python virtual environment using uv. Must NOT be run as root. Sources environment variables.
 - **05_install_service.sh**: Installs and enables the systemd service. Must be run as root. Sources environment variables.
 
@@ -60,12 +61,12 @@ All scripts begin with a description header explaining their purpose, usage, pre
 - **11_mount_irispen_mtp.sh**: Mounts or unmounts the IrisPen MTP device. Must be run as root. Sources environment variables.
 - **12_sync_irispen_to_cache.sh**: Syncs files from MTP mount to local cache. Must NOT be run as root. Sources environment variables.
 - **13_install_bt_hid_daemon.sh**: Installs/configures a Bluetooth HID daemon (advanced/optional). References `/usr/local/bin/bt_kb_send` but does NOT overwrite it. Must be run as root. Sources environment variables.
-- **14_test_bt_keyboard.sh**: Sends a test string via the Bluetooth HID helper (bt_kb_send) or daemon to verify Bluetooth keyboard emulation is working end-to-end. Useful for troubleshooting Bluetooth pairing, helper/daemon setup, and keyboard pipeline. Usage: `./scripts/14_test_bt_keyboard.sh ["Your test string"]` (If no argument is given, a default Danish test string is sent). For manual, interactive testing only. Not used in automated workflows or CI. Sources environment variables.
-- **15_switch_keyboard_backend.sh**: Legacy script to switch the active keyboard backend between uinput and BLE. Uses a hardcoded project directory path. Prefer 16_switch_keyboard_backend.sh for environment-variable-based resolution. Must be run as root. Requires jq. 
-- **16_switch_keyboard_backend.sh**: Switches the active keyboard backend between uinput (local virtual keyboard) and BLE (Bluetooth Low Energy HID). Uses environment variables for project directory. For advanced backend management and troubleshooting.
+- **14_test_bt_keyboard.sh**: Sends a test string via the Bluetooth HID helper (bt_kb_send) or daemon to verify Bluetooth keyboard emulation is working end-to-end. Useful for troubleshooting Bluetooth pairing, helper/daemon setup, and keyboard pipeline. Usage: `./scripts/14_test_bt_keyboard.sh ["Your test string"]` (If no argument is given, a default Danish test string is sent). For manual, interactive testing only. Not used in automated workflows or CI. Sources environment variables for project directory and configuration.
+- **15_switch_keyboard_backend.sh**: Legacy script to switch the active keyboard backend between uinput and BLE. Uses a hardcoded project directory path. Prefer 16_switch_keyboard_backend.sh for environment-variable-based resolution and modern usage. Must be run as root. Requires jq. 
+- **16_switch_keyboard_backend.sh**: Switches the active keyboard backend between uinput (local virtual keyboard) and BLE (Bluetooth Low Energy HID). Uses environment variables for project directory. For advanced backend management and troubleshooting. This is the recommended script for backend switching.
 - **run_dev.sh**: Runs the application in foreground for development. Must NOT be run as root. Sources environment variables.
 
-See the top of each script for details on usage and requirements.
+See the top of each script for details on usage, prerequisites, and environment variable requirements. All scripts (except legacy 15_switch_keyboard_backend.sh) use environment variables for project directory resolution.
 
 #### 3. Install Bluetooth Helper
 ```bash

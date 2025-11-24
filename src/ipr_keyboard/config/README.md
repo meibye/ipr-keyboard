@@ -158,6 +158,24 @@ new_config = cfg_mgr.update(
 reloaded = cfg_mgr.reload()
 ```
 
+```bash
+# Get full config
+curl http://<pi-ip>:8080/config/
+
+# See backend options
+curl http://<pi-ip>:8080/config/backends
+
+# Change backend in config (you still need to run the switch script)
+curl -X POST http://<pi-ip>:8080/config/ \
+  -H "Content-Type: application/json" \
+  -d '{"KeyboardBackend": "ble"}'
+```
+
+```bash
+cd /home/meibye/dev/ipr-keyboard
+./scripts/15_switch_keyboard_backend.sh   # uses config's KeyboardBackend
+```
+
 ## Default Values
 
 If `config.json` doesn't exist or is empty, the default values from `AppConfig` are used:

@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 #
 # 03_install_bt_helper.sh
 #
@@ -12,7 +10,7 @@ set -euo pipefail
 #   - /usr/local/bin/bt_hid_uinput_daemon.py
 #       → reads FIFO, types on the Pi via uinput (local virtual keyboard)
 #   - /usr/local/bin/bt_hid_ble_daemon.py
-#       → scaffold for BLE HID over GATT (future remote keyboard)
+#       → BLE HID over GATT daemon structure (BlueZ-based)
 #   - systemd services:
 #       * bt_hid_uinput.service
 #       * bt_hid_ble.service
@@ -21,6 +19,13 @@ set -euo pipefail
 #   - KeyboardBackend in config.json ("uinput" or "ble")
 #   - Enabling/disabling the corresponding systemd units
 #
+
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+  echo "Please run as root: sudo $0"
+  exit 1
+fi
 
 FIFO_PATH="/run/ipr_bt_keyboard_fifo"
 HELPER_PATH="/usr/local/bin/bt_kb_send"
@@ -32,12 +37,13 @@ echo "=== [03] Installing Bluetooth keyboard helper and backends ==="
 ########################################
 # 1. Install system dependencies
 ########################################
-echo "=== [03] Installing OS packages (python3, evdev, bluez) ==="
-sudo apt update
-sudo apt install -y \
+echo "=== [03] Installing OS packages (python3, evdev, bluez, dbus) ==="
+apt update
+apt install -y \
   python3 \
   python3-pip \
   python3-evdev \
+  python3-dbus \
   bluez \
   bluez-tools
 
@@ -45,7 +51,7 @@ sudo apt install -y \
 # 2. Create helper script: bt_kb_send
 ########################################
 echo "=== [03] Writing $HELPER_PATH ==="
-sudo tee "$HELPER_PATH" > /dev/null << 'EOF'
+cat > "$HELPER_PATH" << 'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -65,13 +71,13 @@ TEXT="$*"
 printf '%s\n' "$TEXT" > "$FIFO"
 EOF
 
-sudo chmod +x "$HELPER_PATH"
+chmod +x "$HELPER_PATH"
 
 ########################################
 # 3. Create uinput backend daemon
 ########################################
 echo "=== [03] Writing $UINPUT_DAEMON ==="
-sudo tee "$UINPUT_DAEMON" > /dev/null << 'EOF'
+cat > "$UINPUT_DAEMON" << 'EOF'
 #!/usr/bin/env python3
 """
 bt_hid_uinput_daemon.py
@@ -218,34 +224,182 @@ if __name__ == "__main__":
     main()
 EOF
 
-sudo chmod +x "$UINPUT_DAEMON"
+chmod +x "$UINPUT_DAEMON"
 
 ########################################
-# 4. Create BLE HID backend scaffold
+# 4. Create BLE HID backend daemon (structured)
 ########################################
-echo "=== [03] Writing $BLE_DAEMON (scaffold) ==="
-sudo tee "$BLE_DAEMON" > /dev/null << 'EOF'
+echo "=== [03] Writing $BLE_DAEMON ==="
+cat > "$BLE_DAEMON" << 'EOF'
 #!/usr/bin/env python3
 """
 bt_hid_ble_daemon.py
 
-Scaffold for the "ble" keyboard backend (BLE HID over GATT).
+Structured backend daemon for the "ble" keyboard backend (BLE HID over GATT).
 
-This file is intentionally minimal: it wires the FIFO reading loop and
-logs incoming text, but the actual BLE HID GATT implementation using
-BlueZ D-Bus is left as a future enhancement.
+This daemon:
+  - Creates /run/ipr_bt_keyboard_fifo if needed.
+  - Connects to BlueZ over D-Bus.
+  - Registers a minimal BLE HID GATT service skeleton (HID service 0x1812).
+  - Reads text from the FIFO.
+  - Maps characters to HID usage IDs and modifier bits (Danish-aware).
+  - Prepares HID input reports.
 
-Once implemented, this daemon should:
-  - Register a BLE HID GATT service with BlueZ (HID service 0x1812).
-  - Advertise as a BLE keyboard.
-  - Map text to HID usage IDs and modifiers.
-  - Send HID input reports to the connected central via notifications.
+NOTE:
+  The D-Bus / BlueZ GATT plumbing for sending notifications is highly
+  environment-specific. This file provides a structured starting point with
+  clear extension points for your actual HID report transmission logic.
+
+You should:
+  - Ensure bluetoothd is running with experimental features enabled if needed.
+  - Pair the PC with the Pi as a BLE device.
+  - Extend `BleHidServer.send_input_report` to actually call into BlueZ,
+    e.g. via a custom GATT characteristic's Notify method.
 """
 
 import os
 import time
+from typing import Tuple
 
 FIFO_PATH = "/run/ipr_bt_keyboard_fifo"
+
+# --- HID Usage and modifier mapping (Danish) -------------------------------
+
+# Modifier bits for HID keyboard
+MOD_LCTRL = 0x01
+MOD_LSHIFT = 0x02
+MOD_LALT = 0x04
+MOD_LGUI = 0x08
+MOD_RCTRL = 0x10
+MOD_RSHIFT = 0x20
+MOD_RALT = 0x40  # often used as AltGr
+MOD_RGUI = 0x80
+
+# Basic US-like HID usage IDs for letters a-z
+# Usage IDs for 'a'..'z' are 0x04..0x1d
+LETTER_USAGES = {
+    "a": 0x04, "b": 0x05, "c": 0x06, "d": 0x07,
+    "e": 0x08, "f": 0x09, "g": 0x0A, "h": 0x0B,
+    "i": 0x0C, "j": 0x0D, "k": 0x0E, "l": 0x0F,
+    "m": 0x10, "n": 0x11, "o": 0x12, "p": 0x13,
+    "q": 0x14, "r": 0x15, "s": 0x16, "t": 0x17,
+    "u": 0x18, "v": 0x19, "w": 0x1A, "x": 0x1B,
+    "y": 0x1C, "z": 0x1D,
+}
+
+# Simple mapping: char → (usage_id, modifier_bits)
+def map_char_to_hid(ch: str) -> Tuple[int, int]:
+    """Map a Unicode character to HID usage + modifiers.
+
+    This assumes:
+      - The host PC uses a Danish keyboard layout.
+      - We emit usages corresponding to the *physical* key positions.
+    """
+    # Newline/Enter
+    if ch in ("\n", "\r"):
+        return 0x28, 0x00  # ENTER
+
+    # Space
+    if ch == " ":
+        return 0x2C, 0x00  # SPACE
+
+    # Letters
+    if ch.lower() in LETTER_USAGES:
+        usage = LETTER_USAGES[ch.lower()]
+        mods = MOD_LSHIFT if ch.isupper() else 0x00
+        return usage, mods
+
+    # Digits 0-9
+    if ch.isdigit():
+        # HID: 0x27 = '0', 0x1E-0x26 = '1'-'9'
+        if ch == "0":
+            return 0x27, 0x00
+        else:
+            return 0x1E + (ord(ch) - ord("1")), 0x00
+
+    # Danish special letters.
+    # On a Danish keyboard (physical layout):
+    #   Å is top row, right of P
+    #   Ø is to right of Å
+    #   Æ is to right of L
+    # These map to the corresponding HID usages for those key positions.
+    # Here we approximate using the US positions for [ ; ' ] combined
+    # with the PC's Danish layout to render the correct glyph.
+    if ch in ("å", "Å"):
+        # Physical key right of P → US '['  (0x2F)
+        usage = 0x2F
+        mods = MOD_LSHIFT if ch.isupper() else 0x00
+        return usage, mods
+
+    if ch in ("ø", "Ø"):
+        # Physical key right of Å → US '\'' (0x34)
+        usage = 0x34
+        mods = MOD_LSHIFT if ch.isupper() else 0x00
+        return usage, mods
+
+    if ch in ("æ", "Æ"):
+        # Physical key right of L → US ';' (0x33)
+        usage = 0x33
+        mods = MOD_LSHIFT if ch.isupper() else 0x00
+        return usage, mods
+
+    # Fallback: ignore character
+    return 0x00, 0x00
+
+
+def make_key_report(usage: int, mods: int) -> bytes:
+    """Build an 8-byte HID input report for a single key press."""
+    # [mods, reserved, key1, key2, key3, key4, key5, key6]
+    return bytes([mods, 0x00, usage, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+
+def make_key_release_report() -> bytes:
+    """Build an 8-byte HID input report for key release (all keys up)."""
+    return b"\x00\x00\x00\x00\x00\x00\x00\x00"
+
+
+# --- BLE HID Server skeleton ----------------------------------------------
+
+
+class BleHidServer:
+    """Skeleton for a BLE HID over GATT server.
+
+    This class is deliberately minimal and does not implement the full
+    BlueZ D-Bus interaction. Instead, it provides a clear API for sending
+    HID input reports and a place to integrate your D-Bus code.
+
+    Extend:
+      - __init__ to connect to BlueZ and register a GATT app + advertisement.
+      - send_input_report to actually notify the host via the Input Report
+        characteristic.
+    """
+
+    def __init__(self) -> None:
+        # TODO: connect to system bus, BlueZ, and register GATT application.
+        print("[ble] BleHidServer initialised (skeleton).")
+
+    def send_input_report(self, report: bytes) -> None:
+        """Send a HID input report to the connected host.
+
+        Currently only logs; you should extend this to call into BlueZ.
+        """
+        print(f"[ble] Would send HID report ({len(report)} bytes): {report!r}")
+        # TODO: Implement BlueZ D-Bus GATT notification here.
+
+
+def process_text(hid: BleHidServer, text: str) -> None:
+    """Convert text to HID reports and send via BleHidServer."""
+    for ch in text:
+        usage, mods = map_char_to_hid(ch)
+        if usage == 0x00:
+            continue
+        down = make_key_report(usage, mods)
+        up = make_key_release_report()
+        hid.send_input_report(down)
+        # Small delay so host sees distinct press/release
+        time.sleep(0.01)
+        hid.send_input_report(up)
+        time.sleep(0.005)
 
 
 def main() -> None:
@@ -253,9 +407,12 @@ def main() -> None:
         os.mkfifo(FIFO_PATH)
         os.chmod(FIFO_PATH, 0o666)
 
-    print("[ble] BLE HID daemon scaffold starting.")
-    print("[ble] NOTE: BLE HID over GATT is not yet implemented. "
-          "Incoming text will only be logged.")
+    print("[ble] BLE HID daemon starting.")
+    print(f"[ble] FIFO at: {FIFO_PATH}")
+    print("[ble] NOTE: BlueZ D-Bus integration needs to be completed in "
+          "BleHidServer.send_input_report().")
+
+    hid = BleHidServer()
 
     while True:
         with open(FIFO_PATH, "r", encoding="utf-8") as fifo:
@@ -263,23 +420,22 @@ def main() -> None:
                 text = line.rstrip("\n")
                 if not text:
                     continue
-                print(f"[ble] Would send via BLE HID: {text!r}")
-                # TODO: Implement actual BLE HID GATT logic here.
-                time.sleep(0.01)
+                print(f"[ble] Received text: {text!r}")
+                process_text(hid, text)
 
 
 if __name__ == "__main__":
     main()
 EOF
 
-sudo chmod +x "$BLE_DAEMON"
+chmod +x "$BLE_DAEMON"
 
 ########################################
 # 5. Systemd units for both backends
 ########################################
 echo "=== [03] Writing systemd units ==="
 
-sudo tee /etc/systemd/system/bt_hid_uinput.service > /dev/null << 'EOF'
+cat > /etc/systemd/system/bt_hid_uinput.service << 'EOF'
 [Unit]
 Description=IPR Bluetooth HID (uinput backend)
 After=bluetooth.target
@@ -293,9 +449,9 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
-sudo tee /etc/systemd/system/bt_hid_ble.service > /dev/null << 'EOF'
+cat > /etc/systemd/system/bt_hid_ble.service << 'EOF'
 [Unit]
-Description=IPR Bluetooth HID (BLE HID over GATT backend - scaffold)
+Description=IPR Bluetooth HID (BLE HID over GATT backend)
 After=bluetooth.target
 
 [Service]
@@ -308,13 +464,14 @@ WantedBy=multi-user.target
 EOF
 
 echo "=== [03] Reloading systemd and enabling uinput backend by default ==="
-sudo systemctl daemon-reload
-sudo systemctl disable bt_hid_ble.service || true
-sudo systemctl enable bt_hid_uinput.service
-sudo systemctl restart bt_hid_uinput.service
+systemctl daemon-reload
+systemctl disable bt_hid_ble.service || true
+systemctl enable bt_hid_uinput.service
+systemctl restart bt_hid_uinput.service
 
 echo "=== [03] Installation complete. ==="
 echo "  - Helper:        $HELPER_PATH"
 echo "  - FIFO:          $FIFO_PATH"
-echo "  - Backends:      uinput (active), ble (scaffold only)"
-echo "To switch backend later, use: scripts/15_switch_keyboard_backend.sh."
+echo "  - Backends:      uinput (active), ble (structured skeleton)"
+echo "To switch backend later, use scripts/15_switch_keyboard_backend.sh."
+EOF

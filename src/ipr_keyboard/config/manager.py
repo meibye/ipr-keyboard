@@ -28,11 +28,11 @@ class AppConfig:
                          "uinput" (local virtual keyboard) or "ble" (BLE HID GATT).
     """
 
-    IrisPenFolder: str = "/mnt/irispen"  # folder with scanned text files
+    IrisPenFolder: str = "/mnt/irispen"
     DeleteFiles: bool = True
     Logging: bool = True
-    MaxFileSize: int = 1024 * 1024  # bytes
-    LogPort: int = 8080  # for web/log server
+    MaxFileSize: int = 1024 * 1024
+    LogPort: int = 8080
     KeyboardBackend: str = "uinput"  # "uinput" or "ble"
 
     @classmethod
@@ -43,7 +43,7 @@ class AppConfig:
             if field in data:
                 setattr(base, field, data[field])
 
-        # Normalize KeyboardBackend
+        # Normalise KeyboardBackend
         kb = getattr(base, "KeyboardBackend", "uinput")
         if kb not in ("uinput", "ble"):
             kb = "uinput"
@@ -52,11 +52,7 @@ class AppConfig:
         return base
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert the AppConfig to a dictionary.
-
-        Returns:
-            Dictionary representation of the configuration.
-        """
+        """Convert the AppConfig to a dictionary."""
         return asdict(self)
 
 
@@ -96,18 +92,14 @@ class ConfigManager:
         Only known AppConfig fields are updated; unknown keys are ignored.
         """
         with self._cfg_lock:
-            for k, v in kwargs.items():
-                if hasattr(self._cfg, k):
-                    setattr(self._cfg, k, v)
+            for key, value in kwargs.items():
+                if hasattr(self._cfg, key):
+                    setattr(self._cfg, key, value)
             save_json(self._path, self._cfg.to_dict())
             return self.get()
 
     def reload(self) -> AppConfig:
-        """Reload configuration from disk.
-
-        Returns:
-            Reloaded AppConfig instance.
-        """
+        """Reload configuration from disk and return the new config."""
         with self._cfg_lock:
             data = load_json(self._path)
             self._cfg = AppConfig.from_dict(data)
