@@ -68,4 +68,21 @@ else
     uv pip install -e .
 fi
 
+
+# 5. Create/update ~/.bash_aliases for convenience
+ALIASES_FILE="$HOME/.bash_aliases"
+echo "[04] Adding/updating aliases in $ALIASES_FILE..."
+{
+  echo "alias ll='ls -al'"
+  echo "alias activate='source $IPR_PROJECT_ROOT/ipr-keyboard/.venv/bin/activate'"
+} > "$ALIASES_FILE.tmp"
+
+# Merge with existing aliases if present, avoiding duplicates
+if [[ -f "$ALIASES_FILE" ]]; then
+  grep -v "^alias ll='ls -al'" "$ALIASES_FILE" | \
+  grep -v "^alias activate='source $IPR_PROJECT_ROOT/ipr-keyboard/.venv/bin/activate'" >> "$ALIASES_FILE.tmp"
+fi
+mv "$ALIASES_FILE.tmp" "$ALIASES_FILE"
+echo "[04] Aliases 'll' and 'activate' are now available in $ALIASES_FILE."
+
 echo "[04] Virtualenv created at $VENV_DIR and dependencies installed via uv."
