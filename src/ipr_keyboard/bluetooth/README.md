@@ -11,6 +11,10 @@ The bluetooth module wraps a system-level Bluetooth HID helper script to send ke
 - **`keyboard.py`** - Main BluetoothKeyboard class
 - **`__init__.py`** - Module initialization
 
+## Related Scripts
+
+- The Bluetooth HID helper script (`/usr/local/bin/bt_kb_send`) is installed and managed by `scripts/03_install_bt_helper.sh` in the project root. Use this script to install or update the helper as required by the Bluetooth module.
+
 ## BluetoothKeyboard Class
 
 The `BluetoothKeyboard` class is a wrapper around the system Bluetooth HID helper.

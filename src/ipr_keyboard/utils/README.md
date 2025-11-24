@@ -8,8 +8,60 @@ The utils module contains common functionality that doesn't belong to a specific
 
 ## Files
 
-- **`helpers.py`** - Utility functions for paths and JSON operations
+- **`helpers.py`** - Project root/config path resolution, JSON helpers
 - **`__init__.py`** - Module initialization
+
+## Related Scripts & Utilities
+
+While this module is primarily used internally by other modules, you may see its helpers referenced in scripts throughout the `scripts/` folder for path resolution and JSON file operations. No direct utility scripts are provided in this folder, but see the main and scripts `README.md` for workflow and troubleshooting scripts that rely on these utilities.
+
+## Usage Patterns
+
+### Configuration File Management
+
+```python
+from ipr_keyboard.utils.helpers import config_path, load_json, save_json
+
+# Load configuration
+cfg_file = config_path()
+config = load_json(cfg_file)
+
+# Modify configuration
+config["DeleteFiles"] = False
+
+# Save configuration
+save_json(cfg_file, config)
+```
+
+### Creating Project-Relative Paths
+
+```python
+from ipr_keyboard.utils.helpers import project_root
+
+root = project_root()
+
+# Build paths relative to project
+logs_dir = root / "logs"
+data_dir = root / "data"
+scripts_dir = root / "scripts"
+
+# Ensure directories exist
+logs_dir.mkdir(exist_ok=True)
+```
+
+### JSON Data Handling
+
+```python
+from pathlib import Path
+from ipr_keyboard.utils.helpers import load_json, save_json
+
+# Load with defaults
+data = load_json(Path("settings.json"))
+setting = data.get("some_key", "default_value")
+
+# Save with automatic formatting
+save_json(Path("settings.json"), {"key": "value"})
+```
 
 ## helpers.py
 

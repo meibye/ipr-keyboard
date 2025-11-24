@@ -35,7 +35,8 @@ sudo apt install -y \
     bluez-tools \
     bluetooth \
     libcairo2-dev \
-    libgirepository1.0-dev
+    libgirepository1.0-dev \
+    jq
 
 
 ########################################

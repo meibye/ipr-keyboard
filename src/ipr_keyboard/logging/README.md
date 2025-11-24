@@ -19,6 +19,10 @@ All application logs are written to a single rotating log file in the `logs/` di
 - **`web.py`** - Flask blueprint for log viewing API
 - **`__init__.py`** - Module initialization
 
+## Related Scripts
+
+- The log viewing web API is started by the main application and is accessible via the endpoints described below. No direct script is needed to start the logging API, but you can use the diagnostic and demo scripts in the `scripts/` folder to test log output and web access.
+
 ## Logger Configuration
 
 ### Log File Location

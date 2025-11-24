@@ -14,10 +14,22 @@ This module is designed to work with IrisPen scanner output but can be used with
 
 ## Files
 
-- **`detector.py`** - File detection and monitoring
-- **`reader.py`** - File reading with size limits
-- **`deleter.py`** - File deletion utilities
-- **`__init__.py`** - Module initialization
+- **`detector.py`** — File detection and monitoring
+- **`reader.py`** — File reading with size limits
+- **`deleter.py`** — File deletion utilities
+- **`mtp_sync.py`** — Syncs files from MTP device to local cache
+- **`__init__.py`** — Module initialization
+
+## Related Scripts & Utilities
+
+The following scripts/utilities in the `scripts/` folder are relevant for setup, mounting, and testing USB/IrisPen workflows:
+
+- `06_setup_irispen_mount.sh` — Sets up a persistent mount for the IrisPen USB device
+- `11_mount_irispen_mtp.sh` — Mounts/unmounts the IrisPen MTP device
+- `12_sync_irispen_to_cache.sh` — Syncs files from MTP mount to local cache
+- `07_smoke_test.sh`, `08_e2e_demo.sh`, `09_e2e_systemd_demo.sh` — Test and demo end-to-end file detection and processing
+
+See the main and scripts `README.md` for more details on workflow and troubleshooting.
 
 ## detector.py
 

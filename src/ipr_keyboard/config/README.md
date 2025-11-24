@@ -17,6 +17,12 @@ The configuration module manages application settings through a singleton `Confi
 - **`web.py`** - Flask blueprint for configuration REST API
 - **`__init__.py`** - Module initialization
 
+## Related Scripts
+
+- Backend switching can be triggered by updating the `KeyboardBackend` field in the config (see API/curl examples below), but the actual backend switch is performed by:
+  - `scripts/15_switch_keyboard_backend.sh` (legacy, hardcoded path)
+  - `scripts/16_switch_keyboard_backend.sh` (recommended, uses environment variables)
+
 ## AppConfig Dataclass
 
 The `AppConfig` dataclass defines all application configuration fields:

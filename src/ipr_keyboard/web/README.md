@@ -14,8 +14,18 @@ The web server runs in a background thread and listens on a configurable port (d
 
 ## Files
 
-- **`server.py`** - Main Flask application factory
-- **`__init__.py`** - Module initialization
+- **`server.py`** — Main Flask application factory
+- **`__init__.py`** — Module initialization
+
+## Related Scripts & Utilities
+
+The web server is started by the main application (`main.py`). For development, testing, and troubleshooting, see the following scripts in the `scripts/` folder:
+
+- `07_smoke_test.sh` — Basic functionality test (includes web API)
+- `08_e2e_demo.sh`, `09_e2e_systemd_demo.sh` — End-to-end and systemd-based workflow demos (includes web API)
+- `10_diagnose_failure.sh` — Comprehensive diagnostic tool (checks web API health)
+
+See the main and scripts `README.md` for more details on workflow and troubleshooting.
 
 ## server.py
 
