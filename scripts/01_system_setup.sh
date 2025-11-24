@@ -1,5 +1,19 @@
-
 #!/usr/bin/env bash
+#
+# System Setup Script
+#
+# Purpose:
+#   Installs all required system packages and prepares the base environment for ipr-keyboard.
+#   Must be run as root. Sources environment variables from 00_set_env.sh.
+#
+# Usage:
+#   sudo ./scripts/01_system_setup.sh
+#
+# Prerequisites:
+#   - Environment variables set in 00_set_env.sh
+#   - Run as root (sudo)
+#
+
 set -euo pipefail
 
 # Load environment variables
@@ -107,40 +121,10 @@ echo "=== Creating project directories ==="
 mkdir -p "$PROJECT_DIR/logs"
 mkdir -p "$PROJECT_DIR/cache/irispen"
 sudo mkdir -p /mnt/irispen
-#!/usr/bin/env bash
-#
-# System Setup Script
-#
-# Purpose:
-#   Installs all required system packages and prepares the base environment for ipr-keyboard.
-#   Must be run as root. Sources environment variables from 00_set_env.sh.
-#
-# Usage:
-#   sudo ./scripts/01_system_setup.sh
-#
-# Prerequisites:
-#   - Environment variables set in 00_set_env.sh
-#   - Run as root (sudo)
-#
-set -euo pipefail
-
-# Load environment variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
-
 
 
 ########################################
-# 9. Permissions
-########################################
-echo "=== Fixing permissions ==="
-sudo chown -R meibye:meibye "$PROJECT_DIR"
-sudo chown meibye:meibye /mnt/irispen
-
-
-########################################
-# 10. Final messages
+# 9. Final messages
 ########################################
 echo "=== [01] System setup complete ==="
 echo "You may now mount the IRISPen with:"
