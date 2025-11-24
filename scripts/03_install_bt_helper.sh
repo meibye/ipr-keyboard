@@ -791,4 +791,3 @@ echo "  - Helper:        $HELPER_PATH"
 echo "  - FIFO:          $FIFO_PATH"
 echo "  - Backends:      uinput (active), ble (structured skeleton)"
 echo "To switch backend later, use scripts/15_switch_keyboard_backend.sh."
-EOF
