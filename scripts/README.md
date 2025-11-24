@@ -62,11 +62,10 @@ All scripts begin with a description header explaining their purpose, usage, pre
 - **12_sync_irispen_to_cache.sh**: Syncs files from MTP mount to local cache. Must NOT be run as root. Sources environment variables.
 - **13_install_bt_hid_daemon.sh**: Installs/configures a Bluetooth HID daemon (advanced/optional). References `/usr/local/bin/bt_kb_send` but does NOT overwrite it. Must be run as root. Sources environment variables.
 - **14_test_bt_keyboard.sh**: Sends a test string via the Bluetooth HID helper (bt_kb_send) or daemon to verify Bluetooth keyboard emulation is working end-to-end. Useful for troubleshooting Bluetooth pairing, helper/daemon setup, and keyboard pipeline. Usage: `./scripts/14_test_bt_keyboard.sh ["Your test string"]` (If no argument is given, a default Danish test string is sent). For manual, interactive testing only. Not used in automated workflows or CI. Sources environment variables for project directory and configuration.
-- **15_switch_keyboard_backend.sh**: Legacy script to switch the active keyboard backend between uinput and BLE. Uses a hardcoded project directory path. Prefer 16_switch_keyboard_backend.sh for environment-variable-based resolution and modern usage. Must be run as root. Requires jq. 
-- **16_switch_keyboard_backend.sh**: Switches the active keyboard backend between uinput (local virtual keyboard) and BLE (Bluetooth Low Energy HID). Uses environment variables for project directory. For advanced backend management and troubleshooting. This is the recommended script for backend switching.
+- **15_switch_keyboard_backend.sh**: Switches the active keyboard backend between uinput (local virtual keyboard) and BLE (Bluetooth Low Energy HID). Uses environment variables for project directory. For advanced backend management and troubleshooting. Must be run as root. Requires jq.
 - **run_dev.sh**: Runs the application in foreground for development. Must NOT be run as root. Sources environment variables.
 
-See the top of each script for details on usage, prerequisites, and environment variable requirements. All scripts (except legacy 15_switch_keyboard_backend.sh) use environment variables for project directory resolution.
+See the top of each script for details on usage, prerequisites, and environment variable requirements. All scripts use environment variables for project directory resolution.
 
 #### 3. Install Bluetooth Helper
 ```bash
