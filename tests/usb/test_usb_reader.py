@@ -1,6 +1,7 @@
 """Tests for USB file reading functionality.
 
-Tests file reading with size limits and error handling.
+Tests file reading with size limits, error handling, and integration
+with detection and deletion modules.
 """
 from pathlib import Path
 
@@ -85,13 +86,13 @@ def test_read_file_too_large(usb_folder):
 def test_read_file_exactly_at_limit(usb_folder):
     """Test reading a file exactly at the size limit.
     
-    Verifies that files at exactly the limit are rejected.
+    Verifies that files at exactly the limit are accepted (uses > not >=).
     """
     file = usb_folder / "exact.txt"
     content_text = "12345"  # 5 bytes
     file.write_text(content_text, encoding="utf-8")
     
-    # File size equals limit - should be rejected (not <=, uses >)
+    # File size equals limit - should be accepted (uses > for rejection)
     # Based on reader.py: if path.stat().st_size > max_size: return None
     result = reader.read_file(file, max_size=5)
     
