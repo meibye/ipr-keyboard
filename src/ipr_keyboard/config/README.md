@@ -35,6 +35,7 @@ class AppConfig:
     Logging: bool = True                    # Enable logging
     MaxFileSize: int = 1024 * 1024         # Max file size (1MB)
     LogPort: int = 8080                     # Web server port
+    KeyboardBackend: str = "uinput"         # Backend: "uinput" or "ble"
 ```
 
 ### Methods
@@ -125,7 +126,22 @@ Get current configuration.
     "DeleteFiles": true,
     "Logging": true,
     "MaxFileSize": 1048576,
-    "LogPort": 8080
+    "LogPort": 8080,
+    "KeyboardBackend": "uinput"
+  }
+  ```
+
+#### `GET /config/backends`
+Get keyboard backend information.
+- **Response**: JSON object with current backend and available options
+- **Example**:
+  ```bash
+  curl http://localhost:8080/config/backends
+  ```
+  ```json
+  {
+    "current": "uinput",
+    "available": ["uinput", "ble"]
   }
   ```
 
@@ -133,6 +149,7 @@ Get current configuration.
 Update configuration fields.
 - **Request Body**: JSON object with fields to update
 - **Response**: Updated configuration
+- **Note**: Updating `KeyboardBackend` only changes the config file. To switch the actual system-level backend services, use `scripts/15_switch_keyboard_backend.sh`.
 - **Example**:
   ```bash
   curl -X POST http://localhost:8080/config/ \
@@ -177,6 +194,7 @@ curl -X POST http://<pi-ip>:8080/config/ \
   -d '{"KeyboardBackend": "ble"}'
 ```
 
+After updating the config, switch the actual backend:
 ```bash
 cd /home/meibye/dev/ipr-keyboard
 ./scripts/15_switch_keyboard_backend.sh   # uses config's KeyboardBackend
@@ -190,6 +208,7 @@ If `config.json` doesn't exist or is empty, the default values from `AppConfig` 
 - Logging: `true`
 - MaxFileSize: `1048576` (1 MB)
 - LogPort: `8080`
+- KeyboardBackend: `uinput`
 
 ## Testing
 

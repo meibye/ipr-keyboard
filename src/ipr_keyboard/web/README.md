@@ -72,6 +72,7 @@ From `config.web` module - see [config/README.md](../config/README.md#web-api)
 
 Endpoints:
 - `GET /config/` - Get current configuration
+- `GET /config/backends` - Get keyboard backend information
 - `POST /config/` - Update configuration
 
 ### Logs Blueprint (`/logs/`)
@@ -124,7 +125,22 @@ Response:
   "IrisPenFolder": "/mnt/irispen",
   "LogPort": 8080,
   "Logging": true,
-  "MaxFileSize": 1048576
+  "MaxFileSize": 1048576,
+  "KeyboardBackend": "uinput"
+}
+```
+
+### View Keyboard Backends
+
+```bash
+curl http://raspberry-pi:8080/config/backends
+```
+
+Response:
+```json
+{
+  "current": "uinput",
+  "available": ["uinput", "ble"]
 }
 ```
 
@@ -154,7 +170,8 @@ The API can also be accessed via web browser:
 
 1. **Health Check**: `http://<pi-ip>:8080/health`
 2. **Configuration**: `http://<pi-ip>:8080/config/`
-3. **Logs**: `http://<pi-ip>:8080/logs/tail?lines=100`
+3. **Keyboard Backends**: `http://<pi-ip>:8080/config/backends`
+4. **Logs**: `http://<pi-ip>:8080/logs/tail?lines=100`
 
 JSON responses are displayed in the browser (or use a JSON formatter extension).
 

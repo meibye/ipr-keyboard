@@ -120,6 +120,49 @@ Delete the newest file in a folder.
 - **Returns**: Path of deleted file, or `None` on failure
 - **Convenience**: Combines `newest_file()` and `delete_file()`
 
+## mtp_sync.py
+
+Functions for syncing files from MTP-mounted devices to a local cache.
+
+### `SyncResult` Dataclass
+
+Result object returned by `sync_mtp_to_cache()`:
+- **`copied`**: List of files successfully copied
+- **`skipped`**: List of files skipped (already in sync)
+- **`deleted_source`**: List of source files deleted (when `delete_source=True`)
+
+### `sync_mtp_to_cache(mtp_root: Path, cache_root: Path, delete_source: bool = False) -> SyncResult`
+Sync `*.txt` files from an MTP-mounted root into a local cache directory.
+
+- **Parameters**:
+  - `mtp_root` - Path to MTP mount point (e.g., `/mnt/irispen`)
+  - `cache_root` - Local cache directory (e.g., `./cache/irispen`)
+  - `delete_source` - If `True`, delete source files after successful copy
+- **Returns**: `SyncResult` with lists of copied, skipped, and deleted files
+- **Behavior**:
+  - Recursively finds all `*.txt` files under `mtp_root`
+  - Copies files that are new or have different size/mtime
+  - Skips files already in cache with same size/mtime
+  - Optionally deletes source files on success
+  - Creates cache directory structure as needed
+
+### CLI Entry Point
+
+The module can be run directly as a CLI tool:
+
+```bash
+# Basic sync (default: /mnt/irispen -> ./cache/irispen)
+python -m ipr_keyboard.usb.mtp_sync
+
+# Custom paths
+python -m ipr_keyboard.usb.mtp_sync --mtp-root /mnt/irispen --cache-root /tmp/cache
+
+# Delete source files after sync
+python -m ipr_keyboard.usb.mtp_sync --delete-source
+```
+
+See also: `scripts/12_sync_irispen_to_cache.sh` which wraps this functionality.
+
 ## Usage Example
 
 ### Main Application Loop
@@ -184,6 +227,27 @@ if newest:
     # Delete it
     if deleter.delete_file(newest):
         print("Deleted successfully")
+```
+
+### MTP Sync Operations
+
+```python
+from pathlib import Path
+from ipr_keyboard.usb.mtp_sync import sync_mtp_to_cache
+
+# Sync from MTP mount to local cache
+mtp_root = Path("/mnt/irispen")
+cache_root = Path("./cache/irispen")
+
+result = sync_mtp_to_cache(mtp_root, cache_root, delete_source=False)
+
+print(f"Copied: {len(result.copied)} files")
+print(f"Skipped: {len(result.skipped)} files")
+print(f"Deleted: {len(result.deleted_source)} source files")
+
+# Then process files from cache instead of MTP mount
+for file in result.copied:
+    print(f"New file available: {file}")
 ```
 
 ## File Detection Strategy
