@@ -59,7 +59,7 @@ fi
 if [[ "$BACKEND" == "" || "$BACKEND" == "null" ]]; then
   BACKEND="default (check config)"
 fi
-status_line "Selected Backend" "$BACKEND"
+status_line "Selected Backend (config)" "$BACKEND"
 
 # Check for known services
 for svc in bt_hid_daemon.service bt_hid_ble.service bt_hid_uinput.service; do
@@ -80,10 +80,16 @@ section "Bluetooth Connection & Pairing"
 # Show paired devices and connection status
 if command -v bluetoothctl >/dev/null 2>&1; then
   echo "Paired devices:"
-  bluetoothctl paired-devices
+  bluetoothctl devices
   echo
-  echo "Active connections:"
-  bluetoothctl info | grep -E 'Device|Connected|Paired|Alias|UUID' || echo "  (No active connection info)"
+  echo "Connection info for paired devices:"
+  while read -r line; do
+    mac=$(echo "$line" | awk '{print $2}')
+    if [[ -n "$mac" ]]; then
+      echo "  Device $mac:"
+      bluetoothctl info "$mac" | grep -E 'Device|Connected|Paired|Alias|UUID' | sed 's/^/    /'
+    fi
+  done < <(bluetoothctl devices)
 else
   status_line "bluetoothctl" "NOT INSTALLED" "$red"
 fi
