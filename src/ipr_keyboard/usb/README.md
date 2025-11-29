@@ -264,7 +264,8 @@ This approach:
 - ✓ Works with mount/unmount cycles
 - ✓ Simple and reliable
 - ✗ Assumes IrisPen creates files with increasing timestamps
-- ✗ Clock changes could cause issues
+- ✗ Clock changes could cause issues 
+- ✗ if identical time the first file in alphabetical order is considered newest
 
 ## Safety Features
 
