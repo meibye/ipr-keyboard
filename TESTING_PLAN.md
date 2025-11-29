@@ -300,23 +300,122 @@ curl http://localhost:8080/logs/tail?lines=50
 
 ---
 
-## End-to-End Testing
 
-Use the provided scripts for full system testing:
 
-```bash
-# Quick smoke test (component checks)
-./scripts/07_smoke_test.sh
+## Manual Testing Procedures
 
-# Full E2E demo (foreground mode)
-./scripts/08_e2e_demo.sh
+### Prerequisites
 
-# Systemd service E2E test
-sudo ./scripts/09_e2e_systemd_demo.sh
+Before performing manual tests, ensure the following prerequisites are met:
 
-# Diagnostics for failures
-./scripts/10_diagnose_failure.sh
-```
+1. **Raspberry Pi Setup**
+    - Raspberry Pi is running Raspberry Pi OS or compatible Linux distribution.
+    - All system updates are applied.
+    - The `ipr-keyboard` project and all dependencies are installed according to the documentation.
+    - Python virtual environment is set up and activated if running in development mode.
+
+2. **Bluetooth Pairing (as Keyboard)**
+    - The Raspberry Pi must be configured to act as a Bluetooth HID keyboard.
+    - The Bluetooth helper (`/usr/local/bin/bt_kb_send`) and daemon (`bt_hid_daemon.service`) are installed and running.
+    - To pair the target device (PC, tablet, etc.) with the Pi as a keyboard:
+      1. Make the Raspberry Pi discoverable:
+          ```bash
+          bluetoothctl
+          [bluetoothctl]> discoverable on
+          [bluetoothctl]> pairable on
+          [bluetoothctl]> agent KeyboardOnly
+          [bluetoothctl]> default-agent
+          ```
+      2. On the target device, search for new Bluetooth devices. The Pi should appear as a keyboard (e.g., "Raspberry Pi Keyboard").
+      3. Initiate pairing from the target device. If prompted for a PIN, enter it on the target device and then type the same PIN on the Pi (using a connected keyboard) followed by Enter.
+      4. After successful pairing, ensure the device is connected as a keyboard (check in `bluetoothctl` with `info <device-mac>` or via the desktop Bluetooth UI).
+      5. If using a headless Pi, you may need to SSH in and use `bluetoothctl` exclusively.
+    - Only one device can typically be paired as a keyboard at a time.
+
+3. **USB/IrisPen Setup**
+    - The IrisPen or USB stick is available and can be mounted on the Pi.
+    - For MTP devices, ensure `mtp-tools` or equivalent is installed.
+    - The mount point (default: `/mnt/irispen`) is configured in `config.json`.
+
+4. **Network Access (for Web API)**
+    - The Pi and the test client (PC, phone, etc.) are on the same network.
+    - Firewall allows access to the configured web API port (default: 8080).
+
+5. **Log Directory**
+    - The `logs/` directory exists and is writable by the application.
+
+6. **Service/Development Mode**
+    - The application is running either as a systemd service or in development mode using `./scripts/run_dev.sh`.
+
+---
+
+The following manual test steps are required to verify correct operation of the Bluetooth, USB, Web, and Logging functionality. These steps should be performed on a fully set up Raspberry Pi with all dependencies installed and the system configured as described above.
+
+### 1. Bluetooth Functionality
+
+**Goal:** Verify that text can be sent from the Pi to a paired device via Bluetooth HID keyboard emulation.
+
+**Steps:**
+1. Ensure the target device (PC, tablet, etc.) is paired and connected to the Raspberry Pi as a Bluetooth keyboard.
+2. On the Pi, run:
+    ```bash
+    ./scripts/14_test_bt_keyboard.sh "Hello Bluetooth Test ÆØÅ"
+    ```
+3. Focus a text input field on the paired device (e.g., Notepad, browser, terminal).
+4. Observe that the test string appears as keyboard input on the paired device.
+5. If nothing appears, check:
+    - The status of the Bluetooth daemon: `sudo systemctl status bt_hid_daemon.service`
+    - That `/usr/local/bin/bt_kb_send` exists and is executable
+    - The Pi is still paired and connected as a keyboard
+    - Logs for errors: `sudo journalctl -u bt_hid_daemon.service -f`
+
+### 2. USB Functionality
+
+**Goal:** Verify that the system detects, reads, and (optionally) deletes new files from the IrisPen USB or MTP device.
+
+**Steps:**
+1. Connect the IrisPen or USB stick to the Pi and ensure it is mounted at the configured path (default: `/mnt/irispen`).
+2. If using MTP, mount with:
+    ```bash
+    sudo ./scripts/11_mount_irispen_mtp.sh
+    ./scripts/12_sync_irispen_to_cache.sh
+    ```
+3. Use the IrisPen to scan text, or manually create a `.txt` file in the mount folder.
+4. Observe that the file is detected, read, and (if configured) deleted by the application.
+5. Check logs for file detection and processing events.
+6. To test file deletion, set `DeleteFiles: true` in `config.json` or via the web API.
+
+### 3. Web API Functionality
+
+**Goal:** Verify that the web API is accessible and provides configuration, logs, and health endpoints.
+
+**Steps:**
+1. Start the application (as a service or with `./scripts/run_dev.sh`).
+2. From another device on the same network, open a browser and visit:
+    - `http://<pi-ip>:8080/health` (should return `{ "status": "ok" }`)
+    - `http://<pi-ip>:8080/config/` (should return current config as JSON)
+    - `http://<pi-ip>:8080/logs/tail?lines=50` (should show recent log entries)
+3. Use `curl` to POST a config update:
+    ```bash
+    curl -X POST http://<pi-ip>:8080/config/ -H "Content-Type: application/json" -d '{"DeleteFiles": false}'
+    ```
+4. Confirm the change is reflected in subsequent GET requests.
+5. Test error handling by sending invalid requests and observing error responses.
+
+### 4. Logging Functionality
+
+**Goal:** Verify that all actions are logged to both file and console, and logs are accessible via the web API.
+
+**Steps:**
+1. Trigger actions (Bluetooth send, USB file detection, config changes) as above.
+2. Check the log file directly:
+    ```bash
+    tail -n 50 logs/ipr_keyboard.log
+    ```
+3. Access logs via the web API as described above.
+4. Confirm that log entries are timestamped, include action details, and rotate as expected when the file size limit is reached.
+
+---
 
 ---
 
