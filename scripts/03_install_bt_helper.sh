@@ -786,8 +786,169 @@ systemctl disable bt_hid_ble.service || true
 systemctl enable bt_hid_uinput.service
 systemctl restart bt_hid_uinput.service
 
+########################################
+# 6. Bluetooth Agent for pairing / authorization
+########################################
+AGENT_PATH="/usr/local/bin/bt_hid_agent.py"
+
+echo "=== [03] Writing $AGENT_PATH ==="
+cat > "$AGENT_PATH" << 'EOF'
+#!/usr/bin/env python3
+"""
+bt_hid_agent.py
+
+BlueZ Agent for ipr-keyboard.
+
+Responsibilities:
+  - Register as org.bluez.Agent1 with capability "KeyboardOnly"
+  - Set adapter Powered/Discoverable/Pairable on startup
+  - Auto-accept passkey confirmation and service authorization
+"""
+
+from __future__ import annotations
+
+import sys
+import dbus
+import dbus.mainloop.glib
+import dbus.service
+from gi.repository import GLib
+
+BLUEZ_SERVICE_NAME = "org.bluez"
+AGENT_IFACE = "org.bluez.Agent1"
+AGENT_MANAGER_IFACE = "org.bluez.AgentManager1"
+ADAPTER_IFACE = "org.bluez.Adapter1"
+DBUS_PROP_IFACE = "org.freedesktop.DBus.Properties"
+
+AGENT_PATH = "/org/bluez/agent/ipr_keyboard"
+
+
+def _find_adapter(bus: dbus.bus.BusConnection) -> str:
+    obj = bus.get_object(BLUEZ_SERVICE_NAME, "/")
+    om = dbus.Interface(obj, "org.freedesktop.DBus.ObjectManager")
+    objects = om.GetManagedObjects()
+    for path, ifaces in objects.items():
+        if ADAPTER_IFACE in ifaces:
+            return path
+    return ""
+
+
+class IprKeyboardAgent(dbus.service.Object):
+    def __init__(self, bus: dbus.bus.BusConnection) -> None:
+        super().__init__(bus, AGENT_PATH)
+
+    # Most of these just "always-yes" or log and continue.
+    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="")
+    def Release(self, device) -> None:
+        print("[agent] Release called")
+
+    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="s")
+    def RequestPinCode(self, device) -> str:
+        print(f"[agent] RequestPinCode for {device} -> using 0000")
+        return "0000"
+
+    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="u")
+    def RequestPasskey(self, device) -> int:
+        print(f"[agent] RequestPasskey for {device} -> using 000000")
+        return 0
+
+    @dbus.service.method(AGENT_IFACE, in_signature="ou", out_signature="")
+    def DisplayPasskey(self, device, passkey: int) -> None:
+        print(f"[agent] DisplayPasskey {device} passkey={passkey:06d}")
+
+    @dbus.service.method(AGENT_IFACE, in_signature="os", out_signature="")
+    def DisplayPinCode(self, device, pincode: str) -> None:
+        print(f"[agent] DisplayPinCode {device} pincode={pincode}")
+
+    @dbus.service.method(AGENT_IFACE, in_signature="ou", out_signature="")
+    def RequestConfirmation(self, device, passkey: int) -> None:
+        # This is what your logs showed earlier.
+        print(f"[agent] RequestConfirmation {device} passkey={passkey:06d} -> ACCEPT")
+        # No exception means "yes".
+
+    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="")
+    def RequestAuthorization(self, device) -> None:
+        print(f"[agent] RequestAuthorization {device} -> ACCEPT")
+
+    @dbus.service.method(AGENT_IFACE, in_signature="os", out_signature="")
+    def AuthorizeService(self, device, uuid: str) -> None:
+        # This is the critical one: previously you got "Authorize service" then disconnect.
+        print(f"[agent] AuthorizeService device={device} uuid={uuid} -> ACCEPT")
+
+    @dbus.service.method(AGENT_IFACE, in_signature="", out_signature="")
+    def Cancel(self) -> None:
+        print("[agent] Request canceled")
+
+
+def main() -> None:
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    bus = dbus.SystemBus()
+
+    adapter_path = _find_adapter(bus)
+    if not adapter_path:
+        print("[agent] No Bluetooth adapter found, exiting.")
+        sys.exit(1)
+
+    # Power on + make discoverable/pairable
+    adapter_obj = bus.get_object(BLUEZ_SERVICE_NAME, adapter_path)
+    adapter_props = dbus.Interface(adapter_obj, DBUS_PROP_IFACE)
+
+    try:
+        adapter_props.Set(ADAPTER_IFACE, "Powered", dbus.Boolean(True))
+        adapter_props.Set(ADAPTER_IFACE, "Discoverable", dbus.Boolean(True))
+        adapter_props.Set(ADAPTER_IFACE, "Pairable", dbus.Boolean(True))
+        print(f"[agent] Adapter {adapter_path} Powered/Discoverable/Pairable = True")
+    except Exception as exc:
+        print(f"[agent] Failed to tweak adapter properties: {exc}")
+
+    # Register agent
+    mgr_obj = bus.get_object(BLUEZ_SERVICE_NAME, "/org/bluez")
+    mgr = dbus.Interface(mgr_obj, AGENT_MANAGER_IFACE)
+
+    agent = IprKeyboardAgent(bus)
+    mgr.RegisterAgent(AGENT_PATH, "KeyboardOnly")
+    mgr.RequestDefaultAgent(AGENT_PATH)
+    print("[agent] Registered as default BlueZ agent (KeyboardOnly)")
+
+    loop = GLib.MainLoop()
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        print("[agent] Shutting down")
+        try:
+            mgr.UnregisterAgent(AGENT_PATH)
+        except Exception:
+            pass
+
+
+if __name__ == "__main__":
+    main()
+EOF
+
+chmod +x "$AGENT_PATH"
+
+echo "=== [03] Writing bt_hid_agent.service ==="
+cat > /etc/systemd/system/bt_hid_agent.service << 'EOF'
+[Unit]
+Description=IPR Bluetooth Agent (BlueZ Agent1 for ipr-keyboard)
+After=bluetooth.target
+Requires=bluetooth.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/bt_hid_agent.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable bt_hid_agent.service
+systemctl restart bt_hid_agent.service
+
 echo "=== [03] Installation complete. ==="
 echo "  - Helper:        $HELPER_PATH"
 echo "  - FIFO:          $FIFO_PATH"
-echo "  - Backends:      uinput (active), ble (structured skeleton)"
+echo "  - Backends:      uinput (active), ble (fully working BLE HID over GATT)"
+echo "  - Agent:         bt_hid_agent.service (handles pairing & service authorization)"
 echo "To switch backend later, use scripts/15_switch_keyboard_backend.sh."

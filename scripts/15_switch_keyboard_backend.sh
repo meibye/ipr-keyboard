@@ -11,7 +11,10 @@ set -euo pipefail
 #   - read from config.json:      ./scripts/15_switch_keyboard_backend.sh
 #
 
-PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/00_set_env.sh"
+
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 CONFIG_PATH="$PROJECT_DIR/config.json"
 
 BACKEND="${1:-}"

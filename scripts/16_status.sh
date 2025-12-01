@@ -62,7 +62,7 @@ fi
 status_line "Selected Backend (config)" "$BACKEND"
 
 # Check for known services
-for svc in bt_hid_daemon.service bt_hid_ble.service bt_hid_uinput.service; do
+for svc in bt_hid_daemon.service bt_hid_ble.service bt_hid_uinput.service bt_hid_agent.service; do
   if systemctl list-units --type=service | grep -q "$svc"; then
     ACTIVE=$(systemctl is-active "$svc" 2>/dev/null || echo "unknown")
     status_line "$svc" "$ACTIVE" "$([[ "$ACTIVE" == "active" ]] && echo "$green" || echo "$red")"
@@ -90,6 +90,15 @@ if command -v bluetoothctl >/dev/null 2>&1; then
       bluetoothctl info "$mac" | grep -E 'Device|Connected|Paired|Alias|UUID' | sed 's/^/    /'
     fi
   done < <(bluetoothctl devices)
+else
+  status_line "bluetoothctl" "NOT INSTALLED" "$red"
+fi
+
+section "Bluetooth Adapter"
+if command -v bluetoothctl >/dev/null 2>&1; then
+  echo "Adapter info:"
+  # bluetoothctl show prints Address, Name, Alias, Class, Powered, Discoverable, Pairable, UUIDs, etc.
+  bluetoothctl show | sed 's/^/  /'
 else
   status_line "bluetoothctl" "NOT INSTALLED" "$red"
 fi

@@ -2,105 +2,124 @@
 
 Creates and configures the Flask application with all blueprints.
 """
+
 from __future__ import annotations
+
+import os
+import subprocess
+from pathlib import Path
+from typing import Any, List
 
 from flask import Flask, jsonify
 
-from ..logging.logger import get_logger
+from ..config.manager import ConfigManager
 from ..config.web import bp_config
+from ..logging.logger import get_logger
 from ..logging.web import bp_logs
 
 logger = get_logger()
 
 
-def create_app() -> Flask:
-        import os
-        import subprocess
-        import json
-        from pathlib import Path
-        from flask import Response
-        from ..config.manager import ConfigManager
+def _run_cmd(cmd: List[str]) -> str:
+    try:
+        return subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
+    except Exception as exc:
+        return f"ERROR: {exc}"
 
-        @app.get("/status")
-        def status():
-            """System status endpoint.
-            Returns JSON with Bluetooth backend, service status, Bluetooth pairing, USB mount, web API, and logging info.
-            """
-            cfg = ConfigManager.instance().get()
-            config_file = Path(os.environ.get("IPR_PROJECT_ROOT", ".")) / "ipr-keyboard" / "config.json"
-            log_file = Path(os.environ.get("IPR_PROJECT_ROOT", ".")) / "ipr-keyboard" / "logs" / "ipr_keyboard.log"
-            # Backend
-            backend = getattr(cfg, "KeyboardBackend", None) or "default"
-            # Service status
-            services = {}
-            for svc in ["bt_hid_daemon.service", "bt_hid_ble.service", "bt_hid_uinput.service"]:
-                try:
-                    res = subprocess.run(["systemctl", "is-active", svc], capture_output=True, text=True, check=False)
-                    services[svc] = res.stdout.strip()
-                except Exception:
-                    services[svc] = "unknown"
-            # Bluetooth pairing info
-            bt_info = []
-            try:
-                out = subprocess.run(["bluetoothctl", "paired-devices"], capture_output=True, text=True, check=False)
-                bt_info = out.stdout.strip().splitlines()
-            except Exception:
-                bt_info = ["bluetoothctl not available"]
-            # USB mount
-            mount_path = getattr(cfg, "IrisPenFolder", "/mnt/irispen")
-            try:
-                mounts = subprocess.run(["mount"], capture_output=True, text=True, check=False).stdout
-                mounted = any(mount_path in line for line in mounts.splitlines())
-            except Exception:
-                mounted = False
-            # Web API port
-            port = getattr(cfg, "LogPort", 8080)
-            # Web API listening
-            try:
-                import socket
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                listening = s.connect_ex(("127.0.0.1", int(port))) == 0
-                s.close()
-            except Exception:
-                listening = False
-            # Log file
-            log_exists = log_file.exists()
-            log_tail = []
-            if log_exists:
-                try:
-                    with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
-                        log_tail = f.readlines()[-3:]
-                except Exception:
-                    log_tail = ["(error reading log)"]
-            return jsonify({
-                "backend": backend,
-                "services": services,
-                "bluetooth_paired_devices": bt_info,
-                "usb_mount": {"path": mount_path, "mounted": mounted},
-                "web_api": {"port": port, "listening": listening},
-                "log_file": {"exists": log_exists, "tail": log_tail},
-                "config_file": str(config_file),
-            })
-    """Create and configure the Flask application.
-    
-    Registers all blueprints (config and logs) and sets up health check endpoint.
-    
-    Returns:
-        Configured Flask application instance.
-    """
+
+def _service_status(name: str) -> str:
+    try:
+        # is-active --quiet returns 0 only when active
+        rc = subprocess.call(["systemctl", "is-active", "--quiet", name])
+        if rc == 0:
+            return "active"
+        # Check if enabled even if not active
+        rc = subprocess.call(["systemctl", "is-enabled", "--quiet", name])
+        if rc == 0:
+            return "enabled-not-active"
+        return "inactive"
+    except Exception:
+        return "unknown"
+
+
+def create_app() -> Flask:
     app = Flask(__name__)
 
+    # Register blueprints
     app.register_blueprint(bp_config)
     app.register_blueprint(bp_logs)
 
     @app.get("/health")
     def health():
-        """Health check endpoint.
-        
-        Returns:
-            JSON response with status "ok".
-        """
+        """Simple health-check endpoint."""
         return jsonify({"status": "ok"})
+
+    @app.get("/status")
+    def status():
+        """System status endpoint.
+
+        Returns JSON with:
+          - environment (IPR_USER, IPR_PROJECT_ROOT)
+          - config file info and chosen KeyboardBackend
+          - log file presence
+          - systemd status for bt_hid_* services
+          - Bluetooth adapter + paired device info
+        """
+        env = {
+            "IPR_USER": os.environ.get("IPR_USER", ""),
+            "IPR_PROJECT_ROOT": os.environ.get("IPR_PROJECT_ROOT", ""),
+        }
+
+        project_root = Path(env["IPR_PROJECT_ROOT"] or ".")
+        config_file = project_root / "ipr-keyboard" / "config.json"
+        log_file = project_root / "ipr-keyboard" / "logs" / "ipr_keyboard.log"
+
+        cfg = ConfigManager.instance().get()
+        backend = getattr(cfg, "KeyboardBackend", None)
+
+        services = {
+            "bt_hid_uinput.service": _service_status("bt_hid_uinput.service"),
+            "bt_hid_ble.service": _service_status("bt_hid_ble.service"),
+            "bt_hid_agent.service": _service_status("bt_hid_agent.service"),
+        }
+
+        # Bluetooth adapter info
+        adapter_info = _run_cmd(["bluetoothctl", "show"])
+
+        # Paired devices and their info
+        devices: list[dict[str, Any]] = []
+        try:
+            devices_out = subprocess.check_output(
+                ["bluetoothctl", "devices"], text=True
+            )
+            for line in devices_out.splitlines():
+                parts = line.split()
+                if len(parts) >= 2:
+                    mac = parts[1]
+                    info_out = _run_cmd(["bluetoothctl", "info", mac])
+                    devices.append({"mac": mac, "info": info_out})
+        except Exception as exc:
+            devices.append({"error": f"failed to query devices: {exc}"})
+
+        return jsonify(
+            {
+                "env": env,
+                "config": {
+                    "file": str(config_file),
+                    "exists": config_file.exists(),
+                    "keyboard_backend": backend,
+                },
+                "log": {
+                    "file": str(log_file),
+                    "exists": log_file.exists(),
+                },
+                "services": services,
+                "bluetooth": {
+                    "adapter": adapter_info,
+                    "devices": devices,
+                },
+            }
+        )
 
     logger.info("Web server created")
     return app
