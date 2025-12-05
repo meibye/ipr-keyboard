@@ -5,17 +5,17 @@
 # Starts the Flask web server for the ipr-keyboard project directly (for development or diagnostics).
 #
 # Usage:
-#   ./scripts/17_run_web_server.sh
+#   ./scripts/dev_run_webserver.sh
 #
 # Prerequisites:
 #   - Must NOT be run as root
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #   - Python venv activated or dependencies installed
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
 cd "$IPR_PROJECT_ROOT/ipr-keyboard"
 

@@ -4,13 +4,13 @@
 #
 # Purpose:
 #   Installs all required system packages and prepares the base environment for ipr-keyboard.
-#   Must be run as root. Sources environment variables from 00_set_env.sh.
+#   Must be run as root. Sources environment variables from env_set_variables.sh.
 #
 # Usage:
-#   sudo ./scripts/01_system_setup.sh
+#   sudo ./scripts/sys_install_packages.sh
 #
 # Prerequisites:
-#   - Environment variables set in 00_set_env.sh
+#   - Environment variables set in env_set_variables.sh
 #   - Run as root (sudo)
 #
 
@@ -19,9 +19,9 @@ set -euo pipefail
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
-echo "=== [01] System Setup for ipr_keyboard on Raspberry Pi ==="
+echo "=== [sys_install_packages] System Setup for ipr_keyboard on Raspberry Pi ==="
 
 ########################################
 # 1. System update
@@ -100,7 +100,7 @@ export PATH="$HOME/.local/bin:$PATH"
 ########################################
 # 7. Prepare project venv using uv
 ########################################
-PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
 
 echo "=== Setting up Python venv with uv ==="
@@ -126,9 +126,9 @@ sudo mkdir -p /mnt/irispen
 ########################################
 # 9. Final messages
 ########################################
-echo "=== [01] System setup complete ==="
+echo "=== [sys_install_packages] System setup complete ==="
 echo "You may now mount the IRISPen with:"
-echo "  ./scripts/11_mount_irispen_mtp.sh"
+echo "  ./scripts/usb_mount_mtp.sh"
 echo ""
 echo "Then run the app in dev mode:"
-echo "  ./scripts/run_dev.sh"
+echo "  ./scripts/dev_run_app.sh"

@@ -15,18 +15,113 @@ The scripts automate the complete setup process from system configuration to ser
 
 ## Script Organization
 
-Scripts are numbered to indicate the recommended execution order:
-- `00_` - Environment configuration
-- `01-05_` - Core installation scripts (run in order)
-- `06_` - Optional USB mount setup
-- `07-09_` - Testing and demo scripts
-- `10_` - Diagnostic tools
-- `run_dev.sh` - Development helper
+Scripts are organized by domain with descriptive prefixes:
 
+| Prefix | Domain | Description |
+|--------|--------|-------------|
+| `env_` | Environment | Environment variable configuration |
+| `sys_` | System | System-level setup (packages, venv) |
+| `ble_` | Bluetooth | Bluetooth HID configuration and backends |
+| `usb_` | USB/MTP | IrisPen mount and sync operations |
+| `svc_` | Service | Systemd service installation |
+| `test_` | Testing | Smoke tests, E2E tests, Bluetooth tests |
+| `dev_` | Development | Development helpers |
+| `diag_` | Diagnostics | Troubleshooting and status tools |
+
+## Fresh Installation Order
+
+For a fresh Raspberry Pi installation, run scripts in this order:
+
+```bash
+# Navigate to project directory
+cd $IPR_PROJECT_ROOT/ipr-keyboard
+
+# Step 1: Configure environment variables (edit this file first)
+nano scripts/env_set_variables.sh
+
+# Step 2: System setup (requires root)
+sudo ./scripts/sys_install_packages.sh      # Install system packages
+sudo ./scripts/ble_configure_system.sh      # Configure Bluetooth for HID
+sudo ./scripts/ble_install_helper.sh        # Install Bluetooth keyboard helper
+
+# Step 3: Python environment (as user, not root)
+./scripts/sys_setup_venv.sh                 # Create Python venv with dependencies
+
+# Step 4: Smoke test (as user)
+./scripts/test_smoke.sh                     # Verify installation
+
+# Step 5: Install service (requires root)
+sudo ./scripts/svc_install_systemd.sh       # Install systemd service
+
+# Optional: Mount IrisPen USB (requires root)
+sudo ./scripts/usb_setup_mount.sh /dev/sda1 # Configure persistent USB mount
+```
+
+## Script Reference
+
+### Environment Configuration
+
+| Script | Description | Run as |
+|--------|-------------|--------|
+| `env_set_variables.sh` | Sets IPR_USER and IPR_PROJECT_ROOT environment variables. Sourced by all other scripts. | Source |
+
+### System Setup
+
+| Script | Description | Run as |
+|--------|-------------|--------|
+| `sys_install_packages.sh` | Installs system packages (git, bluez, mtp-tools, uv, etc.) | root |
+| `sys_setup_venv.sh` | Creates Python venv with uv and installs project dependencies | user |
+
+### Bluetooth / HID
+
+| Script | Description | Run as |
+|--------|-------------|--------|
+| `ble_configure_system.sh` | Configures /etc/bluetooth/main.conf for HID keyboard profile | root |
+| `ble_install_helper.sh` | **CRITICAL** - Installs bt_kb_send helper and backend daemons | root |
+| `ble_install_daemon.sh` | Optional advanced HID daemon installation | root |
+| `ble_switch_backend.sh` | Switch between uinput and BLE keyboard backends | root |
+| `ble_setup_extras.sh` | Advanced RPi extras (backend manager, pairing wizard, diagnostics) | root |
+
+### USB / IrisPen
+
+| Script | Description | Run as |
+|--------|-------------|--------|
+| `usb_setup_mount.sh` | Sets up persistent USB mount for IrisPen | root |
+| `usb_mount_mtp.sh` | Mount/unmount IrisPen as MTP device | root |
+| `usb_sync_cache.sh` | Sync files from MTP mount to local cache | user |
+
+### Service Management
+
+| Script | Description | Run as |
+|--------|-------------|--------|
+| `svc_install_systemd.sh` | Install and enable ipr_keyboard.service | root |
+
+### Testing
+
+| Script | Description | Run as |
+|--------|-------------|--------|
+| `test_smoke.sh` | Basic functionality tests (imports, config, web, USB) | user |
+| `test_e2e_demo.sh` | End-to-end demo in foreground mode | user |
+| `test_e2e_systemd.sh` | End-to-end test with systemd service | root |
+| `test_bluetooth.sh` | Manual Bluetooth keyboard test with bt_kb_send | user |
+
+### Development
+
+| Script | Description | Run as |
+|--------|-------------|--------|
+| `dev_run_app.sh` | Run application in foreground for development | user |
+| `dev_run_webserver.sh` | Run Flask web server directly | user |
+
+### Diagnostics
+
+| Script | Description | Run as |
+|--------|-------------|--------|
+| `diag_troubleshoot.sh` | Comprehensive diagnostic checks | user/root |
+| `diag_status.sh` | System status overview (Bluetooth, services, config) | user |
 
 ## Environment Configuration
 
-All scripts (except `00_set_env.sh` itself) source `00_set_env.sh` to ensure consistent environment variables for user, project root, and other settings. This enables dynamic project directory resolution and consistent configuration. Edit `scripts/00_set_env.sh` to set:
+All scripts source `env_set_variables.sh` to ensure consistent environment variables. Edit this file to set:
 - `IPR_USER`: Your username (default: meibye)
 - `IPR_PROJECT_ROOT`: Your development directory path (default: /home/meibye/dev)
 
@@ -36,142 +131,51 @@ export IPR_USER="your_username"
 export IPR_PROJECT_ROOT="/your/dev/path"
 ```
 
-**Note:** All scripts expect these variables to be set and will fail early if not.
+## Architecture Diagram
 
-
-## Script Descriptions
-
-All scripts begin with a description header explaining their purpose, usage, prerequisites, and environment variable requirements. All scripts (except `00_set_env.sh`) source the environment script for consistency.
-
-### Core Installation (Run in Order)
-
-- **01_system_setup.sh**: System package installation and base setup. Must be run as root. Sources environment variables.
-- **02_configure_bluetooth.sh**: Configures Bluetooth for HID keyboard profile. Must be run as root. Sources environment variables.
-- **03_install_bt_helper.sh**: Installs the Bluetooth HID helper script at `/usr/local/bin/bt_kb_send` and related backend daemons. This is the ONLY script that creates or updates the helper. Must be run as root. Sources environment variables for project directory and configuration.
-- **04_setup_venv.sh**: Sets up Python virtual environment using uv. Must NOT be run as root. Sources environment variables.
-- **05_install_service.sh**: Installs and enables the systemd service. Must be run as root. Sources environment variables.
-
-### Optional and Utility Scripts
-
-- **06_setup_irispen_mount.sh**: Sets up a persistent mount for the IrisPen USB device. Must be run as root. Sources environment variables.
-- **07_smoke_test.sh**: Runs quick smoke tests for all major components. Must NOT be run as root. Sources environment variables.
-- **08_e2e_demo.sh**: End-to-end workflow demo (foreground, not systemd). Must NOT be run as root. Sources environment variables.
-- **09_e2e_systemd_demo.sh**: End-to-end workflow demo using systemd service. Must be run as root. Sources environment variables.
-- **10_diagnose_failure.sh**: Comprehensive diagnostic tool for troubleshooting. Can be run as user or root. Sources environment variables.
-- **11_mount_irispen_mtp.sh**: Mounts or unmounts the IrisPen MTP device. Must be run as root. Sources environment variables.
-- **12_sync_irispen_to_cache.sh**: Syncs files from MTP mount to local cache. Must NOT be run as root. Sources environment variables.
-- **13_install_bt_hid_daemon.sh**: Installs/configures a Bluetooth HID daemon (advanced/optional). References `/usr/local/bin/bt_kb_send` but does NOT overwrite it. Must be run as root. Sources environment variables.
-- **14_test_bt_keyboard.sh**: Sends a test string via the Bluetooth HID helper (bt_kb_send) or daemon to verify Bluetooth keyboard emulation is working end-to-end. Useful for troubleshooting Bluetooth pairing, helper/daemon setup, and keyboard pipeline. Usage: `./scripts/14_test_bt_keyboard.sh ["Your test string"]` (If no argument is given, a default Danish test string is sent). For manual, interactive testing only. Not used in automated workflows or CI. Sources environment variables for project directory and configuration.
-- **15_switch_keyboard_backend.sh**: Switches the active keyboard backend between uinput (local virtual keyboard) and BLE (Bluetooth Low Energy HID). Uses environment variables for project directory. For advanced backend management and troubleshooting. Must be run as root. Requires jq.
-- **run_dev.sh**: Runs the application in foreground for development. Must NOT be run as root. Sources environment variables.
-
-See the top of each script for details on usage, prerequisites, and environment variable requirements. All scripts use environment variables for project directory resolution.
-
-#### 3. Install Bluetooth Helper
-```bash
-sudo ./scripts/03_install_bt_helper.sh
 ```
-- Installs Bluetooth HID helper script at `/usr/local/bin/bt_kb_send` (the ONLY script that creates/updates it)
-- Sets up keyboard emulation utilities
-- May be a placeholder that needs customization
-
-#### 4. Setup Python Virtual Environment
-```bash
-./scripts/04_setup_venv.sh
-```
-- Creates Python virtual environment using uv
-- Installs Python dependencies
-- Run as regular user (not root)
-
-#### 5. Install Systemd Service
-```bash
-sudo ./scripts/05_install_service.sh
-```
-- Installs systemd service file
-- Enables service to start on boot
-- Starts the service
-
-### Optional Setup
-
-#### 6. Setup IrisPen USB Mount
-```bash
-sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1
-```
-- Mounts IrisPen USB device
-- Configure mount point
-- Requires device node (check with `lsblk -fp`)
-
-## Testing Scripts
-
-### 7. Smoke Test
-```bash
-./scripts/07_smoke_test.sh
-```
-- Basic functionality test
-- Verifies installation
-- Run as regular user
-
-### 8. End-to-End Demo
-```bash
-./scripts/08_e2e_demo.sh
-```
-- Demonstrates full workflow
-- Tests file detection and processing
-- Requires manual setup of test files
-
-### 9. End-to-End Systemd Demo
-```bash
-./scripts/09_e2e_systemd_demo.sh
-```
-- Tests systemd service functionality
-- Verifies service is running correctly
-- End-to-end test with service
-
-## Diagnostic Tools
-
-### 10. Diagnose Failure
-```bash
-./scripts/10_diagnose_failure.sh
-```
-- Diagnostic script for troubleshooting
-- Checks system state
-- Identifies common issues
-
-## Development Helper
-
-### run_dev.sh
-```bash
-./scripts/run_dev.sh
-```
-- Runs application in foreground for debugging
-- Alternative to systemd service
-- Useful during development
-- Press Ctrl+C to stop
-
-## Complete Installation Flow
-
-### Quick Start (Recommended Order)
-
-```bash
-# Navigate to project directory
-cd ${IPR_PROJECT_ROOT}/ipr-keyboard
-
-# 1. System setup (requires root)
-sudo ./scripts/01_system_setup.sh
-sudo ./scripts/02_configure_bluetooth.sh
-sudo ./scripts/03_install_bt_helper.sh
-
-# 2. Python environment (as user)
-./scripts/04_setup_venv.sh
-
-# 3. Optional: Mount IrisPen USB (requires root, adjust device as needed)
-sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1
-
-# 4. Smoke test (as user)
-./scripts/07_smoke_test.sh
-
-# 5. Install and start service (requires root)
-sudo ./scripts/05_install_service.sh
+┌─────────────────────────────────────────────────────────────────────┐
+│                         ipr-keyboard System                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
+│  │   IrisPen    │───>│ USB/MTP Mount│───>│ File Detection Loop   │   │
+│  │   Scanner    │    │ /mnt/irispen │    │ (main.py)            │   │
+│  └──────────────┘    └──────────────┘    └──────────┬───────────┘   │
+│                                                      │               │
+│  Scripts:                                            ▼               │
+│  - usb_setup_mount.sh      ┌───────────────────────────────────────┐│
+│  - usb_mount_mtp.sh        │            Core Application           ││
+│  - usb_sync_cache.sh       │                                       ││
+│                            │  ┌─────────┐  ┌────────┐  ┌────────┐  ││
+│                            │  │ Config  │  │ Logger │  │  USB   │  ││
+│                            │  │ Manager │  │        │  │ Reader │  ││
+│                            │  └────┬────┘  └────┬───┘  └───┬────┘  ││
+│                            │       │            │          │       ││
+│                            └───────┴────────────┴──────────┴───────┘│
+│                                     │                      │         │
+│  Scripts:                           ▼                      ▼         │
+│  - sys_install_packages.sh   ┌─────────────┐    ┌─────────────────┐ │
+│  - sys_setup_venv.sh         │  Web API    │    │ Bluetooth       │ │
+│  - svc_install_systemd.sh    │  (Flask)    │    │ Keyboard        │ │
+│                              │  Port 8080  │    │ (bt_kb_send)    │ │
+│                              └─────────────┘    └────────┬────────┘ │
+│                                                          │          │
+│  Scripts:                                                ▼          │
+│  - ble_configure_system.sh              ┌────────────────────────┐  │
+│  - ble_install_helper.sh                │  Bluetooth Backend     │  │
+│  - ble_switch_backend.sh                │  ┌────────┐ ┌────────┐ │  │
+│                                         │  │ uinput │ │  BLE   │ │  │
+│                                         │  │ daemon │ │ daemon │ │  │
+│                                         │  └────────┘ └────────┘ │  │
+│                                         └───────────┬────────────┘  │
+│                                                     │               │
+│                                                     ▼               │
+│                                           ┌─────────────────┐       │
+│                                           │  Paired Device  │       │
+│                                           │  (PC/Tablet)    │       │
+│                                           └─────────────────┘       │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Testing Individual Features
@@ -179,7 +183,7 @@ sudo ./scripts/05_install_service.sh
 ### Configuration Management
 ```bash
 # Unit tests
-pytest tests/config
+pytest tests/config/
 
 # Web API test
 curl http://localhost:8080/config/
@@ -207,13 +211,6 @@ curl -X POST http://localhost:8080/config/ -H "Content-Type: application/json" -
 2. Check log file: `cat logs/ipr_keyboard.log`
 3. View via web API: `curl http://localhost:8080/logs/tail?lines=50`
 
-### End-to-End
-1. Configure `config.json` with correct `IrisPenFolder`
-2. Ensure systemd service is running: `sudo systemctl status ipr-keyboard`
-3. Complete workflow:
-   - Scan with IrisPen → File created → Pi detects file → Reads content
-   - Forwards text via Bluetooth → Optionally deletes file → Logs visible in web UI
-
 ## Prerequisites
 
 - Raspberry Pi with Raspbian/Raspberry Pi OS
@@ -234,20 +231,21 @@ chmod +x scripts/*.sh
 If installation fails:
 1. Check environment variables are set correctly
 2. Ensure you have internet connectivity
-3. Run diagnostic script: `./scripts/10_diagnose_failure.sh`
+3. Run diagnostic script: `./scripts/diag_troubleshoot.sh`
 4. Check logs: `cat logs/ipr_keyboard.log`
-5. Verify systemd service status: `sudo systemctl status ipr-keyboard`
+5. Verify systemd service status: `sudo systemctl status ipr_keyboard`
 
 ## Notes
 
 - Scripts use `set -euo pipefail` for safety (exit on error)
-- All scripts source `00_set_env.sh` for consistent configuration
+- All scripts source `env_set_variables.sh` for consistent configuration
 - Some scripts require root privileges (use `sudo`)
 - Python environment uses `uv` for dependency management
-- The Bluetooth helper (`bt_kb_send`) may need customization for your setup. Only `03_install_bt_helper.sh` creates or updates this helper; `13_install_bt_hid_daemon.sh` references it but does not overwrite it.
+- The Bluetooth helper (`bt_kb_send`) is created by `ble_install_helper.sh`
 
 ## See Also
 
 - [Main README](../README.md) - Project overview
 - [Source Code Documentation](../src/ipr_keyboard/README.md) - Code structure
 - [Testing Documentation](../tests/README.md) - Running tests
+- [Testing Plan](../TESTING_PLAN.md) - Comprehensive testing strategy

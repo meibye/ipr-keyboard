@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 #
 # Systemd Service Installation Script
@@ -12,7 +11,7 @@
 # Prerequisites:
 #   - Must be run as root (uses sudo)
 #   - Virtual environment must already be set up
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #
 # Note:
 #   The service runs as the configured user (not root) for security.
@@ -22,9 +21,9 @@ set -euo pipefail
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
-echo "[05] Installing systemd service ipr_keyboard.service"
+echo "[svc_install_systemd] Installing systemd service ipr_keyboard.service"
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root: sudo $0"
@@ -66,6 +65,6 @@ EOF
 systemctl daemon-reload
 systemctl enable ipr_keyboard.service
 
-echo "[05] Service installed and enabled."
+echo "[svc_install_systemd] Service installed and enabled."
 echo "     Start now:   sudo systemctl start ipr_keyboard"
 echo "     Check status: sudo systemctl status ipr_keyboard"

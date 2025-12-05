@@ -7,7 +7,7 @@
 #   Identifies common installation, configuration, and runtime issues.
 #
 # Prerequisites:
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #   - Project must be installed
 #
 # Usage:
@@ -22,10 +22,10 @@ set -euo pipefail
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
 echo "======================================"
-echo "[10] ipr_keyboard Diagnostic Tool"
+echo "[diag_troubleshoot] ipr_keyboard Diagnostic Tool"
 echo "======================================"
 echo
 
@@ -33,14 +33,14 @@ echo
 TEST_FILE_MODE=false
 if [[ "${1:-}" == "--test-file" ]]; then
   TEST_FILE_MODE=true
-  echo "[10] Test file mode enabled"
+  echo "[diag_troubleshoot] Test file mode enabled"
   echo
 fi
 
 PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
 
-echo "[10] Checking project directory..."
+echo "[diag_troubleshoot] Checking project directory..."
 if [[ -d "$PROJECT_DIR" ]]; then
   echo "✓ Project directory exists: $PROJECT_DIR"
 else
@@ -49,12 +49,12 @@ else
 fi
 echo
 
-echo "[10] Checking virtual environment..."
+echo "[diag_troubleshoot] Checking virtual environment..."
 if [[ -d "$VENV_DIR" ]]; then
   echo "✓ Virtual environment exists: $VENV_DIR"
 else
   echo "✗ Virtual environment NOT found: $VENV_DIR"
-  echo "  Run: ./scripts/04_setup_venv.sh"
+  echo "  Run: ./scripts/sys_setup_venv.sh"
   exit 1
 fi
 echo
@@ -63,7 +63,7 @@ cd "$PROJECT_DIR"
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-echo "[10] Testing Python imports..."
+echo "[diag_troubleshoot] Testing Python imports..."
 if python -c "import ipr_keyboard" 2>/dev/null; then
   echo "✓ ipr_keyboard module can be imported"
 else
@@ -72,7 +72,7 @@ else
 fi
 echo
 
-echo "[10] Checking configuration..."
+echo "[diag_troubleshoot] Checking configuration..."
 python -c "
 from ipr_keyboard.config.manager import ConfigManager
 from ipr_keyboard.utils.helpers import config_path
@@ -104,7 +104,7 @@ except Exception as e:
 "
 echo
 
-echo "[10] Checking IrisPenFolder mount point..."
+echo "[diag_troubleshoot] Checking IrisPenFolder mount point..."
 IRIS_FOLDER=$(python -c "
 from ipr_keyboard.config.manager import ConfigManager
 cfg = ConfigManager.instance().get()
@@ -127,7 +127,7 @@ else
 fi
 echo
 
-echo "[10] Checking systemd service..."
+echo "[diag_troubleshoot] Checking systemd service..."
 SERVICE_NAME="ipr_keyboard.service"
 if systemctl list-unit-files 2>/dev/null | grep -q "$SERVICE_NAME"; then
   echo "✓ Service is installed"
@@ -145,11 +145,11 @@ if systemctl list-unit-files 2>/dev/null | grep -q "$SERVICE_NAME"; then
   systemctl status "$SERVICE_NAME" --no-pager -l -n 0 2>&1 || true
 else
   echo "⚠ Service is NOT installed"
-  echo "  Run: sudo ./scripts/05_install_service.sh"
+  echo "  Run: sudo ./scripts/svc_install_systemd.sh"
 fi
 echo
 
-echo "[10] Checking log file..."
+echo "[diag_troubleshoot] Checking log file..."
 LOG_FILE="$PROJECT_DIR/logs/ipr_keyboard.log"
 if [[ -f "$LOG_FILE" ]]; then
   echo "✓ Log file exists: $LOG_FILE"
@@ -161,7 +161,7 @@ else
 fi
 echo
 
-echo "[10] Checking systemd journal..."
+echo "[diag_troubleshoot] Checking systemd journal..."
 if command -v journalctl >/dev/null 2>&1; then
   echo "Last 10 journal entries for $SERVICE_NAME:"
   journalctl -u "$SERVICE_NAME" -n 10 --no-pager 2>&1 || echo "  (no entries or permission denied)"
@@ -170,7 +170,7 @@ else
 fi
 echo
 
-echo "[10] Checking Bluetooth helper..."
+echo "[diag_troubleshoot] Checking Bluetooth helper..."
 python -c "
 from ipr_keyboard.bluetooth.keyboard import BluetoothKeyboard
 kb = BluetoothKeyboard()
@@ -179,13 +179,13 @@ if kb.is_available():
 else:
     print('⚠ Bluetooth helper is NOT available')
     print('  Expected at: /usr/local/bin/bt_kb_send')
-    print('  Run: sudo ./scripts/03_install_bt_helper.sh')
+    print('  Run: sudo ./scripts/ble_install_helper.sh')
 "
 echo
 
 # Test file mode
 if $TEST_FILE_MODE; then
-  echo "[10] TEST FILE MODE: Creating test file..."
+  echo "[diag_troubleshoot] TEST FILE MODE: Creating test file..."
   echo
   
   mkdir -p "$IRIS_FOLDER"
@@ -215,5 +215,5 @@ if $TEST_FILE_MODE; then
 fi
 
 echo "======================================"
-echo "[10] Diagnostic complete"
+echo "[diag_troubleshoot] Diagnostic complete"
 echo "======================================"

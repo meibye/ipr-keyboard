@@ -4,11 +4,21 @@ This directory contains the comprehensive test suite for the ipr-keyboard projec
 
 ## Test Coverage
 
-Current test coverage: **94%** (129 tests)
+Current test coverage: **94%** (137 tests)
+
+## Testing Levels
+
+The testing strategy follows three levels:
+
+| Level | Description | Tools | Coverage |
+|-------|-------------|-------|----------|
+| **Unit Tests** | Test individual functions/classes in isolation | pytest, mocks | `tests/` directory |
+| **Component Tests** | Test modules with mocked external dependencies | pytest, fixtures | `tests/integration/` |
+| **End-to-End Tests** | Test full system on real hardware | Shell scripts | `scripts/test_*.sh` |
 
 ## Test Structure
 
-The tests are organized to mirror the source code structure:
+Tests are organized to mirror the source code structure:
 
 ```
 tests/
@@ -140,34 +150,37 @@ Common fixtures for all tests:
 
 ### Bluetooth (mocked in tests)
 - Tests mock `subprocess.run` to simulate helper behavior
-- For actual Bluetooth testing: `./scripts/14_test_bt_keyboard.sh`
+- For actual Bluetooth testing: `./scripts/test_bluetooth.sh`
 
 ### USB (temporary directories)
 - Tests use `tmp_path` fixture for isolation
-- For actual USB testing: `./scripts/06_setup_irispen_mount.sh`
+- For actual USB testing: `./scripts/usb_setup_mount.sh`
 
 ### Web API (Flask test client)
 - Tests use Flask's built-in test client
 - For manual API testing:
   ```bash
-  ./scripts/run_dev.sh
+  ./scripts/dev_run_app.sh
   curl http://localhost:8080/health
   curl http://localhost:8080/config/
   ```
 
 ## End-to-End Testing (Scripts)
 
-For full system testing, use the provided scripts:
+For full system testing on a Raspberry Pi, use the provided scripts:
 
 ```bash
 # Smoke test (component checks)
-./scripts/07_smoke_test.sh
+./scripts/test_smoke.sh
 
 # Full E2E demo (foreground mode)
-./scripts/08_e2e_demo.sh
+./scripts/test_e2e_demo.sh
 
 # Systemd service E2E test
-sudo ./scripts/09_e2e_systemd_demo.sh
+sudo ./scripts/test_e2e_systemd.sh
+
+# Manual Bluetooth keyboard test
+./scripts/test_bluetooth.sh "Test string æøå"
 ```
 
 ## Writing Tests

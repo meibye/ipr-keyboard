@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 18_setup_rpi_extras.sh
+# ble_setup_extras.sh
 #
 # Set up all extra RPi-side components for ipr-keyboard:
 #   - Backend manager (prevents uinput + BLE running at same time)
@@ -10,17 +10,17 @@
 #   - Pairing wizard HTML template
 #   - Pairing routes in src/ipr_keyboard/web/server.py
 #
-# Run as: sudo ./scripts/18_setup_rpi_extras.sh
+# Run as: sudo ./scripts/ble_setup_extras.sh
 #
 
 set -euo pipefail
 
 if [[ "$EUID" -ne 0 ]]; then
-  echo "Please run this script as root (sudo ./scripts/18_setup_rpi_extras.sh)."
+  echo "Please run this script as root (sudo ./scripts/ble_setup_extras.sh)."
   exit 1
 fi
 
-echo "=== [18] Setting up ipr-keyboard RPi extras ==="
+echo "=== [ble_setup_extras] Setting up ipr-keyboard RPi extras ==="
 
 # ---------------------------------------------------------------------------
 # Locate project root (assume scripts/ is at $PROJECT_ROOT/scripts)
@@ -34,7 +34,7 @@ echo "Project root:  $PROJECT_ROOT"
 # ---------------------------------------------------------------------------
 # 1. Backend selector file: /etc/ipr-keyboard/backend
 # ---------------------------------------------------------------------------
-echo "=== [18] Configuring backend selector ==="
+echo "=== [ble_setup_extras] Configuring backend selector ==="
 BACKEND_DIR="/etc/ipr-keyboard"
 BACKEND_FILE="$BACKEND_DIR/backend"
 
@@ -50,7 +50,7 @@ fi
 # ---------------------------------------------------------------------------
 # 2. Backend manager script
 # ---------------------------------------------------------------------------
-echo "=== [18] Installing backend manager script ==="
+echo "=== [ble_setup_extras] Installing backend manager script ==="
 BACKEND_MANAGER="/usr/local/bin/ipr_backend_manager.sh"
 
 cat > "$BACKEND_MANAGER" << 'EOF'
@@ -109,7 +109,7 @@ echo "  Installed $BACKEND_MANAGER"
 # ---------------------------------------------------------------------------
 # 3. Backend manager systemd unit
 # ---------------------------------------------------------------------------
-echo "=== [18] Installing backend manager systemd unit ==="
+echo "=== [ble_setup_extras] Installing backend manager systemd unit ==="
 BACKEND_SERVICE="/etc/systemd/system/ipr_backend_manager.service"
 
 cat > "$BACKEND_SERVICE" << 'EOF'
@@ -134,7 +134,7 @@ echo "  Enabled and started ipr_backend_manager.service"
 # ---------------------------------------------------------------------------
 # 4. BLE diagnostics script
 # ---------------------------------------------------------------------------
-echo "=== [18] Installing BLE diagnostics script ==="
+echo "=== [ble_setup_extras] Installing BLE diagnostics script ==="
 BLE_DIAG="/usr/local/bin/ipr_ble_diagnostics.sh"
 
 cat > "$BLE_DIAG" << 'EOF'
@@ -197,7 +197,7 @@ echo "  Installed $BLE_DIAG"
 # ---------------------------------------------------------------------------
 # 5. BLE HID analyzer (DBus signal listener for HID reports)
 # ---------------------------------------------------------------------------
-echo "=== [18] Installing BLE HID analyzer ==="
+echo "=== [ble_setup_extras] Installing BLE HID analyzer ==="
 BLE_ANALYZER="/usr/local/bin/ipr_ble_hid_analyzer.py"
 
 cat > "$BLE_ANALYZER" << 'EOF'
@@ -263,7 +263,7 @@ echo "  Installed $BLE_ANALYZER"
 # ---------------------------------------------------------------------------
 # 6. Pairing wizard HTML template
 # ---------------------------------------------------------------------------
-echo "=== [18] Installing pairing wizard HTML template ==="
+echo "=== [ble_setup_extras] Installing pairing wizard HTML template ==="
 TEMPLATES_DIR="$PROJECT_ROOT/src/ipr_keyboard/web/templates"
 PAIRING_TEMPLATE="$TEMPLATES_DIR/pairing_wizard.html"
 
@@ -340,7 +340,7 @@ echo "  Installed $PAIRING_TEMPLATE"
 # ---------------------------------------------------------------------------
 # 7. Inject pairing routes into server.py (once)
 # ---------------------------------------------------------------------------
-echo "=== [18] Injecting pairing routes into server.py (if missing) ==="
+echo "=== [ble_setup_extras] Injecting pairing routes into server.py (if missing) ==="
 SERVER_PY="$PROJECT_ROOT/src/ipr_keyboard/web/server.py"
 
 if [[ ! -f "$SERVER_PY" ]]; then
@@ -352,7 +352,7 @@ else
     cat >> "$SERVER_PY" << 'EOF'
 
 # ---------------------------------------------------------------------------
-# IPR-KEYBOARD PAIRING ROUTES (auto-injected by 18_setup_rpi_extras.sh)
+# IPR-KEYBOARD PAIRING ROUTES (auto-injected by ble_setup_extras.sh)
 # ---------------------------------------------------------------------------
 from flask import render_template
 import subprocess
@@ -392,7 +392,7 @@ EOF
   fi
 fi
 
-echo "=== [18] Setup complete ==="
+echo "=== [ble_setup_extras] Setup complete ==="
 echo "You can now use:"
 echo "  - ipr_ble_diagnostics.sh          (BLE health check)"
 echo "  - ipr_ble_hid_analyzer.py         (HID report analyzer)"

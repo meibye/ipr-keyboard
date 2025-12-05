@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 03_install_bt_helper.sh
+# ble_install_helper.sh
 #
 # Install Bluetooth Keyboard Helper Script and backend daemons.
 #
@@ -32,12 +32,12 @@ HELPER_PATH="/usr/local/bin/bt_kb_send"
 UINPUT_DAEMON="/usr/local/bin/bt_hid_uinput_daemon.py"
 BLE_DAEMON="/usr/local/bin/bt_hid_ble_daemon.py"
 
-echo "=== [03] Installing Bluetooth keyboard helper and backends ==="
+echo "=== [ble_install_helper] Installing Bluetooth keyboard helper and backends ==="
 
 ########################################
 # 1. Install system dependencies
 ########################################
-echo "=== [03] Installing OS packages (python3, evdev, bluez, dbus) ==="
+echo "=== [ble_install_helper] Installing OS packages (python3, evdev, bluez, dbus) ==="
 apt update
 apt install -y \
   python3 \
@@ -50,7 +50,7 @@ apt install -y \
 ########################################
 # 2. Create helper script: bt_kb_send
 ########################################
-echo "=== [03] Writing $HELPER_PATH ==="
+echo "=== [ble_install_helper] Writing $HELPER_PATH ==="
 cat > "$HELPER_PATH" << 'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -76,7 +76,7 @@ chmod +x "$HELPER_PATH"
 ########################################
 # 3. Create uinput backend daemon
 ########################################
-echo "=== [03] Writing $UINPUT_DAEMON ==="
+echo "=== [ble_install_helper] Writing $UINPUT_DAEMON ==="
 cat > "$UINPUT_DAEMON" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -229,7 +229,7 @@ chmod +x "$UINPUT_DAEMON"
 ########################################
 # 4. Create BLE HID backend daemon (fully working)
 ########################################
-echo "=== [03] Writing $BLE_DAEMON ==="
+echo "=== [ble_install_helper] Writing $BLE_DAEMON ==="
 cat > "$BLE_DAEMON" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -750,7 +750,7 @@ chmod +x "$BLE_DAEMON"
 ########################################
 # 5. Systemd units for both backends
 ########################################
-echo "=== [03] Writing systemd units ==="
+echo "=== [ble_install_helper] Writing systemd units ==="
 
 cat > /etc/systemd/system/bt_hid_uinput.service << 'EOF'
 [Unit]
@@ -780,7 +780,7 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
-echo "=== [03] Reloading systemd and enabling uinput backend by default ==="
+echo "=== [ble_install_helper] Reloading systemd and enabling uinput backend by default ==="
 systemctl daemon-reload
 systemctl disable bt_hid_ble.service || true
 systemctl enable bt_hid_uinput.service
@@ -791,7 +791,7 @@ systemctl restart bt_hid_uinput.service
 ########################################
 AGENT_PATH="/usr/local/bin/bt_hid_agent.py"
 
-echo "=== [03] Writing $AGENT_PATH ==="
+echo "=== [ble_install_helper] Writing $AGENT_PATH ==="
 cat > "$AGENT_PATH" << 'EOF'
 #!/usr/bin/env python3
 """
@@ -926,7 +926,7 @@ EOF
 
 chmod +x "$AGENT_PATH"
 
-echo "=== [03] Writing bt_hid_agent.service ==="
+echo "=== [ble_install_helper] Writing bt_hid_agent.service ==="
 cat > /etc/systemd/system/bt_hid_agent.service << 'EOF'
 [Unit]
 Description=IPR Bluetooth Agent (BlueZ Agent1 for ipr-keyboard)
@@ -946,7 +946,7 @@ systemctl daemon-reload
 systemctl enable bt_hid_agent.service
 systemctl restart bt_hid_agent.service
 
-echo "=== [03] Installation complete. ==="
+echo "=== [ble_install_helper] Installation complete. ==="
 echo "  - Helper:        $HELPER_PATH"
 echo "  - FIFO:          $FIFO_PATH"
 echo "  - Backends:      uinput (active), ble (fully working BLE HID over GATT)"
