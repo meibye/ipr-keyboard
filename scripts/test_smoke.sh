@@ -24,9 +24,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/env_set_variables.sh"
 
-# Load environment variables
-echo "[test_smoke] Running smoke tests for ipr_keyboard"
-
 echo "[test_smoke] Running smoke tests for ipr_keyboard"
 
 if [[ $EUID -eq 0 ]]; then
@@ -44,7 +41,7 @@ fi
 
 if [[ ! -d "$VENV_DIR" ]]; then
   echo "Virtual environment not found: $VENV_DIR"
-  echo "Please run sys_setup_venv.sh first."
+  echo "Please run ./scripts/sys_setup_venv.sh first."
   exit 1
 fi
 

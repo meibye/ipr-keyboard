@@ -40,7 +40,7 @@ fi
 # Check if service is installed
 if ! systemctl list-unit-files | grep -q "$SERVICE_NAME"; then
   echo "[test_e2e_systemd] Error: Service $SERVICE_NAME is not installed"
-  echo "[test_e2e_systemd] Please run svc_install_systemd.sh first"
+  echo "[test_e2e_systemd] Please run ./scripts/svc_install_systemd.sh first"
   exit 1
 fi
 

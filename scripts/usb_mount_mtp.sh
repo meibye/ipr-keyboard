@@ -7,27 +7,15 @@
 #   Useful for devices that do not present as USB mass storage.
 #
 # Usage:
-#   sudo ./scripts/11_mount_irispen_mtp.sh mount
-#   sudo ./scripts/11_mount_irispen_mtp.sh unmount
+#   sudo ./scripts/usb_mount_mtp.sh
+#   (Toggles mount/unmount state automatically)
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)
 #   - Environment variables set (sources env_set_variables.sh)
 #
-# Arguments:
-#   mount   - Mount the device
-#   unmount - Unmount the device
-#
 # Note:
-#   Requires mtp-tools and simple-mtpfs.
-
-#!/usr/bin/env bash
-#
-# ipr-keyboard IrisPen MTP Mount Script
-#
-# Purpose:
-#   Mounts or unmounts the IrisPen as an MTP device for file access.
-#   Useful for devices that do not present as USB mass storage.
+#   Requires jmtpfs package.
 
 set -euo pipefail
 

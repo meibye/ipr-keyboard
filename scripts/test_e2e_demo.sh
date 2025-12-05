@@ -49,7 +49,7 @@ fi
 
 if [[ ! -d "$VENV_DIR" ]]; then
   echo "Virtual environment not found: $VENV_DIR"
-  echo "Please run sys_setup_venv.sh first."
+  echo "Please run ./scripts/sys_setup_venv.sh first."
   exit 1
 fi
 

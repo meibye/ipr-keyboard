@@ -7,8 +7,8 @@
 #   Adds the mount entry to /etc/fstab using the device's UUID for reliability.
 #
 # Usage:
-#   sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1
-#   sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1 /media/irispen
+#   sudo ./scripts/usb_setup_mount.sh /dev/sda1
+#   sudo ./scripts/usb_setup_mount.sh /dev/sda1 /media/irispen
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)
