@@ -12,7 +12,7 @@ set -euo pipefail
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
 PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 CONFIG_PATH="$PROJECT_DIR/config.json"
@@ -21,34 +21,34 @@ BACKEND="${1:-}"
 
 if [[ -z "$BACKEND" ]]; then
   if ! command -v jq >/dev/null 2>&1; then
-    echo "[15] ERROR: jq is required to read KeyboardBackend from $CONFIG_PATH" >&2
+    echo "[ble_switch_backend] ERROR: jq is required to read KeyboardBackend from $CONFIG_PATH" >&2
     exit 1
   fi
   BACKEND="$(jq -r '.KeyboardBackend // "uinput"' "$CONFIG_PATH")"
 fi
 
 if [[ "$BACKEND" != "uinput" && "$BACKEND" != "ble" ]]; then
-  echo "[15] ERROR: Invalid backend: $BACKEND (must be 'uinput' or 'ble')" >&2
+  echo "[ble_switch_backend] ERROR: Invalid backend: $BACKEND (must be 'uinput' or 'ble')" >&2
   exit 1
 fi
 
-echo "=== [15] Switching keyboard backend to: $BACKEND ==="
+echo "=== [ble_switch_backend] Switching keyboard backend to: $BACKEND ==="
 
 # Stop both services first
 sudo systemctl stop bt_hid_uinput.service 2>/dev/null || true
 sudo systemctl stop bt_hid_ble.service 2>/dev/null || true
 
 if [[ "$BACKEND" == "uinput" ]]; then
-  echo "[15] Enabling uinput backend (bt_hid_uinput.service)"
+  echo "[ble_switch_backend] Enabling uinput backend (bt_hid_uinput.service)"
   sudo systemctl disable bt_hid_ble.service 2>/dev/null || true
   sudo systemctl enable bt_hid_uinput.service
   sudo systemctl restart bt_hid_uinput.service
 else
-  echo "[15] Enabling BLE backend (bt_hid_ble.service)"
+  echo "[ble_switch_backend] Enabling BLE backend (bt_hid_ble.service)"
   sudo systemctl disable bt_hid_uinput.service 2>/dev/null || true
   sudo systemctl enable bt_hid_ble.service
   sudo systemctl restart bt_hid_ble.service
 fi
 
-echo "=== [15] Backend switched to: $BACKEND ==="
+echo "=== [ble_switch_backend] Backend switched to: $BACKEND ==="
 echo "Active service: bt_hid_${BACKEND}.service"

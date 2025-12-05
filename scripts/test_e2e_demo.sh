@@ -8,7 +8,7 @@
 # Prerequisites:
 #   - Must NOT be run as root
 #   - Python venv must be set up
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #   - IrisPenFolder configured and accessible
 #
 # Usage:
@@ -22,8 +22,8 @@ set -euo pipefail
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
-echo "[08] Running end-to-end demo for ipr_keyboard"
+source "$SCRIPT_DIR/env_set_variables.sh"
+echo "[test_e2e_demo] Running end-to-end demo for ipr_keyboard"
 
 if [[ $EUID -eq 0 ]]; then
   echo "Do NOT run this as root. Run as user '$IPR_USER'."
@@ -38,7 +38,7 @@ if [[ ! -d "$PROJECT_DIR" ]]; then
 fi
 if [[ ! -d "$VENV_DIR" ]]; then
   echo "Virtual environment not found: $VENV_DIR"
-  echo "Please run 04_setup_venv.sh first."
+  echo "Please run sys_setup_venv.sh first."
   exit 1
 fi
 cd "$PROJECT_DIR"
@@ -47,21 +47,21 @@ cd "$PROJECT_DIR"
 source "$VENV_DIR/bin/activate"
 
 # Start the application in the background
-echo "[08] Starting ipr_keyboard in background..."
+echo "[test_e2e_demo] Starting ipr_keyboard in background..."
 python -m ipr_keyboard.main > /tmp/ipr_e2e_demo.log 2>&1 &
 APP_PID=$!
-echo "[08] Application started with PID $APP_PID"
+echo "[test_e2e_demo] Application started with PID $APP_PID"
 
 # Give it time to start
 sleep 3
 
 # Check if it's still running
 if ! kill -0 $APP_PID 2>/dev/null; then
-  echo "[08] Error: Application failed to start"
+  echo "[test_e2e_demo] Error: Application failed to start"
   cat /tmp/ipr_e2e_demo.log
   exit 1
 fi
-echo "[08] Application is running"
+echo "[test_e2e_demo] Application is running"
 
 # Get the configured IrisPenFolder
 IRIS_FOLDER=$(python -c "
@@ -69,7 +69,7 @@ from ipr_keyboard.config.manager import ConfigManager
 cfg = ConfigManager.instance().get()
 print(cfg.IrisPenFolder)
 ")
-echo "[08] Configured IrisPenFolder: $IRIS_FOLDER"
+echo "[test_e2e_demo] Configured IrisPenFolder: $IRIS_FOLDER"
 
 # Create the folder if it doesn't exist
 mkdir -p "$IRIS_FOLDER"
@@ -77,20 +77,20 @@ mkdir -p "$IRIS_FOLDER"
 # Create a test file
 TEST_FILE="$IRIS_FOLDER/e2e_test_$(date +%s).txt"
 echo "End-to-end test content from script 08" > "$TEST_FILE"
-echo "[08] Created test file: $TEST_FILE"
+echo "[test_e2e_demo] Created test file: $TEST_FILE"
 # Wait for processing
-echo "[08] Waiting 5 seconds for file to be processed..."
+echo "[test_e2e_demo] Waiting 5 seconds for file to be processed..."
 sleep 5
 
 # Show the log
-echo "[08] Log output:"
+echo "[test_e2e_demo] Log output:"
 tail -n 20 logs/ipr_keyboard.log || echo "Log file not found"
 
 # Clean up
-echo "[08] Stopping application (PID $APP_PID)..."
+echo "[test_e2e_demo] Stopping application (PID $APP_PID)..."
 kill $APP_PID 2>/dev/null || true
 wait $APP_PID 2>/dev/null || true
-echo "[08] End-to-end demo completed"
+echo "[test_e2e_demo] End-to-end demo completed"
 #!/usr/bin/env bash
 #
 # End-to-End Demo Script
@@ -108,7 +108,7 @@ echo "[08] End-to-end demo completed"
 #   6. Cleans up the background process
 #
 # Prerequisites:
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #   - Virtual environment must be set up
 #   - Must NOT be run as root
 #   - /mnt/irispen should exist or be configured
@@ -124,9 +124,9 @@ set -euo pipefail
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
-echo "[08] Running end-to-end demo for ipr_keyboard"
+echo "[test_e2e_demo] Running end-to-end demo for ipr_keyboard"
 
 if [[ $EUID -eq 0 ]]; then
   echo "Do NOT run this as root. Run as user '$IPR_USER'."
@@ -143,7 +143,7 @@ fi
 
 if [[ ! -d "$VENV_DIR" ]]; then
   echo "Virtual environment not found: $VENV_DIR"
-  echo "Please run 04_setup_venv.sh first."
+  echo "Please run sys_setup_venv.sh first."
   exit 1
 fi
 
@@ -153,23 +153,23 @@ cd "$PROJECT_DIR"
 source "$VENV_DIR/bin/activate"
 
 # Start the application in the background
-echo "[08] Starting ipr_keyboard in background..."
+echo "[test_e2e_demo] Starting ipr_keyboard in background..."
 python -m ipr_keyboard.main > /tmp/ipr_e2e_demo.log 2>&1 &
 APP_PID=$!
 
-echo "[08] Application started with PID $APP_PID"
+echo "[test_e2e_demo] Application started with PID $APP_PID"
 
 # Give it time to start
 sleep 3
 
 # Check if it's still running
 if ! kill -0 $APP_PID 2>/dev/null; then
-  echo "[08] Error: Application failed to start"
+  echo "[test_e2e_demo] Error: Application failed to start"
   cat /tmp/ipr_e2e_demo.log
   exit 1
 fi
 
-echo "[08] Application is running"
+echo "[test_e2e_demo] Application is running"
 
 # Get the configured IrisPenFolder
 IRIS_FOLDER=$(python -c "
@@ -178,7 +178,7 @@ cfg = ConfigManager.instance().get()
 print(cfg.IrisPenFolder)
 ")
 
-echo "[08] Configured IrisPenFolder: $IRIS_FOLDER"
+echo "[test_e2e_demo] Configured IrisPenFolder: $IRIS_FOLDER"
 
 # Create the folder if it doesn't exist
 mkdir -p "$IRIS_FOLDER"
@@ -186,19 +186,19 @@ mkdir -p "$IRIS_FOLDER"
 # Create a test file
 TEST_FILE="$IRIS_FOLDER/e2e_test_$(date +%s).txt"
 echo "End-to-end test content from script 08" > "$TEST_FILE"
-echo "[08] Created test file: $TEST_FILE"
+echo "[test_e2e_demo] Created test file: $TEST_FILE"
 
 # Wait for processing
-echo "[08] Waiting 5 seconds for file to be processed..."
+echo "[test_e2e_demo] Waiting 5 seconds for file to be processed..."
 sleep 5
 
 # Show the log
-echo "[08] Log output:"
+echo "[test_e2e_demo] Log output:"
 tail -n 20 logs/ipr_keyboard.log || echo "Log file not found"
 
 # Clean up
-echo "[08] Stopping application (PID $APP_PID)..."
+echo "[test_e2e_demo] Stopping application (PID $APP_PID)..."
 kill $APP_PID 2>/dev/null || true
 wait $APP_PID 2>/dev/null || true
 
-echo "[08] End-to-end demo completed"
+echo "[test_e2e_demo] End-to-end demo completed"

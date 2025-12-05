@@ -15,7 +15,7 @@
 #   - Must NOT be run as root
 #   - Bluetooth helper script (`/usr/local/bin/bt_kb_send`) or daemon must be installed and running
 #   - Target device must be paired and connected
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #
 # Note:
 #   For manual, interactive testing only. Not used in automated workflows or CI.
@@ -23,9 +23,9 @@
 
 # Source environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
-echo "=== [14] Test Bluetooth keyboard pipeline (helper/daemon) ==="
+echo "=== [test_bluetooth] Test Bluetooth keyboard pipeline (helper/daemon) ==="
 
 # Use env var for project root if needed
 BT_HELPER="/usr/local/bin/bt_kb_send"
@@ -41,20 +41,20 @@ fi
 
 echo "--- Checking Bluetooth HID helper ---"
 if [[ ! -x "$BT_HELPER" ]]; then
-  echo "[14] ERROR: Bluetooth helper $BT_HELPER not found or not executable." >&2
-  echo "     Install it with: sudo ./scripts/03_install_bt_helper.sh" >&2
+  echo "[test_bluetooth] ERROR: Bluetooth helper $BT_HELPER not found or not executable." >&2
+  echo "     Install it with: sudo ./scripts/ble_install_helper.sh" >&2
   exit 1
 fi
 
 echo "--- Checking daemon service status ---"
 if ! sudo systemctl status "$SERVICE" --no-pager >/dev/null 2>&1; then
-  echo "[14] ERROR: service $SERVICE not running or failed." >&2
+  echo "[test_bluetooth] ERROR: service $SERVICE not running or failed." >&2
   echo "     Check logs with: sudo journalctl -u $SERVICE -f" >&2
   exit 1
 fi
 
 if [[ ! -p "$FIFO" ]]; then
-  echo "[14] ERROR: FIFO $FIFO not found." >&2
+  echo "[test_bluetooth] ERROR: FIFO $FIFO not found." >&2
   echo "     The daemon should create it automatically." >&2
   echo "     Check logs with: sudo journalctl -u $SERVICE -f" >&2
   exit 1
@@ -66,4 +66,4 @@ echo "    $TEST_STRING"
 echo "wherever the text cursor is focused on the Pi or paired device."
 "$BT_HELPER" "$TEST_STRING"
 
-echo "=== [14] Test complete ==="
+echo "=== [test_bluetooth] Test complete ==="

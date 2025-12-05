@@ -11,7 +11,7 @@
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #
 # Note:
 #   This script is required for enabling Bluetooth HID keyboard emulation.
@@ -21,8 +21,8 @@ set -euo pipefail
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
-echo "[02] Configure /etc/bluetooth/main.conf for HID keyboard profile"
+source "$SCRIPT_DIR/env_set_variables.sh"
+echo "[ble_configure_system] Configure /etc/bluetooth/main.conf for HID keyboard profile"
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root: sudo $0"
@@ -53,4 +53,4 @@ EOF
 echo "Restarting bluetooth service..."
 systemctl restart bluetooth
 
-echo "[02] Done."
+echo "[ble_configure_system] Done."

@@ -1,38 +1,42 @@
+#!/usr/bin/env bash
 #
-# Install Bluetooth HID Daemon Script
+# ipr-keyboard Bluetooth HID Daemon Install Script
 #
 # Purpose:
-#   Installs and configures a Bluetooth HID daemon for keyboard emulation on Raspberry Pi.
-#   Intended for advanced setups where a persistent HID daemon is required instead of the simple helper script.
+#   Installs and configures a Bluetooth HID daemon for advanced keyboard emulation.
+#   Optional alternative to the default bt_kb_send helper.
 #
 # Usage:
-#   sudo ./scripts/13_install_bt_hid_daemon.sh
+#   sudo ./scripts/ble_install_daemon.sh
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)
-#   - Bluetooth hardware and dependencies must be present
+#   - Environment variables set (sources env_set_variables.sh)
 #
 # Note:
-#   This script is optional and not required for the default ipr-keyboard workflow.
-#   Use only if you need a system-wide Bluetooth HID daemon.
+#   This script is OPTIONAL. The main Bluetooth helper is installed by ble_install_helper.sh.
+#   Use only if you need an additional HID daemon with a separate FIFO.
 
-
-#!/usr/bin/env bash
 set -euo pipefail
 
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
-echo "=== [13] Install / update Bluetooth HID daemon and helper ==="
+if [[ $EUID -ne 0 ]]; then
+  echo "Please run as root: sudo $0"
+  exit 1
+fi
+
+echo "=== [ble_install_daemon] Install / update Bluetooth HID daemon ==="
 
 ########################################
 # 1. Install system dependencies
 ########################################
-echo "=== [13] Installing system packages ==="
-sudo apt update
-sudo apt install -y \
+echo "=== [ble_install_daemon] Installing system packages ==="
+apt update
+apt install -y \
     python3 \
     python3-pip \
     python3-evdev \
@@ -43,33 +47,21 @@ sudo apt install -y \
 ########################################
 # 2. Create /usr/local/bin/bt_hid_daemon.py
 ########################################
-echo "=== [13] Writing /usr/local/bin/bt_hid_daemon.py ==="
-sudo tee /usr/local/bin/bt_hid_daemon.py > /dev/null << 'EOF'
+echo "=== [ble_install_daemon] Writing /usr/local/bin/bt_hid_daemon.py ==="
+cat > /usr/local/bin/bt_hid_daemon.py << 'PYTHONEOF'
+#!/usr/bin/env python3
+"""
+bt_hid_daemon.py
 
-#!/usr/bin/env bash
-#
-# ipr-keyboard Bluetooth HID Daemon Install Script
-#
-# Purpose:
-#   Installs and configures a Bluetooth HID daemon for advanced keyboard emulation.
-#   Optional alternative to the default bt_kb_send helper.
-#
-# Usage:
-#   sudo ./scripts/13_install_bt_hid_daemon.sh
-#
-# Prerequisites:
-#   - Must be run as root (uses sudo)
-#   - Environment variables set (sources 00_set_env.sh)
-#
-# Note:
-#   Advanced/optional. Not required for most setups.
+Backend daemon for HID keyboard emulation via uinput.
 
-set -euo pipefail
-
-# Load environment variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
+Responsibilities:
+  - Create /run/bt_keyboard_fifo if it does not exist.
+  - Create a uinput virtual keyboard device.
+  - Read UTF-8 text lines from the FIFO.
+  - Map characters to evdev key codes (with Danish layout support).
+  - Emit key events on the virtual keyboard.
+"""
 
 import os
 import time
@@ -126,7 +118,6 @@ KEYMAP = {
     '\r': (e.KEY_ENTER, False),
 
     # Danish special characters (Danish keyboard layout on the *target* PC):
-    # Typically:
     #   å / Å  -> key right of P          -> KEY_LEFTBRACE
     #   ø / Ø  -> key right of Å          -> KEY_APOSTROPHE
     #   æ / Æ  -> key right of L          -> KEY_SEMICOLON
@@ -137,6 +128,7 @@ KEYMAP = {
     'æ': (e.KEY_SEMICOLON, False),
     'Æ': (e.KEY_SEMICOLON, True),
 }
+
 
 def send_key(ui: UInput, keycode: int, shift: bool) -> None:
     """Send a single key with optional shift using uinput."""
@@ -158,6 +150,7 @@ def send_key(ui: UInput, keycode: int, shift: bool) -> None:
         ui.write(e.EV_KEY, e.KEY_LEFTSHIFT, 0)
         ui.syn()
 
+
 def send_text(ui: UInput, text: str) -> None:
     """Send a whole string as keystrokes."""
     for ch in text:
@@ -165,6 +158,7 @@ def send_text(ui: UInput, text: str) -> None:
         if keycode:
             send_key(ui, keycode, shift)
             time.sleep(0.01)
+
 
 def fifo_thread(ui: UInput) -> None:
     """Read lines from FIFO and send as keystrokes."""
@@ -183,6 +177,7 @@ def fifo_thread(ui: UInput) -> None:
                 print(f"BT HID daemon received: {text!r}")
                 send_text(ui, text)
 
+
 def main() -> None:
     print("BT HID daemon starting (uinput virtual keyboard)...")
     ui = UInput()  # default keyboard-capable device
@@ -197,26 +192,24 @@ def main() -> None:
     except KeyboardInterrupt:
         print("BT HID daemon shutting down...")
 
+
 if __name__ == "__main__":
     main()
-EOF
+PYTHONEOF
 
-sudo chmod +x /usr/local/bin/bt_hid_daemon.py
-
-
+chmod +x /usr/local/bin/bt_hid_daemon.py
 
 ########################################
-# 3. Reference /usr/local/bin/bt_kb_send (do not overwrite)
+# 3. Note about bt_kb_send
 ########################################
-echo "=== [13] Skipping creation of /usr/local/bin/bt_kb_send (managed by 03_install_bt_helper.sh) ==="
-echo "If you need to update the Bluetooth keyboard helper, edit or reinstall via scripts/03_install_bt_helper.sh."
-
+echo "=== [ble_install_daemon] Skipping creation of /usr/local/bin/bt_kb_send ==="
+echo "The Bluetooth keyboard helper is managed by ble_install_helper.sh."
 
 ########################################
 # 4. Create systemd service
 ########################################
-echo "=== [13] Writing /etc/systemd/system/bt_hid_daemon.service ==="
-sudo tee /etc/systemd/system/bt_hid_daemon.service > /dev/null << 'EOF'
+echo "=== [ble_install_daemon] Writing /etc/systemd/system/bt_hid_daemon.service ==="
+cat > /etc/systemd/system/bt_hid_daemon.service << 'EOF'
 [Unit]
 Description=BT HID virtual keyboard daemon (uinput + FIFO)
 After=bluetooth.target
@@ -230,25 +223,24 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
-echo "=== [13] Enabling and starting bt_hid_daemon.service ==="
-sudo systemctl daemon-reload
-sudo systemctl enable bt_hid_daemon.service
-sudo systemctl restart bt_hid_daemon.service
-
+echo "=== [ble_install_daemon] Enabling and starting bt_hid_daemon.service ==="
+systemctl daemon-reload
+systemctl enable bt_hid_daemon.service
+systemctl restart bt_hid_daemon.service
 
 ########################################
-# 5. Ensure Bluetooth config is HID-capable (for later BT side work)
+# 5. Ensure Bluetooth config is HID-capable
 ########################################
 BT_CONF="/etc/bluetooth/main.conf"
 
 if grep -q "^\[General\]" "$BT_CONF" 2>/dev/null; then
   if ! grep -q "^Enable=.*HID" "$BT_CONF" 2>/dev/null; then
-    echo "=== [13] Updating $BT_CONF to include Enable=HID (for future BT HID bridge) ==="
-    sudo sed -i '/^\[General\]/a Enable=HID' "$BT_CONF" || true
-    sudo systemctl restart bluetooth || true
+    echo "=== [ble_install_daemon] Updating $BT_CONF to include Enable=HID ==="
+    sed -i '/^\[General\]/a Enable=HID' "$BT_CONF" || true
+    systemctl restart bluetooth || true
   fi
 fi
 
-echo "=== [13] Done. HID daemon + helper installed with Danish mapping. ==="
+echo "=== [ble_install_daemon] Done. HID daemon installed with Danish mapping. ==="
 echo "You can now test locally with:"
 echo "  bt_kb_send \"Test æøå ÆØÅ\""

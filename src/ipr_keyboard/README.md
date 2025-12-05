@@ -2,6 +2,79 @@
 
 This directory contains the core implementation of the ipr-keyboard application, which bridges IrisPen USB scanner output to a paired device via Bluetooth HID keyboard emulation.
 
+## Component Dependency Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          ipr_keyboard Package                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                        main.py                                    │    │
+│  │                    (Entry Point)                                 │    │
+│  │                                                                   │    │
+│  │   - Initializes all components                                   │    │
+│  │   - Starts web server thread                                     │    │
+│  │   - Starts USB/BT monitor thread                                 │    │
+│  │   - Handles graceful shutdown                                    │    │
+│  └────────────────────────────┬──────────────────────────────────────┘    │
+│                               │                                          │
+│         ┌─────────────────────┼─────────────────────┐                    │
+│         │                     │                     │                    │
+│         ▼                     ▼                     ▼                    │
+│  ┌─────────────┐      ┌─────────────┐      ┌─────────────────┐          │
+│  │   config/   │      │  logging/   │      │      web/       │          │
+│  ├─────────────┤      ├─────────────┤      ├─────────────────┤          │
+│  │ manager.py  │◄─────│ logger.py   │      │ server.py       │          │
+│  │ AppConfig   │      │ get_logger()│◄─────│ create_app()    │          │
+│  │ ConfigMgr   │      │ log_path()  │      │ Flask blueprints│          │
+│  │             │      │             │      │                 │          │
+│  │ web.py      │─────>│ web.py      │─────>│ /config/        │          │
+│  │ (Blueprint) │      │ (Blueprint) │      │ /logs/          │          │
+│  └──────┬──────┘      └──────┬──────┘      │ /health         │          │
+│         │                    │             └────────┬────────┘          │
+│         │                    │                      │                    │
+│         └─────────────┬──────┴──────────────────────┘                    │
+│                       │                                                  │
+│                       ▼                                                  │
+│              ┌─────────────┐                                             │
+│              │   utils/    │                                             │
+│              ├─────────────┤                                             │
+│              │ helpers.py  │                                             │
+│              │             │                                             │
+│              │ project_root()                                            │
+│              │ config_path()                                             │
+│              │ load_json()  │                                            │
+│              │ save_json()  │                                            │
+│              └──────┬──────┘                                             │
+│                     │                                                    │
+│         ┌───────────┴───────────┐                                        │
+│         │                       │                                        │
+│         ▼                       ▼                                        │
+│  ┌─────────────┐       ┌─────────────────┐                               │
+│  │    usb/     │       │   bluetooth/    │                               │
+│  ├─────────────┤       ├─────────────────┤                               │
+│  │ detector.py │       │ keyboard.py     │                               │
+│  │ reader.py   │       │ BluetoothKeyboard                               │
+│  │ deleter.py  │──────>│ send_text()     │                               │
+│  │ mtp_sync.py │       │ is_available()  │                               │
+│  └─────────────┘       └────────┬────────┘                               │
+│                                 │                                        │
+│                                 │ subprocess.run()                       │
+│                                 ▼                                        │
+│                        ┌────────────────────┐                            │
+│                        │ /usr/local/bin/    │                            │
+│                        │ bt_kb_send         │                            │
+│                        │ (System helper)    │                            │
+│                        └────────────────────┘                            │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Legend:
+  ──────>  Uses / Depends on
+  ◄──────  Provides configuration to
+```
+
 ## Structure
 - **main.py**: Application entry point. Starts the web server and USB/Bluetooth monitor threads, coordinates all modules, and handles graceful shutdown.
 - **__init__.py**: Package initialization.
@@ -26,8 +99,6 @@ This directory contains the core implementation of the ipr-keyboard application,
 Run as:
 ```bash
 python -m ipr_keyboard.main
-# or if installed:
-
 ```
 Entry point is defined in `pyproject.toml`.
 
@@ -38,4 +109,3 @@ Entry point is defined in `pyproject.toml`.
 - [usb/README.md](usb/README.md)
 - [utils/README.md](utils/README.md)
 - [web/README.md](web/README.md)
-   - Read file content when detected

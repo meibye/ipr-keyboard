@@ -12,21 +12,92 @@ This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID
 - **Automatic File Cleanup**: Optionally deletes processed files
 - **Thread-safe Configuration**: Live updates via web or file
 
-## Architecture
-- **Entry Point**: `src/ipr_keyboard/main.py` (starts web server and USB/Bluetooth monitor threads)
-- **Bluetooth**: `src/ipr_keyboard/bluetooth/keyboard.py` (wraps system helper)
-- **USB Handling**: `src/ipr_keyboard/usb/` (file detection, reading, deletion)
-- **Config**: `src/ipr_keyboard/config/manager.py` (singleton, JSON-backed)
-- **Logging**: `src/ipr_keyboard/logging/logger.py` (rotating file + console)
-- **Web API**: `src/ipr_keyboard/web/server.py` (Flask, blueprints)
-- **Utilities**: `src/ipr_keyboard/utils/helpers.py` (project root, config path, JSON helpers)
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            ipr-keyboard System                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────┐     ┌──────────────────┐     ┌────────────────────────┐   │
+│  │   IrisPen    │────>│   USB/MTP Mount  │────>│   File Detection Loop  │   │
+│  │   Scanner    │     │   /mnt/irispen   │     │   (detector.py)        │   │
+│  └──────────────┘     └──────────────────┘     └───────────┬────────────┘   │
+│                                                            │                 │
+│                                                            ▼                 │
+│                       ┌────────────────────────────────────────────────────┐│
+│                       │               ipr_keyboard Application             ││
+│                       │                                                    ││
+│                       │  ┌────────────────┐         ┌──────────────────┐   ││
+│                       │  │  main.py       │◄───────>│ config/manager.py│   ││
+│                       │  │  (Entry Point) │         │ (Thread-safe cfg)│   ││
+│                       │  └───────┬────────┘         └────────┬─────────┘   ││
+│                       │          │                           │             ││
+│                       │          ├───────────────────────────┤             ││
+│                       │          │                           │             ││
+│                       │          ▼                           ▼             ││
+│                       │  ┌────────────────┐         ┌──────────────────┐   ││
+│                       │  │  usb/reader.py │         │ logging/logger.py│   ││
+│                       │  │  (Read files)  │         │ (Rotating logs)  │   ││
+│                       │  └───────┬────────┘         └────────┬─────────┘   ││
+│                       │          │                           │             ││
+│                       │          ▼                           ▼             ││
+│                       │  ┌────────────────┐         ┌──────────────────┐   ││
+│                       │  │ usb/deleter.py │         │ web/server.py    │   ││
+│                       │  │ (Cleanup files)│         │ (Flask API)      │   ││
+│                       │  └───────┬────────┘         │ Port 8080        │   ││
+│                       │          │                  └──────────────────┘   ││
+│                       └──────────┼─────────────────────────────────────────┘│
+│                                  │                                          │
+│                                  ▼                                          │
+│                       ┌────────────────────────────────────────────────────┐│
+│                       │         bluetooth/keyboard.py                      ││
+│                       │         (BluetoothKeyboard class)                  ││
+│                       │              │                                     ││
+│                       │              ▼                                     ││
+│                       │     ┌────────────────┐                             ││
+│                       │     │ bt_kb_send     │  (System helper script)     ││
+│                       │     │ (/usr/local/bin)                             ││
+│                       │     └───────┬────────┘                             ││
+│                       │             │                                      ││
+│                       │             ▼                                      ││
+│                       │     ┌────────────────────────────────┐             ││
+│                       │     │  Bluetooth Backend             │             ││
+│                       │     │  ┌──────────┐   ┌──────────┐   │             ││
+│                       │     │  │  uinput  │   │   BLE    │   │             ││
+│                       │     │  │  daemon  │   │  daemon  │   │             ││
+│                       │     │  └──────────┘   └──────────┘   │             ││
+│                       │     └───────────────┬────────────────┘             ││
+│                       └─────────────────────┼──────────────────────────────┘│
+│                                             │                               │
+│                                             ▼                               │
+│                                    ┌─────────────────┐                      │
+│                                    │  Paired Device  │                      │
+│                                    │  (PC / Tablet)  │                      │
+│                                    │  Receives text  │                      │
+│                                    │  as keystrokes  │                      │
+│                                    └─────────────────┘                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Component Overview
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| Entry Point | `src/ipr_keyboard/main.py` | Starts web server and USB/Bluetooth monitor threads |
+| Bluetooth | `src/ipr_keyboard/bluetooth/keyboard.py` | Wraps system helper for keyboard emulation |
+| USB Handling | `src/ipr_keyboard/usb/` | File detection, reading, deletion |
+| Config | `src/ipr_keyboard/config/manager.py` | Thread-safe singleton, JSON-backed |
+| Logging | `src/ipr_keyboard/logging/logger.py` | Rotating file + console logging |
+| Web API | `src/ipr_keyboard/web/server.py` | Flask with blueprints for config/logs |
+| Utilities | `src/ipr_keyboard/utils/helpers.py` | Project root, config path, JSON helpers |
 
 ## Developer Workflows
 - **Setup**: Use scripts in `scripts/` (see `scripts/README.md` for order)
-- **Run in Dev Mode**: `./scripts/run_dev.sh` (foreground, logs to console)
+- **Run in Dev Mode**: `./scripts/dev_run_app.sh` (foreground, logs to console)
 - **Testing**: `pytest` or `pytest --cov=ipr_keyboard` (see `tests/README.md`)
-- **Service Mode**: Installed as systemd service via `05_install_service.sh`
-- **Diagnostics**: `./scripts/10_diagnose_failure.sh` for troubleshooting
+- **Service Mode**: Installed as systemd service via `svc_install_systemd.sh`
+- **Diagnostics**: `./scripts/diag_troubleshoot.sh` for troubleshooting
 
 ## Configuration
 Edit `config.json` in the project root or use the web API:
@@ -62,6 +133,7 @@ Edit `config.json` in the project root or use the web API:
 - [scripts/README.md](scripts/README.md) — Setup and workflow scripts
 - [src/ipr_keyboard/README.md](src/ipr_keyboard/README.md) — Code structure
 - [tests/README.md](tests/README.md) — Test suite
+- [TESTING_PLAN.md](TESTING_PLAN.md) — Comprehensive testing strategy
 
 ---
 Michael Eibye <michael@eibye.name>

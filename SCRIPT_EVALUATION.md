@@ -11,23 +11,23 @@
 
 | Script | Status | Recommendation |
 |--------|--------|----------------|
-| 00_set_env.sh | ✅ KEEP | Required by all other scripts |
-| 01_system_setup.sh | ✅ KEEP | Essential for system installation |
-| 02_configure_bluetooth.sh | ✅ KEEP | Required for Bluetooth HID setup |
-| 03_install_bt_helper.sh | ✅ KEEP | Installs critical Bluetooth helper |
-| 04_setup_venv.sh | ✅ KEEP | Required for Python environment |
-| 05_install_service.sh | ✅ KEEP | Required for systemd service |
-| 06_setup_irispen_mount.sh | ✅ KEEP | Optional but useful for USB mount |
-| 07_smoke_test.sh | ✅ KEEP | Useful for testing installation |
-| 08_e2e_demo.sh | ✅ KEEP | Useful for testing workflow |
-| 09_e2e_systemd_demo.sh | ⚠️ REVIEW | Has incomplete code, missing definitions |
-| 10_diagnose_failure.sh | ✅ KEEP | Essential troubleshooting tool |
-| 11_mount_irispen_mtp.sh | ✅ KEEP | Required for MTP device mounting |
-| 12_sync_irispen_to_cache.sh | ✅ KEEP | Uses mtp_sync.py module |
-| 13_install_bt_hid_daemon.sh | ⚠️ REVIEW | Contains malformed code, duplicates 03 |
-| 14_test_bt_keyboard.sh | ✅ KEEP | Manual testing tool |
-| 15_switch_keyboard_backend.sh | ⚠️ LEGACY | Uses hardcoded path, marked as legacy |
-| run_dev.sh | ✅ KEEP | Essential development tool |
+| env_set_variables.sh | ✅ KEEP | Required by all other scripts |
+| sys_install_packages.sh | ✅ KEEP | Essential for system installation |
+| ble_configure_system.sh | ✅ KEEP | Required for Bluetooth HID setup |
+| ble_install_helper.sh | ✅ KEEP | Installs critical Bluetooth helper |
+| sys_setup_venv.sh | ✅ KEEP | Required for Python environment |
+| svc_install_systemd.sh | ✅ KEEP | Required for systemd service |
+| usb_setup_mount.sh | ✅ KEEP | Optional but useful for USB mount |
+| test_smoke.sh | ✅ KEEP | Useful for testing installation |
+| test_e2e_demo.sh | ✅ KEEP | Useful for testing workflow |
+| test_e2e_systemd.sh | ⚠️ REVIEW | Has incomplete code, missing definitions |
+| diag_troubleshoot.sh | ✅ KEEP | Essential troubleshooting tool |
+| usb_mount_mtp.sh | ✅ KEEP | Required for MTP device mounting |
+| usb_sync_cache.sh | ✅ KEEP | Uses mtp_sync.py module |
+| ble_install_daemon.sh | ⚠️ REVIEW | Contains malformed code, duplicates 03 |
+| test_bluetooth.sh | ✅ KEEP | Manual testing tool |
+| ble_switch_backend.sh | ⚠️ LEGACY | Uses hardcoded path, marked as legacy |
+| dev_run_app.sh | ✅ KEEP | Essential development tool |
 
 **TOTAL:** 17 scripts evaluated  
 **KEEP:** 14 scripts  
@@ -37,7 +37,7 @@
 
 ## Detailed Evaluation
 
-### 00_set_env.sh
+### env_set_variables.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Environment configuration for all other scripts
@@ -49,14 +49,14 @@
 - No code replacement exists for this functionality
 
 **Dependencies in Implementation:**
-- Required by: All numbered scripts + run_dev.sh
+- Required by: All numbered scripts + dev_run_app.sh
 - Referenced in: scripts/README.md
 
 **Recommendation:** **KEEP** - Foundational script required by entire setup system
 
 ---
 
-### 01_system_setup.sh
+### sys_install_packages.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** System package installation and base setup
@@ -75,7 +75,7 @@
 
 ---
 
-### 02_configure_bluetooth.sh
+### ble_configure_system.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Configures /etc/bluetooth/main.conf for HID keyboard profile
@@ -94,7 +94,7 @@
 
 ---
 
-### 03_install_bt_helper.sh
+### ble_install_helper.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Installs Bluetooth HID helper script and backend daemons
@@ -114,7 +114,7 @@
 
 ---
 
-### 04_setup_venv.sh
+### sys_setup_venv.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Creates Python virtual environment using uv
@@ -127,13 +127,13 @@
 
 **Dependencies in Implementation:**
 - Required by: All testing and running scripts
-- venv path used by: 05_install_service.sh, run_dev.sh, and all test scripts
+- venv path used by: svc_install_systemd.sh, dev_run_app.sh, and all test scripts
 
 **Recommendation:** **KEEP** - Required for Python development environment
 
 ---
 
-### 05_install_service.sh
+### svc_install_systemd.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Installs systemd service for ipr_keyboard
@@ -146,13 +146,13 @@
 
 **Dependencies in Implementation:**
 - Service runs: src/ipr_keyboard/main.py
-- Referenced by: 09_e2e_systemd_demo.sh, 10_diagnose_failure.sh
+- Referenced by: test_e2e_systemd.sh, diag_troubleshoot.sh
 
 **Recommendation:** **KEEP** - Required for production deployment
 
 ---
 
-### 06_setup_irispen_mount.sh
+### usb_setup_mount.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Sets up persistent USB mount for IrisPen
@@ -171,7 +171,7 @@
 
 ---
 
-### 07_smoke_test.sh
+### test_smoke.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Runs basic functionality tests
@@ -189,7 +189,7 @@
 
 ---
 
-### 08_e2e_demo.sh
+### test_e2e_demo.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** End-to-end workflow demo (foreground mode)
@@ -210,7 +210,7 @@
 
 ---
 
-### 09_e2e_systemd_demo.sh
+### test_e2e_systemd.sh
 **Status:** ⚠️ **REVIEW** (Has Issues)
 
 **Purpose:** End-to-end test with systemd service
@@ -221,7 +221,7 @@
 - Line 34: `$SERVICE_NAME` used but not defined until later
 - Line 66: Uses `$VENV_DIR` but not defined
 - Script would fail if executed
-- Similar functionality to 08_e2e_demo.sh but for systemd
+- Similar functionality to test_e2e_demo.sh but for systemd
 
 **Dependencies in Implementation:**
 - Intends to test systemd service
@@ -231,7 +231,7 @@
 
 ---
 
-### 10_diagnose_failure.sh
+### diag_troubleshoot.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Comprehensive diagnostic tool for troubleshooting
@@ -254,7 +254,7 @@
 
 ---
 
-### 11_mount_irispen_mtp.sh
+### usb_mount_mtp.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Mounts/unmounts IrisPen as MTP device
@@ -266,14 +266,14 @@
 - No equivalent in src/ (system-level operation)
 
 **Dependencies in Implementation:**
-- Used by: 12_sync_irispen_to_cache.sh
+- Used by: usb_sync_cache.sh
 - IrisPenFolder can point to /mnt/irispen
 
 **Recommendation:** **KEEP** - Required for MTP mode operation
 
 ---
 
-### 12_sync_irispen_to_cache.sh
+### usb_sync_cache.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Syncs files from MTP mount to local cache
@@ -293,7 +293,7 @@
 
 ---
 
-### 13_install_bt_hid_daemon.sh
+### ble_install_daemon.sh
 **Status:** ⚠️ **REVIEW** (Has Issues)
 
 **Purpose:** Installs optional Bluetooth HID daemon
@@ -307,7 +307,7 @@
   - Script would fail if executed
 - README.md line 63 says: "References `/usr/local/bin/bt_kb_send` but does NOT overwrite it"
 - README.md line 66: Says script 15 is legacy, prefer 16, but 16 doesn't exist
-- **FUNCTIONAL OVERLAP:** 03_install_bt_helper.sh already creates bt_hid daemon functionality
+- **FUNCTIONAL OVERLAP:** ble_install_helper.sh already creates bt_hid daemon functionality
 - Marked as "optional/advanced" in README
 
 **Dependencies in Implementation:**
@@ -318,7 +318,7 @@
 
 ---
 
-### 14_test_bt_keyboard.sh
+### test_bluetooth.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Manual Bluetooth keyboard testing tool
@@ -338,7 +338,7 @@
 
 ---
 
-### 15_switch_keyboard_backend.sh
+### ble_switch_backend.sh
 **Status:** ⚠️ **LEGACY**
 
 **Purpose:** Switch between uinput and BLE keyboard backends
@@ -361,11 +361,11 @@
 **Recommendation:** ⚠️ **REVIEW** - Marked as legacy, but replacement (script 16) doesn't exist. Options:
 1. Delete and document manual backend switching
 2. Create script 16 with proper env var usage
-3. Fix to use environment variables from 00_set_env.sh
+3. Fix to use environment variables from env_set_variables.sh
 
 ---
 
-### run_dev.sh
+### dev_run_app.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Run application in foreground for development
@@ -375,7 +375,7 @@
 - Runs: `python -m ipr_keyboard.main`
 - Essential development tool
 - Alternative to systemd service for debugging
-- Sources 00_set_env.sh
+- Sources env_set_variables.sh
 - Uses environment variables properly
 
 **Dependencies in Implementation:**
@@ -405,26 +405,26 @@
 
 ### Scripts to KEEP (14 scripts)
 All of these are actively used by the implementation or are essential utilities:
-1. ✅ 00_set_env.sh - Required by all
-2. ✅ 01_system_setup.sh - System installation
-3. ✅ 02_configure_bluetooth.sh - BT configuration
-4. ✅ 03_install_bt_helper.sh - **CRITICAL** - Creates bt_kb_send used by code
-5. ✅ 04_setup_venv.sh - Python environment
-6. ✅ 05_install_service.sh - Systemd service
-7. ✅ 06_setup_irispen_mount.sh - USB mounting utility
-8. ✅ 07_smoke_test.sh - Installation validation
-9. ✅ 08_e2e_demo.sh - Testing utility
-10. ✅ 10_diagnose_failure.sh - Troubleshooting tool
-11. ✅ 11_mount_irispen_mtp.sh - MTP mounting
-12. ✅ 12_sync_irispen_to_cache.sh - Uses mtp_sync.py module
-13. ✅ 14_test_bt_keyboard.sh - Manual testing
-14. ✅ run_dev.sh - Development tool
+1. ✅ env_set_variables.sh - Required by all
+2. ✅ sys_install_packages.sh - System installation
+3. ✅ ble_configure_system.sh - BT configuration
+4. ✅ ble_install_helper.sh - **CRITICAL** - Creates bt_kb_send used by code
+5. ✅ sys_setup_venv.sh - Python environment
+6. ✅ svc_install_systemd.sh - Systemd service
+7. ✅ usb_setup_mount.sh - USB mounting utility
+8. ✅ test_smoke.sh - Installation validation
+9. ✅ test_e2e_demo.sh - Testing utility
+10. ✅ diag_troubleshoot.sh - Troubleshooting tool
+11. ✅ usb_mount_mtp.sh - MTP mounting
+12. ✅ usb_sync_cache.sh - Uses mtp_sync.py module
+13. ✅ test_bluetooth.sh - Manual testing
+14. ✅ dev_run_app.sh - Development tool
 
 ### Scripts with ISSUES (3 scripts)
 These need review/fixes:
-1. ⚠️ 09_e2e_systemd_demo.sh - Incomplete/broken code, missing variable definitions
-2. ⚠️ 13_install_bt_hid_daemon.sh - Malformed code (bash+python mixed), overlaps with 03
-3. ⚠️ 15_switch_keyboard_backend.sh - Marked as legacy, uses hardcoded path, but replacement doesn't exist
+1. ⚠️ test_e2e_systemd.sh - Incomplete/broken code, missing variable definitions
+2. ⚠️ ble_install_daemon.sh - Malformed code (bash+python mixed), overlaps with 03
+3. ⚠️ ble_switch_backend.sh - Marked as legacy, uses hardcoded path, but replacement doesn't exist
 
 ### Scripts to DELETE
 **NONE** - However, scripts 09, 13, and 15 should be reviewed:
@@ -441,16 +441,16 @@ These need review/fixes:
 However, the following actions are recommended:
 
 ### High Priority Issues
-1. **Fix 09_e2e_systemd_demo.sh** - Add missing variable definitions or delete if not needed
-2. **Fix 13_install_bt_hid_daemon.sh** - Correct bash/Python syntax or delete if redundant
+1. **Fix test_e2e_systemd.sh** - Add missing variable definitions or delete if not needed
+2. **Fix ble_install_daemon.sh** - Correct bash/Python syntax or delete if redundant
 3. **Resolve 15/16 confusion** - Either:
-   - Fix script 15 to use env vars from 00_set_env.sh
+   - Fix script 15 to use env vars from env_set_variables.sh
    - Create script 16 as documented in README
    - Remove references to script 16 from README if not needed
 
 ### Scripts Currently Required by Implementation
-- **03_install_bt_helper.sh** is **CRITICAL** - BluetoothKeyboard directly calls bt_kb_send
-- **12_sync_irispen_to_cache.sh** actively uses mtp_sync.py module
+- **ble_install_helper.sh** is **CRITICAL** - BluetoothKeyboard directly calls bt_kb_send
+- **usb_sync_cache.sh** actively uses mtp_sync.py module
 - All other scripts provide essential setup, deployment, or troubleshooting functionality
 
 ### No Candidates for Deletion

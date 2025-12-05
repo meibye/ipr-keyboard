@@ -15,7 +15,7 @@
 #   - Must be run as root (uses sudo)
 #   - IrisPen USB device must be plugged in
 #   - Device path must be provided as first argument
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #
 # Note:
 #   Creates a backup of /etc/fstab before modifying it.
@@ -25,9 +25,9 @@ set -euo pipefail
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
-echo "[06] Setup persistent mount for IrisPen USB drive"
+echo "[usb_setup_mount] Setup persistent mount for IrisPen USB drive"
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root: sudo $0 <device>"
@@ -58,10 +58,10 @@ if [[ -z "$UUID" || -z "$FSTYPE" ]]; then
   exit 1
 fi
 
-echo "[06] Device: $DEVICE"
-echo "[06] UUID: $UUID"
-echo "[06] Filesystem: $FSTYPE"
-echo "[06] Mount point: $MOUNT_POINT"
+echo "[usb_setup_mount] Device: $DEVICE"
+echo "[usb_setup_mount] UUID: $UUID"
+echo "[usb_setup_mount] Filesystem: $FSTYPE"
+echo "[usb_setup_mount] Mount point: $MOUNT_POINT"
 
 # Create mount point
 mkdir -p "$MOUNT_POINT"
@@ -69,24 +69,24 @@ mkdir -p "$MOUNT_POINT"
 # Backup fstab
 FSTAB_BACKUP="/etc/fstab.bak.$(date +%Y%m%d%H%M%S)"
 cp /etc/fstab "$FSTAB_BACKUP"
-echo "[06] Backed up /etc/fstab to $FSTAB_BACKUP"
+echo "[usb_setup_mount] Backed up /etc/fstab to $FSTAB_BACKUP"
 
 # Check if already in fstab
 if grep -q "$UUID" /etc/fstab; then
-  echo "[06] Warning: UUID $UUID already exists in /etc/fstab"
-  echo "[06] Skipping fstab entry"
+  echo "[usb_setup_mount] Warning: UUID $UUID already exists in /etc/fstab"
+  echo "[usb_setup_mount] Skipping fstab entry"
 else
   # Add to fstab
   echo "UUID=$UUID  $MOUNT_POINT  $FSTYPE  defaults,nofail  0  2" >> /etc/fstab
-  echo "[06] Added entry to /etc/fstab"
+  echo "[usb_setup_mount] Added entry to /etc/fstab"
 fi
 
 # Mount now
 if mountpoint -q "$MOUNT_POINT"; then
-  echo "[06] $MOUNT_POINT is already mounted"
+  echo "[usb_setup_mount] $MOUNT_POINT is already mounted"
 else
   mount "$MOUNT_POINT"
-  echo "[06] Mounted $MOUNT_POINT"
+  echo "[usb_setup_mount] Mounted $MOUNT_POINT"
 fi
 
-echo "[06] Done. Mount point configured and ready."
+echo "[usb_setup_mount] Done. Mount point configured and ready."

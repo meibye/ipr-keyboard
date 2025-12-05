@@ -7,7 +7,7 @@
 #   for debugging and development purposes (instead of using systemd).
 #
 # Prerequisites:
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #   - Virtual environment must be set up
 #
 # Usage:
@@ -22,7 +22,7 @@ set -euo pipefail
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/00_set_env.sh"
+source "$SCRIPT_DIR/env_set_variables.sh"
 
 
 #!/usr/bin/env bash
@@ -39,7 +39,7 @@ source "$SCRIPT_DIR/00_set_env.sh"
 # Prerequisites:
 #   - Must NOT be run as root
 #   - Python venv must be set up
-#   - Environment variables set (sources 00_set_env.sh)
+#   - Environment variables set (sources env_set_variables.sh)
 #
 # Note:
 #   Press Ctrl+C to stop. Does not run as a service.
@@ -56,7 +56,7 @@ fi
 
 if [[ ! -d "$VENV_DIR" ]]; then
   echo "Virtual environment not found: $VENV_DIR"
-  echo "Please run 04_setup_venv.sh first."
+  echo "Please run sys_setup_venv.sh first."
   exit 1
 fi
 

@@ -62,7 +62,7 @@ tests/
 **External Interface Considerations:**
 - The Bluetooth helper script (`/usr/local/bin/bt_kb_send`) is a system dependency
 - Tests should mock `subprocess.run` to avoid requiring the actual helper
-- Use `scripts/14_test_bt_keyboard.sh` for manual/interactive Bluetooth testing
+- Use `scripts/test_bluetooth.sh` for manual/interactive Bluetooth testing
 
 ---
 
@@ -141,7 +141,7 @@ tests/
 **External Interface Considerations:**
 - USB/MTP mounts are system dependencies
 - Use temporary directories for testing
-- Use `scripts/06_setup_irispen_mount.sh` for actual mount setup
+- Use `scripts/usb_setup_mount.sh` for actual mount setup
 
 ---
 
@@ -257,10 +257,10 @@ Tests the main application entry point:
 **Manual/Interactive Testing** (using scripts):
 ```bash
 # Test Bluetooth HID daemon
-./scripts/14_test_bt_keyboard.sh "Test string"
+./scripts/test_bluetooth.sh "Test string"
 
 # Switch keyboard backend
-sudo ./scripts/15_switch_keyboard_backend.sh
+sudo ./scripts/ble_switch_backend.sh
 ```
 
 ### USB Connection Testing
@@ -272,13 +272,13 @@ sudo ./scripts/15_switch_keyboard_backend.sh
 **Manual/Interactive Testing** (using scripts):
 ```bash
 # Set up IrisPen mount
-sudo ./scripts/06_setup_irispen_mount.sh /dev/sda1
+sudo ./scripts/usb_setup_mount.sh /dev/sda1
 
 # Mount MTP device
-sudo ./scripts/11_mount_irispen_mtp.sh
+sudo ./scripts/usb_mount_mtp.sh
 
 # Sync files from MTP
-./scripts/12_sync_irispen_to_cache.sh
+./scripts/usb_sync_cache.sh
 ```
 
 ### Web API Testing
@@ -290,7 +290,7 @@ sudo ./scripts/11_mount_irispen_mtp.sh
 **Manual/Interactive Testing**:
 ```bash
 # Start dev server
-./scripts/run_dev.sh
+./scripts/dev_run_app.sh
 
 # Test endpoints
 curl http://localhost:8080/health
@@ -345,7 +345,7 @@ Before performing manual tests, ensure the following prerequisites are met:
     - The `logs/` directory exists and is writable by the application.
 
 6. **Service/Development Mode**
-    - The application is running either as a systemd service or in development mode using `./scripts/run_dev.sh`.
+    - The application is running either as a systemd service or in development mode using `./scripts/dev_run_app.sh`.
 
 ---
 
@@ -359,7 +359,7 @@ The following manual test steps are required to verify correct operation of the 
 1. Ensure the target device (PC, tablet, etc.) is paired and connected to the Raspberry Pi as a Bluetooth keyboard.
 2. On the Pi, run:
     ```bash
-    ./scripts/14_test_bt_keyboard.sh "Hello Bluetooth Test ÆØÅ"
+    ./scripts/test_bluetooth.sh "Hello Bluetooth Test ÆØÅ"
     ```
 3. Focus a text input field on the paired device (e.g., Notepad, browser, terminal).
 4. Observe that the test string appears as keyboard input on the paired device.
@@ -377,8 +377,8 @@ The following manual test steps are required to verify correct operation of the 
 1. Connect the IrisPen or USB stick to the Pi and ensure it is mounted at the configured path (default: `/mnt/irispen`).
 2. If using MTP, mount with:
     ```bash
-    sudo ./scripts/11_mount_irispen_mtp.sh
-    ./scripts/12_sync_irispen_to_cache.sh
+    sudo ./scripts/usb_mount_mtp.sh
+    ./scripts/usb_sync_cache.sh
     ```
 3. Use the IrisPen to scan text, or manually create a `.txt` file in the mount folder.
 4. Observe that the file is detected, read, and (if configured) deleted by the application.
@@ -390,7 +390,7 @@ The following manual test steps are required to verify correct operation of the 
 **Goal:** Verify that the web API is accessible and provides configuration, logs, and health endpoints.
 
 **Steps:**
-1. Start the application (as a service or with `./scripts/run_dev.sh`).
+1. Start the application (as a service or with `./scripts/dev_run_app.sh`).
 2. From another device on the same network, open a browser and visit:
     - `http://<pi-ip>:8080/health` (should return `{ "status": "ok" }`)
     - `http://<pi-ip>:8080/config/` (should return current config as JSON)
