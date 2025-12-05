@@ -1,32 +1,5 @@
 #!/usr/bin/env bash
 #
-# Run Application in Development Mode
-#
-# Purpose:
-#   Convenience script to run the ipr-keyboard application in the foreground
-#   for debugging and development purposes (instead of using systemd).
-#
-# Prerequisites:
-#   - Environment variables set (sources env_set_variables.sh)
-#   - Virtual environment must be set up
-#
-# Usage:
-#   ./scripts/run_dev.sh
-#
-# Note:
-#   The application will run in the foreground and can be stopped with Ctrl+C.
-#   All log output will be visible in the terminal.
-
-set -euo pipefail
-
-# Load environment variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "$SCRIPT_DIR/env_set_variables.sh"
-
-
-#!/usr/bin/env bash
-#
 # ipr-keyboard Development Run Script
 #
 # Purpose:
@@ -34,7 +7,7 @@ source "$SCRIPT_DIR/env_set_variables.sh"
 #   Logs output to console.
 #
 # Usage:
-#   ./scripts/run_dev.sh
+#   ./scripts/dev_run_app.sh
 #
 # Prerequisites:
 #   - Must NOT be run as root
@@ -44,9 +17,14 @@ source "$SCRIPT_DIR/env_set_variables.sh"
 # Note:
 #   Press Ctrl+C to stop. Does not run as a service.
 
-PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
+set -euo pipefail
 
 # Load environment variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/env_set_variables.sh"
+
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
 
 if [[ ! -d "$PROJECT_DIR" ]]; then

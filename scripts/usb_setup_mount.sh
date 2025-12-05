@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 #
 # IrisPen USB Mount Setup Script

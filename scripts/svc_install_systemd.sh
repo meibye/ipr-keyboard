@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 #
 # Systemd Service Installation Script

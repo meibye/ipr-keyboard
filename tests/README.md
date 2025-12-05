@@ -4,7 +4,7 @@ This directory contains the comprehensive test suite for the ipr-keyboard projec
 
 ## Test Coverage
 
-Current test coverage: **86%** (129 tests)
+Current test coverage: **94%** (137 tests)
 
 ## Testing Levels
 

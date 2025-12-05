@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 #
 # ipr-keyboard IrisPen MTP Mount Script
