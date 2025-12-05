@@ -100,7 +100,7 @@ export PATH="$HOME/.local/bin:$PATH"
 ########################################
 # 7. Prepare project venv using uv
 ########################################
-PROJECT_DIR="/home/meibye/dev/ipr-keyboard"
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 VENV_DIR="$PROJECT_DIR/.venv"
 
 echo "=== Setting up Python venv with uv ==="

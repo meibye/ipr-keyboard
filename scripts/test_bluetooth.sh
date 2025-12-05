@@ -8,7 +8,7 @@
 #   Useful for troubleshooting Bluetooth pairing, helper/daemon setup, and keyboard pipeline.
 #
 # Usage:
-#   ./scripts/14_test_bt_keyboard.sh ["Your test string"]
+#   ./scripts/test_bluetooth.sh ["Your test string"]
 #   (If no argument is given, a default Danish test string is sent.)
 #
 # Prerequisites:
