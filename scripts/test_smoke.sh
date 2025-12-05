@@ -7,7 +7,7 @@
 #   Verifies installation and setup.
 #
 # Usage:
-#   ./scripts/07_smoke_test.sh
+#   ./scripts/test_smoke.sh
 #
 # Prerequisites:
 #   - Must NOT be run as root

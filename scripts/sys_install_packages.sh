@@ -7,7 +7,7 @@
 #   Must be run as root. Sources environment variables from env_set_variables.sh.
 #
 # Usage:
-#   sudo ./scripts/01_system_setup.sh
+#   sudo ./scripts/sys_install_packages.sh
 #
 # Prerequisites:
 #   - Environment variables set in env_set_variables.sh
@@ -128,7 +128,7 @@ sudo mkdir -p /mnt/irispen
 ########################################
 echo "=== [sys_install_packages] System setup complete ==="
 echo "You may now mount the IRISPen with:"
-echo "  ./scripts/11_mount_irispen_mtp.sh"
+echo "  ./scripts/usb_mount_mtp.sh"
 echo ""
 echo "Then run the app in dev mode:"
-echo "  ./scripts/run_dev.sh"
+echo "  ./scripts/dev_run_app.sh"

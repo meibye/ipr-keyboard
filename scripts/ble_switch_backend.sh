@@ -2,13 +2,13 @@
 set -euo pipefail
 
 #
-# 15_switch_keyboard_backend.sh
+# ble_switch_backend.sh
 #
 # Switch the active keyboard backend between "uinput" and "ble".
 #
 # The backend can be:
-#   - passed as first argument:   ./scripts/15_switch_keyboard_backend.sh uinput|ble
-#   - read from config.json:      ./scripts/15_switch_keyboard_backend.sh
+#   - passed as first argument:   ./scripts/ble_switch_backend.sh uinput|ble
+#   - read from config.json:      ./scripts/ble_switch_backend.sh
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

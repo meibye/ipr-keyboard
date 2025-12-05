@@ -6,7 +6,7 @@
 #   Creates a Python virtual environment using uv and installs the ipr-keyboard package in editable mode with development dependencies.
 #
 # Usage:
-#   ./scripts/04_setup_venv.sh
+#   ./scripts/sys_setup_venv.sh
 #
 # Prerequisites:
 #   - Must NOT be run as root

@@ -10,7 +10,7 @@
 # - Web API and logging status
 #
 # Usage:
-#   ./scripts/16_status.sh
+#   ./scripts/diag_status.sh
 #
 # Prerequisites:
 #   - Must NOT be run as root

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 18_setup_rpi_extras.sh
+# ble_setup_extras.sh
 #
 # Set up all extra RPi-side components for ipr-keyboard:
 #   - Backend manager (prevents uinput + BLE running at same time)
@@ -10,13 +10,13 @@
 #   - Pairing wizard HTML template
 #   - Pairing routes in src/ipr_keyboard/web/server.py
 #
-# Run as: sudo ./scripts/18_setup_rpi_extras.sh
+# Run as: sudo ./scripts/ble_setup_extras.sh
 #
 
 set -euo pipefail
 
 if [[ "$EUID" -ne 0 ]]; then
-  echo "Please run this script as root (sudo ./scripts/18_setup_rpi_extras.sh)."
+  echo "Please run this script as root (sudo ./scripts/ble_setup_extras.sh)."
   exit 1
 fi
 
@@ -352,7 +352,7 @@ else
     cat >> "$SERVER_PY" << 'EOF'
 
 # ---------------------------------------------------------------------------
-# IPR-KEYBOARD PAIRING ROUTES (auto-injected by 18_setup_rpi_extras.sh)
+# IPR-KEYBOARD PAIRING ROUTES (auto-injected by ble_setup_extras.sh)
 # ---------------------------------------------------------------------------
 from flask import render_template
 import subprocess

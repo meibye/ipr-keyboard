@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 03_install_bt_helper.sh
+# ble_install_helper.sh
 #
 # Install Bluetooth Keyboard Helper Script and backend daemons.
 #

@@ -5,7 +5,7 @@
 # Starts the Flask web server for the ipr-keyboard project directly (for development or diagnostics).
 #
 # Usage:
-#   ./scripts/17_run_web_server.sh
+#   ./scripts/dev_run_webserver.sh
 #
 # Prerequisites:
 #   - Must NOT be run as root
