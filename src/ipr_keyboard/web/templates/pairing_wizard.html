@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>IPR Keyboard – Pairing Wizard</title>
+  <style>
+    body { background:#111; color:#eee; font-family:sans-serif; margin:0; padding:20px; }
+    h1 { margin-top:0; }
+    .card { background:#222; padding:15px 18px; border-radius:8px; margin-bottom:18px; border:1px solid #333; }
+    button { background:#3b82f6; border:none; padding:8px 14px; color:white; border-radius:6px; cursor:pointer; font-size:0.9rem; }
+    button:hover { background:#2563eb; }
+    pre { background:#000; padding:8px 10px; border-radius:6px; font-size:0.8rem; max-height:260px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h1>IPR Keyboard – Pairing Wizard</h1>
+
+  <div class="card">
+    <h2>Step 1: Activate BLE Backend</h2>
+    <p>This will switch the device to use the BLE HID backend and stop the classic HID backend.</p>
+    <button onclick="activateBackend()">Activate BLE Backend</button>
+    <pre id="backendResult"></pre>
+  </div>
+
+  <div class="card">
+    <h2>Step 2: Start Pairing Mode</h2>
+    <p>Put the Pi into Bluetooth pairing mode, then add the device on your Windows PC.</p>
+    <button onclick="startPairing()">Start Pairing Mode</button>
+    <pre id="pairingResult"></pre>
+  </div>
+
+  <div class="card">
+    <h2>Step 3: Inspect Status</h2>
+    <button onclick="loadStatus()">Refresh Status</button>
+    <pre id="statusBox"></pre>
+  </div>
+
+  <script>
+    function activateBackend() {
+      fetch("/pairing/activate-ble")
+        .then(r => r.text())
+        .then(t => { document.getElementById("backendResult").textContent = t; })
+        .catch(e => { document.getElementById("backendResult").textContent = "Error: " + e; });
+    }
+
+    function startPairing() {
+      fetch("/pairing/start")
+        .then(r => r.text())
+        .then(t => { document.getElementById("pairingResult").textContent = t; })
+        .catch(e => { document.getElementById("pairingResult").textContent = "Error: " + e; });
+    }
+
+    function loadStatus() {
+      fetch("/status")
+        .then(r => r.json())
+        .then(j => {
+          document.getElementById("statusBox").textContent = JSON.stringify(j, null, 2);
+        })
+        .catch(e => { document.getElementById("statusBox").textContent = "Error: " + e; });
+    }
+  </script>
+</body>
+</html>
