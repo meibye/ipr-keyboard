@@ -13,6 +13,31 @@ The scripts automate the complete setup process from system configuration to ser
 - Keyboard backend switching (uinput/BLE)
 - Testing and diagnostics
 
+
+## BLE Setup, Diagnostics, and Pairing
+
+- **BLE/uinput backend install & management**: See `ble_install_helper.sh`.
+- **BLE extras (diagnostics, pairing wizard, backend manager)**: See `ble_setup_extras.sh`.
+- **Agent service**: `bt_hid_agent.service` (handles pairing/authorization).
+- **Web pairing wizard**: `/pairing` endpoint (see web server docs).
+- **BLE diagnostics**: `ipr_ble_diagnostics.sh`, `ipr_ble_hid_analyzer.py`.
+
+### Example Local Scripts
+
+You can create local scripts to call these helpers, e.g.:
+
+```bash
+# Run BLE diagnostics
+./scripts/ipr_ble_diagnostics.sh
+
+# Start pairing wizard (web)
+curl http://localhost:8080/pairing/start
+
+# Switch backend
+echo ble | sudo tee /etc/ipr-keyboard/backend
+sudo systemctl restart bt_hid_ble.service
+```
+
 ## Script Organization
 
 Scripts are organized by domain with descriptive prefixes:

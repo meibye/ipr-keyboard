@@ -76,29 +76,37 @@ Legend:
 ```
 
 ## Structure
-- **main.py**: Application entry point. Starts the web server and USB/Bluetooth monitor threads, coordinates all modules, and handles graceful shutdown.
-- **__init__.py**: Package initialization.
-- **bluetooth/**: Bluetooth HID keyboard communication (see `bluetooth/README.md`).
-- **config/**: Thread-safe configuration management and persistence (see `config/README.md`).
-- **logging/**: Centralized logging with rotation and web API (see `logging/README.md`).
-- **usb/**: USB file detection, reading, and cleanup (see `usb/README.md`).
-- **utils/**: Utility functions for path resolution and JSON file operations (see `utils/README.md`).
-- **web/**: Flask web server for configuration/log viewing and health checks (see `web/README.md`).
+
+## BLE Setup, Diagnostics, and Pairing
+
+- **BLE/uinput backend install & management**: See `scripts/ble_install_helper.sh`.
+- **BLE extras (diagnostics, pairing wizard, backend manager)**: See `scripts/ble_setup_extras.sh`.
+- **Agent service**: `bt_hid_agent.service` (handles pairing/authorization).
+- **Web pairing wizard**: `/pairing` endpoint (see web server docs).
+- **BLE diagnostics**: `ipr_ble_diagnostics.sh`, `ipr_ble_hid_analyzer.py`.
+
+You can create local scripts to call these helpers, e.g.:
+
+```bash
+# Run BLE diagnostics
+./scripts/ipr_ble_diagnostics.sh
+
+# Start pairing wizard (web)
+curl http://localhost:8080/pairing/start
+
+# Switch backend
+echo ble | sudo tee /etc/ipr-keyboard/backend
+sudo systemctl restart bt_hid_ble.service
+```
 
 ## Application Flow
-1. **Startup**: Loads config, initializes logger, starts web server and USB/Bluetooth monitor threads.
-2. **USB Monitoring**: Watches configured folder for new files, reads content, sends via Bluetooth, optionally deletes files, logs all actions.
-3. **Web API**: Exposes `/config/`, `/logs/`, and `/health` endpoints for runtime config/log access.
-
-## Threading Model
-- Main thread: Keeps app alive, handles Ctrl+C
-- Web server thread: Flask app (daemon)
-- USB monitor thread: File detection and Bluetooth forwarding (daemon)
+| BLE Setup/Extras | `scripts/ble_install_helper.sh`, `scripts/ble_setup_extras.sh` | Backend install, diagnostics, pairing wizard, agent |
 
 ## Entry Point
 Run as:
 ```bash
 python -m ipr_keyboard.main
+4. **BLE/Backend Management**: Use BLE setup/diagnostic scripts and agent for backend switching, diagnostics, and pairing.
 ```
 Entry point is defined in `pyproject.toml`.
 

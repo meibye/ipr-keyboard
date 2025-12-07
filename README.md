@@ -2,7 +2,34 @@
 
 **IrisPen to Bluetooth keyboard bridge for Raspberry Pi**
 
+
 This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID keyboard emulation. It monitors a USB or MTP mount for new text files created by the IrisPen, reads their content, and sends the text to a paired computer as keyboard input. All actions are logged, and configuration/logs are accessible via a web API.
+
+## Bluetooth Backend Management & Extras
+
+- **BLE and uinput backends** are installed and managed by `scripts/ble_install_helper.sh`.
+- **Pairing wizard, diagnostics, and backend manager** are provided by `scripts/ble_setup_extras.sh`.
+- **BLE diagnostics**: `ipr_ble_diagnostics.sh` (health check), `ipr_ble_hid_analyzer.py` (HID report analyzer).
+- **Web pairing wizard**: `/pairing` endpoint (see web server docs).
+- **Backend selection**: `/etc/ipr-keyboard/backend` or config.json `KeyboardBackend`.
+- **Agent service**: `bt_hid_agent.service` ensures seamless pairing and authorization.
+
+### Example Local Scripts
+
+You can create local scripts to call these helpers, e.g.:
+
+```bash
+# Run BLE diagnostics
+./scripts/ipr_ble_diagnostics.sh
+
+# Start pairing wizard (web)
+curl http://localhost:8080/pairing/start
+
+# Switch backend
+echo ble | sudo tee /etc/ipr-keyboard/backend
+sudo systemctl restart bt_hid_ble.service
+```
+
 
 ## Main Features
 - **USB File Monitoring**: Detects new text files from IrisPen (configurable folder)
@@ -16,61 +43,73 @@ This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            ipr-keyboard System                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────┐     ┌──────────────────┐     ┌────────────────────────┐   │
-│  │   IrisPen    │────>│   USB/MTP Mount  │────>│   File Detection Loop  │   │
-│  │   Scanner    │     │   /mnt/irispen   │     │   (detector.py)        │   │
-│  └──────────────┘     └──────────────────┘     └───────────┬────────────┘   │
-│                                                            │                 │
-│                                                            ▼                 │
-│                       ┌────────────────────────────────────────────────────┐│
-│                       │               ipr_keyboard Application             ││
-│                       │                                                    ││
-│                       │  ┌────────────────┐         ┌──────────────────┐   ││
-│                       │  │  main.py       │◄───────>│ config/manager.py│   ││
-│                       │  │  (Entry Point) │         │ (Thread-safe cfg)│   ││
-│                       │  └───────┬────────┘         └────────┬─────────┘   ││
-│                       │          │                           │             ││
-│                       │          ├───────────────────────────┤             ││
-│                       │          │                           │             ││
-│                       │          ▼                           ▼             ││
-│                       │  ┌────────────────┐         ┌──────────────────┐   ││
-│                       │  │  usb/reader.py │         │ logging/logger.py│   ││
-│                       │  │  (Read files)  │         │ (Rotating logs)  │   ││
-│                       │  └───────┬────────┘         └────────┬─────────┘   ││
-│                       │          │                           │             ││
-│                       │          ▼                           ▼             ││
-│                       │  ┌────────────────┐         ┌──────────────────┐   ││
-│                       │  │ usb/deleter.py │         │ web/server.py    │   ││
-│                       │  │ (Cleanup files)│         │ (Flask API)      │   ││
-│                       │  └───────┬────────┘         │ Port 8080        │   ││
-│                       │          │                  └──────────────────┘   ││
-│                       └──────────┼─────────────────────────────────────────┘│
-│                                  │                                          │
-│                                  ▼                                          │
-│                       ┌────────────────────────────────────────────────────┐│
-│                       │         bluetooth/keyboard.py                      ││
-│                       │         (BluetoothKeyboard class)                  ││
-│                       │              │                                     ││
-│                       │              ▼                                     ││
-│                       │     ┌────────────────┐                             ││
-│                       │     │ bt_kb_send     │  (System helper script)     ││
-│                       │     │ (/usr/local/bin)                             ││
-│                       │     └───────┬────────┘                             ││
-│                       │             │                                      ││
-│                       │             ▼                                      ││
-│                       │     ┌────────────────────────────────┐             ││
-│                       │     │  Bluetooth Backend             │             ││
-│                       │     │  ┌──────────┐   ┌──────────┐   │             ││
-│                       │     │  │  uinput  │   │   BLE    │   │             ││
-│                       │     │  │  daemon  │   │  daemon  │   │             ││
-│                       │     │  └──────────┘   └──────────┘   │             ││
-│                       │     └───────────────┬────────────────┘             ││
-│                       └─────────────────────┼──────────────────────────────┘│
-│                                             │                               │
-│                                             ▼                               │
+│                            ipr-keyboard System                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌──────────────┐     ┌──────────────────┐     ┌────────────────────────┐  │
+│  │   IrisPen    │────>│   USB/MTP Mount  │────>│   File Detection Loop  │  │
+│  │   Scanner    │     │   /mnt/irispen   │     │   (detector.py)        │  │
+│  └──────────────┘     └──────────────────┘     └───────────┬────────────┘  │
+│                                                            │              │
+│                                                            ▼              │
+│                 ┌────────────────────────────────────────────────────┐    │
+│                 │               ipr_keyboard Application             │    │
+│                 │                                                    │    │
+│                 │  ┌────────────────┐         ┌──────────────────┐   │    │
+│                 │  │  main.py       │◄───────>│ config/manager.py│   │    │
+│                 │  │  (Entry Point) │         │ (Thread-safe cfg)│   │    │
+│                 │  └───────┬────────┘         └────────┬─────────┘   │    │
+│                 │          │                           │             │    │
+│                 │          ├───────────────────────────┤             │    │
+│                 │          │                           │             │    │
+│                 │          ▼                           ▼             │    │
+│                 │  ┌────────────────┐         ┌──────────────────┐   │    │
+│                 │  │  usb/reader.py │         │ logging/logger.py│   │    │
+│                 │  │  (Read files)  │         │ (Rotating logs)  │   │    │
+│                 │  └───────┬────────┘         └────────┬─────────┘   │    │
+│                 │          │                           │             │    │
+│                 │          ▼                           ▼             │    │
+│                 │  ┌────────────────┐         ┌──────────────────┐   │    │
+│                 │  │ usb/deleter.py │         │ web/server.py    │   │    │
+│                 │  │ (Cleanup files)│         │ (Flask API)      │   │    │
+│                 │  └───────┬────────┘         │ Port 8080        │   │    │
+│                 │          │                  └──────────────────┘   │    │
+│                 └──────────┼─────────────────────────────────────────┘    │
+│                            │                                              │
+│                            ▼                                              │
+│                 ┌────────────────────────────────────────────────────┐    │
+│                 │         bluetooth/keyboard.py                      │    │
+│                 │         (BluetoothKeyboard class)                  │    │
+│                 │              │                                     │    │
+│                 │              ▼                                     │    │
+│                 │     ┌────────────────┐                             │    │
+│                 │     │ bt_kb_send     │  (System helper script)     │    │
+│                 │     │ (/usr/local/bin)                             │    │
+│                 │     └───────┬────────┘                             │    │
+│                 │             │                                      │    │
+│                 │             ▼                                      │    │
+│                 │     ┌────────────────────────────────┐             │    │
+│                 │     │  Bluetooth Backend             │             │    │
+│                 │     │  ┌──────────┐   ┌──────────┐   │             │    │
+│                 │     │  │  uinput  │   │   BLE    │   │             │    │
+│                 │     │  │  daemon  │   │  daemon  │   │             │    │
+│                 │     │  └──────────┘   └──────────┘   │             │    │
+│                 │     └───────────────┬────────────────┘             │    │
+│                 │                     │                              │    │
+│                 │                     ▼                              │    │
+│                 │     ┌────────────────────────────────────────────┐ │    │
+│                 │     │  BLE Setup/Extras                         │ │    │
+│                 │     │  ┌───────────────┐ ┌────────────────────┐  │ │    │
+│                 │     │  │ Pairing Agent │ │ Pairing Wizard     │  │ │    │
+│                 │     │  │ (bt_hid_agent)| │ (web /pairing)     │  │ │    │
+│                 │     │  └───────────────┘ └────────────────────┘  │ │    │
+│                 │     │  ┌───────────────┐ ┌────────────────────┐  │ │    │
+│                 │     │  │ BLE Diag      │ │ Backend Manager    │  │ │    │
+│                 │     │  │ (diagnostics) │ │ (switcher/config)  │  │ │    │
+│                 │     │  └───────────────┘ └────────────────────┘  │ │    │
+│                 │     └────────────────────────────────────────────┘ │    │
+│                 └────────────────────────────────────────────────────┘    │
+│                                                                            │
 │                                    ┌─────────────────┐                      │
 │                                    │  Paired Device  │                      │
 │                                    │  (PC / Tablet)  │                      │

@@ -501,5 +501,5 @@ Test dependencies are in `pyproject.toml`:
 
 Install with:
 ```bash
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 ```
