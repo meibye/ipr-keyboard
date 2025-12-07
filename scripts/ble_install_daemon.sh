@@ -67,6 +67,7 @@ import os
 import time
 import threading
 from evdev import UInput, ecodes as e
+from systemd import journal
 
 FIFO_PATH = "/run/bt_keyboard_fifo"
 
@@ -179,18 +180,21 @@ def fifo_thread(ui: UInput) -> None:
 
 
 def main() -> None:
-    print("BT HID daemon starting (uinput virtual keyboard)...")
+    journal.send("BT HID daemon starting (uinput virtual keyboard)...", PRIORITY=journal.LOG_INFO)
+    # print("BT HID daemon starting (uinput virtual keyboard)...")
     ui = UInput()  # default keyboard-capable device
 
     t = threading.Thread(target=fifo_thread, args=(ui,), daemon=True)
     t.start()
 
-    print("BT HID daemon running. Waiting for FIFO input...")
+    journal.send("BT HID daemon running. Waiting for FIFO input...", PRIORITY=journal.LOG_INFO)
+    # print("BT HID daemon running. Waiting for FIFO input...")
     try:
         while True:
             time.sleep(60)
     except KeyboardInterrupt:
-        print("BT HID daemon shutting down...")
+        journal.send("BT HID daemon shutting down...", PRIORITY=journal.LOG_INFO)
+        # print("BT HID daemon shutting down...")
 
 
 if __name__ == "__main__":
