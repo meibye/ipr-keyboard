@@ -75,12 +75,16 @@ Legend:
   ◄──────  Provides configuration to
 ```
 
+
 ## Structure
 
 ## BLE Setup, Diagnostics, and Pairing
 
-- **BLE/uinput backend install & management**: See `scripts/ble_install_helper.sh`.
-- **BLE extras (diagnostics, pairing wizard, backend manager)**: See `scripts/ble_setup_extras.sh`.
+- **BLE/uinput backend install & management**: See `scripts/ble_install_helper.sh`, which creates and enables:
+  - `bt_hid_uinput.service` (uinput backend)
+  - `bt_hid_ble.service` (BLE backend)
+  - `bt_hid_agent.service` (pairing agent)
+- **BLE extras (diagnostics, pairing wizard, backend manager)**: See `scripts/ble_setup_extras.sh` (creates `ipr_backend_manager.service`).
 - **Agent service**: `bt_hid_agent.service` (handles pairing/authorization).
 - **Web pairing wizard**: `/pairing` endpoint (see web server docs).
 - **BLE diagnostics**: `ipr_ble_diagnostics.sh`, `ipr_ble_hid_analyzer.py`.
@@ -96,7 +100,15 @@ curl http://localhost:8080/pairing/start
 
 # Switch backend
 echo ble | sudo tee /etc/ipr-keyboard/backend
+sudo systemctl disable bt_hid_uinput.service
+sudo systemctl enable bt_hid_ble.service
 sudo systemctl restart bt_hid_ble.service
+
+# Switch to uinput backend
+echo uinput | sudo tee /etc/ipr-keyboard/backend
+sudo systemctl disable bt_hid_ble.service
+sudo systemctl enable bt_hid_uinput.service
+sudo systemctl restart bt_hid_uinput.service
 ```
 
 ## Application Flow

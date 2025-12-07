@@ -70,12 +70,6 @@ pytest tests/bluetooth/test_keyboard.py
 pytest tests/usb/ -v  # Verbose output
 ```
 
-### Run by marker or keyword
-
-```bash
-pytest -k "bluetooth"     # Run tests with "bluetooth" in name
-pytest -k "not slow"      # Skip slow tests
-```
 
 ## Test Categories
 
@@ -107,7 +101,7 @@ pytest -k "not slow"      # Skip slow tests
 - `test_detector.py` - File detection and monitoring
 - `test_usb_reader.py` - File reading with size limits
 - `test_deleter.py` - File and folder deletion
-- `test_mtp_sync.py` - MTP mount synchronization
+- `test_mtp_sync.py` - MTP sync tests
 
 #### Utility Tests (`utils/`)
 - `test_helpers.py` - Path resolution and JSON operations
@@ -126,6 +120,16 @@ pytest -k "not slow"      # Skip slow tests
 
 #### Web Integration (`integration/test_web_integration.py`)
 - Config round-trip operations
+- Log entries after operations
+- Error handling
+
+#### Main Module (`integration/test_main.py`)
+- Application startup
+- USB/BT loop with mocks
+- Bluetooth unavailable handling
+
+#### Backend Service Integration
+- Integration/E2E tests may require enabling/disabling backend services (`bt_hid_uinput.service`, `bt_hid_ble.service`) via systemctl or scripts. See `scripts/ble_switch_backend.sh` and `scripts/ble_install_helper.sh` for backend management.
 - Log entries after operations
 - Error handling
 

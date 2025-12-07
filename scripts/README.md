@@ -97,14 +97,15 @@ sudo ./scripts/usb_setup_mount.sh /dev/sda1 # Configure persistent USB mount
 | `sys_install_packages.sh` | Installs system packages (git, bluez, mtp-tools, uv, etc.) | root |
 | `sys_setup_venv.sh` | Creates Python venv with uv and installs project dependencies | user |
 
+
 ### Bluetooth / HID
 
 | Script | Description | Run as |
 |--------|-------------|--------|
 | `ble_configure_system.sh` | Configures /etc/bluetooth/main.conf for HID keyboard profile | root |
-| `ble_install_helper.sh` | **CRITICAL** - Installs bt_kb_send helper and backend daemons | root |
+| `ble_install_helper.sh` | **CRITICAL** - Installs bt_kb_send helper, backend daemons, and systemd services:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend)<br> &nbsp; - `bt_hid_agent.service` (pairing agent) | root |
 | `ble_install_daemon.sh` | Optional advanced HID daemon installation | root |
-| `ble_switch_backend.sh` | Switch between uinput and BLE keyboard backends | root |
+| `ble_switch_backend.sh` | Switch between uinput and BLE keyboard backends by enabling/disabling:<br> &nbsp; - `bt_hid_uinput.service`<br> &nbsp; - `bt_hid_ble.service` | root |
 | `ble_setup_extras.sh` | Advanced RPi extras (backend manager, pairing wizard, diagnostics) | root |
 
 ### USB / IrisPen
@@ -115,30 +116,31 @@ sudo ./scripts/usb_setup_mount.sh /dev/sda1 # Configure persistent USB mount
 | `usb_mount_mtp.sh` | Mount/unmount IrisPen as MTP device | root |
 | `usb_sync_cache.sh` | Sync files from MTP mount to local cache | user |
 
-### Service Management
 
-| Script | Description | Run as |
-|--------|-------------|--------|
-| `svc_install_systemd.sh` | Install and enable ipr_keyboard.service | root |
+## Backend Service Management
 
-### Testing
+Backend switching and service management is handled by enabling/disabling the following systemd units:
 
-| Script | Description | Run as |
-|--------|-------------|--------|
-| `test_smoke.sh` | Basic functionality tests (imports, config, web, USB) | user |
-| `test_e2e_demo.sh` | End-to-end demo in foreground mode | user |
-| `test_e2e_systemd.sh` | End-to-end test with systemd service | root |
-| `test_bluetooth.sh` | Manual Bluetooth keyboard test with bt_kb_send | user |
+- `bt_hid_uinput.service` — UInput backend daemon (created by `ble_install_helper.sh`)
+- `bt_hid_ble.service` — BLE HID backend daemon (created by `ble_install_helper.sh`)
+- `bt_hid_agent.service` — BLE pairing/authorization agent (created by `ble_install_helper.sh`)
+- `ipr_backend_manager.service` — Ensures only one backend is active (created by `ble_setup_extras.sh`)
 
-### Development
+Use `ble_switch_backend.sh` or `ipr_backend_manager.service` to switch between backends. Example:
 
-| Script | Description | Run as |
-|--------|-------------|--------|
-| `dev_run_app.sh` | Run application in foreground for development | user |
-| `dev_run_webserver.sh` | Run Flask web server directly | user |
+```bash
+# Switch to BLE backend
+echo ble | sudo tee /etc/ipr-keyboard/backend
+sudo systemctl disable bt_hid_uinput.service
+sudo systemctl enable bt_hid_ble.service
+sudo systemctl restart bt_hid_ble.service
 
-### Diagnostics
-
+# Switch to uinput backend
+echo uinput | sudo tee /etc/ipr-keyboard/backend
+sudo systemctl disable bt_hid_ble.service
+sudo systemctl enable bt_hid_uinput.service
+sudo systemctl restart bt_hid_uinput.service
+```
 | Script | Description | Run as |
 |--------|-------------|--------|
 | `diag_troubleshoot.sh` | Comprehensive diagnostic checks | user/root |
@@ -281,6 +283,7 @@ If installation fails:
 - Some scripts require root privileges (use `sudo`)
 - Python environment uses `uv` for dependency management
 - The Bluetooth helper (`bt_kb_send`) is created by `ble_install_helper.sh`
+
 
 ## See Also
 

@@ -24,10 +24,11 @@ def get_status(service):
 
 SERVICES = [
     ("ipr_keyboard.service", "Main Application", "both"),
+    ("bt_hid_agent.service", "BLE Pairing Agent", "both"),
     ("bt_hid_uinput.service", "UInput HID Daemon", "uinput"),
+    ("bt_hid_daemon.service", "BT HID virtual keyboard daemon", "uinput"),
     ("bt_hid_ble.service", "BLE HID Daemon", "ble"),
-    ("bt_hid_agent.service", "BLE Pairing Agent", "ble"),
-    ("ipr_backend_manager.service", "Backend Manager", "both"),
+    ("ipr_backend_manager.service", "Backend Manager \(controls BT type switch\)", "both"),
 ]
 
 ACTIONS = ["Start", "Stop", "Restart", "Journal"]

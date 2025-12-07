@@ -757,6 +757,42 @@ if __name__ == "__main__":
         main()
 EOF
 
+
+########################################
+# 5. Create systemd service units for backends
+########################################
+echo "=== [ble_install_helper] Writing bt_hid_uinput.service ==="
+cat > /etc/systemd/system/bt_hid_uinput.service << 'EOF'
+[Unit]
+Description=IPR Keyboard UInput HID Daemon
+After=bluetooth.target
+Requires=bluetooth.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/bt_hid_uinput_daemon.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "=== [ble_install_helper] Writing bt_hid_ble.service ==="
+cat > /etc/systemd/system/bt_hid_ble.service << 'EOF'
+[Unit]
+Description=IPR Keyboard BLE HID Daemon
+After=bluetooth.target
+Requires=bluetooth.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/bt_hid_ble_daemon.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 echo "=== [ble_install_helper] Reloading systemd and enabling uinput backend by default ==="
 systemctl daemon-reload
 systemctl disable bt_hid_ble.service || true
