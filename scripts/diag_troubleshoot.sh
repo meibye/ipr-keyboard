@@ -183,7 +183,7 @@ else
 fi
 
 for SVC in "$SERVICE" "bt_hid_agent.service"; do
-  if systemctl list-unit-files 2>/dev/null | grep -q "$SVC"; then
+  if systemctl list-unit-files "$SVC"; then
     echo "✓ $SVC is installed"
     if systemctl is-enabled --quiet "$SVC" 2>/dev/null; then
       echo "✓ $SVC is enabled"

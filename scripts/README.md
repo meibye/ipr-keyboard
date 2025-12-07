@@ -158,48 +158,62 @@ export IPR_PROJECT_ROOT="/your/dev/path"
 
 ## Architecture Diagram
 
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         ipr-keyboard System                          │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
+│                         ipr-keyboard System                        │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                     │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
 │  │   IrisPen    │───>│ USB/MTP Mount│───>│ File Detection Loop   │   │
 │  │   Scanner    │    │ /mnt/irispen │    │ (main.py)            │   │
 │  └──────────────┘    └──────────────┘    └──────────┬───────────┘   │
 │                                                      │               │
 │  Scripts:                                            ▼               │
-│  - usb_setup_mount.sh      ┌───────────────────────────────────────┐│
-│  - usb_mount_mtp.sh        │            Core Application           ││
-│  - usb_sync_cache.sh       │                                       ││
-│                            │  ┌─────────┐  ┌────────┐  ┌────────┐  ││
-│                            │  │ Config  │  │ Logger │  │  USB   │  ││
-│                            │  │ Manager │  │        │  │ Reader │  ││
-│                            │  └────┬────┘  └────┬───┘  └───┬────┘  ││
-│                            │       │            │          │       ││
-│                            └───────┴────────────┴──────────┴───────┘│
+│  - usb_setup_mount.sh      ┌───────────────────────────────────────┐ │
+│  - usb_mount_mtp.sh        │            Core Application           │ │
+│  - usb_sync_cache.sh       │                                       │ │
+│                            │  ┌─────────┐  ┌────────┐  ┌────────┐  │ │
+│                            │  │ Config  │  │ Logger │  │  USB   │  │ │
+│                            │  │ Manager │  │        │  │ Reader │  │ │
+│                            │  └────┬────┘  └────┬───┘  └───┬────┘  │ │
+│                            │       │            │          │       │ │
+│                            └───────┴────────────┴──────────┴───────┘ │
 │                                     │                      │         │
 │  Scripts:                           ▼                      ▼         │
-│  - sys_install_packages.sh   ┌─────────────┐    ┌─────────────────┐ │
-│  - sys_setup_venv.sh         │  Web API    │    │ Bluetooth       │ │
-│  - svc_install_systemd.sh    │  (Flask)    │    │ Keyboard        │ │
-│                              │  Port 8080  │    │ (bt_kb_send)    │ │
-│                              └─────────────┘    └────────┬────────┘ │
-│                                                          │          │
-│  Scripts:                                                ▼          │
-│  - ble_configure_system.sh              ┌────────────────────────┐  │
-│  - ble_install_helper.sh                │  Bluetooth Backend     │  │
-│  - ble_switch_backend.sh                │  ┌────────┐ ┌────────┐ │  │
-│                                         │  │ uinput │ │  BLE   │ │  │
-│                                         │  │ daemon │ │ daemon │ │  │
-│                                         │  └────────┘ └────────┘ │  │
-│                                         └───────────┬────────────┘  │
-│                                                     │               │
-│                                                     ▼               │
-│                                           ┌─────────────────┐       │
-│                                           │  Paired Device  │       │
-│                                           │  (PC/Tablet)    │       │
-│                                           └─────────────────┘       │
+│  - sys_install_packages.sh   ┌─────────────┐    ┌─────────────────┐  │
+│  - sys_setup_venv.sh         │  Web API    │    │ Bluetooth       │  │
+│  - svc_install_systemd.sh    │  (Flask)    │    │ Keyboard        │  │
+│                              │  Port 8080  │    │ (bt_kb_send)    │  │
+│                              └─────────────┘    └────────┬────────┘  │
+│                                                          │           │
+│  Scripts:                                                ▼           │
+│  - ble_configure_system.sh              ┌────────────────────────────┐│
+│  - ble_install_helper.sh                │  Bluetooth Backend Services││
+│  - ble_switch_backend.sh                │                            ││
+│                                         │  ┌─────────────────────────────┐│
+│                                         │  │ bt_hid_uinput.service       │◄────────┐│
+│                                         │  │ (uinput daemon, uinput only)│         ││
+│                                         │  └─────────────────────────────┘         ││
+│                                         │  ┌─────────────────────────────┐         ││
+│                                         │  │ bt_hid_ble.service          │◄─────┐  ││
+│                                         │  │ (BLE daemon, BLE only)      │      │  ││
+│                                         │  └─────────────────────────────┘      │  ││
+│                                         │  ┌─────────────────────────────┐      │  ││
+│                                         │  │ bt_hid_agent.service        │◄──┐  │  ││
+│                                         │  │ (Pairing agent, BLE only)   │  │  │  ││
+│                                         │  └─────────────────────────────┘  │  │  ││
+│                                         │  ┌─────────────────────────────┐  │  │  ││
+│                                         │  │ ipr_backend_manager.service │◄─┘  │  ││
+│                                         │  │ (Backend switcher, both)    │─────┘  ││
+│                                         │  └─────────────────────────────┘         ││
+│                                         └──────────────────────────────────────────┘│
+│                                                          │           │
+│                                                          ▼           │
+│                                           ┌─────────────────┐        │
+│                                           │  Paired Device  │        │
+│                                           │  (PC/Tablet)    │        │
+│                                           └─────────────────┘        │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
