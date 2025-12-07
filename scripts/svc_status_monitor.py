@@ -67,7 +67,7 @@ def draw_table(stdscr, selected, delay, status_snapshot):
         stdscr.addstr(
             row,
             svc_col,
-            f"{'Service':<33}{'Status':<12}{'Description'}",
+            f"{'Service':<34}{'Status':<12}{'Description'}",
             curses.A_UNDERLINE,
         )
         row += 1
@@ -131,20 +131,21 @@ def main(stdscr, delay):
     curses.init_pair(4, curses.COLOR_CYAN, -1)
     selected = 0
     total = len(SERVICES)
+
     status_snapshot = {svc: "unknown" for svc, _, _ in SERVICES}
-    last_snapshot = status_snapshot.copy()
+    status_lock = threading.Lock()
     redraw_event = threading.Event()
     stop_event = threading.Event()
 
     def poll_status():
-        nonlocal status_snapshot, last_snapshot
         while not stop_event.is_set():
             changed = False
-            for svc, _, _ in SERVICES:
-                new_status = get_status(svc)
-                if status_snapshot.get(svc) != new_status:
-                    status_snapshot[svc] = new_status
-                    changed = True
+            with status_lock:
+                for svc, _, _ in SERVICES:
+                    new_status = get_status(svc)
+                    if status_snapshot.get(svc) != new_status:
+                        status_snapshot[svc] = new_status
+                        changed = True
             if changed:
                 redraw_event.set()
             time.sleep(delay)
@@ -155,7 +156,8 @@ def main(stdscr, delay):
     draw_table(stdscr, selected, delay, status_snapshot)
     while True:
         if redraw_event.is_set():
-            draw_table(stdscr, selected, delay, status_snapshot)
+            with status_lock:
+                draw_table(stdscr, selected, delay, status_snapshot)
             redraw_event.clear()
         c = stdscr.getch()
         if c == -1:
@@ -165,13 +167,16 @@ def main(stdscr, delay):
             stop_event.set()
             break
         elif c in (ord("r"), ord("R")):
-            draw_table(stdscr, selected, delay, status_snapshot)
+            with status_lock:
+                draw_table(stdscr, selected, delay, status_snapshot)
         elif c == curses.KEY_UP:
             selected = (selected - 1) % total
-            draw_table(stdscr, selected, delay, status_snapshot)
+            with status_lock:
+                draw_table(stdscr, selected, delay, status_snapshot)
         elif c == curses.KEY_DOWN:
             selected = (selected + 1) % total
-            draw_table(stdscr, selected, delay, status_snapshot)
+            with status_lock:
+                draw_table(stdscr, selected, delay, status_snapshot)
         elif c == curses.KEY_ENTER or c == 10 or c == 13:
             svc, desc, backend = SERVICES[selected]
             action = select_action(stdscr, svc)
@@ -183,7 +188,8 @@ def main(stdscr, delay):
                 subprocess.call(["sudo", "systemctl", "restart", svc])
             elif action == "Journal":
                 show_journal(stdscr, svc)
-            draw_table(stdscr, selected, delay, status_snapshot)
+            with status_lock:
+                draw_table(stdscr, selected, delay, status_snapshot)
         elif c == ord("+"):
             delay = min(delay + 1, 30)
         elif c == ord("-"):
