@@ -121,7 +121,7 @@ def show_journal(stdscr, svc):
     stdscr.getch()
 
 
-def main(stdscr):
+def main(stdscr, delay):
     curses.start_color()
     curses.use_default_colors()
     curses.init_pair(1, curses.COLOR_RED, -1)
