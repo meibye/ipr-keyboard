@@ -45,12 +45,12 @@ sudo apt install -y \
     python3-dev \
     python3-venv \
     python3-pip \
+    python3-systemd \
     bluez \
     bluez-tools \
     bluetooth \
     libcairo2-dev \
     libgirepository1.0-dev \
-    libsystemd-dev \
     jq
 
 

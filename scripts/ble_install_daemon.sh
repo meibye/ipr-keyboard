@@ -56,7 +56,7 @@ bt_hid_daemon.py
 Backend daemon for HID keyboard emulation via uinput.
 
 Responsibilities:
-  - Create /run/bt_keyboard_fifo if it does not exist.
+  - Create /run/ipr_bt_keyboard_fifo if it does not exist.
   - Create a uinput virtual keyboard device.
   - Read UTF-8 text lines from the FIFO.
   - Map characters to evdev key codes (with Danish layout support).
@@ -69,7 +69,7 @@ import threading
 from evdev import UInput, ecodes as e
 from systemd import journal
 
-FIFO_PATH = "/run/bt_keyboard_fifo"
+FIFO_PATH = "/run/ipr_bt_keyboard_fifo"
 
 # KEYMAP maps Unicode characters to (evdev keycode, shift_required)
 KEYMAP = {
