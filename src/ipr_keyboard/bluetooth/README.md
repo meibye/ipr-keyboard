@@ -1,33 +1,3 @@
-## BLE Setup, Diagnostics, and Pairing
-
-- **BLE/uinput backend install & management**: See `scripts/ble_install_helper.sh`.
-- **BLE extras (diagnostics, pairing wizard, backend manager)**: See `scripts/ble_setup_extras.sh`.
-- **Agent service**: `bt_hid_agent.service` (handles pairing/authorization).
-- **Web pairing wizard**: `/pairing` endpoint (see web server docs).
-- **BLE diagnostics**: `ipr_ble_diagnostics.sh`, `ipr_ble_hid_analyzer.py`.
-
-### Example Local Scripts
-
-You can create local scripts to call these helpers, e.g.:
-
-```bash
-# Run BLE diagnostics
-./scripts/ipr_ble_diagnostics.sh
-
-# Start pairing wizard (web)
-curl http://localhost:8080/pairing/start
-
-# Switch backend
-echo ble | sudo tee /etc/ipr-keyboard/backend
-sudo systemctl restart bt_hid_ble.service
-```
-
-## System Requirements
-
-- Linux system with Bluetooth capability
-- Bluetooth HID helper script installed
-- Paired Bluetooth device (typically done from the target device)
-- Appropriate permissions to execute helper script
 # Bluetooth Module
 
 This module provides Bluetooth HID (Human Interface Device) keyboard functionality for sending text to paired devices.
@@ -36,14 +6,75 @@ This module provides Bluetooth HID (Human Interface Device) keyboard functionali
 
 The bluetooth module wraps a system-level Bluetooth HID helper script to send keyboard input to paired devices. It provides a simple Python interface while delegating the actual Bluetooth communication to an external helper binary.
 
+The system supports two Bluetooth HID backends:
+- **UInput backend** (`bt_hid_uinput.service`) — Classic Bluetooth using Linux uinput
+- **BLE backend** (`bt_hid_ble.service`) — Bluetooth Low Energy with GATT HID service
+
+Both backends read from the same FIFO pipe (`/run/ipr_bt_keyboard_fifo`) written to by the `bt_kb_send` helper.
+
 ## Files
 
-- **`keyboard.py`** - Main BluetoothKeyboard class
-- **`__init__.py`** - Module initialization
+- **`keyboard.py`** — Main BluetoothKeyboard class
+- **`__init__.py`** — Module initialization
 
-## Related Scripts
+## Architecture
 
-- The Bluetooth HID helper script (`/usr/local/bin/bt_kb_send`) is installed and managed by `scripts/03_install_bt_helper.sh` in the project root. Use this script to install or update the helper as required by the Bluetooth module.
+```
+┌──────────────────────────┐
+│ BluetoothKeyboard class  │
+│ (src/ipr_keyboard/      │
+│  bluetooth/keyboard.py)  │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│ bt_kb_send               │
+│ /usr/local/bin/bt_kb_send│
+│ (writes to FIFO)         │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────────────┐
+│ /run/ipr_bt_keyboard_fifo        │
+│ (Named pipe)                     │
+└────┬────────────────────┬────────┘
+     │                    │
+     ▼                    ▼
+┌─────────────────┐  ┌──────────────────┐
+│ bt_hid_uinput.  │  │ bt_hid_ble.      │
+│ service         │  │ service          │
+│ (uinput backend)│  │ (BLE backend)    │
+└─────────────────┘  └──────────────────┘
+```
+
+## Related Scripts & Services
+
+### Installation Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/ble_install_helper.sh` | Installs bt_kb_send, backends, and agent |
+| `scripts/ble_setup_extras.sh` | Installs diagnostics and backend manager |
+| `scripts/ble_switch_backend.sh` | Switch between uinput and BLE backends |
+
+### Systemd Services
+
+| Service | Description |
+|---------|-------------|
+| `bt_hid_uinput.service` | UInput backend daemon |
+| `bt_hid_ble.service` | BLE backend daemon |
+| `bt_hid_agent.service` | Bluetooth pairing & authorization agent |
+| `ipr_backend_manager.service` | Backend selection service |
+
+See [SERVICES.md](../../../SERVICES.md) for detailed service descriptions.
+
+### Diagnostic Tools
+
+| Tool | Purpose | Usage |
+|------|---------|-------|
+| `diag_ble.sh` | BLE health check | `sudo ./scripts/diag_ble.sh` |
+| `diag_ble_analyzer.sh` | HID report analyzer | `sudo ./scripts/diag_ble_analyzer.sh` |
+| Web pairing wizard | Browser-based pairing | Visit `/pairing` endpoint |
 
 ## BluetoothKeyboard Class
 
@@ -54,7 +85,7 @@ The `BluetoothKeyboard` class is a wrapper around the system Bluetooth HID helpe
 #### `__init__(helper_path: str = "/usr/local/bin/bt_kb_send")`
 Initialize the Bluetooth keyboard wrapper.
 - **Parameters**: 
-  - `helper_path` - Path to the Bluetooth HID helper script
+  - `helper_path` — Path to the Bluetooth HID helper script
 - **Default**: `/usr/local/bin/bt_kb_send`
 
 #### `is_available() -> bool`
@@ -65,22 +96,23 @@ Check if the Bluetooth helper is installed and available.
 #### `send_text(text: str) -> bool`
 Send text to the paired device via Bluetooth keyboard emulation.
 - **Parameters**:
-  - `text` - String to send as keyboard input
+  - `text` — String to send as keyboard input
 - **Returns**: `True` if successful, `False` on error
 - **Behavior**: 
   - Calls external helper script with text as argument
+  - Helper writes to FIFO which is read by backend daemon
   - Logs operation and any errors
   - Returns `False` if helper not found or exits with error
 
 ## Bluetooth Helper Script
 
-The module relies on an external helper script (`bt_kb_send`) installed at `/usr/local/bin/bt_kb_send`. This helper handles the low-level Bluetooth HID communication.
+The module relies on an external helper script (`bt_kb_send`) installed at `/usr/local/bin/bt_kb_send`. This helper handles writing text to the FIFO pipe.
 
 ### Helper Installation
 
 The helper is installed by the setup scripts:
 ```bash
-sudo ./scripts/03_install_bt_helper.sh
+sudo ./scripts/ble_install_helper.sh
 ```
 
 ### Helper Requirements
@@ -88,8 +120,30 @@ sudo ./scripts/03_install_bt_helper.sh
 The helper script must:
 - Accept `--help` flag for availability checking
 - Accept text as command-line argument
+- Write to `/run/ipr_bt_keyboard_fifo`
 - Exit with code 0 on success
-- Handle Bluetooth HID protocol communication
+
+## Backend Selection
+
+The system uses one of two backends (configured in `/etc/ipr-keyboard/backend` or `config.json`):
+
+### UInput Backend
+- Service: `bt_hid_uinput.service`
+- Creates virtual keyboard via Linux uinput
+- Types locally on the Pi via evdev
+- Best for classic Bluetooth pairing
+
+### BLE Backend
+- Service: `bt_hid_ble.service`
+- Registers BLE GATT HID service (UUID 0x1812)
+- Advertises as BLE keyboard
+- Sends HID reports via GATT notifications
+- Best for modern BLE devices
+
+Switch backends using:
+```bash
+sudo ./scripts/ble_switch_backend.sh
+```
 
 ## Usage Example
 
@@ -110,6 +164,10 @@ if success:
 else:
     print("Failed to send text")
 ```
+
+## Danish Character Support
+
+Both backends support Danish characters (æøåÆØÅ) with proper HID usage codes and keyboard layout mappings.
 
 ## Error Handling
 
@@ -142,6 +200,49 @@ Tests are located in `tests/bluetooth/test_keyboard.py`:
 ## System Requirements
 
 - Linux system with Bluetooth capability
-- Bluetooth HID helper script installed
+- Bluetooth HID helper script installed (`bt_kb_send`)
+- One of the backend daemons running (`bt_hid_uinput.service` or `bt_hid_ble.service`)
+- `bt_hid_agent.service` running for pairing support
 - Paired Bluetooth device (typically done from the target device)
 - Appropriate permissions to execute helper script
+
+## Troubleshooting
+
+If Bluetooth keyboard is not working:
+
+1. **Check helper installation**:
+   ```bash
+   ls -l /usr/local/bin/bt_kb_send
+   ```
+
+2. **Check backend services**:
+   ```bash
+   systemctl status bt_hid_uinput.service
+   systemctl status bt_hid_ble.service
+   systemctl status bt_hid_agent.service
+   ```
+
+3. **Run diagnostics**:
+   ```bash
+   sudo ./scripts/diag_ble.sh
+   ./scripts/diag_status.sh
+   ```
+
+4. **Check logs**:
+   ```bash
+   journalctl -u bt_hid_uinput.service -n 50
+   journalctl -u bt_hid_ble.service -n 50
+   journalctl -u bt_hid_agent.service -n 50
+   ```
+
+5. **Test helper directly**:
+   ```bash
+   echo "test" | /usr/local/bin/bt_kb_send "$(cat -)"
+   ```
+
+## See Also
+
+- [SERVICES.md](../../../SERVICES.md) — Detailed service documentation
+- [scripts/README.md](../../../scripts/README.md) — Setup scripts
+- [Main README](../../../README.md) — Project overview
+
