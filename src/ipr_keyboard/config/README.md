@@ -19,9 +19,12 @@ The configuration module manages application settings through a singleton `Confi
 
 ## Related Scripts
 
-- Backend switching can be triggered by updating the `KeyboardBackend` field in the config (see API/curl examples below), but the actual backend switch is performed by:
-  - `scripts/15_switch_keyboard_backend.sh` (legacy, hardcoded path)
-  - `scripts/16_switch_keyboard_backend.sh` (recommended, uses environment variables)
+Backend switching can be triggered by updating the `KeyboardBackend` field in the config. The backend selection is managed by:
+- `scripts/ble_switch_backend.sh` — Interactive backend switching
+- `scripts/ble_backend_manager.sh` — Manual backend manager trigger
+- `ipr_backend_manager.service` — Automatic backend management
+
+See [SERVICES.md](../../../SERVICES.md) for detailed backend service documentation.
 
 ## AppConfig Dataclass
 

@@ -310,3 +310,18 @@ The web server port is configurable via the `LogPort` setting:
 - Verify POST request format (Content-Type: application/json)
 - Check application logs for errors
 - Ensure disk is not full/read-only
+
+
+## Related Features
+
+- **BLE Pairing Wizard**: After running `ble_setup_extras.sh`, a web-based pairing wizard is available at `/pairing`
+- **Service Status**: See `scripts/svc_status_monitor.py` for interactive service monitoring
+- **Diagnostics**: Use `scripts/diag_status.sh` for system status via command line
+
+## See Also
+
+- [SERVICES.md](../../../SERVICES.md) — Service documentation including pairing wizard
+- [Config Module](../config/README.md) — Configuration management
+- [Logging Module](../logging/README.md) — Log viewing API
+- [scripts/README.md](../../../scripts/README.md) — Setup and diagnostic scripts
+- [Main README](../../../README.md) — Project overview
