@@ -8,6 +8,7 @@ Requires: python3, curses, systemctl, journalctl
 import curses
 import subprocess
 import sys
+import threading
 import time
 
 
@@ -46,7 +47,7 @@ BACKEND_LABELS = [
 ]
 
 
-def draw_table(stdscr, selected, delay):
+def draw_table(stdscr, selected, delay, status_snapshot):
     stdscr.clear()
     stdscr.addstr(
         0, 2, "IPR-KEYBOARD SERVICE STATUS MONITOR (Python TUI)", curses.A_BOLD
@@ -66,19 +67,19 @@ def draw_table(stdscr, selected, delay):
         stdscr.addstr(
             row,
             svc_col,
-            f"{'Service':<28}{'Status':<12}{'Description'}",
+            f"{'Service':<33}{'Status':<12}{'Description'}",
             curses.A_UNDERLINE,
         )
         row += 1
         for svc, desc, svc_backend in SERVICES:
             if backend == svc_backend or (backend == "both" and svc_backend == "both"):
-                status = get_status(svc)
+                status = status_snapshot.get(svc, "unknown")
                 color = curses.color_pair(COLOR_STATUS.get(status, 4))
                 marker = ">" if idx == selected else " "
                 stdscr.addstr(
                     row,
                     svc_col,
-                    f"{marker} {svc:<26} {status:<12} {desc}",
+                    f"{marker} {svc:<31} {status:<12} {desc}",
                     color | (curses.A_REVERSE if idx == selected else 0),
                 )
                 row += 1
@@ -128,20 +129,49 @@ def main(stdscr, delay):
     curses.init_pair(2, curses.COLOR_GREEN, -1)
     curses.init_pair(3, curses.COLOR_YELLOW, -1)
     curses.init_pair(4, curses.COLOR_CYAN, -1)
-    delay = 2
     selected = 0
     total = len(SERVICES)
+    status_snapshot = {svc: "unknown" for svc, _, _ in SERVICES}
+    last_snapshot = status_snapshot.copy()
+    redraw_event = threading.Event()
+    stop_event = threading.Event()
+
+    def poll_status():
+        nonlocal status_snapshot, last_snapshot
+        while not stop_event.is_set():
+            changed = False
+            for svc, _, _ in SERVICES:
+                new_status = get_status(svc)
+                if status_snapshot.get(svc) != new_status:
+                    status_snapshot[svc] = new_status
+                    changed = True
+            if changed:
+                redraw_event.set()
+            time.sleep(delay)
+
+    poll_thread = threading.Thread(target=poll_status, daemon=True)
+    poll_thread.start()
+
+    draw_table(stdscr, selected, delay, status_snapshot)
     while True:
-        draw_table(stdscr, selected, delay)
+        if redraw_event.is_set():
+            draw_table(stdscr, selected, delay, status_snapshot)
+            redraw_event.clear()
         c = stdscr.getch()
+        if c == -1:
+            time.sleep(0.05)
+            continue
         if c in (ord("q"), ord("Q")):
+            stop_event.set()
             break
         elif c in (ord("r"), ord("R")):
-            continue
+            draw_table(stdscr, selected, delay, status_snapshot)
         elif c == curses.KEY_UP:
             selected = (selected - 1) % total
+            draw_table(stdscr, selected, delay, status_snapshot)
         elif c == curses.KEY_DOWN:
             selected = (selected + 1) % total
+            draw_table(stdscr, selected, delay, status_snapshot)
         elif c == curses.KEY_ENTER or c == 10 or c == 13:
             svc, desc, backend = SERVICES[selected]
             action = select_action(stdscr, svc)
@@ -153,11 +183,12 @@ def main(stdscr, delay):
                 subprocess.call(["sudo", "systemctl", "restart", svc])
             elif action == "Journal":
                 show_journal(stdscr, svc)
+            draw_table(stdscr, selected, delay, status_snapshot)
         elif c == ord("+"):
             delay = min(delay + 1, 30)
         elif c == ord("-"):
             delay = max(delay - 1, 1)
-        time.sleep(delay)
+        # No sleep here; input is responsive
 
 
 if __name__ == "__main__":
