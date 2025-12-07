@@ -180,19 +180,27 @@ def main(stdscr, delay):
         elif c == curses.KEY_ENTER or c == 10 or c == 13:
             svc, desc, backend = SERVICES[selected]
             action = select_action(stdscr, svc)
+
+            def run_action(cmd):
+                try:
+                    subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
+                    return None
+                except subprocess.CalledProcessError as e:
+                    return e.output
+
+            error_msg = None
             if action == "Start":
-                subprocess.call(["sudo", "systemctl", "start", svc])
-                # Force immediate status refresh
+                error_msg = run_action(["sudo", "systemctl", "start", svc])
                 with status_lock:
                     status_snapshot[svc] = get_status(svc)
                 redraw_event.set()
             elif action == "Stop":
-                subprocess.call(["sudo", "systemctl", "stop", svc])
+                error_msg = run_action(["sudo", "systemctl", "stop", svc])
                 with status_lock:
                     status_snapshot[svc] = get_status(svc)
                 redraw_event.set()
             elif action == "Restart":
-                subprocess.call(["sudo", "systemctl", "restart", svc])
+                error_msg = run_action(["sudo", "systemctl", "restart", svc])
                 with status_lock:
                     status_snapshot[svc] = get_status(svc)
                 redraw_event.set()
@@ -200,6 +208,20 @@ def main(stdscr, delay):
                 show_journal(stdscr, svc)
                 with status_lock:
                     draw_table(stdscr, selected, delay, status_snapshot)
+            if error_msg:
+                stdscr.clear()
+                stdscr.addstr(
+                    0,
+                    2,
+                    f"Error running {action} for {svc}",
+                    curses.A_BOLD | curses.color_pair(1),
+                )
+                lines = error_msg.splitlines()
+                for i, line in enumerate(lines[: curses.LINES - 3]):
+                    stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
+                stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+                stdscr.refresh()
+                stdscr.getch()
         elif c == ord("+"):
             delay = min(delay + 1, 30)
         elif c == ord("-"):
