@@ -50,6 +50,7 @@ sudo apt install -y \
     bluetooth \
     libcairo2-dev \
     libgirepository1.0-dev \
+    libsystemd-dev \
     jq
 
 
