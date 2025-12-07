@@ -213,6 +213,7 @@ Debug tool for BLE HID:
 import dbus
 import dbus.mainloop.glib
 from gi.repository import GLib
+from systemd import journal
 
 BLUEZ = "org.bluez"
 PROP_IFACE = "org.freedesktop.DBus.Properties"
@@ -223,9 +224,9 @@ CHRC_IFACE = "org.bluez.GattCharacteristic1"
 def on_properties_changed(interface, changed, invalidated, path=None):
     if "Value" in changed:
         value = bytes(changed["Value"])
-        print(f"[HID REPORT] path={path} hex={value.hex(' ')}")
+        journal.send(f"[HID REPORT] path={path} hex={value.hex(' ')}")
     if "Connected" in changed:
-        print(f"[BLE] Connected={changed['Connected']}")
+        journal.send(f"[BLE] Connected={changed['Connected']}")
 
 
 def main():
@@ -236,7 +237,7 @@ def main():
     om = dbus.Interface(manager, OM_IFACE)
     objects = om.GetManagedObjects()
 
-    print("ipr_ble_hid_analyzer: monitoring GATT characteristic changes...")
+    journal.send("ipr_ble_hid_analyzer: monitoring GATT characteristic changes...")
 
     for path, ifaces in objects.items():
         if CHRC_IFACE in ifaces:

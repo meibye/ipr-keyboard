@@ -167,7 +167,7 @@ def fifo_thread(ui: UInput) -> None:
         os.mkfifo(FIFO_PATH)
         os.chmod(FIFO_PATH, 0o666)
 
-    print(f"BT HID daemon: FIFO ready at {FIFO_PATH}")
+    journal.send(f"BT HID daemon: FIFO ready at {FIFO_PATH}", PRIORITY=journal.LOG_INFO)
 
     while True:
         with open(FIFO_PATH, "r", encoding="utf-8") as fifo:
@@ -175,26 +175,23 @@ def fifo_thread(ui: UInput) -> None:
                 text = line.rstrip("\n")
                 if not text:
                     continue
-                print(f"BT HID daemon received: {text!r}")
+                journal.send(f"BT HID daemon received: {text!r}", PRIORITY=journal.LOG_INFO)
                 send_text(ui, text)
 
 
 def main() -> None:
     journal.send("BT HID daemon starting (uinput virtual keyboard)...", PRIORITY=journal.LOG_INFO)
-    # print("BT HID daemon starting (uinput virtual keyboard)...")
     ui = UInput()  # default keyboard-capable device
 
     t = threading.Thread(target=fifo_thread, args=(ui,), daemon=True)
     t.start()
 
     journal.send("BT HID daemon running. Waiting for FIFO input...", PRIORITY=journal.LOG_INFO)
-    # print("BT HID daemon running. Waiting for FIFO input...")
     try:
         while True:
             time.sleep(60)
     except KeyboardInterrupt:
         journal.send("BT HID daemon shutting down...", PRIORITY=journal.LOG_INFO)
-        # print("BT HID daemon shutting down...")
 
 
 if __name__ == "__main__":
