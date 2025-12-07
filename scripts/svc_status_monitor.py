@@ -182,14 +182,24 @@ def main(stdscr, delay):
             action = select_action(stdscr, svc)
             if action == "Start":
                 subprocess.call(["sudo", "systemctl", "start", svc])
+                # Force immediate status refresh
+                with status_lock:
+                    status_snapshot[svc] = get_status(svc)
+                redraw_event.set()
             elif action == "Stop":
                 subprocess.call(["sudo", "systemctl", "stop", svc])
+                with status_lock:
+                    status_snapshot[svc] = get_status(svc)
+                redraw_event.set()
             elif action == "Restart":
                 subprocess.call(["sudo", "systemctl", "restart", svc])
+                with status_lock:
+                    status_snapshot[svc] = get_status(svc)
+                redraw_event.set()
             elif action == "Journal":
                 show_journal(stdscr, svc)
-            with status_lock:
-                draw_table(stdscr, selected, delay, status_snapshot)
+                with status_lock:
+                    draw_table(stdscr, selected, delay, status_snapshot)
         elif c == ord("+"):
             delay = min(delay + 1, 30)
         elif c == ord("-"):
