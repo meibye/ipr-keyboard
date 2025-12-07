@@ -43,11 +43,20 @@ if [[ "$BACKEND" == "uinput" ]]; then
   sudo systemctl disable bt_hid_ble.service 2>/dev/null || true
   sudo systemctl enable bt_hid_uinput.service
   sudo systemctl restart bt_hid_uinput.service
+
 else
   echo "[ble_switch_backend] Enabling BLE backend (bt_hid_ble.service)"
   sudo systemctl disable bt_hid_uinput.service 2>/dev/null || true
   sudo systemctl enable bt_hid_ble.service
   sudo systemctl restart bt_hid_ble.service
+
+  # Ensure bt_hid_agent.service is running
+  if ! systemctl is-active --quiet bt_hid_agent.service; then
+    echo "[ble_switch_backend] bt_hid_agent.service is NOT active. Starting it..."
+    sudo systemctl start bt_hid_agent.service
+  else
+    echo "[ble_switch_backend] bt_hid_agent.service is already active."
+  fi
 fi
 
 echo "=== [ble_switch_backend] Backend switched to: $BACKEND ==="
