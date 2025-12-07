@@ -7,7 +7,19 @@ Requires: python3, curses, systemctl, journalctl
 
 import curses
 import subprocess
+import sys
 import time
+
+
+def get_status(service):
+    try:
+        out = subprocess.check_output(
+            ["systemctl", "is-active", service], text=True
+        ).strip()
+        return out if out else "unknown"
+    except subprocess.CalledProcessError:
+        return "unknown"
+
 
 SERVICES = [
     ("ipr_keyboard.service", "Main Application", "both"),
@@ -34,26 +46,6 @@ BACKEND_LABELS = [
 ]
 
 
-def get_status(service):
-    try:
-        out = subprocess.check_output(
-            ["systemctl", "is-active", service], text=True
-        ).strip()
-        return out if out else "unknown"
-    except subprocess.CalledProcessError:
-        return "unknown"
-
-
-def get_enabled(service):
-    try:
-        out = subprocess.check_output(
-            ["systemctl", "is-enabled", service], text=True
-        ).strip()
-        return out if out else "unknown"
-    except subprocess.CalledProcessError:
-        return "unknown"
-
-
 def draw_table(stdscr, selected, delay):
     stdscr.clear()
     stdscr.addstr(
@@ -62,13 +54,21 @@ def draw_table(stdscr, selected, delay):
     stdscr.addstr(
         1,
         2,
-        f"Delay: {delay}s   [Arrows: Move] [Enter: Action] [q: Quit] [r: Refresh]",
+        f"Delay: {delay}s   [Arrows: Move] [Enter: Action] [q: Quit] [r: Refresh] [+/-: Adjust delay]",
         curses.A_DIM,
     )
     row = 3
     idx = 0
+    svc_col = 4
     for backend, label in BACKEND_LABELS:
         stdscr.addstr(row, 2, label, curses.A_BOLD | curses.color_pair(4))
+        row += 1
+        stdscr.addstr(
+            row,
+            svc_col,
+            f"{'Service':<28}{'Status':<12}{'Description'}",
+            curses.A_UNDERLINE,
+        )
         row += 1
         for svc, desc, svc_backend in SERVICES:
             if backend == svc_backend or (backend == "both" and svc_backend == "both"):
@@ -77,8 +77,8 @@ def draw_table(stdscr, selected, delay):
                 marker = ">" if idx == selected else " "
                 stdscr.addstr(
                     row,
-                    2,
-                    f"{marker} {svc:<25} {status:<10} {desc}",
+                    svc_col,
+                    f"{marker} {svc:<26} {status:<12} {desc}",
                     color | (curses.A_REVERSE if idx == selected else 0),
                 )
                 row += 1
@@ -161,4 +161,10 @@ def main(stdscr):
 
 
 if __name__ == "__main__":
-    curses.wrapper(main)
+    delay = 2
+    if len(sys.argv) > 1:
+        try:
+            delay = max(1, int(sys.argv[1]))
+        except Exception:
+            pass
+    curses.wrapper(lambda stdscr: main(stdscr, delay))
