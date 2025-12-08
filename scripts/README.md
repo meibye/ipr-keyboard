@@ -20,22 +20,28 @@ The scripts automate the complete setup process from system configuration to ser
 - **BLE extras (diagnostics, pairing wizard, backend manager)**: See `ble_setup_extras.sh`.
 - **Agent service**: `bt_hid_agent.service` (handles pairing/authorization).
 - **Web pairing wizard**: `/pairing` endpoint (see web server docs).
-- **BLE diagnostics**: `ipr_ble_diagnostics.sh`, `ipr_ble_hid_analyzer.py`.
+- **BLE diagnostics**: Available via wrapper scripts in this directory.
 
-### Example Local Scripts
+### Wrapper Scripts for BLE Extras
 
-You can create local scripts to call these helpers, e.g.:
+These wrapper scripts call tools installed by `ble_setup_extras.sh`:
 
 ```bash
-# Run BLE diagnostics
-./scripts/ipr_ble_diagnostics.sh
+# Run BLE diagnostics (wrapper for /usr/local/bin/ipr_ble_diagnostics.sh)
+sudo ./scripts/diag_ble.sh
+
+# Start BLE HID analyzer (wrapper for /usr/local/bin/ipr_ble_hid_analyzer.py)
+sudo ./scripts/diag_ble_analyzer.sh
+
+# Manually trigger backend manager (wrapper for /usr/local/bin/ipr_backend_manager.sh)
+sudo ./scripts/ble_backend_manager.sh
 
 # Start pairing wizard (web)
 curl http://localhost:8080/pairing/start
 
-# Switch backend
+# Switch backend using config file
 echo ble | sudo tee /etc/ipr-keyboard/backend
-sudo systemctl restart bt_hid_ble.service
+sudo systemctl start ipr_backend_manager.service
 ```
 
 ## Script Organization
@@ -141,10 +147,16 @@ sudo systemctl disable bt_hid_ble.service
 sudo systemctl enable bt_hid_uinput.service
 sudo systemctl restart bt_hid_uinput.service
 ```
+
+### Diagnostic Scripts
+
 | Script | Description | Run as |
 |--------|-------------|--------|
 | `diag_troubleshoot.sh` | Comprehensive diagnostic checks | user/root |
 | `diag_status.sh` | System status overview (Bluetooth, services, config) | user |
+| `diag_ble.sh` | BLE HID diagnostics (wrapper for ipr_ble_diagnostics.sh) | root |
+| `diag_ble_analyzer.sh` | BLE HID report analyzer (wrapper for ipr_ble_hid_analyzer.py) | root |
+| `svc_status_monitor.py` | Interactive TUI for service monitoring with diagnostics | user |
 
 ## Environment Configuration
 

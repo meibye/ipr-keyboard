@@ -331,3 +331,20 @@ Tests are located in `tests/usb/test_usb_reader.py`:
 - Check `MaxFileSize` configuration
 - Increase limit if needed (default 1 MB)
 - Files over limit are logged as warnings
+
+
+## Related Scripts
+
+| Script | Purpose |
+|--------|--------|
+| `usb_setup_mount.sh` | Set up persistent USB mount for IrisPen |
+| `usb_mount_mtp.sh` | Mount/unmount IrisPen as MTP device |
+| `usb_sync_cache.sh` | Sync files from MTP mount to local cache |
+
+See [scripts/README.md](../../../scripts/README.md) for detailed script documentation.
+
+## See Also
+
+- [Main README](../../../README.md) — Project overview
+- [Config Module](../config/README.md) — Configuration management
+- [Main Module](../README.md) — Application entry point

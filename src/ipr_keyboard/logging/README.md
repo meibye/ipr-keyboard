@@ -229,3 +229,10 @@ Tests are located in `tests/logging/test_logger.py`:
 - Verify log file exists at `logs/ipr_keyboard.log`
 - Check file permissions
 - Ensure logger has been initialized
+
+
+## See Also
+
+- [Main README](../../../README.md) — Project overview
+- [Web Module](../web/README.md) — Web API documentation
+- [scripts/README.md](../../../scripts/README.md) — Diagnostic scripts
