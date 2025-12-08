@@ -123,40 +123,35 @@ sudo ./scripts/usb_setup_mount.sh /dev/sda1 # Configure persistent USB mount
 | `usb_sync_cache.sh` | Sync files from MTP mount to local cache | user |
 
 
-## Backend Service Management
 
-Backend switching and service management is handled by enabling/disabling the following systemd units:
+### Backend Service Management Scripts
 
-- `bt_hid_uinput.service` — UInput backend daemon (created by `ble_install_helper.sh`)
-- `bt_hid_ble.service` — BLE HID backend daemon (created by `ble_install_helper.sh`)
-- `bt_hid_agent.service` — BLE pairing/authorization agent (created by `ble_install_helper.sh`)
-- `ipr_backend_manager.service` — Ensures only one backend is active (created by `ble_setup_extras.sh`)
+The following scripts manage ipr-keyboard systemd services:
 
-Use `ble_switch_backend.sh` or `ipr_backend_manager.service` to switch between backends. Example:
+| Script                        | Description                                                      | Run as    |
+|-------------------------------|------------------------------------------------------------------|-----------|
+| `svc_disable_all_services.sh` | Disables and stops all ipr-keyboard related services             | root      |
+| `svc_enable_uinput_services.sh` | Enables uinput backend services, disables BLE backend           | root      |
+| `svc_enable_ble_services.sh`  | Enables BLE backend services, disables uinput backend            | root      |
+| `svc_status_services.sh`      | Shows status of all managed services                            | user/root |
+
+Usage examples:
 
 ```bash
-# Switch to BLE backend
-echo ble | sudo tee /etc/ipr-keyboard/backend
-sudo systemctl disable bt_hid_uinput.service
-sudo systemctl enable bt_hid_ble.service
-sudo systemctl restart bt_hid_ble.service
+# Disable all ipr-keyboard services
+sudo ./scripts/svc_disable_all_services.sh
 
-# Switch to uinput backend
-echo uinput | sudo tee /etc/ipr-keyboard/backend
-sudo systemctl disable bt_hid_ble.service
-sudo systemctl enable bt_hid_uinput.service
-sudo systemctl restart bt_hid_uinput.service
+# Enable uinput backend services
+sudo ./scripts/svc_enable_uinput_services.sh
+
+# Enable BLE backend services
+sudo ./scripts/svc_enable_ble_services.sh
+
+# Show status of all managed services
+sudo ./scripts/svc_status_services.sh
 ```
 
-### Diagnostic Scripts
-
-| Script | Description | Run as |
-|--------|-------------|--------|
-| `diag_troubleshoot.sh` | Comprehensive diagnostic checks | user/root |
-| `diag_status.sh` | System status overview (Bluetooth, services, config) | user |
-| `diag_ble.sh` | BLE HID diagnostics (wrapper for ipr_ble_diagnostics.sh) | root |
-| `diag_ble_analyzer.sh` | BLE HID report analyzer (wrapper for ipr_ble_hid_analyzer.py) | root |
-| `svc_status_monitor.py` | Interactive TUI for service monitoring with diagnostics | user |
+These scripts ensure only the correct backend is active and provide quick status checks.
 
 ## Environment Configuration
 

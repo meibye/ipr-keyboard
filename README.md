@@ -227,7 +227,9 @@ Edit `config.json` in the project root or use the web API:
 ```
 
 
+
 ## Usage Examples
+
 - **Send text via Bluetooth**:
   ```python
   from ipr_keyboard.bluetooth.keyboard import BluetoothKeyboard
@@ -235,19 +237,19 @@ Edit `config.json` in the project root or use the web API:
   if kb.is_available():
       kb.send_text("Hello world!")
   ```
-- **Switch backend via script**:
+- **Service management scripts**:
   ```bash
-  # Switch to BLE backend
-  echo ble | sudo tee /etc/ipr-keyboard/backend
-  sudo systemctl disable bt_hid_uinput.service
-  sudo systemctl enable bt_hid_ble.service
-  sudo systemctl restart bt_hid_ble.service
+  # Disable all ipr-keyboard services
+  sudo ./scripts/svc_disable_all_services.sh
 
-  # Switch to uinput backend
-  echo uinput | sudo tee /etc/ipr-keyboard/backend
-  sudo systemctl disable bt_hid_ble.service
-  sudo systemctl enable bt_hid_uinput.service
-  sudo systemctl restart bt_hid_uinput.service
+  # Enable uinput backend services
+  sudo ./scripts/svc_enable_uinput_services.sh
+
+  # Enable BLE backend services
+  sudo ./scripts/svc_enable_ble_services.sh
+
+  # Show status of all managed services
+  sudo ./scripts/svc_status_services.sh
   ```
 - **Update config via web API**:
   ```bash

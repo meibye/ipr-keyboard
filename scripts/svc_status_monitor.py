@@ -28,7 +28,7 @@ def get_status(service):
 def get_diagnostic_info():
     """Gather diagnostic information from various sources."""
     info = {}
-    
+
     # Backend selection
     try:
         if os.path.exists("/etc/ipr-keyboard/backend"):
@@ -38,18 +38,24 @@ def get_diagnostic_info():
             info["backend_file"] = "not found"
     except:
         info["backend_file"] = "error reading"
-    
+
     # Config file backend
     try:
         config_path = os.path.expanduser("~/dev/ipr-keyboard/config.json")
         if not os.path.exists(config_path):
             # Try alternate locations
-            for alt_path in ["/home/*/dev/ipr-keyboard/config.json", "./config.json", "../config.json"]:
-                matches = subprocess.check_output(f"ls {alt_path} 2>/dev/null || true", shell=True, text=True).strip()
+            for alt_path in [
+                "/home/*/dev/ipr-keyboard/config.json",
+                "./config.json",
+                "../config.json",
+            ]:
+                matches = subprocess.check_output(
+                    f"ls {alt_path} 2>/dev/null || true", shell=True, text=True
+                ).strip()
                 if matches:
-                    config_path = matches.split('\n')[0]
+                    config_path = matches.split("\n")[0]
                     break
-        
+
         if os.path.exists(config_path):
             with open(config_path, "r") as f:
                 config = json.load(f)
@@ -61,10 +67,12 @@ def get_diagnostic_info():
     except Exception as e:
         info["config_backend"] = f"error: {str(e)[:30]}"
         info["config_path"] = "error"
-    
+
     # Bluetooth adapter status
     try:
-        bt_show = subprocess.check_output(["bluetoothctl", "show"], text=True, stderr=subprocess.DEVNULL)
+        bt_show = subprocess.check_output(
+            ["bluetoothctl", "show"], text=True, stderr=subprocess.DEVNULL
+        )
         info["bt_powered"] = "yes" if "Powered: yes" in bt_show else "no"
         info["bt_discoverable"] = "yes" if "Discoverable: yes" in bt_show else "no"
         info["bt_pairable"] = "yes" if "Pairable: yes" in bt_show else "no"
@@ -72,45 +80,55 @@ def get_diagnostic_info():
         info["bt_powered"] = "unknown"
         info["bt_discoverable"] = "unknown"
         info["bt_pairable"] = "unknown"
-    
+
     # Paired devices count
     try:
-        devices = subprocess.check_output(["bluetoothctl", "devices"], text=True, stderr=subprocess.DEVNULL)
-        info["paired_devices"] = len(devices.strip().split('\n')) if devices.strip() else 0
+        devices = subprocess.check_output(
+            ["bluetoothctl", "devices"], text=True, stderr=subprocess.DEVNULL
+        )
+        info["paired_devices"] = (
+            len(devices.strip().split("\n")) if devices.strip() else 0
+        )
     except:
         info["paired_devices"] = "unknown"
-    
+
     # FIFO pipe status
     try:
         if os.path.exists("/run/ipr_bt_keyboard_fifo"):
             stat_info = os.stat("/run/ipr_bt_keyboard_fifo")
             import stat
-            info["fifo_exists"] = "yes (pipe)" if stat.S_ISFIFO(stat_info.st_mode) else "yes (not pipe!)"
+
+            info["fifo_exists"] = (
+                "yes (pipe)" if stat.S_ISFIFO(stat_info.st_mode) else "yes (not pipe!)"
+            )
         else:
             info["fifo_exists"] = "no"
     except:
         info["fifo_exists"] = "error"
-    
+
     # bt_kb_send helper
     info["bt_kb_send"] = "yes" if os.path.exists("/usr/local/bin/bt_kb_send") else "no"
-    
+
     # Web API status (check if port 8080 is listening)
     try:
-        ss_out = subprocess.check_output(["ss", "-tln"], text=True, stderr=subprocess.DEVNULL)
+        ss_out = subprocess.check_output(
+            ["ss", "-tln"], text=True, stderr=subprocess.DEVNULL
+        )
         info["web_api"] = "listening" if ":8080 " in ss_out else "not listening"
     except:
         info["web_api"] = "unknown"
-    
+
     return info
 
 
 SERVICES = [
+    ("bluetooth.target", "System Bluetooth", "both"),
     ("ipr_keyboard.service", "Main Application", "both"),
     ("bt_hid_agent.service", "BLE Pairing Agent", "both"),
     ("bt_hid_uinput.service", "UInput HID Daemon", "uinput"),
-    ("bt_hid_daemon.service", "BT HID virtual keyboard daemon", "uinput"),
+    ("bt_hid_daemon.service", "BT HID virtual keyboard daemon", "legacy"),
     ("bt_hid_ble.service", "BLE HID Daemon", "ble"),
-    ("ipr_backend_manager.service", "Backend Manager \(controls BT type switch\)", "both"),
+    ("ipr_backend_manager.service", "Backend Switch Manager", "both"),
 ]
 
 ACTIONS = ["Start", "Stop", "Restart", "Journal", "Diagnostics"]
@@ -125,6 +143,7 @@ COLOR_STATUS = {
 
 BACKEND_LABELS = [
     ("uinput", "UINPUT Backend Services"),
+    ("legacy", "Legacy/advanced Services"),
     ("ble", "BLE Backend Services"),
     ("both", "Services for Both Backends"),
 ]
@@ -168,11 +187,13 @@ def draw_table(stdscr, selected, delay, status_snapshot, diag_info=None):
                 row += 1
                 idx += 1
         row += 1
-    
+
     # Show diagnostic info at the bottom if available
     if diag_info and row < curses.LINES - 8:
         row += 1
-        stdscr.addstr(row, 2, "System Diagnostics", curses.A_BOLD | curses.color_pair(4))
+        stdscr.addstr(
+            row, 2, "System Diagnostics", curses.A_BOLD | curses.color_pair(4)
+        )
         row += 1
         diag_lines = [
             f"Backend (file): {diag_info.get('backend_file', 'unknown')}  "
@@ -187,9 +208,9 @@ def draw_table(stdscr, selected, delay, status_snapshot, diag_info=None):
         ]
         for line in diag_lines:
             if row < curses.LINES - 1:
-                stdscr.addstr(row, 4, line[:curses.COLS - 6], curses.A_DIM)
+                stdscr.addstr(row, 4, line[: curses.COLS - 6], curses.A_DIM)
                 row += 1
-    
+
     stdscr.refresh()
 
 
@@ -198,7 +219,9 @@ def select_action(stdscr, svc):
     stdscr.addstr(0, 2, f"Actions for {svc}", curses.A_BOLD)
     for i, action in enumerate(ACTIONS):
         stdscr.addstr(i + 2, 4, f"{i + 1}. {action}")
-    stdscr.addstr(len(ACTIONS) + 3, 2, f"Select action [1-{len(ACTIONS)}] or [q] to cancel: ")
+    stdscr.addstr(
+        len(ACTIONS) + 3, 2, f"Select action [1-{len(ACTIONS)}] or [q] to cancel: "
+    )
     stdscr.refresh()
     while True:
         c = stdscr.getch()
@@ -235,7 +258,7 @@ def show_diagnostics(stdscr):
         ]
         for i, line in enumerate(lines):
             if i + 2 < curses.LINES - 1:
-                stdscr.addstr(i + 2, 2, line[:curses.COLS - 4])
+                stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
     except Exception as e:
         stdscr.addstr(2, 2, f"Error gathering diagnostics: {str(e)}")
     stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")

@@ -380,23 +380,28 @@ echo "test" | bt_kb_send "$(cat -)"
 
 ## Service Management Scripts
 
+
 The following scripts in the `scripts/` folder provide convenient management of all ipr-keyboard systemd services:
 
-- `disable_all_services.sh`: Disables and stops all ipr-keyboard related services (main app, backends, agent, backend manager).
-- `enable_uinput_services.sh`: Enables and starts all required services for the uinput backend, disables BLE backend.
-- `enable_ble_services.sh`: Enables and starts all required services for the BLE backend, disables uinput backend.
+- `svc_disable_all_services.sh`: Disables and stops all ipr-keyboard related services (main app, backends, agent, backend manager).
+- `svc_enable_uinput_services.sh`: Enables and starts all required services for the uinput backend, disables BLE backend.
+- `svc_enable_ble_services.sh`: Enables and starts all required services for the BLE backend, disables uinput backend.
+- `svc_status_services.sh`: Shows the status of all handled services in a compact format.
 
 ### Usage Examples
 
 ```bash
 # Disable all ipr-keyboard services
-sudo ./scripts/disable_all_services.sh
+sudo ./scripts/svc_disable_all_services.sh
 
 # Enable uinput backend services
-sudo ./scripts/enable_uinput_services.sh
+sudo ./scripts/svc_enable_uinput_services.sh
 
 # Enable BLE backend services
-sudo ./scripts/enable_ble_services.sh
+sudo ./scripts/svc_enable_ble_services.sh
+
+# Show status of all managed services
+sudo ./scripts/svc_status_services.sh
 ```
 
 These scripts ensure that only the correct backend is active and all dependencies are handled automatically. See each script for details.
