@@ -26,7 +26,7 @@ def read_backend_file() -> Optional[str]:
                 # Normalize to valid values
                 if backend in ("uinput", "ble"):
                     return backend
-    except (OSError, IOError):
+    except (OSError, PermissionError):
         pass
     return None
 
@@ -51,19 +51,5 @@ def write_backend_file(backend: str) -> bool:
         with open(BACKEND_FILE_PATH, "w") as f:
             f.write(backend + "\n")
         return True
-    except (OSError, IOError, PermissionError):
+    except (OSError, PermissionError):
         return False
-
-
-def sync_backend_to_file(backend: str) -> bool:
-    """Synchronize the backend selection to /etc/ipr-keyboard/backend.
-    
-    This is a convenience function that validates and writes the backend value.
-    
-    Args:
-        backend: The backend type to sync ("uinput" or "ble").
-        
-    Returns:
-        True if successful, False otherwise.
-    """
-    return write_backend_file(backend)

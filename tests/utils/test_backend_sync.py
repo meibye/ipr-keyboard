@@ -9,7 +9,6 @@ from unittest.mock import patch, mock_open
 from ipr_keyboard.utils.backend_sync import (
     read_backend_file,
     write_backend_file,
-    sync_backend_to_file,
     BACKEND_FILE_PATH,
 )
 
@@ -137,15 +136,3 @@ def test_write_backend_file_permission_error(tmp_path, monkeypatch):
     with patch("builtins.open", side_effect=PermissionError):
         result = write_backend_file("ble")
         assert result is False
-
-
-def test_sync_backend_to_file(tmp_path, monkeypatch):
-    """Test sync_backend_to_file wrapper function."""
-    backend_file = tmp_path / "backend"
-    
-    monkeypatch.setattr("ipr_keyboard.utils.backend_sync.BACKEND_FILE_PATH", str(backend_file))
-    
-    result = sync_backend_to_file("ble")
-    
-    assert result is True
-    assert backend_file.read_text().strip() == "ble"

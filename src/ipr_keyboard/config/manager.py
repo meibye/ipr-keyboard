@@ -144,7 +144,7 @@ class ConfigManager:
         """
         backend_from_file = read_backend_file()
         
-        if backend_from_file and backend_from_file != self._cfg.KeyboardBackend:
+        if backend_from_file is not None and backend_from_file != self._cfg.KeyboardBackend:
             # System-level setting takes precedence
             logger.info(
                 "Backend file (/etc/ipr-keyboard/backend) contains '%s', "
@@ -154,7 +154,7 @@ class ConfigManager:
             )
             self._cfg.KeyboardBackend = backend_from_file
             save_json(self._path, self._cfg.to_dict())
-        elif not backend_from_file:
+        elif backend_from_file is None:
             # No backend file exists, write current config value
             logger.info(
                 "No backend file found, creating /etc/ipr-keyboard/backend with '%s'",
