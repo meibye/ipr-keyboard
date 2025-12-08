@@ -10,19 +10,30 @@ The configuration module manages application settings through a singleton `Confi
 - Runtime configuration updates
 - Web API for remote configuration
 - Default configuration values
+- **Automatic synchronization between `config.json` and `/etc/ipr-keyboard/backend`**
+
+## Backend Synchronization
+
+The `KeyboardBackend` setting is automatically synchronized between `config.json` and `/etc/ipr-keyboard/backend`:
+
+- **On startup**: If `/etc/ipr-keyboard/backend` exists, it takes precedence and updates `config.json`
+- **On update**: When `KeyboardBackend` is changed via `ConfigManager.update()`, the backend file is automatically updated
+- **Manual changes**: The `ble_switch_backend.sh` script updates both files simultaneously
+
+This ensures that the application config and system-level service manager always agree on which backend is active.
 
 ## Files
 
-- **`manager.py`** - Core ConfigManager class and AppConfig dataclass
+- **`manager.py`** - Core ConfigManager class and AppConfig dataclass with backend synchronization
 - **`web.py`** - Flask blueprint for configuration REST API
 - **`__init__.py`** - Module initialization
 
 ## Related Scripts
 
 Backend switching can be triggered by updating the `KeyboardBackend` field in the config. The backend selection is managed by:
-- `scripts/ble_switch_backend.sh` — Interactive backend switching
+- `scripts/ble_switch_backend.sh` — Interactive backend switching (syncs both config.json and /etc/ipr-keyboard/backend)
 - `scripts/ble_backend_manager.sh` — Manual backend manager trigger
-- `ipr_backend_manager.service` — Automatic backend management
+- `ipr_backend_manager.service` — Automatic backend management (reads /etc/ipr-keyboard/backend)
 
 See [SERVICES.md](../../../SERVICES.md) for detailed backend service documentation.
 
@@ -68,7 +79,7 @@ Update configuration fields and persist to JSON.
 - **Parameters**: Keyword arguments matching AppConfig fields
 - **Returns**: Updated AppConfig instance
 - **Thread-safe**: Uses instance lock
-- **Side effects**: Writes to JSON file
+- **Side effects**: Writes to JSON file and synchronizes `/etc/ipr-keyboard/backend` if `KeyboardBackend` is changed
 
 #### `reload() -> AppConfig`
 Reload configuration from JSON file.
@@ -84,6 +95,10 @@ ConfigManager(path: Optional[Path] = None)
 - **Parameters**: 
   - `path` - Path to config.json (defaults to project_root/config.json)
 - **Note**: Typically not called directly; use `instance()` instead
+- **Initialization behavior**: 
+  - Synchronizes with `/etc/ipr-keyboard/backend` on startup
+  - Backend file takes precedence if it exists
+  - Creates backend file if it doesn't exist
 
 ## Thread Safety
 
@@ -152,7 +167,7 @@ Get keyboard backend information.
 Update configuration fields.
 - **Request Body**: JSON object with fields to update
 - **Response**: Updated configuration
-- **Note**: Updating `KeyboardBackend` only changes the config file. To switch the actual system-level backend services, use `scripts/15_switch_keyboard_backend.sh`.
+- **Note**: Updating `KeyboardBackend` automatically synchronizes `/etc/ipr-keyboard/backend`. However, you still need to run `ble_switch_backend.sh` or restart `ipr_backend_manager.service` to activate the new backend services.
 - **Example**:
   ```bash
   curl -X POST http://localhost:8080/config/ \
@@ -191,16 +206,18 @@ curl http://<pi-ip>:8080/config/
 # See backend options
 curl http://<pi-ip>:8080/config/backends
 
-# Change backend in config (you still need to run the switch script)
+# Change backend in config (automatically syncs /etc/ipr-keyboard/backend)
 curl -X POST http://<pi-ip>:8080/config/ \
   -H "Content-Type: application/json" \
   -d '{"KeyboardBackend": "ble"}'
 ```
 
-After updating the config, switch the actual backend:
+After updating the config, activate the backend services:
 ```bash
 cd /home/meibye/dev/ipr-keyboard
-./scripts/15_switch_keyboard_backend.sh   # uses config's KeyboardBackend
+./scripts/ble_switch_backend.sh   # reads from config's KeyboardBackend and activates services
+# OR manually restart the backend manager:
+sudo systemctl restart ipr_backend_manager.service
 ```
 
 ## Default Values

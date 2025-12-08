@@ -115,7 +115,7 @@ This service runs the BlueZ Agent (`bt_hid_agent.py`) which handles Bluetooth pa
 **Description**:
 This systemd oneshot service runs the backend manager script (`ipr_backend_manager.sh`) which reads the backend selection from `/etc/ipr-keyboard/backend` and ensures only the appropriate backend services are enabled and running. It prevents conflicts by stopping and disabling the non-selected backend.
 
-**When to use**: This service runs automatically at boot to ensure the correct backend is active. It can also be triggered manually after changing `/etc/ipr-keyboard/backend`.
+**When to use**: This service runs automatically at boot to ensure the correct backend is active. It can also be triggered manually after changing `/etc/ipr-keyboard/backend` or when switching backends via the application.
 
 **Dependencies**:
 - `bluetooth.target`
@@ -131,8 +131,13 @@ This systemd oneshot service runs the backend manager script (`ipr_backend_manag
 
 **Configuration file**: `/etc/ipr-keyboard/backend` (contains either "ble" or "uinput")
 
+**Synchronization**: The backend file is automatically synchronized with `config.json` `KeyboardBackend`:
+- On application startup, the backend file takes precedence if it exists
+- When `KeyboardBackend` is updated via ConfigManager or web API, the backend file is automatically updated
+- The `ble_switch_backend.sh` script updates both files simultaneously
+
 **Related scripts**:
-- `ble_switch_backend.sh` — Higher-level script that modifies backend config and triggers this service
+- `ble_switch_backend.sh` — Higher-level script that updates both config files and activates backend services
 - `ipr_backend_manager.sh` — The actual script run by this service
 
 ---
@@ -340,10 +345,35 @@ The following wrapper scripts are provided in the `scripts/` folder for convenie
 
 ## Backend Selection Workflow
 
-1. **Configuration**: Set backend in `/etc/ipr-keyboard/backend` (or use `config.json` `KeyboardBackend`)
-2. **Automatic**: `ipr_backend_manager.service` runs at boot
-3. **Manual**: Run `sudo systemctl start ipr_backend_manager.service` after changing backend
-4. **Script**: Use `scripts/ble_switch_backend.sh` for guided switching
+The backend selection is automatically synchronized between `config.json` and `/etc/ipr-keyboard/backend`:
+
+1. **Initial Setup**: Run `scripts/ble_setup_extras.sh` to create `/etc/ipr-keyboard/backend` (initialized from `config.json` if available)
+2. **Automatic Sync**: On application startup, the backend file takes precedence and updates `config.json` if they differ
+3. **Update via Config**: Updating `KeyboardBackend` in `config.json` (via web API or ConfigManager) automatically updates the backend file
+4. **Update via Script**: Use `scripts/ble_switch_backend.sh` which updates both files and activates backend services
+5. **Service Activation**: Run `sudo systemctl restart ipr_backend_manager.service` or reboot to activate the selected backend
+
+### Example Workflows
+
+**Switch backend via script (recommended)**:
+```bash
+./scripts/ble_switch_backend.sh ble    # Updates both files and activates services
+```
+
+**Switch backend via web API**:
+```bash
+curl -X POST http://localhost:8080/config/ \
+  -H "Content-Type: application/json" \
+  -d '{"KeyboardBackend": "ble"}'
+sudo systemctl restart ipr_backend_manager.service  # Activate services
+```
+
+**Manual backend file update**:
+```bash
+echo ble | sudo tee /etc/ipr-keyboard/backend
+sudo systemctl restart ipr_backend_manager.service
+# Note: config.json will be updated on next application startup
+```
 
 ## Service Dependencies Summary
 

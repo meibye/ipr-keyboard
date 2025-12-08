@@ -15,31 +15,30 @@ This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID
 - **Pairing wizard, diagnostics, and backend manager** are provided by `scripts/ble_setup_extras.sh` (creates `ipr_backend_manager.service`).
 - **BLE diagnostics**: `ipr_ble_diagnostics.sh` (health check), `ipr_ble_hid_analyzer.py` (HID report analyzer).
 - **Web pairing wizard**: `/pairing` endpoint (see web server docs).
-- **Backend selection**: `/etc/ipr-keyboard/backend` or config.json `KeyboardBackend`.
+- **Backend selection**: Automatically synchronized between `config.json` `KeyboardBackend` and `/etc/ipr-keyboard/backend`.
 - **Agent service**: `bt_hid_agent.service` ensures seamless pairing and authorization.
 
-### Example Local Scripts
+### Backend Synchronization
 
-You can create local scripts to call these helpers, e.g.:
+The backend selection is automatically synchronized between `config.json` and `/etc/ipr-keyboard/backend`:
+- On application startup, if `/etc/ipr-keyboard/backend` exists, it takes precedence
+- When updating `KeyboardBackend` in config.json (via web API or ConfigManager), the backend file is automatically updated
+- The `ble_switch_backend.sh` script updates both files simultaneously
+- The `ipr_backend_manager.service` reads `/etc/ipr-keyboard/backend` to manage systemd services
+
+### Example Backend Switching
+
+You can switch backends using the provided script:
 
 ```bash
-# Run BLE diagnostics
-./scripts/ipr_ble_diagnostics.sh
-
-# Start pairing wizard (web)
-curl http://localhost:8080/pairing/start
-
-# Switch backend
-echo ble | sudo tee /etc/ipr-keyboard/backend
-sudo systemctl disable bt_hid_uinput.service
-sudo systemctl enable bt_hid_ble.service
-sudo systemctl restart bt_hid_ble.service
+# Switch to BLE backend (updates both config.json and /etc/ipr-keyboard/backend)
+./scripts/ble_switch_backend.sh ble
 
 # Switch to uinput backend
-echo uinput | sudo tee /etc/ipr-keyboard/backend
-sudo systemctl disable bt_hid_ble.service
-sudo systemctl enable bt_hid_uinput.service
-sudo systemctl restart bt_hid_uinput.service
+./scripts/ble_switch_backend.sh uinput
+
+# Or read from config.json automatically
+./scripts/ble_switch_backend.sh
 ```
 
 

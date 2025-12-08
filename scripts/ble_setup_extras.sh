@@ -37,12 +37,22 @@ echo "Project root:  $PROJECT_ROOT"
 echo "=== [ble_setup_extras] Configuring backend selector ==="
 BACKEND_DIR="/etc/ipr-keyboard"
 BACKEND_FILE="$BACKEND_DIR/backend"
+CONFIG_FILE="$PROJECT_ROOT/config.json"
 
 mkdir -p "$BACKEND_DIR"
 
 if [[ ! -f "$BACKEND_FILE" ]]; then
-  echo "ble" > "$BACKEND_FILE"
-  echo "  Created $BACKEND_FILE with default backend 'ble'"
+  # Try to read backend from config.json if it exists
+  BACKEND_VALUE="ble"  # default
+  if [[ -f "$CONFIG_FILE" ]] && command -v jq >/dev/null 2>&1; then
+    CONFIG_BACKEND=$(jq -r '.KeyboardBackend // "ble"' "$CONFIG_FILE")
+    if [[ "$CONFIG_BACKEND" == "uinput" || "$CONFIG_BACKEND" == "ble" ]]; then
+      BACKEND_VALUE="$CONFIG_BACKEND"
+      echo "  Using backend from config.json: $BACKEND_VALUE"
+    fi
+  fi
+  echo "$BACKEND_VALUE" > "$BACKEND_FILE"
+  echo "  Created $BACKEND_FILE with backend '$BACKEND_VALUE'"
 else
   echo "  $BACKEND_FILE already exists (content: '$(cat "$BACKEND_FILE")')"
 fi

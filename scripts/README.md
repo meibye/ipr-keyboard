@@ -21,6 +21,14 @@ The scripts automate the complete setup process from system configuration to ser
 - **Agent service**: `bt_hid_agent.service` (handles pairing/authorization).
 - **Web pairing wizard**: `/pairing` endpoint (see web server docs).
 - **BLE diagnostics**: Available via wrapper scripts in this directory.
+- **Backend synchronization**: `config.json` and `/etc/ipr-keyboard/backend` are automatically synchronized.
+
+### Backend Synchronization
+
+The backend selection is kept in sync between `config.json` and `/etc/ipr-keyboard/backend`:
+- `ble_setup_extras.sh` initializes `/etc/ipr-keyboard/backend` from `config.json` if it exists
+- The application synchronizes both files on startup (backend file takes precedence)
+- `ble_switch_backend.sh` updates both files simultaneously when switching backends
 
 ### Wrapper Scripts for BLE Extras
 
@@ -39,9 +47,8 @@ sudo ./scripts/ble_backend_manager.sh
 # Start pairing wizard (web)
 curl http://localhost:8080/pairing/start
 
-# Switch backend using config file
-echo ble | sudo tee /etc/ipr-keyboard/backend
-sudo systemctl start ipr_backend_manager.service
+# Switch backend (recommended - updates both config files and activates services)
+./scripts/ble_switch_backend.sh ble
 ```
 
 ## Script Organization
@@ -111,8 +118,8 @@ sudo ./scripts/usb_setup_mount.sh /dev/sda1 # Configure persistent USB mount
 | `ble_configure_system.sh` | Configures /etc/bluetooth/main.conf for HID keyboard profile | root |
 | `ble_install_helper.sh` | **CRITICAL** - Installs bt_kb_send helper, backend daemons, and systemd services:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend)<br> &nbsp; - `bt_hid_agent.service` (pairing agent) | root |
 | `ble_install_daemon.sh` | Optional advanced HID daemon installation | root |
-| `ble_switch_backend.sh` | Switch between uinput and BLE keyboard backends by enabling/disabling:<br> &nbsp; - `bt_hid_uinput.service`<br> &nbsp; - `bt_hid_ble.service` | root |
-| `ble_setup_extras.sh` | Advanced RPi extras (backend manager, pairing wizard, diagnostics) | root |
+| `ble_switch_backend.sh` | Switch between uinput and BLE keyboard backends. Updates both `/etc/ipr-keyboard/backend` and `config.json`, then enables/disables appropriate systemd services. Can read backend from config.json if no argument provided. | root |
+| `ble_setup_extras.sh` | Advanced RPi extras (backend manager, pairing wizard, diagnostics). Initializes `/etc/ipr-keyboard/backend` from `config.json` if available. | root |
 
 ### USB / IrisPen
 

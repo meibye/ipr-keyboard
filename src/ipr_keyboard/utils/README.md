@@ -9,6 +9,7 @@ The utils module contains common functionality that doesn't belong to a specific
 ## Files
 
 - **`helpers.py`** - Project root/config path resolution, JSON helpers
+- **`backend_sync.py`** - Backend synchronization utilities for `/etc/ipr-keyboard/backend`
 - **`__init__.py`** - Module initialization
 
 ## Related Scripts & Utilities
@@ -62,6 +63,96 @@ setting = data.get("some_key", "default_value")
 # Save with automatic formatting
 save_json(Path("settings.json"), {"key": "value"})
 ```
+
+## helpers.py
+
+Core utility functions for the application.
+
+## backend_sync.py
+
+Backend synchronization utilities for managing `/etc/ipr-keyboard/backend`.
+
+### Purpose
+
+This module ensures that the `KeyboardBackend` setting in `config.json` stays synchronized with the system-level backend selection file `/etc/ipr-keyboard/backend`. This prevents conflicts between the application config and the backend manager service.
+
+### Functions
+
+#### `read_backend_file() -> Optional[str]`
+Read the current backend selection from `/etc/ipr-keyboard/backend`.
+
+- **Returns**: Backend type ("uinput" or "ble"), or `None` if file doesn't exist or is unreadable
+- **Validation**: Only returns valid backend values
+- **Error handling**: Returns `None` on permission errors or I/O errors
+
+**Example:**
+```python
+from ipr_keyboard.utils.backend_sync import read_backend_file
+
+backend = read_backend_file()
+if backend:
+    print(f"Current backend: {backend}")
+else:
+    print("Backend file not found or invalid")
+```
+
+#### `write_backend_file(backend: str) -> bool`
+Write the backend selection to `/etc/ipr-keyboard/backend`.
+
+- **Parameters**: `backend` - Backend type ("uinput" or "ble")
+- **Returns**: `True` if successful, `False` if write failed
+- **Side effects**: Creates `/etc/ipr-keyboard/` directory if it doesn't exist
+- **Validation**: Only accepts "uinput" or "ble" values
+- **Permissions**: Requires write access to `/etc/ipr-keyboard/`
+
+**Example:**
+```python
+from ipr_keyboard.utils.backend_sync import write_backend_file
+
+success = write_backend_file("ble")
+if success:
+    print("Backend file updated successfully")
+else:
+    print("Failed to write backend file (check permissions)")
+```
+
+#### `sync_backend_to_file(backend: str) -> bool`
+Convenience wrapper for `write_backend_file()`.
+
+- **Parameters**: `backend` - Backend type to sync
+- **Returns**: `True` if successful, `False` otherwise
+
+### Integration
+
+This module is used by:
+- **ConfigManager**: Synchronizes backend on startup and updates
+- **Tests**: Validates backend synchronization behavior
+
+### File Format
+
+The `/etc/ipr-keyboard/backend` file is a simple text file containing a single line:
+```
+ble
+```
+or
+```
+uinput
+```
+
+Whitespace is automatically stripped when reading.
+
+### Permissions
+
+Writing to `/etc/ipr-keyboard/backend` typically requires root privileges. If the application runs as a non-root user:
+- Reading the file works if readable by all users
+- Writing the file may fail silently (returns `False`)
+- ConfigManager logs warnings on write failures
+
+### Thread Safety
+
+- All functions are thread-safe (no shared state)
+- File operations are not synchronized
+- ConfigManager provides higher-level synchronization when needed
 
 ## helpers.py
 

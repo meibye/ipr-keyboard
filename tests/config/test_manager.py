@@ -291,3 +291,118 @@ def test_config_thread_safety(temp_config):
     
     assert len(results["errors"]) == 0, f"Errors occurred: {results['errors']}"
     assert len(results["reads"]) == 20
+
+
+# Backend synchronization tests
+
+def test_config_backend_sync_on_init_no_file(tmp_path, monkeypatch):
+    """Test that ConfigManager creates backend file if it doesn't exist."""
+    cfg_file = tmp_path / "config.json"
+    backend_file = tmp_path / "backend"
+    save_json(cfg_file, {"KeyboardBackend": "ble"})
+
+    monkeypatch.setattr("ipr_keyboard.config.manager.config_path", lambda: cfg_file)
+    monkeypatch.setattr("ipr_keyboard.utils.backend_sync.BACKEND_FILE_PATH", str(backend_file))
+
+    mgr = ConfigManager()
+    cfg = mgr.get()
+
+    assert cfg.KeyboardBackend == "ble"
+    assert backend_file.exists()
+    assert backend_file.read_text().strip() == "ble"
+
+
+def test_config_backend_sync_on_init_file_takes_precedence(tmp_path, monkeypatch):
+    """Test that backend file takes precedence over config.json on init."""
+    cfg_file = tmp_path / "config.json"
+    backend_file = tmp_path / "backend"
+    save_json(cfg_file, {"KeyboardBackend": "uinput"})
+    backend_file.write_text("ble\n")
+
+    monkeypatch.setattr("ipr_keyboard.config.manager.config_path", lambda: cfg_file)
+    monkeypatch.setattr("ipr_keyboard.utils.backend_sync.BACKEND_FILE_PATH", str(backend_file))
+
+    mgr = ConfigManager()
+    cfg = mgr.get()
+
+    # Backend file should win
+    assert cfg.KeyboardBackend == "ble"
+    # Config file should be updated
+    data = load_json(cfg_file)
+    assert data["KeyboardBackend"] == "ble"
+
+
+def test_config_backend_sync_on_init_matching_values(tmp_path, monkeypatch):
+    """Test that no updates occur when values already match."""
+    cfg_file = tmp_path / "config.json"
+    backend_file = tmp_path / "backend"
+    save_json(cfg_file, {"KeyboardBackend": "ble"})
+    backend_file.write_text("ble\n")
+
+    monkeypatch.setattr("ipr_keyboard.config.manager.config_path", lambda: cfg_file)
+    monkeypatch.setattr("ipr_keyboard.utils.backend_sync.BACKEND_FILE_PATH", str(backend_file))
+
+    mgr = ConfigManager()
+    cfg = mgr.get()
+
+    assert cfg.KeyboardBackend == "ble"
+    assert backend_file.read_text().strip() == "ble"
+
+
+def test_config_backend_sync_on_update(tmp_path, monkeypatch):
+    """Test that updating KeyboardBackend syncs to backend file."""
+    cfg_file = tmp_path / "config.json"
+    backend_file = tmp_path / "backend"
+    save_json(cfg_file, {"KeyboardBackend": "uinput"})
+    backend_file.write_text("uinput\n")
+
+    monkeypatch.setattr("ipr_keyboard.config.manager.config_path", lambda: cfg_file)
+    monkeypatch.setattr("ipr_keyboard.utils.backend_sync.BACKEND_FILE_PATH", str(backend_file))
+
+    mgr = ConfigManager()
+    cfg = mgr.update(KeyboardBackend="ble")
+
+    assert cfg.KeyboardBackend == "ble"
+    assert backend_file.read_text().strip() == "ble"
+
+
+def test_config_backend_update_other_fields_no_sync(tmp_path, monkeypatch):
+    """Test that updating non-backend fields doesn't trigger sync."""
+    cfg_file = tmp_path / "config.json"
+    backend_file = tmp_path / "backend"
+    save_json(cfg_file, {"KeyboardBackend": "ble", "DeleteFiles": True})
+    backend_file.write_text("ble\n")
+
+    monkeypatch.setattr("ipr_keyboard.config.manager.config_path", lambda: cfg_file)
+    monkeypatch.setattr("ipr_keyboard.utils.backend_sync.BACKEND_FILE_PATH", str(backend_file))
+
+    mgr = ConfigManager()
+    original_content = backend_file.read_text()
+    
+    mgr.update(DeleteFiles=False)
+    
+    # Backend file should remain unchanged
+    assert backend_file.read_text() == original_content
+
+
+def test_config_backend_sync_permission_error(tmp_path, monkeypatch, caplog):
+    """Test that ConfigManager handles permission errors gracefully."""
+    cfg_file = tmp_path / "config.json"
+    backend_file = tmp_path / "readonly" / "backend"
+    save_json(cfg_file, {"KeyboardBackend": "ble"})
+
+    monkeypatch.setattr("ipr_keyboard.config.manager.config_path", lambda: cfg_file)
+    monkeypatch.setattr("ipr_keyboard.utils.backend_sync.BACKEND_FILE_PATH", str(backend_file))
+    
+    # Make parent directory non-writable
+    backend_file.parent.mkdir(parents=True)
+    backend_file.parent.chmod(0o444)
+    
+    try:
+        mgr = ConfigManager()
+        cfg = mgr.get()
+        # Should still work, just log warning
+        assert cfg.KeyboardBackend == "ble"
+    finally:
+        # Restore permissions for cleanup
+        backend_file.parent.chmod(0o755)
