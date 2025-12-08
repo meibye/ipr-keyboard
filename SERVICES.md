@@ -258,71 +258,62 @@ sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 
 ---
 
-## Service Relationships Diagram
+## Service Dependency and Backend Switching Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     ipr-keyboard Service Architecture               │
-└─────────────────────────────────────────────────────────────────────┘
-
-                    ┌──────────────────────────┐
-                    │  bluetooth.target        │
-                    │  (System Bluetooth)      │
-                    └────────────┬─────────────┘
-                                 │
-                    ┌────────────┴─────────────┐
-                    │                          │
-         ┌──────────▼──────────┐    ┌─────────▼────────────┐
-         │ bt_hid_agent.service│    │ipr_backend_manager.  │
-         │ (Pairing Agent)     │    │service (Backend      │
-         │                     │    │Switcher)             │
-         │ - Auto-accept pair  │    │                      │
-         │ - Service auth      │    │ Reads: /etc/ipr-     │
-         │ - Set discoverable  │    │ keyboard/backend     │
-         └─────────────────────┘    └──────────┬───────────┘
-                                                │
-                    ┌───────────────────────────┴────────────────────┐
-                    │                                                │
-         ┌──────────▼────────────┐                    ┌──────────────▼──────────┐
-         │bt_hid_uinput.service  │                    │ bt_hid_ble.service      │
-         │(UInput Backend)       │                    │ (BLE Backend)           │
-         │                       │                    │                         │
-         │- Creates uinput device│                    │- Registers GATT service │
-         │- Reads from FIFO      │                    │- BLE advertising        │
-         │- Types via evdev      │                    │- Reads from FIFO        │
-         └───────────┬───────────┘                    └────────────┬────────────┘
-                     │                                             │
-                     └──────────────┬──────────────────────────────┘
-                                    │
-                         ┌──────────▼──────────┐
-                         │/run/ipr_bt_keyboard │
-                         │_fifo (Named Pipe)   │
-                         └──────────┬──────────┘
-                                    │
-                         ┌──────────▼──────────┐
-                         │   bt_kb_send        │
-                         │   (Helper Script)   │
-                         │                     │
-                         │ - Writes to FIFO    │
-                         │ - Called by app     │
-                         └─────────────────────┘
-                                    ▲
-                                    │
-                         ┌──────────┴──────────┐
-                         │ ipr_keyboard        │
-                         │ Application         │
-                         │                     │
-                         │ - Monitors USB      │
-                         │ - Calls bt_kb_send  │
-                         │ - Web API           │
-                         └─────────────────────┘
-
-Alternative/Legacy:
-         ┌──────────────────────┐
-         │bt_hid_daemon.service │ ← Optional advanced HID daemon
-         │(Advanced/Legacy)     │   (installed by ble_install_daemon.sh)
-         └──────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        ipr-keyboard Service Dependencies                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────┐                                            │
+│  │      bluetooth.target       │◄────────────────────────────────────────┐  │
+│  └─────────────────────────────┘                                         │
+│           ▲                ▲                ▲                ▲           │
+│           │                │                │                │           │
+│  ┌────────┴───────┐ ┌──────┴────────┐ ┌─────┴─────────┐ ┌────┴─────────┐ │
+│  │bt_hid_uinput.sv│ │bt_hid_ble.sv  │ │bt_hid_agent.sv│ │ipr_backend_mgr││  │
+│  └───────────────┬┘ └──────────────┬┘ └──────────────┬┘ └─────────────┬┘ │
+│                  │                 │                 │                │  │
+│                  │                 │                 │                │  │
+│                  │                 │                 │                │  │
+│                  │                 │                 │                │  │
+│                  │                 │                 │                │  │
+│                  └────────────┬─────┴────────────────┴────────────────┴──┘  │
+│                               │                                             │
+│                               ▼                                             │
+│                    ┌─────────────────────────────┐                          │
+│                    │    ipr_keyboard.service     │                          │
+│                    └─────────────────────────────┘                          │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Backend Switching Logic:                                                   │
+│                                                                             │
+│  ┌─────────────────────────────┐                                            │
+│  │ /etc/ipr-keyboard/backend   │◄─────┐                                     │
+│  └─────────────────────────────┘      │                                     │
+│           │                           │                                     │
+│           ▼                           │                                     │
+│  ┌─────────────────────────────┐      │                                     │
+│  │ ipr_backend_manager.service │──────┘                                     │
+│  └─────────────────────────────┘                                            │
+│           │                                                                 │
+│           ▼                                                                 │
+│   ┌───────────────┬───────────────┐                                         │
+│   │               │               │                                         │
+│   ▼               ▼               ▼                                         │
+│bt_hid_uinput.sv bt_hid_ble.sv bt_hid_agent.sv                               │
+│   │               │               │                                         │
+│   └───────────────┴───────────────┘                                         │
+│                                                                             │
+│  (Only one backend daemon is enabled at a time, agent always enabled)       │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+- `ipr_keyboard.service` depends on `bt_hid_agent.service` (and optionally the active backend).
+- `ipr_backend_manager.service` reads `/etc/ipr-keyboard/backend` and enables/disables the correct backend daemon.
+- `bt_hid_agent.service` is always enabled for pairing/authorization.
+- Only one backend daemon (`bt_hid_uinput.service` or `bt_hid_ble.service`) is enabled at a time.
 
 ## Diagnostic and Utility Tools
 
@@ -368,29 +359,47 @@ The following wrapper scripts are provided in the `scripts/` folder for convenie
 ## Troubleshooting Commands
 
 ```bash
-# Check service status
 systemctl status bt_hid_uinput.service
 systemctl status bt_hid_ble.service
 systemctl status bt_hid_agent.service
 systemctl status ipr_backend_manager.service
 
-# Check service logs
 journalctl -u bt_hid_uinput.service -n 50
 journalctl -u bt_hid_ble.service -n 50
 journalctl -u bt_hid_agent.service -n 50
 
-# Run diagnostics
 sudo /usr/local/bin/ipr_ble_diagnostics.sh
 ./scripts/diag_status.sh
 ./scripts/diag_troubleshoot.sh
 
-# Check backend selection
 cat /etc/ipr-keyboard/backend
 cat config.json | jq .KeyboardBackend
 
-# Test helper
 echo "test" | bt_kb_send "$(cat -)"
 ```
+
+## Service Management Scripts
+
+The following scripts in the `scripts/` folder provide convenient management of all ipr-keyboard systemd services:
+
+- `disable_all_services.sh`: Disables and stops all ipr-keyboard related services (main app, backends, agent, backend manager).
+- `enable_uinput_services.sh`: Enables and starts all required services for the uinput backend, disables BLE backend.
+- `enable_ble_services.sh`: Enables and starts all required services for the BLE backend, disables uinput backend.
+
+### Usage Examples
+
+```bash
+# Disable all ipr-keyboard services
+sudo ./scripts/disable_all_services.sh
+
+# Enable uinput backend services
+sudo ./scripts/enable_uinput_services.sh
+
+# Enable BLE backend services
+sudo ./scripts/enable_ble_services.sh
+```
+
+These scripts ensure that only the correct backend is active and all dependencies are handled automatically. See each script for details.
 
 ## See Also
 

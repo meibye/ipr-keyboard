@@ -46,9 +46,11 @@ if [[ ! -d "$VENV_DIR" ]]; then
 fi
 
 cat <<EOF > "$SERVICE_FILE"
+
 [Unit]
 Description=IrisPen to Bluetooth Keyboard Bridge
-After=network.target bluetooth.target
+After=network.target bluetooth.target bt_hid_agent.service
+Requires=bt_hid_agent.service
 
 [Service]
 Type=simple
