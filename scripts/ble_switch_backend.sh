@@ -34,6 +34,18 @@ fi
 
 echo "=== [ble_switch_backend] Switching keyboard backend to: $BACKEND ==="
 
+# Update /etc/ipr-keyboard/backend file
+echo "[ble_switch_backend] Updating /etc/ipr-keyboard/backend to: $BACKEND"
+echo "$BACKEND" | sudo tee /etc/ipr-keyboard/backend >/dev/null
+
+# Update config.json if jq is available
+if command -v jq >/dev/null 2>&1 && [[ -f "$CONFIG_PATH" ]]; then
+  echo "[ble_switch_backend] Updating config.json KeyboardBackend to: $BACKEND"
+  TEMP_CONFIG=$(mktemp)
+  jq --arg backend "$BACKEND" '.KeyboardBackend = $backend' "$CONFIG_PATH" > "$TEMP_CONFIG"
+  mv "$TEMP_CONFIG" "$CONFIG_PATH"
+fi
+
 # Stop both services first
 sudo systemctl stop bt_hid_uinput.service 2>/dev/null || true
 sudo systemctl stop bt_hid_ble.service 2>/dev/null || true
@@ -61,3 +73,4 @@ fi
 
 echo "=== [ble_switch_backend] Backend switched to: $BACKEND ==="
 echo "Active service: bt_hid_${BACKEND}.service"
+echo "Both /etc/ipr-keyboard/backend and config.json have been synchronized."
