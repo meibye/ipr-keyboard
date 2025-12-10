@@ -160,6 +160,51 @@ sudo ./scripts/svc_status_services.sh
 
 These scripts ensure only the correct backend is active and provide quick status checks.
 
+### Diagnostic and Troubleshooting Scripts
+
+The following scripts help diagnose and troubleshoot Bluetooth pairing and system issues:
+
+| Script                        | Description                                                      | Run as    |
+|-------------------------------|------------------------------------------------------------------|-----------|
+| `diag_pairing.sh`             | **NEW** - Comprehensive Bluetooth pairing diagnostics. Checks adapter status, agent/backend services, paired devices, recent pairing events, and provides recommendations. | root      |
+| `test_pairing.sh`             | **NEW** - Interactive pairing test script. Guides through pairing process with real-time agent event monitoring, passkey display, and connection verification. | root      |
+| `diag_troubleshoot.sh`        | General system diagnostics. Checks venv, config, services, logs, and Bluetooth helper availability. | user/root |
+| `diag_status.sh`              | System status overview. Shows backend config, service status, paired devices, and adapter info. | user      |
+| `diag_ble.sh`                 | BLE-specific diagnostics (wrapper for `/usr/local/bin/ipr_ble_diagnostics.sh`). Checks HID UUID exposure, daemon status, and adapter state. | root      |
+| `diag_ble_analyzer.sh`        | BLE HID analyzer (wrapper for `/usr/local/bin/ipr_ble_hid_analyzer.py`). Monitors GATT characteristic changes in real-time. | root      |
+
+Usage examples:
+
+```bash
+# Comprehensive Bluetooth pairing diagnostics
+sudo ./scripts/diag_pairing.sh
+
+# Interactive pairing test with real-time monitoring
+sudo ./scripts/test_pairing.sh ble
+
+# General system troubleshooting
+./scripts/diag_troubleshoot.sh
+
+# Quick status overview
+./scripts/diag_status.sh
+
+# BLE-specific diagnostics
+sudo ./scripts/diag_ble.sh
+
+# Monitor BLE HID reports in real-time
+sudo ./scripts/diag_ble_analyzer.sh
+```
+
+**NEW Pairing Diagnostics Features:**
+- Analyzes agent pairing method implementations (RequestPasskey, DisplayPasskey, RequestConfirmation)
+- Detects hardcoded vs. random passkey generation
+- Shows recent pairing events with passkey values
+- Provides step-by-step pairing guidance
+- Tests keyboard input after pairing
+- Saves full logs for later analysis
+
+See [BLUETOOTH_PAIRING.md](../BLUETOOTH_PAIRING.md) for detailed pairing troubleshooting guide.
+
 ## Environment Configuration
 
 All scripts source `env_set_variables.sh` to ensure consistent environment variables. Edit this file to set:
@@ -302,6 +347,7 @@ If installation fails:
 ## See Also
 
 - [Main README](../README.md) - Project overview
+- [Bluetooth Pairing Guide](../BLUETOOTH_PAIRING.md) - Pairing troubleshooting and diagnostics
 - [Source Code Documentation](../src/ipr_keyboard/README.md) - Code structure
 - [Testing Documentation](../tests/README.md) - Running tests
 - [Testing Plan](../TESTING_PLAN.md) - Comprehensive testing strategy

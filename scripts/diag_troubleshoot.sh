@@ -216,6 +216,19 @@ else:
 "
 echo
 
+echo "[diag_troubleshoot] Checking Bluetooth pairing status..."
+if command -v bluetoothctl >/dev/null 2>&1; then
+  echo "Paired devices:"
+  bluetoothctl devices | sed 's/^/  /' || echo "  (none)"
+  echo ""
+  echo "Recent agent pairing events:"
+  journalctl -u bt_hid_agent.service -n 20 --no-pager 2>/dev/null | \
+    grep -E "\[agent\]|passkey|pincode" | sed 's/^/  /' || echo "  (no recent events)"
+else
+  echo "⚠ bluetoothctl not available"
+fi
+echo
+
 # Test file mode
 if $TEST_FILE_MODE; then
   echo "[diag_troubleshoot] TEST FILE MODE: Creating test file..."
