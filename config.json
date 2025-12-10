@@ -1,8 +1,8 @@
 {
   "DeleteFiles": true,
   "IrisPenFolder": "/mnt/irispen",
+  "KeyboardBackend": "ble",
   "LogPort": 8080,
   "Logging": true,
-  "MaxFileSize": 1048576,
-  "KeyboardBackend": "uinput"
+  "MaxFileSize": 1048576
 }
