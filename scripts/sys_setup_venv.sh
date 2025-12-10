@@ -18,6 +18,16 @@
 
 set -euo pipefail
 
+
+# Ensure tmux is installed
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "[sys_setup_venv] tmux not found, installing..."
+  sudo apt-get update
+  sudo apt-get install -y tmux
+else
+  echo "[sys_setup_venv] tmux already installed."
+fi
+
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091

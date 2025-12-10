@@ -36,7 +36,7 @@ def get_diagnostic_info():
                 info["backend_file"] = f.read().strip()
         else:
             info["backend_file"] = "not found"
-    except:
+    except Exception:
         info["backend_file"] = "error reading"
 
     # Config file backend
@@ -76,7 +76,7 @@ def get_diagnostic_info():
         info["bt_powered"] = "yes" if "Powered: yes" in bt_show else "no"
         info["bt_discoverable"] = "yes" if "Discoverable: yes" in bt_show else "no"
         info["bt_pairable"] = "yes" if "Pairable: yes" in bt_show else "no"
-    except:
+    except Exception:
         info["bt_powered"] = "unknown"
         info["bt_discoverable"] = "unknown"
         info["bt_pairable"] = "unknown"
@@ -89,7 +89,7 @@ def get_diagnostic_info():
         info["paired_devices"] = (
             len(devices.strip().split("\n")) if devices.strip() else 0
         )
-    except:
+    except Exception:
         info["paired_devices"] = "unknown"
 
     # FIFO pipe status
@@ -103,7 +103,7 @@ def get_diagnostic_info():
             )
         else:
             info["fifo_exists"] = "no"
-    except:
+    except Exception:
         info["fifo_exists"] = "error"
 
     # bt_kb_send helper
@@ -115,7 +115,7 @@ def get_diagnostic_info():
             ["ss", "-tln"], text=True, stderr=subprocess.DEVNULL
         )
         info["web_api"] = "listening" if ":8080 " in ss_out else "not listening"
-    except:
+    except Exception:
         info["web_api"] = "unknown"
 
     return info
@@ -314,7 +314,7 @@ def main(stdscr, delay):
                 # Update diagnostics every poll cycle
                 try:
                     diag_info = get_diagnostic_info()
-                except:
+                except Exception:
                     pass
             if changed:
                 redraw_event.set()
@@ -326,7 +326,7 @@ def main(stdscr, delay):
     # Initial diagnostic gather
     try:
         diag_info = get_diagnostic_info()
-    except:
+    except Exception:
         pass
 
     draw_table(stdscr, selected, delay, status_snapshot, diag_info)
@@ -350,7 +350,7 @@ def main(stdscr, delay):
             with status_lock:
                 try:
                     diag_info = get_diagnostic_info()
-                except:
+                except Exception:
                     pass
                 draw_table(stdscr, selected, delay, status_snapshot, diag_info)
         elif c == curses.KEY_UP:

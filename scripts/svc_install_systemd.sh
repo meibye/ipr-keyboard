@@ -6,7 +6,7 @@
 #   Creates and enables the ipr_keyboard systemd service that runs the application automatically on system boot.
 #
 # Usage:
-#   sudo ./scripts/05_install_service.sh
+#   sudo ./scripts/svc_install_systemd.sh
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)
@@ -41,7 +41,7 @@ fi
 
 if [[ ! -d "$VENV_DIR" ]]; then
   echo "Virtual environment not found: $VENV_DIR"
-  echo "Please run 04_setup_venv.sh first."
+  echo "Please run sys_setup_venv.sh first."
   exit 1
 fi
 
