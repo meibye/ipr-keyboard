@@ -149,6 +149,64 @@ BACKEND_LABELS = [
 ]
 
 
+def show_diagnostics(stdscr):
+    """Display diagnostics using diag_troubleshoot.sh or diag_status.sh in a scrollable window."""
+    stdscr.clear()
+    stdscr.addstr(
+        0,
+        2,
+        "System Diagnostics (diag_troubleshoot.sh)",
+        curses.A_BOLD | curses.color_pair(4),
+    )
+    stdscr.refresh()
+    try:
+        # Try diag_troubleshoot.sh, fallback to diag_status.sh
+        diag_script = (
+            "./scripts/diag_troubleshoot.sh"
+            if os.path.exists("./scripts/diag_troubleshoot.sh")
+            else "./scripts/diag_status.sh"
+        )
+        proc = subprocess.Popen(
+            [diag_script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            shell=False,
+        )
+        output, _ = proc.communicate(timeout=30)
+    except Exception as e:
+        output = f"Error running diagnostics: {e}"
+    lines = output.splitlines()
+    max_y, max_x = stdscr.getmaxyx()
+    pos = 0
+    while True:
+        stdscr.clear()
+        stdscr.addstr(
+            0,
+            2,
+            "System Diagnostics (diag_troubleshoot.sh)",
+            curses.A_BOLD | curses.color_pair(4),
+        )
+        for i in range(1, max_y - 2):
+            idx = pos + i - 1
+            if idx < len(lines):
+                stdscr.addstr(i, 2, lines[idx][: max_x - 4])
+        stdscr.addstr(
+            max_y - 1,
+            2,
+            f"Up/Down: Scroll  q: Quit diagnostics  ({pos + 1}-{min(pos + max_y - 2, len(lines))}/{len(lines)})",
+            curses.A_DIM,
+        )
+        stdscr.refresh()
+        c = stdscr.getch()
+        if c in (ord("q"), ord("Q")):
+            break
+        elif c == curses.KEY_DOWN and pos < len(lines) - (max_y - 2):
+            pos += 1
+        elif c == curses.KEY_UP and pos > 0:
+            pos -= 1
+
+
 def draw_table(
     stdscr, selected, delay, status_snapshot, diag_info=None, selectable_indices=None
 ):
@@ -218,6 +276,92 @@ def draw_table(
                 row += 1
 
     stdscr.refresh()
+
+
+def show_journal(stdscr, svc):
+    """Display the systemd journal for a given service in a scrollable window."""
+    stdscr.clear()
+    stdscr.addstr(
+        0,
+        2,
+        f"Systemd Journal for {svc}",
+        curses.A_BOLD | curses.color_pair(4),
+    )
+    stdscr.refresh()
+    try:
+        proc = subprocess.Popen(
+            ["journalctl", "-u", svc, "--no-pager", "-n", "1000"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        output, _ = proc.communicate(timeout=20)
+    except Exception as e:
+        output = f"Error reading journal: {e}"
+    lines = output.splitlines()
+    max_y, max_x = stdscr.getmaxyx()
+    pos = 0
+    while True:
+        stdscr.clear()
+        stdscr.addstr(
+            0,
+            2,
+            f"Systemd Journal for {svc}",
+            curses.A_BOLD | curses.color_pair(4),
+        )
+        for i in range(1, max_y - 2):
+            idx = pos + i - 1
+            if idx < len(lines):
+                stdscr.addstr(i, 2, lines[idx][: max_x - 4])
+        stdscr.addstr(
+            max_y - 1,
+            2,
+            f"Up/Down: Scroll  q: Quit journal  ({pos + 1}-{min(pos + max_y - 2, len(lines))}/{len(lines)})",
+            curses.A_DIM,
+        )
+        stdscr.refresh()
+        c = stdscr.getch()
+        if c in (ord("q"), ord("Q")):
+            break
+        elif c == curses.KEY_DOWN and pos < len(lines) - (max_y - 2):
+            pos += 1
+        elif c == curses.KEY_UP and pos > 0:
+            pos -= 1
+
+
+def select_action(stdscr, svc):
+    """Prompt user to select an action for the given service."""
+    actions = ACTIONS
+    selected = 0
+    while True:
+        stdscr.clear()
+        stdscr.addstr(
+            0, 2, f"Select action for {svc}:", curses.A_BOLD | curses.color_pair(4)
+        )
+        for idx, action in enumerate(actions):
+            marker = ">" if idx == selected else " "
+            stdscr.addstr(
+                2 + idx,
+                4,
+                f"{marker} {action}",
+                curses.A_REVERSE if idx == selected else 0,
+            )
+        stdscr.addstr(
+            len(actions) + 3,
+            2,
+            "Up/Down: Move  Enter: Select  Esc/q: Cancel",
+            curses.A_DIM,
+        )
+        stdscr.refresh()
+        c = stdscr.getch()
+        if c in (curses.KEY_UP, ord("k")):
+            selected = (selected - 1) % len(actions)
+        elif c in (curses.KEY_DOWN, ord("j")):
+            selected = (selected + 1) % len(actions)
+        elif c in (curses.KEY_ENTER, 10, 13):
+            return actions[selected]
+        elif c in (27, ord("q"), ord("Q")):  # Esc or q
+            return None
 
 
 def main(stdscr, delay):
@@ -337,6 +481,7 @@ def main(stdscr, delay):
             svc_idx = selectable_indices[selected]
             svc, desc, backend = SERVICES[svc_idx]
             action = select_action(stdscr, svc)
+            (stdscr, svc)
 
             def run_action(cmd):
                 try:
@@ -413,11 +558,11 @@ def main(stdscr, delay):
                     pass
                 draw_table(stdscr, selected, delay, status_snapshot, diag_info)
         elif c == curses.KEY_UP:
-            selected = (selected - 1) % total
+            selected = (selected - 1) % len(selectable_indices)
             with status_lock:
                 draw_table(stdscr, selected, delay, status_snapshot, diag_info)
         elif c == curses.KEY_DOWN:
-            selected = (selected + 1) % total
+            selected = (selected + 1) % len(selectable_indices)
             with status_lock:
                 draw_table(stdscr, selected, delay, status_snapshot, diag_info)
         elif c == curses.KEY_ENTER or c == 10 or c == 13:
