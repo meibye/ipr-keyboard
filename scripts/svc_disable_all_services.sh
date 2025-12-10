@@ -8,13 +8,15 @@ SERVICES=(
   bt_hid_agent.service
   ipr_backend_manager.service
 )
+
 for svc in "${SERVICES[@]}"; do
+  echo "Stopping $svc..."
+  sudo systemctl stop "$svc"
   if systemctl is-enabled "$svc" &>/dev/null; then
     echo "Disabling $svc..."
     sudo systemctl disable "$svc"
-    sudo systemctl stop "$svc"
   else
     echo "$svc is already disabled."
   fi
 done
-echo "All services disabled."
+echo "All services stopped and disabled."

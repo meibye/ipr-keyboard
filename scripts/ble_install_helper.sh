@@ -98,10 +98,11 @@ import threading
 from evdev import UInput, ecodes as e
 from systemd import journal
 
+# systemd is already imported above, so no need to import again.
+# But for robustness, fallback if journal is missing.
 try:
-        from systemd import journal
-except ImportError:
-        # Fallback: define a dummy journal.send
+        journal
+except NameError:
         class DummyJournal:
                 @staticmethod
                 def send(msg, **kwargs):
