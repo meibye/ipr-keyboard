@@ -149,7 +149,9 @@ BACKEND_LABELS = [
 ]
 
 
-def draw_table(stdscr, selected, delay, status_snapshot, diag_info=None):
+def draw_table(
+    stdscr, selected, delay, status_snapshot, diag_info=None, selectable_indices=None
+):
     stdscr.clear()
     stdscr.addstr(
         0, 2, "IPR-KEYBOARD SERVICE STATUS MONITOR (Python TUI)", curses.A_BOLD
@@ -163,6 +165,8 @@ def draw_table(stdscr, selected, delay, status_snapshot, diag_info=None):
     row = 3
     idx = 0
     svc_col = 4
+    if selectable_indices is not None:
+        selectable_indices.clear()
     for backend, label in BACKEND_LABELS:
         stdscr.addstr(row, 2, label, curses.A_BOLD | curses.color_pair(4))
         row += 1
@@ -173,7 +177,7 @@ def draw_table(stdscr, selected, delay, status_snapshot, diag_info=None):
             curses.A_UNDERLINE,
         )
         row += 1
-        for svc, desc, svc_backend in SERVICES:
+        for svc_idx, (svc, desc, svc_backend) in enumerate(SERVICES):
             if backend == svc_backend or (backend == "both" and svc_backend == "both"):
                 status = status_snapshot.get(svc, "unknown")
                 color = curses.color_pair(COLOR_STATUS.get(status, 4))
@@ -184,6 +188,8 @@ def draw_table(stdscr, selected, delay, status_snapshot, diag_info=None):
                     f"{marker} {svc:<31} {status:<12} {desc}",
                     color | (curses.A_REVERSE if idx == selected else 0),
                 )
+                if selectable_indices is not None:
+                    selectable_indices.append(svc_idx)
                 row += 1
                 idx += 1
         row += 1
@@ -214,77 +220,6 @@ def draw_table(stdscr, selected, delay, status_snapshot, diag_info=None):
     stdscr.refresh()
 
 
-def select_action(stdscr, svc):
-    stdscr.clear()
-    stdscr.addstr(0, 2, f"Actions for {svc}", curses.A_BOLD)
-    for i, action in enumerate(ACTIONS):
-        stdscr.addstr(i + 2, 4, f"{i + 1}. {action}")
-    stdscr.addstr(
-        len(ACTIONS) + 3, 2, f"Select action [1-{len(ACTIONS)}] or [q] to cancel: "
-    )
-    stdscr.refresh()
-    while True:
-        c = stdscr.getch()
-        if c in (ord("q"), ord("Q")):
-            return None
-        if ord("1") <= c <= ord(str(len(ACTIONS))):
-            return ACTIONS[c - ord("1")]
-
-
-def show_diagnostics(stdscr):
-    """Show full diagnostic information."""
-    stdscr.clear()
-    stdscr.addstr(0, 2, "System Diagnostics (Full)", curses.A_BOLD)
-    try:
-        diag_info = get_diagnostic_info()
-        lines = [
-            "",
-            "Backend Configuration:",
-            f"  File (/etc/ipr-keyboard/backend): {diag_info.get('backend_file', 'unknown')}",
-            f"  Config (config.json): {diag_info.get('config_backend', 'unknown')}",
-            f"  Config path: {diag_info.get('config_path', 'unknown')}",
-            "",
-            "Bluetooth Adapter:",
-            f"  Powered: {diag_info.get('bt_powered', 'unknown')}",
-            f"  Discoverable: {diag_info.get('bt_discoverable', 'unknown')}",
-            f"  Pairable: {diag_info.get('bt_pairable', 'unknown')}",
-            f"  Paired devices: {diag_info.get('paired_devices', 'unknown')}",
-            "",
-            "System Components:",
-            f"  FIFO pipe (/run/ipr_bt_keyboard_fifo): {diag_info.get('fifo_exists', 'unknown')}",
-            f"  bt_kb_send helper (/usr/local/bin/bt_kb_send): {diag_info.get('bt_kb_send', 'unknown')}",
-            f"  Web API (port 8080): {diag_info.get('web_api', 'unknown')}",
-            "",
-        ]
-        for i, line in enumerate(lines):
-            if i + 2 < curses.LINES - 1:
-                stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
-    except Exception as e:
-        stdscr.addstr(2, 2, f"Error gathering diagnostics: {str(e)}")
-    stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
-    stdscr.refresh()
-    stdscr.getch()
-
-
-def show_journal(stdscr, svc):
-    stdscr.clear()
-    stdscr.addstr(0, 2, f"Journal for {svc} (last 20 lines)", curses.A_BOLD)
-    try:
-        out = subprocess.check_output(
-            ["journalctl", "-u", svc, "-n", "20", "--no-pager"],
-            text=True,
-            stderr=subprocess.STDOUT,
-        )
-    except subprocess.CalledProcessError as e:
-        out = e.output
-    lines = out.splitlines()
-    for i, line in enumerate(lines[: curses.LINES - 3]):
-        stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
-    stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
-    stdscr.refresh()
-    stdscr.getch()
-
-
 def main(stdscr, delay):
     curses.start_color()
     curses.use_default_colors()
@@ -293,7 +228,7 @@ def main(stdscr, delay):
     curses.init_pair(3, curses.COLOR_YELLOW, -1)
     curses.init_pair(4, curses.COLOR_CYAN, -1)
     selected = 0
-    total = len(SERVICES)
+    selectable_indices = []
 
     status_snapshot = {svc: "unknown" for svc, _, _ in SERVICES}
     diag_info = {}
@@ -329,11 +264,18 @@ def main(stdscr, delay):
     except Exception:
         pass
 
-    draw_table(stdscr, selected, delay, status_snapshot, diag_info)
+    draw_table(stdscr, selected, delay, status_snapshot, diag_info, selectable_indices)
     while True:
         if redraw_event.is_set():
             with status_lock:
-                draw_table(stdscr, selected, delay, status_snapshot, diag_info)
+                draw_table(
+                    stdscr,
+                    selected,
+                    delay,
+                    status_snapshot,
+                    diag_info,
+                    selectable_indices,
+                )
             redraw_event.clear()
         c = stdscr.getch()
         if c == -1:
@@ -343,6 +285,123 @@ def main(stdscr, delay):
             stop_event.set()
             break
         elif c in (ord("d"), ord("D")):
+            show_diagnostics(stdscr)
+            with status_lock:
+                draw_table(
+                    stdscr,
+                    selected,
+                    delay,
+                    status_snapshot,
+                    diag_info,
+                    selectable_indices,
+                )
+        elif c in (ord("r"), ord("R")):
+            with status_lock:
+                try:
+                    diag_info = get_diagnostic_info()
+                except Exception:
+                    pass
+                draw_table(
+                    stdscr,
+                    selected,
+                    delay,
+                    status_snapshot,
+                    diag_info,
+                    selectable_indices,
+                )
+        elif c == curses.KEY_UP:
+            selected = (selected - 1) % len(selectable_indices)
+            with status_lock:
+                draw_table(
+                    stdscr,
+                    selected,
+                    delay,
+                    status_snapshot,
+                    diag_info,
+                    selectable_indices,
+                )
+        elif c == curses.KEY_DOWN:
+            selected = (selected + 1) % len(selectable_indices)
+            with status_lock:
+                draw_table(
+                    stdscr,
+                    selected,
+                    delay,
+                    status_snapshot,
+                    diag_info,
+                    selectable_indices,
+                )
+        elif c == curses.KEY_ENTER or c == 10 or c == 13:
+            if not selectable_indices:
+                continue
+            svc_idx = selectable_indices[selected]
+            svc, desc, backend = SERVICES[svc_idx]
+            action = select_action(stdscr, svc)
+
+            def run_action(cmd):
+                try:
+                    subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
+                    return None
+                except subprocess.CalledProcessError as e:
+                    return e.output
+
+            error_msg = None
+            if action == "Start":
+                error_msg = run_action(["sudo", "systemctl", "start", svc])
+                with status_lock:
+                    status_snapshot[svc] = get_status(svc)
+                redraw_event.set()
+            elif action == "Stop":
+                error_msg = run_action(["sudo", "systemctl", "stop", svc])
+                with status_lock:
+                    status_snapshot[svc] = get_status(svc)
+                redraw_event.set()
+            elif action == "Restart":
+                error_msg = run_action(["sudo", "systemctl", "restart", svc])
+                with status_lock:
+                    status_snapshot[svc] = get_status(svc)
+                redraw_event.set()
+            elif action == "Journal":
+                show_journal(stdscr, svc)
+                with status_lock:
+                    draw_table(
+                        stdscr,
+                        selected,
+                        delay,
+                        status_snapshot,
+                        diag_info,
+                        selectable_indices,
+                    )
+            elif action == "Diagnostics":
+                show_diagnostics(stdscr)
+                with status_lock:
+                    draw_table(
+                        stdscr,
+                        selected,
+                        delay,
+                        status_snapshot,
+                        diag_info,
+                        selectable_indices,
+                    )
+            if error_msg:
+                stdscr.clear()
+                stdscr.addstr(
+                    0,
+                    2,
+                    f"Error running {action} for {svc}",
+                    curses.A_BOLD | curses.color_pair(1),
+                )
+                lines = error_msg.splitlines()
+                for i, line in enumerate(lines[: curses.LINES - 3]):
+                    stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
+                stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+                stdscr.refresh()
+                stdscr.getch()
+        elif c == ord("+"):
+            delay = min(delay + 1, 30)
+        elif c == ord("-"):
+            delay = max(delay - 1, 1)
+            # No sleep here; input is responsive
             show_diagnostics(stdscr)
             with status_lock:
                 draw_table(stdscr, selected, delay, status_snapshot, diag_info)
