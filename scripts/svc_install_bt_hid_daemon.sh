@@ -38,7 +38,15 @@ import os
 import time
 import threading
 from evdev import UInput, ecodes as e
-from systemd import journal
+
+try:
+    from systemd import journal
+except ImportError:
+    class DummyJournal:
+        @staticmethod
+        def send(msg, **kwargs):
+            print(msg)
+    journal = DummyJournal()
 
 FIFO_PATH = "/run/ipr_bt_keyboard_fifo"
 

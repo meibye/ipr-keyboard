@@ -58,7 +58,15 @@ import dbus.exceptions
 import dbus.mainloop.glib
 import dbus.service
 from gi.repository import GLib
-from systemd import journal
+
+try:
+        from systemd import journal
+except ImportError:
+        class DummyJournal:
+                @staticmethod
+                def send(msg, **kwargs):
+                        print(msg)
+        journal = DummyJournal()
 
 BLUEZ_SERVICE_NAME = "org.bluez"
 DBUS_OM_IFACE = "org.freedesktop.DBus.ObjectManager"
