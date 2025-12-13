@@ -260,6 +260,7 @@ Edit `config.json` in the project root or use the web API:
   ```
 
 ## References
+- [BLUETOOTH_PAIRING.md](BLUETOOTH_PAIRING.md) — Bluetooth pairing troubleshooting guide
 - [SERVICES.md](SERVICES.md) — Detailed service and script documentation
 - [scripts/README.md](scripts/README.md) — Setup and workflow scripts
 - [src/ipr_keyboard/README.md](src/ipr_keyboard/README.md) — Code structure
