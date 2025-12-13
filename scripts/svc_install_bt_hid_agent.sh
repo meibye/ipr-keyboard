@@ -41,7 +41,6 @@ import dbus
 import dbus.mainloop.glib
 import dbus.service
 from gi.repository import GLib
-from systemd import journal
 
 try:
         from systemd import journal
