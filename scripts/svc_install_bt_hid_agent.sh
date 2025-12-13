@@ -48,7 +48,7 @@ except ImportError:
         class DummyJournal:
                 @staticmethod
                 def send(msg, **kwargs):
-                        pass
+                        print(msg)
         journal = DummyJournal()
 
 BLUEZ_SERVICE_NAME = "org.bluez"
