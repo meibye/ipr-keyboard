@@ -16,6 +16,7 @@ from ..config.manager import ConfigManager
 from ..config.web import bp_config
 from ..logging.logger import get_logger
 from ..logging.web import bp_logs
+from .pairing_routes import pairing_bp
 
 logger = get_logger()
 
@@ -48,6 +49,7 @@ def create_app() -> Flask:
     # Register blueprints
     app.register_blueprint(bp_config)
     app.register_blueprint(bp_logs)
+    app.register_blueprint(pairing_bp)
 
     @app.get("/health")
     def health():
