@@ -378,10 +378,16 @@ while true; do
                     echo -e "${BBlue}$(repeat 80 "=")${Color_Off}"
                     
                     # Ensure that empty parameters are not passed to the script
+                    # Always use absolute path for script execution
+                    script_path="$selected_script"
+                    # If not already absolute, prepend SCRIPT_DIR
+                    if [[ "$script_path" != /* ]]; then
+                        script_path="$SCRIPT_DIR/${script_path#./}"
+                    fi
                     if [ -n "$params" ]; then
-                        "$SCRIPT_DIR/$selected_script" $params
+                        "$script_path" $params
                     else
-                        "$SCRIPT_DIR/$selected_script"
+                        "$script_path"
                     fi
                     
                     echo -e "${BBlue}$(repeat 80 "=")${Color_Off}"
