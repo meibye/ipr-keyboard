@@ -108,18 +108,15 @@ fi
 # ---------------------------------------------------------------------------
 # 6. Pairing wizard HTML template
 # ---------------------------------------------------------------------------
-echo "=== [ble_setup_extras] Installing pairing wizard HTML template ==="
+echo "=== [ble_setup_extras] Verifying pairing wizard HTML template ==="
 TEMPLATES_DIR="$PROJECT_ROOT/src/ipr_keyboard/web/templates"
 PAIRING_TEMPLATE="$TEMPLATES_DIR/pairing_wizard.html"
 
-mkdir -p "$TEMPLATES_DIR"
-
-if [[ -f "$TEMPLATES_DIR/pairing_wizard.html" ]]; then
-  echo "  Pairing wizard template already exists at $PAIRING_TEMPLATE"
+if [[ -f "$PAIRING_TEMPLATE" ]]; then
+  echo "  Pairing wizard template exists at $PAIRING_TEMPLATE"
 else
-  echo "  ERROR: $TEMPLATES_DIR/pairing_wizard.html should exist in source tree"
-  echo "  Template should be part of the source code, not dynamically generated"
-  exit 1
+  echo "  WARNING: $PAIRING_TEMPLATE not found in source tree"
+  echo "  The template should be part of the source code repository"
 fi
 
 # ---------------------------------------------------------------------------
