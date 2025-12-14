@@ -19,7 +19,7 @@
 # category: System
 # purpose: Create Python virtual environment with uv
 
-set -euo pipefail
+set -eo pipefail
 
 
 # Ensure tmux is installed

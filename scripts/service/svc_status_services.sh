@@ -8,7 +8,7 @@
 # category: Service
 # purpose: Show status of all ipr-keyboard services
 
-set -euo pipefail
+set -eo pipefail
 SERVICES=(
   ipr_keyboard.service
   bt_hid_uinput.service

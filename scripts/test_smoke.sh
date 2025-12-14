@@ -20,7 +20,7 @@
 # category: Testing
 # purpose: Basic smoke test of all major components
 
-set -euo pipefail
+set -eo pipefail
 
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

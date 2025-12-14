@@ -11,7 +11,7 @@
 # category: Service
 # purpose: Disable all ipr-keyboard systemd services
 
-set -euo pipefail
+set -eo pipefail
 SERVICES=(
   ipr_keyboard.service
   bt_hid_uinput.service

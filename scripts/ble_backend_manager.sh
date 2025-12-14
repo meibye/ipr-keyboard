@@ -23,7 +23,7 @@
 # purpose: Manually trigger backend manager to switch between uinput/BLE
 #
 
-set -euo pipefail
+set -eo pipefail
 
 MANAGER_SCRIPT="/usr/local/bin/ipr_backend_manager.sh"
 

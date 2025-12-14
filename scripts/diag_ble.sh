@@ -15,7 +15,7 @@
 # category: Diagnostics
 # purpose: Run BLE diagnostics to check adapter and services
 
-set -euo pipefail
+set -eo pipefail
 
 DIAG_TOOL="/usr/local/bin/ipr_ble_diagnostics.sh"
 

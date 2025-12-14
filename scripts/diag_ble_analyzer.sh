@@ -20,7 +20,7 @@
 # category: Diagnostics
 # purpose: Monitor GATT HID reports for debugging BLE communication
 
-set -euo pipefail
+set -eo pipefail
 
 ANALYZER_TOOL="/usr/local/bin/ipr_ble_hid_analyzer.py"
 

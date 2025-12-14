@@ -19,7 +19,7 @@
 # purpose: Switch keyboard backend between uinput and BLE
 # parameters: uinput,ble
 
-set -euo pipefail
+set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env_set_variables.sh"

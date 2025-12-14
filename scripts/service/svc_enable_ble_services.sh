@@ -12,7 +12,7 @@
 # category: Service
 # purpose: Enable BLE backend services and disable uinput
 
-set -euo pipefail
+set -eo pipefail
 sudo systemctl enable bt_hid_ble.service
 sudo systemctl start bt_hid_ble.service
 sudo systemctl disable bt_hid_uinput.service

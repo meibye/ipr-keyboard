@@ -19,7 +19,7 @@
 # category: Service
 # purpose: Install main ipr_keyboard systemd service
 
-set -euo pipefail
+set -eo pipefail
 
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

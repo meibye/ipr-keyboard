@@ -31,7 +31,7 @@
 # category: Tools
 # purpose: Interactive menu for executing scripts
 
-set -euo pipefail
+set -eo pipefail
 
 # Color codes for output
 BYellow='\033[1;33m'
@@ -386,14 +386,21 @@ while true; do
                     fi
                     if [ -n "$params" ]; then
                         "$script_path" $params
+                        script_exit_code=$?
                     else
                         "$script_path"
+                        script_exit_code=$?
                     fi
-                    
+                    # Prevent menu from terminating if the executed script fails
+                    set +e
                     echo -e "${BBlue}$(repeat 80 "=")${Color_Off}"
+                    if [ $script_exit_code -ne 0 ]; then
+                        echo -e "${BRed}Script exited with code $script_exit_code${Color_Off}"
+                    fi
                     echo ""
                     echo -n -e "${BYellow}Press [Enter] to continue...${Color_Off}"
                     read
+                    set -e
                 else
                     echo -e "${BRed}Invalid choice. Please enter a valid number.${Color_Off}"
                     sleep 2

@@ -23,7 +23,7 @@
 # purpose: Diagnose Bluetooth pairing issues for all backends
 #
 
-set -euo pipefail
+set -eo pipefail
 
 # Color codes for output
 RED="\033[0;31m"

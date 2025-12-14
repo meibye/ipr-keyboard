@@ -21,7 +21,7 @@
 # purpose: Set up BLE extras including diagnostics and pairing wizard
 #
 
-set -euo pipefail
+set -eo pipefail
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "Please run this script as root (sudo ./scripts/ble_setup_extras.sh)."

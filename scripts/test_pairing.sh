@@ -20,7 +20,7 @@
 # purpose: Interactive Bluetooth pairing test for all backends
 # parameters: uinput,ble
 
-set -euo pipefail
+set -eo pipefail
 
 # Color codes
 RED="\033[0;31m"

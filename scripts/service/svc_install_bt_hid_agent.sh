@@ -15,7 +15,7 @@
 # purpose: Install Bluetooth HID agent service for pairing
 #
 
-set -euo pipefail
+set -eo pipefail
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root: sudo $0"

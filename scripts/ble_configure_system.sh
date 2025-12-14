@@ -19,7 +19,7 @@
 # category: Bluetooth
 # purpose: Configure Bluetooth for HID keyboard profile
 
-set -euo pipefail
+set -eo pipefail
 
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
