@@ -135,6 +135,7 @@ get_parameters() {
 display_subcategory_menu() {
     # Declare as global associative array to avoid unbound variable error
     declare -gA subcategory_counts
+    subcategory_counts=()
 
     # Count scripts in each subcategory
     for script in "${filtered_scripts[@]}"; do
