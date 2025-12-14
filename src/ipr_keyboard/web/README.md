@@ -315,7 +315,7 @@ The web server port is configurable via the `LogPort` setting:
 ## Related Features
 
 - **BLE Pairing Wizard**: After running `ble_setup_extras.sh`, a web-based pairing wizard is available at `/pairing`
-- **Service Status**: See `scripts/svc_status_monitor.py` for interactive service monitoring
+- **Service Status**: See `scripts/service/svc_status_monitor.py` for interactive service monitoring
 - **Diagnostics**: Use `scripts/diag_status.sh` for system status via command line
 
 ## See Also

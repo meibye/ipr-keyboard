@@ -18,6 +18,10 @@
 #
 # Note:
 #   Creates a backup of /etc/fstab before modifying it.
+#
+# category: USB/MTP
+# purpose: Setup persistent USB mount for IrisPen device
+# parameters: /dev/sda1,/media/irispen
 
 set -euo pipefail
 

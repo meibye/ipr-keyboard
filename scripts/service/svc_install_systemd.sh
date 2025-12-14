@@ -6,7 +6,7 @@
 #   Creates and enables the ipr_keyboard systemd service that runs the application automatically on system boot.
 #
 # Usage:
-#   sudo ./scripts/svc_install_systemd.sh
+#   sudo ./scripts/service/svc_install_systemd.sh
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)
@@ -15,13 +15,16 @@
 #
 # Note:
 #   The service runs as the configured user (not root) for security.
+#
+# category: Service
+# purpose: Install main ipr_keyboard systemd service
 
 set -euo pipefail
 
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
-source "$SCRIPT_DIR/env_set_variables.sh"
+source "$SCRIPT_DIR/../env_set_variables.sh"
 
 echo "[svc_install_systemd] Installing systemd service ipr_keyboard.service"
 

@@ -5,6 +5,15 @@
 # Installs the ipr_backend_manager service and script.
 # This service manages the backend switcher.
 #
+# Usage:
+#   sudo ./scripts/service/svc_install_ipr_backend_manager.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#
+# category: Service
+# purpose: Install backend manager service for switching between backends
+#
 
 set -euo pipefail
 

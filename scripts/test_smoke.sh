@@ -16,6 +16,9 @@
 #
 # Note:
 #   Should be run after setup scripts and before installing as a service.
+#
+# category: Testing
+# purpose: Basic smoke test of all major components
 
 set -euo pipefail
 

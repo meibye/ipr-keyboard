@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 #
 # ble_switch_backend.sh
 #
@@ -10,6 +8,18 @@ set -euo pipefail
 #   - passed as first argument:   ./scripts/ble_switch_backend.sh uinput|ble
 #   - read from config.json:      ./scripts/ble_switch_backend.sh
 #
+# Usage:
+#   ./scripts/ble_switch_backend.sh [uinput|ble]
+#
+# Prerequisites:
+#   - Environment variables set (sources env_set_variables.sh)
+#   - jq must be installed
+#
+# category: Bluetooth
+# purpose: Switch keyboard backend between uinput and BLE
+# parameters: uinput,ble
+
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env_set_variables.sh"

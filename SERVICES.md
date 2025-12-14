@@ -422,16 +422,16 @@ The following scripts in the `scripts/` folder provide convenient management of 
 
 ```bash
 # Disable all ipr-keyboard services
-sudo ./scripts/svc_disable_all_services.sh
+sudo ./scripts/service/svc_disable_all_services.sh
 
 # Enable uinput backend services
-sudo ./scripts/svc_enable_uinput_services.sh
+sudo ./scripts/service/svc_enable_uinput_services.sh
 
 # Enable BLE backend services
-sudo ./scripts/svc_enable_ble_services.sh
+sudo ./scripts/service/svc_enable_ble_services.sh
 
 # Show status of all managed services
-sudo ./scripts/svc_status_services.sh
+sudo ./scripts/service/svc_status_services.sh
 ```
 
 These scripts ensure that only the correct backend is active and all dependencies are handled automatically. See each script for details.

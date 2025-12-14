@@ -15,6 +15,9 @@
 #
 # Note:
 #   This script is required for enabling Bluetooth HID keyboard emulation.
+#
+# category: Bluetooth
+# purpose: Configure Bluetooth for HID keyboard profile
 
 set -euo pipefail
 

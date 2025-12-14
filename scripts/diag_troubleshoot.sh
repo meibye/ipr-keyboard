@@ -6,16 +6,20 @@
 #   Runs a comprehensive set of diagnostic checks for the ipr-keyboard system.
 #   Identifies common installation, configuration, and runtime issues.
 #
+# Usage:
+#   ./scripts/diag_troubleshoot.sh
+#   ./scripts/diag_troubleshoot.sh --test-file
+#
 # Prerequisites:
 #   - Environment variables set (sources env_set_variables.sh)
 #   - Project must be installed
 #
-# Usage:
-#   ./scripts/10_diagnose_failure.sh
-#   ./scripts/10_diagnose_failure.sh --test-file
-#
 # Note:
 #   Can be run as user or root. Does not modify system state.
+#
+# category: Diagnostics
+# purpose: Comprehensive troubleshooting and system diagnostics
+# parameters: --test-file
 
 set -euo pipefail
 
@@ -145,7 +149,7 @@ if systemctl list-unit-files 2>/dev/null | grep -q "$SERVICE_NAME"; then
   systemctl status "$SERVICE_NAME" --no-pager -l -n 0 2>&1 || true
 else
   echo "⚠ Service is NOT installed"
-  echo "  Run: sudo ./scripts/svc_install_systemd.sh"
+  echo "  Run: sudo ./scripts/service/svc_install_systemd.sh"
 fi
 echo
 

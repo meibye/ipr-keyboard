@@ -5,6 +5,15 @@
 # Installs the bt_hid_ble service and daemon.
 # This service provides a BLE HID over GATT keyboard backend.
 #
+# Usage:
+#   sudo ./scripts/service/svc_install_bt_hid_ble.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#
+# category: Service
+# purpose: Install BLE HID over GATT backend service
+#
 
 set -euo pipefail
 

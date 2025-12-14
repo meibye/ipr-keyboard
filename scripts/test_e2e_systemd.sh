@@ -17,6 +17,9 @@
 #
 # Note:
 #   This script tests the systemd service, not foreground mode.
+#
+# category: Testing
+# purpose: End-to-end test of ipr-keyboard systemd service
 
 set -euo pipefail
 
@@ -40,7 +43,7 @@ fi
 # Check if service is installed
 if ! systemctl list-unit-files | grep -q "$SERVICE_NAME"; then
   echo "[test_e2e_systemd] Error: Service $SERVICE_NAME is not installed"
-  echo "[test_e2e_systemd] Please run ./scripts/svc_install_systemd.sh first"
+  echo "[test_e2e_systemd] Please run ./scripts/service/svc_install_systemd.sh first"
   exit 1
 fi
 

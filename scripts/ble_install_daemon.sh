@@ -16,6 +16,9 @@
 # Note:
 #   This script is OPTIONAL. The main Bluetooth helper is installed by ble_install_helper.sh.
 #   Use only if you need an additional HID daemon with a separate FIFO.
+#
+# category: Bluetooth
+# purpose: Install optional Bluetooth HID daemon
 
 set -euo pipefail
 
@@ -48,7 +51,7 @@ apt install -y \
 # 2. Install bt_hid_daemon service
 ########################################
 echo "=== [ble_install_daemon] Installing bt_hid_daemon service ==="
-"$SCRIPT_DIR/svc_install_bt_hid_daemon.sh"
+"$SCRIPT_DIR/service/svc_install_bt_hid_daemon.sh"
 
 ########################################
 # 3. Enable and start service

@@ -16,6 +16,9 @@
 #
 # Note:
 #   Press Ctrl+C to stop. Does not run as a service.
+#
+# category: Development
+# purpose: Run ipr-keyboard in foreground for development
 
 set -euo pipefail
 

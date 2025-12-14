@@ -11,9 +11,16 @@
 # Usage:
 #   sudo ./scripts/ble_backend_manager.sh
 #
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - Backend manager must be installed via ble_setup_extras.sh
+#
 # See also:
 #   - ble_switch_backend.sh — Higher-level backend switching with prompts
 #   - /etc/ipr-keyboard/backend — Backend selection file
+#
+# category: Bluetooth
+# purpose: Manually trigger backend manager to switch between uinput/BLE
 #
 
 set -euo pipefail

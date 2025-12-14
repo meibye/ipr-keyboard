@@ -8,6 +8,12 @@
 # Usage:
 #   sudo ./scripts/diag_ble.sh
 #
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - BLE diagnostics tool must be installed via ble_setup_extras.sh
+#
+# category: Diagnostics
+# purpose: Run BLE diagnostics to check adapter and services
 
 set -euo pipefail
 

@@ -5,6 +5,15 @@
 # Installs the bt_hid_agent service and script.
 # This service provides Bluetooth pairing and authorization.
 #
+# Usage:
+#   sudo ./scripts/service/svc_install_bt_hid_agent.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#
+# category: Service
+# purpose: Install Bluetooth HID agent service for pairing
+#
 
 set -euo pipefail
 

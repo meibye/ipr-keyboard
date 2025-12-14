@@ -1,5 +1,17 @@
 #!/bin/bash
+#
 # Enable ipr-keyboard services for BLE backend
+#
+# Usage:
+#   sudo ./scripts/service/svc_enable_ble_services.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - BLE services must be installed
+#
+# category: Service
+# purpose: Enable BLE backend services and disable uinput
+
 set -euo pipefail
 sudo systemctl enable bt_hid_ble.service
 sudo systemctl start bt_hid_ble.service

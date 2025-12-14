@@ -12,6 +12,9 @@
 #   - Must NOT be run as root
 #   - Python venv must be set up (run sys_setup_venv.sh first)
 #   - MTP device must be mounted (run usb_mount_mtp.sh first)
+#
+# category: USB/MTP
+# purpose: Sync files from MTP mount to local cache
 
 set -euo pipefail
 
