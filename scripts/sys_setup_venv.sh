@@ -161,9 +161,9 @@ if [[ $EUID -eq 0 ]]; then
   exit 1
 fi
 
-PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
+IPR_PROJECT_ROOT="${IPR_PROJECT_ROOT:-$HOME/dev}"
+PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"½
 VENV_DIR="$PROJECT_DIR/.venv"
-
 if [[ ! -d "$PROJECT_DIR" ]]; then
   echo "Project directory not found: $PROJECT_DIR"
   exit 1
