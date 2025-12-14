@@ -78,7 +78,8 @@ is_valid_number() {
 get_category() {
     script="$1"
     if [ -f "$script" ]; then
-        category=$(grep -m 1 -E "^[[:space:]]*#.*category:.*" "$script" | sed -E 's/^[[:space:]]*#.*category:[[:space:]]*(.*)$/\1/')
+        # Match both '# category:' and '#  category:'
+        category=$(grep -m 1 -E "^[[:space:]]*# ? ?category:.*" "$script" | sed -E 's/^[[:space:]]*# ? ?category:[[:space:]]*(.*)$/\1/')
         if [ -n "$category" ]; then
             echo "$category"
         else
@@ -111,7 +112,8 @@ get_subcategory() {
 explain_purpose() {
     script="$1"
     if [ -f "$script" ]; then
-        purpose_function=$(grep -m 1 -E "^[[:space:]]*#.*purpose:.*" "$script" | sed -E 's/^[[:space:]]*#.*purpose:[[:space:]]*(.*)$/\1/')
+        # Match both '# purpose:' and '#  purpose:'
+        purpose_function=$(grep -m 1 -E "^[[:space:]]*# ? ?purpose:.*" "$script" | sed -E 's/^[[:space:]]*# ? ?purpose:[[:space:]]*(.*)$/\1/')
         if [ -n "$purpose_function" ]; then
             echo "$purpose_function"
         else
@@ -125,7 +127,8 @@ explain_purpose() {
 get_parameters() {
     script="$1"
     if [ -f "$script" ]; then
-        parameters=$(grep -m 1 -E "^[[:space:]]*#.*parameters:.*" "$script" | sed -E 's/^[[:space:]]*#.*parameters:[[:space:]]*(.*)$/\1/')
+        # Match both '# parameters:' and '#  parameters:'
+        parameters=$(grep -m 1 -E "^[[:space:]]*# ? ?parameters:.*" "$script" | sed -E 's/^[[:space:]]*# ? ?parameters:[[:space:]]*(.*)$/\1/')
         echo "$parameters"
     fi
 }
@@ -334,13 +337,18 @@ while true; do
                     exit 0
                 elif is_valid_number "$script_choice" && [ -n "${script_number_mapping[$script_choice]}" ]; then
                     selected_script="${script_number_mapping[$script_choice]}"
-                    chmod +x "$selected_script"
-                    
+                    # Always use absolute path for chmod and execution
+                    script_path="$selected_script"
+                    if [[ "$script_path" != /* ]]; then
+                        script_path="$SCRIPT_DIR/${script_path#./}"
+                    fi
+                    chmod +x "$script_path"
+
                     echo -e "${BBlue}$(repeat 80 "=")${Color_Off}"
-                    echo -e "${BGreen}Selected script: $selected_script${Color_Off}"
+                    echo -e "${BGreen}Selected script: $script_path${Color_Off}"
 
                     # Determine if the selected script has parameters
-                    script_params=$(get_parameters "$selected_script")
+                    script_params=$(get_parameters "$script_path")
                     params=""
                     if [ -n "$script_params" ]; then
                         IFS=',' read -r -a param_array <<< "$script_params"
@@ -371,19 +379,11 @@ while true; do
                         done
                         params="${params_array[@]}"
                     fi
-                    
+
                     # Execute the selected script
                     cd "$CURRENT_DIR"
-                    echo -e "${BGreen}Executing '$selected_script' in directory '$CURRENT_DIR'${Color_Off}"
+                    echo -e "${BGreen}Executing '$script_path' in directory '$CURRENT_DIR'${Color_Off}"
                     echo -e "${BBlue}$(repeat 80 "=")${Color_Off}"
-                    
-                    # Ensure that empty parameters are not passed to the script
-                    # Always use absolute path for script execution
-                    script_path="$selected_script"
-                    # If not already absolute, prepend SCRIPT_DIR
-                    if [[ "$script_path" != /* ]]; then
-                        script_path="$SCRIPT_DIR/${script_path#./}"
-                    fi
                     if [ -n "$params" ]; then
                         "$script_path" $params
                         script_exit_code=$?

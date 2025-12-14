@@ -41,6 +41,7 @@ fi
 
 # Create tmux conf file if it does not exist
 TMUX_CONF="$HOME/.config/tmux/tmux.conf"
+rm -f "$TMUX_CONF"
 if [[ ! -f "$TMUX_CONF" ]]; then
   echo "[sys_setup_venv] Creating default tmux.conf at $TMUX_CONF..."
   cat <<EOF > "$TMUX_CONF"
@@ -63,7 +64,7 @@ set -g status-position bottom
 
 # Set prefix key
 unbind C-b              # Unbind the default prefix key
-set -g prefix C-a   # Set new prefix key to Ctrl+a
+set -g prefix C-Space   # Set new prefix key to Ctrl+Space
 
 # Refresh tmux config with r
 unbind r
