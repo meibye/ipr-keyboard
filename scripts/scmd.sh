@@ -140,7 +140,7 @@ display_subcategory_menu() {
     # Count scripts in each subcategory
     for script in "${filtered_scripts[@]}"; do
         subcat=$(get_subcategory "$script")
-        ((subcategory_counts["$subcat"]++))
+        subcategory_counts["$subcat"]=$(( ${subcategory_counts["$subcat"]:-0} + 1 ))
     done
 
     # Display menu
@@ -318,7 +318,8 @@ while true; do
                 clear
                 echo -e "${BGreen}=== IPR-Keyboard Script Command Menu ===${Color_Off}"
                 echo ""
-                declare -A script_number_mapping
+                # Clear global script_number_mapping before repopulating
+                script_number_mapping=()
                 display_scripts_menu "$selected_subcat"
 
                 echo ""
