@@ -31,7 +31,7 @@
 # category: Tools
 # purpose: Interactive menu for executing scripts
 
-set -e
+set -euo pipefail
 
 # Color codes for output
 BYellow='\033[1;33m'
@@ -133,7 +133,8 @@ get_parameters() {
 # ==================================================================================
 # Function to display sub-category menu
 display_subcategory_menu() {
-    declare -A subcategory_counts
+    # Declare as global associative array to avoid unbound variable error
+    declare -gA subcategory_counts
 
     # Count scripts in each subcategory
     for script in "${filtered_scripts[@]}"; do
@@ -285,11 +286,10 @@ for script in "${scripts[@]}"; do
     fi
 done
 
-#
-# Mappings for menu navigation
-#
-declare -A subcategory_mapping
-declare -A script_number_mapping
+
+# Mappings for menu navigation (declare as global associative arrays)
+declare -gA subcategory_mapping
+declare -gA script_number_mapping
 
 #
 # Main menu loop
