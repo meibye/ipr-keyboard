@@ -61,10 +61,11 @@ Scripts are organized by domain with descriptive prefixes:
 | `sys_` | System | System-level setup (packages, venv) |
 | `ble_` | Bluetooth | Bluetooth HID configuration and backends |
 | `usb_` | USB/MTP | IrisPen mount and sync operations |
-| `svc_` | Service | Systemd service installation |
+| `service/` | Service | Systemd service installation (in service/ subdirectory) |
 | `test_` | Testing | Smoke tests, E2E tests, Bluetooth tests |
 | `dev_` | Development | Development helpers |
 | `diag_` | Diagnostics | Troubleshooting and status tools |
+| `extras/` | Extras | BLE diagnostics and tools (in extras/ subdirectory) |
 
 ## Fresh Installation Order
 
@@ -89,7 +90,7 @@ sudo ./scripts/ble_install_helper.sh        # Install Bluetooth keyboard helper
 ./scripts/test_smoke.sh                     # Verify installation
 
 # Step 5: Install service (requires root)
-sudo ./scripts/svc_install_systemd.sh       # Install systemd service
+sudo ./scripts/service/svc_install_systemd.sh       # Install systemd service
 
 # Optional: Mount IrisPen USB (requires root)
 sudo ./scripts/usb_setup_mount.sh /dev/sda1 # Configure persistent USB mount

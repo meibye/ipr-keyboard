@@ -48,7 +48,7 @@ apt install -y \
 # 2. Install bt_hid_daemon service
 ########################################
 echo "=== [ble_install_daemon] Installing bt_hid_daemon service ==="
-"$SCRIPT_DIR/svc_install_bt_hid_daemon.sh"
+"$SCRIPT_DIR/service/svc_install_bt_hid_daemon.sh"
 
 ########################################
 # 3. Enable and start service

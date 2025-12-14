@@ -145,7 +145,7 @@ if systemctl list-unit-files 2>/dev/null | grep -q "$SERVICE_NAME"; then
   systemctl status "$SERVICE_NAME" --no-pager -l -n 0 2>&1 || true
 else
   echo "⚠ Service is NOT installed"
-  echo "  Run: sudo ./scripts/svc_install_systemd.sh"
+  echo "  Run: sudo ./scripts/service/svc_install_systemd.sh"
 fi
 echo
 

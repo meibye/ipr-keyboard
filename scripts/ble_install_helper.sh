@@ -92,7 +92,7 @@ systemctl restart bt_hid_uinput.service
 # 4. Install Bluetooth agent
 ########################################
 echo "=== [ble_install_helper] Installing bt_hid_agent service ==="
-"$SCRIPT_DIR/svc_install_bt_hid_agent.sh"
+"$SCRIPT_DIR/service/svc_install_bt_hid_agent.sh"
 
 systemctl enable bt_hid_agent.service
 systemctl restart bt_hid_agent.service

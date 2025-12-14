@@ -69,7 +69,7 @@ fi
 # 2. Install backend manager service
 # ---------------------------------------------------------------------------
 echo "=== [ble_setup_extras] Installing backend manager service ==="
-"$SCRIPT_DIR/svc_install_ipr_backend_manager.sh"
+"$SCRIPT_DIR/service/svc_install_ipr_backend_manager.sh"
 
 systemctl enable ipr_backend_manager.service
 systemctl start ipr_backend_manager.service
