@@ -32,17 +32,17 @@ else
 fi
 
 # Clone tmux plugin manager (TPM) if not already present
-if [[ ! -d "$HOME/.tmux/plugins/tpm" ]]; then
+if [[ ! -d "$HOME/.config/tmux/plugins/tpm" ]]; then
   echo "[sys_setup_venv] Cloning tmux plugin manager (TPM)..."
-  git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
+  git clone https://github.com/tmux-plugins/tpm "$HOME/.config/tmux/plugins/tpm"
 else
-  echo "[sys_setup_venv] TPM already cloned at $HOME/.tmux/plugins/tpm."
+  echo "[sys_setup_venv] TPM already cloned at $HOME/.config/tmux/plugins/tpm."
 fi
 
 # Create tmux conf file if it does not exist
-TMUX_CONF="$HOME/.tmux.conf"
+TMUX_CONF="$HOME/.config/tmux/tmux.conf"
 if [[ ! -f "$TMUX_CONF" ]]; then
-  echo "[sys_setup_venv] Creating default .tmux.conf at $TMUX_CONF..."
+  echo "[sys_setup_venv] Creating default tmux.conf at $TMUX_CONF..."
   cat <<EOF > "$TMUX_CONF"
 # Use bash as default
 set -g default-shell /usr/bin/bash
@@ -146,7 +146,7 @@ set -g @resurrect-capture-pane-contents 'on'
 run '~/.tmux/plugins/tpm/tpm'
 EOF
 else
-  echo "[sys_setup_venv] .tmux.conf already exists at $TMUX_CONF."
+  echo "[sys_setup_venv] tmux.conf already exists at $TMUX_CONF."
 fi
 
 # Load environment variables
