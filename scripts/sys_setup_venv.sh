@@ -71,7 +71,7 @@ bind r source-file ~/.config/tmux/tmux.conf
 
 # Split horizontally in CWD with \
 unbind %
-bind \\ split-window -h -c "#{pane_current_path}"
+bind \\\ split-window -h -c "#{pane_current_path}"
 
 # Split vertically in CWD with -
 unbind \"
@@ -128,15 +128,15 @@ cyan_soft="#88C0D0"
 
 set -g status-position top
 set -g status-left-length 100
-set -g status-style "fg=${gray_light},bg=default"
-set -g status-left "#[fg=${green_soft},bold] #S #[fg=${gray_light},nobold] | "
+set -g status-style "fg=\${gray_light},bg=default"
+set -g status-left "#[fg=\${green_soft},bold] #S #[fg=\${gray_light},nobold] | "
 set -g status-right " #{cpu}   #{mem} "
-set -g window-status-current-format "#[fg=${cyan_soft},bold]  #[underscore]#I:#W"
+set -g window-status-current-format "#[fg=\${cyan_soft},bold]  #[underscore]#I:#W"
 set -g window-status-format " #I:#W"
-set -g message-style "fg=${gray_light},bg=default"
-set -g mode-style "fg=${gray_dark},bg=${blue_muted}"
-set -g pane-border-style "fg=${gray_dark}"
-set -g pane-active-border-style "fg=${green_soft}"
+set -g message-style "fg=\${gray_light},bg=default"
+set -g mode-style "fg=\${gray_dark},bg=\${blue_muted}"
+set -g pane-border-style "fg=\${gray_dark}"
+set -g pane-active-border-style "fg=\${green_soft}"
 
 # Resurrect
 set -g @resurrect-capture-pane-contents 'on'
