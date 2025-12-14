@@ -17,6 +17,9 @@
 #
 # Note:
 #   This script tests the systemd service, not foreground mode.
+#
+# category: Testing
+# purpose: End-to-end test of ipr-keyboard systemd service
 
 set -euo pipefail
 

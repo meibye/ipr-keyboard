@@ -11,6 +11,9 @@
 #   - Must NOT be run as root
 #   - Environment variables set (sources env_set_variables.sh)
 #   - Python venv activated or dependencies installed
+#
+# category: Development
+# purpose: Start Flask web server for development
 
 set -euo pipefail
 

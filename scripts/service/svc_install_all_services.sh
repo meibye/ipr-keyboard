@@ -5,6 +5,15 @@
 # Installs all Bluetooth-related services for ipr-keyboard.
 # This script calls individual service installation scripts.
 #
+# Usage:
+#   sudo ./scripts/service/svc_install_all_services.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#
+# category: Service
+# purpose: Install all Bluetooth HID services
+#
 
 set -euo pipefail
 

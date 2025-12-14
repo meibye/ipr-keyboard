@@ -16,6 +16,9 @@
 #
 # Note:
 #   Requires jmtpfs package.
+#
+# category: USB/MTP
+# purpose: Mount or unmount IrisPen as MTP device
 
 set -euo pipefail
 

@@ -24,6 +24,9 @@
 #
 # Note:
 #   The test file will be deleted if DeleteFiles is enabled in config.
+#
+# category: Testing
+# purpose: End-to-end test of ipr-keyboard in foreground mode
 
 set -euo pipefail
 

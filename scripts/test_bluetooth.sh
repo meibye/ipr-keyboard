@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 #
 # ipr-keyboard Bluetooth Keyboard Test Script
 #
@@ -19,6 +18,10 @@
 #
 # Note:
 #   For manual, interactive testing only. Not used in automated workflows or CI.
+#
+# category: Testing
+# purpose: Test Bluetooth keyboard emulation end-to-end
+# parameters: Test string (optional)
 
 
 # Source environment variables

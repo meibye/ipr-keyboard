@@ -5,6 +5,15 @@
 # Installs the bt_hid_uinput service and daemon.
 # This service provides a uinput-based HID keyboard backend.
 #
+# Usage:
+#   sudo ./scripts/service/svc_install_bt_hid_uinput.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#
+# category: Service
+# purpose: Install uinput HID backend service
+#
 
 set -euo pipefail
 

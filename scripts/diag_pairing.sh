@@ -18,6 +18,10 @@
 # Prerequisites:
 #   - Must be run as root (requires bluetoothctl and systemctl access)
 #   - Bluetooth services should be installed
+#
+# category: Diagnostics
+# purpose: Diagnose Bluetooth pairing issues for all backends
+#
 
 set -euo pipefail
 

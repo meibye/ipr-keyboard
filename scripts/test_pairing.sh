@@ -15,6 +15,10 @@
 #   - Must be run as root
 #   - Agent and backend services must be installed
 #   - Bluetooth adapter must be available
+#
+# category: Testing
+# purpose: Interactive Bluetooth pairing test for all backends
+# parameters: uinput,ble
 
 set -euo pipefail
 

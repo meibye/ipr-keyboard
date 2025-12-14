@@ -13,6 +13,8 @@
 #   - Environment variables set in env_set_variables.sh
 #   - Run as root (sudo)
 #
+# category: System
+# purpose: Install required system packages and dependencies
 
 set -euo pipefail
 

@@ -5,6 +5,15 @@
 # Installs the bt_hid_daemon service and daemon.
 # This service provides an alternative HID daemon with uinput.
 #
+# Usage:
+#   sudo ./scripts/service/svc_install_bt_hid_daemon.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#
+# category: Service
+# purpose: Install alternative HID daemon service
+#
 
 set -euo pipefail
 

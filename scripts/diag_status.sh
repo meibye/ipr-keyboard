@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+#
 # ipr-keyboard System Status Script
 #
 # Presents the current status of the ipr-keyboard setup, including:
@@ -15,6 +15,9 @@
 # Prerequisites:
 #   - Must NOT be run as root
 #   - Environment variables set (sources env_set_variables.sh)
+#
+# category: Diagnostics
+# purpose: Show comprehensive system status and configuration
 
 set -euo pipefail
 

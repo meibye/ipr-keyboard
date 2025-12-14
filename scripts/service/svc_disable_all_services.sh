@@ -1,5 +1,16 @@
 #!/bin/bash
+#
 # Disable all ipr-keyboard related systemd services
+#
+# Usage:
+#   sudo ./scripts/service/svc_disable_all_services.sh
+#
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#
+# category: Service
+# purpose: Disable all ipr-keyboard systemd services
+
 set -euo pipefail
 SERVICES=(
   ipr_keyboard.service

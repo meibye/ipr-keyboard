@@ -16,6 +16,9 @@
 # Note:
 #   This script is OPTIONAL. The main Bluetooth helper is installed by ble_install_helper.sh.
 #   Use only if you need an additional HID daemon with a separate FIFO.
+#
+# category: Bluetooth
+# purpose: Install optional Bluetooth HID daemon
 
 set -euo pipefail
 

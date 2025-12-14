@@ -15,6 +15,9 @@
 #
 # Note:
 #   Installs uv package manager if not already present.
+#
+# category: System
+# purpose: Create Python virtual environment with uv
 
 set -euo pipefail
 

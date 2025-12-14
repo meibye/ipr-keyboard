@@ -1,5 +1,13 @@
 #!/bin/bash
+#
 # Show status of all ipr-keyboard related systemd services
+#
+# Usage:
+#   sudo ./scripts/service/svc_status_services.sh
+#
+# category: Service
+# purpose: Show status of all ipr-keyboard services
+
 set -euo pipefail
 SERVICES=(
   ipr_keyboard.service

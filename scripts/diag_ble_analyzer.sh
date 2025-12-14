@@ -11,8 +11,14 @@
 # Usage:
 #   sudo ./scripts/diag_ble_analyzer.sh
 #
+# Prerequisites:
+#   - Must be run as root (uses sudo)
+#   - BLE HID analyzer must be installed via ble_setup_extras.sh
+#
 # Output: Logs to systemd journal and stdout
 #
+# category: Diagnostics
+# purpose: Monitor GATT HID reports for debugging BLE communication
 
 set -euo pipefail
 
