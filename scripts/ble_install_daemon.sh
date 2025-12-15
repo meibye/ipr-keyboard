@@ -4,7 +4,7 @@
 #
 # Purpose:
 #   Installs and configures a Bluetooth HID daemon for advanced keyboard emulation.
-#   Optional alternative to the default bt_kb_send helper.
+#   Optional/legacy alternative to the default uinput backend (bt_hid_uinput.service).
 #
 # Usage:
 #   sudo ./scripts/ble_install_daemon.sh
@@ -14,8 +14,8 @@
 #   - Environment variables set (sources env_set_variables.sh)
 #
 # Note:
-#   This script is OPTIONAL. The main Bluetooth helper is installed by ble_install_helper.sh.
-#   Use only if you need an additional HID daemon with a separate FIFO.
+#   This script is OPTIONAL. The main Bluetooth helper and default uinput backend is installed by ble_install_helper.sh (bt_hid_uinput.service).
+#   Use only if you need an additional/legacy HID daemon with a separate FIFO.
 #
 # category: Bluetooth
 # purpose: Install optional Bluetooth HID daemon
@@ -54,9 +54,9 @@ echo "=== [ble_install_daemon] Installing bt_hid_daemon service ==="
 "$SCRIPT_DIR/service/svc_install_bt_hid_daemon.sh"
 
 ########################################
-# 3. Enable and start service
+# 3. Enable and start service (legacy/optional, not default for uinput)
 ########################################
-echo "=== [ble_install_daemon] Enabling and starting bt_hid_daemon.service ==="
+echo "=== [ble_install_daemon] Enabling and starting bt_hid_daemon.service (legacy/optional, not default for uinput) ==="
 systemctl enable bt_hid_daemon.service
 systemctl restart bt_hid_daemon.service
 

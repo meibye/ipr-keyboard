@@ -15,6 +15,7 @@ set -eo pipefail
 SERVICES=(
   ipr_keyboard.service
   bt_hid_uinput.service
+  bt_hid_daemon.service
   bt_hid_ble.service
   bt_hid_agent.service
   ipr_backend_manager.service

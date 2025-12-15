@@ -75,7 +75,7 @@ This is an optional advanced HID daemon service installed by `scripts/ble_instal
 
 **Installed by**: `scripts/ble_install_daemon.sh` (optional, not part of standard setup)
 
-**Note**: The `ipr_backend_manager.service` recognizes this service as the "uinput" backend alternative in its backend switching logic.
+**Note**: The `ipr_backend_manager.service` recognizes this service as the "uinput" backend alternative, but `bt_hid_uinput.service` is the preferred and default uinput backend.
 
 ---
 
@@ -126,7 +126,7 @@ This systemd oneshot service runs the backend manager script (`ipr_backend_manag
 **Installed by**: `scripts/ble_setup_extras.sh`
 
 **Backend logic**:
-- If backend is `uinput`: Enables `bt_hid_daemon.service` (or `bt_hid_uinput.service`), disables BLE services
+- If backend is `uinput`: Enables `bt_hid_uinput.service` (preferred) and disables BLE services. `bt_hid_daemon.service` is legacy/optional.
 - If backend is `ble`: Enables `bt_hid_ble.service` and `bt_hid_agent.service`, disables uinput services
 
 **Configuration file**: `/etc/ipr-keyboard/backend` (contains either "ble" or "uinput")
@@ -318,7 +318,7 @@ sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 - `ipr_keyboard.service` depends on `bt_hid_agent.service` (and optionally the active backend).
 - `ipr_backend_manager.service` reads `/etc/ipr-keyboard/backend` and enables/disables the correct backend daemon.
 - `bt_hid_agent.service` is always enabled for pairing/authorization.
-- Only one backend daemon (`bt_hid_uinput.service` or `bt_hid_ble.service`) is enabled at a time.
+- Only one backend daemon (`bt_hid_uinput.service` or `bt_hid_ble.service`) is enabled at a time. For uinput, use `bt_hid_uinput.service`.
 
 ## Diagnostic and Utility Tools
 
@@ -383,7 +383,7 @@ sudo systemctl restart ipr_backend_manager.service
 | `bt_hid_agent.service` | `bluetooth.target` | Both backends |
 | `bt_hid_uinput.service` | `bluetooth.target` | UInput backend |
 | `bt_hid_ble.service` | `bluetooth.target` | BLE backend |
-| `bt_hid_daemon.service` | `bluetooth.target` | Legacy/advanced |
+| `bt_hid_daemon.service` | `bluetooth.target` | Legacy/advanced (not default for uinput) |
 | `ipr_backend_manager.service` | `bluetooth.target` | Backend selection |
 
 ## Troubleshooting Commands
