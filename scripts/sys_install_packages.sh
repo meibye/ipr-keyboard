@@ -15,6 +15,7 @@
 #
 # category: System
 # purpose: Install required system packages and dependencies
+# sudo: no
 
 set -eo pipefail
 

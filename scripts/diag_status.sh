@@ -18,6 +18,7 @@
 #
 # category: Diagnostics
 # purpose: Show comprehensive system status and configuration
+# sudo: no
 
 set -eo pipefail
 

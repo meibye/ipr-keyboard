@@ -19,6 +19,7 @@
 #
 # category: Bluetooth
 # purpose: Set up BLE extras including diagnostics and pairing wizard
+# sudo: yes
 #
 
 set -eo pipefail

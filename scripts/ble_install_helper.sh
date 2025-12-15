@@ -27,6 +27,7 @@
 #
 # category: Bluetooth
 # purpose: Install Bluetooth keyboard helper and backend daemons
+# sudo: yes
 #
 
 set -eo pipefail

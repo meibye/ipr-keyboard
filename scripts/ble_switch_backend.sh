@@ -18,6 +18,7 @@
 # category: Bluetooth
 # purpose: Switch keyboard backend between uinput and BLE
 # parameters: uinput,ble
+# sudo: no
 
 set -eo pipefail
 

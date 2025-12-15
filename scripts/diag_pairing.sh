@@ -21,6 +21,7 @@
 #
 # category: Diagnostics
 # purpose: Diagnose Bluetooth pairing issues for all backends
+# sudo: no
 #
 
 set -eo pipefail

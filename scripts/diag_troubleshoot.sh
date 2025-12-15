@@ -20,6 +20,7 @@
 # category: Diagnostics
 # purpose: Comprehensive troubleshooting and system diagnostics
 # parameters: --test-file
+# sudo: no
 
 set -eo pipefail
 

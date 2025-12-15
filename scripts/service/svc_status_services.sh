@@ -7,6 +7,7 @@
 #
 # category: Service
 # purpose: Show status of all ipr-keyboard services
+# sudo: no
 
 set -eo pipefail
 SERVICES=(

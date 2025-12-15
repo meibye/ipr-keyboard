@@ -13,6 +13,7 @@
 #
 # category: Service
 # purpose: Install uinput HID backend service
+# sudo: yes
 #
 
 set -eo pipefail

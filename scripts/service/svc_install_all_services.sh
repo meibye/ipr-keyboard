@@ -13,6 +13,7 @@
 #
 # category: Service
 # purpose: Install all Bluetooth HID services
+# sudo: yes
 #
 
 set -eo pipefail

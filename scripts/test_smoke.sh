@@ -19,6 +19,7 @@
 #
 # category: Testing
 # purpose: Basic smoke test of all major components
+# sudo: no
 
 set -eo pipefail
 

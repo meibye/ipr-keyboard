@@ -19,6 +19,7 @@
 # category: Testing
 # purpose: Interactive Bluetooth pairing test for all backends
 # parameters: uinput,ble
+# sudo: no
 
 set -eo pipefail
 

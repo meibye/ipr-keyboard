@@ -27,6 +27,7 @@
 #
 # category: Testing
 # purpose: End-to-end test of ipr-keyboard in foreground mode
+# sudo: no
 
 set -eo pipefail
 

@@ -13,6 +13,7 @@
 #
 # category: Service
 # purpose: Install backend manager service for switching between backends
+# sudo: yes
 #
 
 set -eo pipefail
@@ -39,7 +40,7 @@ cat > "$BACKEND_MANAGER" << 'EOF'
 #   - Ensures only the corresponding backend services are enabled/running.
 #
 # Backends:
-#   uinput -> bt_hid_uinput.service
+#   uinput -> bt_hid_daemon.service
 #   ble    -> bt_hid_ble.service + bt_hid_agent.service
 
 set -euo pipefail
@@ -59,13 +60,13 @@ case "$CURRENT" in
     systemctl stop bt_hid_ble.service bt_hid_agent.service 2>/dev/null || true
     systemctl disable bt_hid_ble.service bt_hid_agent.service 2>/dev/null || true
 
-    systemctl enable bt_hid_uinput.service 2>/dev/null || true
-    systemctl restart bt_hid_uinput.service
-    echo "[backend-manager] Enabled uinput backend (bt_hid_uinput.service)"
+    systemctl enable bt_hid_daemon.service 2>/dev/null || true
+    systemctl restart bt_hid_daemon.service
+    echo "[backend-manager] Enabled uinput backend (bt_hid_daemon.service)"
     ;;
   ble)
-    systemctl stop bt_hid_uinput.service 2>/dev/null || true
-    systemctl disable bt_hid_uinput.service 2>/dev/null || true
+    systemctl stop bt_hid_daemon.service 2>/dev/null || true
+    systemctl disable bt_hid_daemon.service 2>/dev/null || true
 
     systemctl enable bt_hid_ble.service bt_hid_agent.service 2>/dev/null || true
     systemctl restart bt_hid_ble.service bt_hid_agent.service

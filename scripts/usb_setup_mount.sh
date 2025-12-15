@@ -22,6 +22,7 @@
 # category: USB/MTP
 # purpose: Setup persistent USB mount for IrisPen device
 # parameters: /dev/sda1,/media/irispen
+# sudo: no
 
 set -eo pipefail
 

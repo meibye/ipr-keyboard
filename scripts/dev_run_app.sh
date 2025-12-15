@@ -19,6 +19,7 @@
 #
 # category: Development
 # purpose: Run ipr-keyboard in foreground for development
+# sudo: no
 
 set -eo pipefail
 

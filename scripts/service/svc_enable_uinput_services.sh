@@ -9,13 +9,11 @@
 #   - Must be run as root (uses sudo)
 #   - uinput services must be installed
 #
-
 # category: Service
 # purpose: Enable uinput backend services and disable BLE
-# sudo: yes
+# sudo: no
 
 set -eo pipefail
-# Only enable uinput backend, not hid_daemon
 sudo systemctl enable bt_hid_uinput.service
 sudo systemctl start bt_hid_uinput.service
 sudo systemctl disable bt_hid_ble.service

@@ -13,6 +13,7 @@
 #
 # category: Service
 # purpose: Install BLE HID over GATT backend service
+# sudo: yes
 #
 
 set -eo pipefail

@@ -380,15 +380,22 @@ while true; do
                         params="${params_array[@]}"
                     fi
 
+                    # Check for sudo metadata
+                    sudo_flag=$(grep -m 1 -E '^[[:space:]]*# ?sudo:[[:space:]]*yes' "$script_path" || true)
+                    sudo_prefix=""
+                    if [ -n "$sudo_flag" ]; then
+                        sudo_prefix="sudo "
+                    fi
+
                     # Execute the selected script
                     cd "$CURRENT_DIR"
-                    echo -e "${BGreen}Executing '$script_path' in directory '$CURRENT_DIR'${Color_Off}"
+                    echo -e "${BGreen}Executing '${sudo_prefix}$script_path' in directory '$CURRENT_DIR'${Color_Off}"
                     echo -e "${BBlue}$(repeat 80 "=")${Color_Off}"
                     if [ -n "$params" ]; then
-                        "$script_path" $params
+                        eval "$sudo_prefix\"$script_path\" $params"
                         script_exit_code=$?
                     else
-                        "$script_path"
+                        eval "$sudo_prefix\"$script_path\""
                         script_exit_code=$?
                     fi
                     # Prevent menu from terminating if the executed script fails

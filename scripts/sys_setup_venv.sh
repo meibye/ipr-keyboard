@@ -18,6 +18,7 @@
 #
 # category: System
 # purpose: Create Python virtual environment with uv
+# sudo: no
 
 set -eo pipefail
 

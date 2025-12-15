@@ -15,6 +15,7 @@
 #
 # category: USB/MTP
 # purpose: Sync files from MTP mount to local cache
+# sudo: no
 
 set -eo pipefail
 

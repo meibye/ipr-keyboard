@@ -21,6 +21,7 @@
 #
 # category: Bluetooth
 # purpose: Manually trigger backend manager to switch between uinput/BLE
+# sudo: no
 #
 
 set -eo pipefail

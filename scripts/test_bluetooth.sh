@@ -22,6 +22,7 @@
 # category: Testing
 # purpose: Test Bluetooth keyboard emulation end-to-end
 # parameters: Test string (optional)
+# sudo: no
 
 
 # Source environment variables

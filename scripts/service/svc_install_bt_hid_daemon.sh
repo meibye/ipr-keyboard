@@ -13,6 +13,7 @@
 #
 # category: Service
 # purpose: Install alternative HID daemon service
+# sudo: yes
 #
 
 set -eo pipefail

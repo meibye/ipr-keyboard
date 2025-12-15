@@ -19,6 +19,7 @@
 #
 # category: Diagnostics
 # purpose: Monitor GATT HID reports for debugging BLE communication
+# sudo: no
 
 set -eo pipefail
 

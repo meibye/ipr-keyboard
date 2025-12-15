@@ -18,6 +18,7 @@
 #
 # category: Bluetooth
 # purpose: Configure Bluetooth for HID keyboard profile
+# sudo: yes
 
 set -eo pipefail
 

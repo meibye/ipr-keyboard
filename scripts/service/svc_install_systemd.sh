@@ -18,6 +18,7 @@
 #
 # category: Service
 # purpose: Install main ipr_keyboard systemd service
+# sudo: yes
 
 set -eo pipefail
 

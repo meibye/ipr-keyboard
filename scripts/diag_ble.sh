@@ -14,6 +14,7 @@
 #
 # category: Diagnostics
 # purpose: Run BLE diagnostics to check adapter and services
+# sudo: no
 
 set -eo pipefail
 

@@ -14,6 +14,7 @@
 #
 # category: Development
 # purpose: Start Flask web server for development
+# sudo: no
 
 set -eo pipefail
 

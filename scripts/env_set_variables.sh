@@ -12,6 +12,7 @@
 #
 # category: Environment
 # purpose: Configure environment variables for ipr-keyboard
+# sudo: no
 
 # Default user - change this to your username
 export IPR_USER="${IPR_USER:-meibye}"

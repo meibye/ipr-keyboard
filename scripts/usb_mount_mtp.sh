@@ -19,6 +19,7 @@
 #
 # category: USB/MTP
 # purpose: Mount or unmount IrisPen as MTP device
+# sudo: no
 
 set -eo pipefail
 

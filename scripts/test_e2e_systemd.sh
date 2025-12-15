@@ -20,6 +20,7 @@
 #
 # category: Testing
 # purpose: End-to-end test of ipr-keyboard systemd service
+# sudo: yes
 
 set -eo pipefail
 

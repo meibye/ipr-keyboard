@@ -13,6 +13,7 @@
 #
 # category: Service
 # purpose: Install Bluetooth HID agent service for pairing
+# sudo: yes<
 #
 
 set -eo pipefail

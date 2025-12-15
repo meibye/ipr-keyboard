@@ -10,6 +10,7 @@
 #
 # category: Service
 # purpose: Disable all ipr-keyboard systemd services
+# sudo: no
 
 set -eo pipefail
 SERVICES=(
