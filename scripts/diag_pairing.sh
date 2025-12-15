@@ -136,7 +136,8 @@ section "3. Agent Service Status"
 
 AGENT_SERVICE="bt_hid_agent.service"
 
-if systemctl list-unit-files | grep -q "^$AGENT_SERVICE"; then
+# Use awk to match only the first column (unit file name) exactly
+if systemctl list-unit-files | awk '{print $1}' | grep -qx "$AGENT_SERVICE"; then
   if systemctl is-active --quiet "$AGENT_SERVICE"; then
     ok "$AGENT_SERVICE is active"
   else
