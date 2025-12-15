@@ -213,8 +213,12 @@ display_scripts_menu() {
     
     unique_number=1
     for script in $(echo "${!script_list[@]}" | tr ' ' '\n' | sort); do
-        purpose=$(explain_purpose "$script")
-        printf "  %-5s %-40s - %s\n" "[$unique_number]:" "$(basename "$script")" "$purpose"
+        # Always fetch and show the purpose text for each script
+        script_purpose=$(explain_purpose "$script")
+        if [ -z "$script_purpose" ]; then
+            script_purpose="No purpose information found."
+        fi
+        printf "  %-5s %-40s - %s\n" "[$unique_number]:" "$(basename "$script")" "$script_purpose"
         script_number_mapping["$unique_number"]="$script"
         ((unique_number++))
     done
