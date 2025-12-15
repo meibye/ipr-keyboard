@@ -169,7 +169,7 @@ else
 fi
 
 if [[ -n "$BACKEND_SERVICE" ]]; then
-  if systemctl list-unit-files | grep -q "^$BACKEND_SERVICE"; then
+  if systemctl list-unit-files | awk '{print $1}' | grep -qx "$BACKEND_SERVICE"; then
     if systemctl is-active --quiet "$BACKEND_SERVICE"; then
       ok "$BACKEND_SERVICE is active"
     else
@@ -269,7 +269,7 @@ if [[ -f "$AGENT_SCRIPT" ]]; then
   # Check RequestPasskey implementation
   if grep -q "def RequestPasskey" "$AGENT_SCRIPT"; then
     info "RequestPasskey method: Found"
-    PASSKEY_VALUE=$(grep -A 2 "def RequestPasskey" "$AGENT_SCRIPT" | grep "return" | awk '{print $NF}')
+    PASSKEY_VALUE=$(grep -A 10 "def RequestPasskey" "$AGENT_SCRIPT" | grep "return" | awk '{print $NF}')
     if [[ "$PASSKEY_VALUE" == "0" ]]; then
       warn "  Returns hardcoded value: 0 (displays as 000000)"
       warn "  This is used when agent generates the passkey"

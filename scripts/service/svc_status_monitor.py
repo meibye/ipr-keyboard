@@ -300,17 +300,21 @@ def show_journal(stdscr, svc):
         curses.A_BOLD | curses.color_pair(4),
     )
     stdscr.refresh()
-    try:
-        proc = subprocess.Popen(
-            ["journalctl", "-u", svc, "--no-pager", "-n", "1000"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        output, _ = proc.communicate(timeout=20)
-    except Exception as e:
-        output = f"Error reading journal: {e}"
-    lines = output.splitlines()
+
+    def load_journal():
+        try:
+            proc = subprocess.Popen(
+                ["journalctl", "-u", svc, "--no-pager", "-n", "1000"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            output, _ = proc.communicate(timeout=20)
+        except Exception as e:
+            output = f"Error reading journal: {e}"
+        return output.splitlines()
+
+    lines = load_journal()
     max_y, max_x = stdscr.getmaxyx()
     pos = 0
     while True:
@@ -328,7 +332,7 @@ def show_journal(stdscr, svc):
         stdscr.addstr(
             max_y - 1,
             2,
-            f"Up/Down: Scroll  q: Quit journal  ({pos + 1}-{min(pos + max_y - 2, len(lines))}/{len(lines)})",
+            f"Up/Down: Scroll  r: Refresh  q: Quit journal  ({pos + 1}-{min(pos + max_y - 2, len(lines))}/{len(lines)})",
             curses.A_DIM,
         )
         stdscr.refresh()
@@ -339,6 +343,9 @@ def show_journal(stdscr, svc):
             pos += 1
         elif c == curses.KEY_UP and pos > 0:
             pos -= 1
+        elif c in (ord("r"), ord("R")):
+            lines = load_journal()
+            pos = 0
 
 
 def select_action(stdscr, svc):
