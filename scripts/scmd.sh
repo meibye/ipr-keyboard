@@ -404,6 +404,11 @@ while true; do
                     if [ $script_exit_code -ne 0 ]; then
                         echo -e "${BRed}Script exited with code $script_exit_code${Color_Off}"
                     fi
+                    # Show script purpose after execution for user context
+                    script_purpose=$(explain_purpose "$script_path")
+                    if [ -n "$script_purpose" ]; then
+                        echo -e "${BYellow}Purpose:${Color_Off} $script_purpose"
+                    fi
                     echo ""
                     echo -n -e "${BYellow}Press [Enter] to continue...${Color_Off}"
                     read
