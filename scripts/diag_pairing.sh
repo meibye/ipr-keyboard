@@ -21,7 +21,7 @@
 #
 # category: Diagnostics
 # purpose: Diagnose Bluetooth pairing issues for all backends
-# sudo: no
+# sudo: yes
 #
 
 set -eo pipefail
@@ -54,7 +54,7 @@ function info() {
 }
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${RESET}"
-echo -e "${BLUE}║   ipr-keyboard Bluetooth Pairing Diagnostics Tool             ║${RESET}"
+echo -e "${BLUE}║   ipr-keyboard Bluetooth Pairing Diagnostics Tool              ║${RESET}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${RESET}"
 
 # Check if running as root
