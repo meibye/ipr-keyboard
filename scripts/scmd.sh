@@ -212,7 +212,7 @@ display_scripts_menu() {
     echo -e "${BYellow}$(repeat ${#display_name} "-")${Color_Off}"
     
     unique_number=1
-    for script in $(echo "${!script_list[@]}" | tr ' ' '\n' | sort); do
+    for script in "${!script_list[@]}"; do
         # Always fetch and show the purpose text for each script
         script_purpose=$(explain_purpose "$script")
         if [ -z "$script_purpose" ]; then
@@ -323,7 +323,7 @@ while true; do
             # Script selection loop for this subcategory
             while true; do
                 clear
-                echo -e "${BGreen}=== IPR-Keyboard Script Command Menu ===${Color_Off}"
+                echo -e "${BGreen}=== IPR-Keyboard Script Command Menu (${selected_subcat}) ===${Color_Off}"
                 echo ""
                 # Clear global script_number_mapping before repopulating
                 script_number_mapping=()
