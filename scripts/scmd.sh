@@ -212,8 +212,8 @@ display_scripts_menu() {
     echo -e "${BYellow}$(repeat ${#display_name} "-")${Color_Off}"
     
     unique_number=1
-    for script in "${!script_list[@]}"; do
-        # Always fetch and show the purpose text for each script
+    # Sort script_list keys robustly and handle spaces in filenames
+    while IFS= read -r script; do
         script_purpose=$(explain_purpose "$script")
         if [ -z "$script_purpose" ]; then
             script_purpose="No purpose information found."
@@ -221,7 +221,7 @@ display_scripts_menu() {
         printf "  %-5s %-40s - %s\n" "[$unique_number]:" "$(basename "$script")" "$script_purpose"
         script_number_mapping["$unique_number"]="$script"
         ((unique_number++))
-    done
+    done < <(printf '%s\n' "${!script_list[@]}" | sort)
     
     echo ""
     echo -e "${BYellow}Navigation:${Color_Off}"
