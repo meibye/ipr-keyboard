@@ -290,7 +290,13 @@ filtered_scripts=()
 for script in "${scripts[@]}"; do
     if [[ ! " ${excluded_scripts[@]} " =~ " $script " ]] &&
        [[ ! " ${scripts_to_exclude[@]} " =~ " $script " ]]; then
-        filtered_scripts+=("$script")
+        # Ensure absolute path
+        if [[ "$script" != /* ]]; then
+            abs_script="$SCRIPT_DIR/${script#./}"
+        else
+            abs_script="$script"
+        fi
+        filtered_scripts+=("$abs_script")
     fi
 done
 
