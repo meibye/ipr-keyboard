@@ -252,6 +252,7 @@ install -m 0755 "$HELPER_SRC_PATH" "$HELPER_DST_PATH"
 # Create systemd service unit
 ########################################
 echo "=== [svc_install_bt_hid_agent_unified] Writing bt_hid_agent_unified.service ==="
+
 cat > /etc/systemd/system/bt_hid_agent_unified.service << 'EOF'
 # /etc/systemd/system/bt_hid_agent_unified.service
 [Unit]
@@ -262,12 +263,14 @@ Requires=bluetooth.target
 [Service]
 Type=simple
 EnvironmentFile=-/etc/default/bt_hid_agent_unified
-ExecStart=/usr/bin/python3 /usr/local/bin/bt_hid_agent_unified.py \
-  --mode ${BT_AGENT_MODE} \
-  --capability ${BT_AGENT_CAPABILITY} \
-  --agent-path ${BT_AGENT_PATH} \
-  --adapter ${BT_AGENT_ADAPTER} \
-  ${BT_AGENT_EXTRA_ARGS}
+ExecStart=/bin/bash -c '
+    set -e
+    ARGS="--mode \"$BT_AGENT_MODE\" --capability \"$BT_AGENT_CAPABILITY\" --agent-path \"$BT_AGENT_PATH\" --adapter \"$BT_AGENT_ADAPTER\""
+    if [ -n "$BT_AGENT_EXTRA_ARGS" ]; then
+        ARGS="$ARGS $BT_AGENT_EXTRA_ARGS"
+    fi
+    exec /usr/bin/python3 /usr/local/bin/bt_hid_agent_unified.py $ARGS
+'
 Restart=on-failure
 
 [Install]
