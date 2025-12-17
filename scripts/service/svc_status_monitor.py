@@ -385,33 +385,31 @@ def draw_table(
 
     # Show config.json info
     config_info = get_config_json_info()
-    if row < curses.LINES - 6:
-        stdscr.addstr(
-            row, 2, "config.json Status", curses.A_BOLD | curses.color_pair(4)
-        )
-        row += 1
-        if isinstance(config_info, dict):
-            for k, v in config_info.items():
-                if row < curses.LINES - 1:
-                    stdscr.addstr(row, 4, f"{k}: {v}"[: curses.COLS - 6], curses.A_DIM)
-                    row += 1
-        else:
+    stdscr.addstr(row, 2, "config.json Status", curses.A_BOLD | curses.color_pair(4))
+    row += 1
+    if isinstance(config_info, dict):
+        for k, v in config_info.items():
+            if row < curses.LINES - 1:
+                stdscr.addstr(row, 4, f"{k}: {v}"[: curses.COLS - 6], curses.A_DIM)
+                row += 1
+    else:
+        if row < curses.LINES - 1:
             stdscr.addstr(row, 4, str(config_info)[: curses.COLS - 6], curses.A_DIM)
             row += 1
 
     # Show bt_agent_unified_env info
     bt_agent_env = get_bt_agent_env_info()
-    if row < curses.LINES - 6:
-        stdscr.addstr(
-            row, 2, "bt_agent_unified_env Status", curses.A_BOLD | curses.color_pair(4)
-        )
-        row += 1
-        if isinstance(bt_agent_env, dict):
-            for k, v in bt_agent_env.items():
-                if row < curses.LINES - 1:
-                    stdscr.addstr(row, 4, f"{k}: {v}"[: curses.COLS - 6], curses.A_DIM)
-                    row += 1
-        else:
+    stdscr.addstr(
+        row, 2, "bt_agent_unified_env Status", curses.A_BOLD | curses.color_pair(4)
+    )
+    row += 1
+    if isinstance(bt_agent_env, dict):
+        for k, v in bt_agent_env.items():
+            if row < curses.LINES - 1:
+                stdscr.addstr(row, 4, f"{k}: {v}"[: curses.COLS - 6], curses.A_DIM)
+                row += 1
+    else:
+        if row < curses.LINES - 1:
             stdscr.addstr(row, 4, str(bt_agent_env)[: curses.COLS - 6], curses.A_DIM)
             row += 1
 
