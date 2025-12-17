@@ -178,6 +178,7 @@ echo
 echo "[diag_troubleshoot] Checking Bluetooth helper..."
 
 echo "[diag_troubleshoot] Checking Bluetooth backend and services..."
+
 BACKEND=$(python -c "from ipr_keyboard.config.manager import ConfigManager; cfg = ConfigManager.instance().get(); print(getattr(cfg, 'KeyboardBackend', 'uinput'))" 2>/dev/null || echo "uinput")
 echo "Configured backend: $BACKEND"
 
@@ -187,8 +188,11 @@ else
   SERVICE="bt_hid_uinput.service"
 fi
 
-for SVC in "$SERVICE" "bt_hid_agent_unified.service"; do
-  if systemctl list-unit-files "$SVC"; then
+# Always check the unified agent service (not legacy)
+AGENT_SERVICE="bt_hid_agent_unified.service"
+
+for SVC in "$SERVICE" "$AGENT_SERVICE"; do
+  if systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep -qx "$SVC"; then
     echo "✓ $SVC is installed"
     if systemctl is-enabled --quiet "$SVC" 2>/dev/null; then
       echo "✓ $SVC is enabled"

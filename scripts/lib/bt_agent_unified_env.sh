@@ -12,6 +12,9 @@
 #   bt_agent_unified_set_profile_nowinpasskey
 #   bt_agent_unified_restart
 #
+# category: Service
+# purpose: BlueZ agent serviceconfiguration helper functions
+# sudo: yes
 
 set -euo pipefail
 

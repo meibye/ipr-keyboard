@@ -1,3 +1,52 @@
+def get_config_json_info():
+    """Read config.json and return as dict (or error string)."""
+    import json
+
+    config_path = os.path.expanduser("~/dev/ipr-keyboard/config.json")
+    if not os.path.exists(config_path):
+        # Try alternate locations
+        for alt_path in [
+            "/home/*/dev/ipr-keyboard/config.json",
+            "./config.json",
+            "../config.json",
+        ]:
+            matches = subprocess.check_output(
+                f"ls {alt_path} 2>/dev/null || true", shell=True, text=True
+            ).strip()
+            if matches:
+                config_path = matches.split("\n")[0]
+                break
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            return {"error": f"Failed to parse: {e}"}
+    else:
+        return {"error": "config.json not found"}
+
+
+def get_bt_agent_env_info():
+    """Read /etc/default/bt_hid_agent_unified as key-value pairs."""
+    env_file = "/etc/default/bt_hid_agent_unified"
+    env = {}
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        env[k.strip()] = v.strip()
+        except Exception as e:
+            env = {"error": f"Failed to read: {e}"}
+    else:
+        env = {"error": "env file not found"}
+    return env
+
+
 #!/usr/bin/env python3
 """
 svc_status_monitor.py
@@ -38,6 +87,53 @@ def get_status(service):
 
 
 def get_diagnostic_info():
+    def get_config_json_info():
+        """Read config.json and return as dict (or error string)."""
+        import json
+
+        config_path = os.path.expanduser("~/dev/ipr-keyboard/config.json")
+        if not os.path.exists(config_path):
+            # Try alternate locations
+            for alt_path in [
+                "/home/*/dev/ipr-keyboard/config.json",
+                "./config.json",
+                "../config.json",
+            ]:
+                matches = subprocess.check_output(
+                    f"ls {alt_path} 2>/dev/null || true", shell=True, text=True
+                ).strip()
+                if matches:
+                    config_path = matches.split("\n")[0]
+                    break
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    return json.load(f)
+            except Exception as e:
+                return {"error": f"Failed to parse: {e}"}
+        else:
+            return {"error": "config.json not found"}
+
+    def get_bt_agent_env_info():
+        """Read /etc/default/bt_hid_agent_unified as key-value pairs."""
+        env_file = "/etc/default/bt_hid_agent_unified"
+        env = {}
+        if os.path.exists(env_file):
+            try:
+                with open(env_file, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        if "=" in line:
+                            k, v = line.split("=", 1)
+                            env[k.strip()] = v.strip()
+            except Exception as e:
+                env = {"error": f"Failed to read: {e}"}
+        else:
+            env = {"error": "env file not found"}
+        return env
+
     """Gather diagnostic information from various sources."""
     info = {}
 
@@ -286,6 +382,38 @@ def draw_table(
             if row < curses.LINES - 1:
                 stdscr.addstr(row, 4, line[: curses.COLS - 6], curses.A_DIM)
                 row += 1
+
+    # Show config.json info
+    config_info = get_config_json_info()
+    if row < curses.LINES - 6:
+        stdscr.addstr(
+            row, 2, "config.json Status", curses.A_BOLD | curses.color_pair(4)
+        )
+        row += 1
+        if isinstance(config_info, dict):
+            for k, v in config_info.items():
+                if row < curses.LINES - 1:
+                    stdscr.addstr(row, 4, f"{k}: {v}"[: curses.COLS - 6], curses.A_DIM)
+                    row += 1
+        else:
+            stdscr.addstr(row, 4, str(config_info)[: curses.COLS - 6], curses.A_DIM)
+            row += 1
+
+    # Show bt_agent_unified_env info
+    bt_agent_env = get_bt_agent_env_info()
+    if row < curses.LINES - 6:
+        stdscr.addstr(
+            row, 2, "bt_agent_unified_env Status", curses.A_BOLD | curses.color_pair(4)
+        )
+        row += 1
+        if isinstance(bt_agent_env, dict):
+            for k, v in bt_agent_env.items():
+                if row < curses.LINES - 1:
+                    stdscr.addstr(row, 4, f"{k}: {v}"[: curses.COLS - 6], curses.A_DIM)
+                    row += 1
+        else:
+            stdscr.addstr(row, 4, str(bt_agent_env)[: curses.COLS - 6], curses.A_DIM)
+            row += 1
 
     stdscr.refresh()
 
