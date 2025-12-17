@@ -360,14 +360,9 @@ def draw_table(
                 idx += 1
         row += 1
 
-    # Show diagnostic info at the bottom if available
-    if diag_info and row < curses.LINES - 8:
-        row += 1
-        stdscr.addstr(
-            row, 2, "System Diagnostics", curses.A_BOLD | curses.color_pair(4)
-        )
-        row += 1
-        diag_lines = [
+    # Prepare status groups
+    diag_lines = (
+        [
             f"Backend (file): {diag_info.get('backend_file', 'unknown')}  "
             f"Backend (config): {diag_info.get('config_backend', 'unknown')}",
             f"BT Powered: {diag_info.get('bt_powered', 'unknown')}  "
@@ -378,40 +373,94 @@ def draw_table(
             f"bt_kb_send: {diag_info.get('bt_kb_send', 'unknown')}",
             f"Web API: {diag_info.get('web_api', 'unknown')}",
         ]
-        for line in diag_lines:
+        if diag_info
+        else []
+    )
+
+    config_info = get_config_json_info()
+    config_lines = ["config.json Status"]
+    if isinstance(config_info, dict):
+        config_lines += [f"{k}: {v}" for k, v in config_info.items()]
+    else:
+        config_lines.append(str(config_info))
+
+    bt_agent_env = get_bt_agent_env_info()
+    bt_agent_lines = ["bt_agent_unified_env Status"]
+    if isinstance(bt_agent_env, dict):
+        bt_agent_lines += [f"{k}: {v}" for k, v in bt_agent_env.items()]
+    else:
+        bt_agent_lines.append(str(bt_agent_env))
+
+    # Determine if we have enough width for columns
+    col_width = max(32, curses.COLS // 3 - 2)
+    can_do_columns = curses.COLS >= 90
+    max_lines = max(len(diag_lines), len(config_lines), len(bt_agent_lines))
+    start_row = row + 1
+
+    if can_do_columns and start_row + max_lines < curses.LINES - 1:
+        # Print headers
+        stdscr.addstr(
+            start_row, 2, "System Diagnostics", curses.A_BOLD | curses.color_pair(4)
+        )
+        stdscr.addstr(
+            start_row,
+            2 + col_width,
+            "config.json Status",
+            curses.A_BOLD | curses.color_pair(4),
+        )
+        stdscr.addstr(
+            start_row,
+            2 + 2 * col_width,
+            "bt_agent_unified_env Status",
+            curses.A_BOLD | curses.color_pair(4),
+        )
+        for i in range(max_lines):
+            r = start_row + 1 + i
+            if r >= curses.LINES - 1:
+                break
+            if i < len(diag_lines):
+                stdscr.addstr(r, 2, diag_lines[i][: col_width - 2], curses.A_DIM)
+            if i < len(config_lines) - 1:
+                stdscr.addstr(
+                    r, 2 + col_width, config_lines[i + 1][: col_width - 2], curses.A_DIM
+                )
+            if i < len(bt_agent_lines) - 1:
+                stdscr.addstr(
+                    r,
+                    2 + 2 * col_width,
+                    bt_agent_lines[i + 1][: col_width - 2],
+                    curses.A_DIM,
+                )
+    else:
+        # Fallback to vertical stacking
+        if diag_info and row < curses.LINES - 8:
+            row += 1
+            stdscr.addstr(
+                row, 2, "System Diagnostics", curses.A_BOLD | curses.color_pair(4)
+            )
+            row += 1
+            for line in diag_lines:
+                if row < curses.LINES - 1:
+                    stdscr.addstr(row, 4, line[: curses.COLS - 6], curses.A_DIM)
+                    row += 1
+        # config.json
+        stdscr.addstr(
+            row, 2, "config.json Status", curses.A_BOLD | curses.color_pair(4)
+        )
+        row += 1
+        for line in config_lines[1:]:
             if row < curses.LINES - 1:
                 stdscr.addstr(row, 4, line[: curses.COLS - 6], curses.A_DIM)
                 row += 1
-
-    # Show config.json info
-    config_info = get_config_json_info()
-    stdscr.addstr(row, 2, "config.json Status", curses.A_BOLD | curses.color_pair(4))
-    row += 1
-    if isinstance(config_info, dict):
-        for k, v in config_info.items():
+        # bt_agent_unified_env
+        stdscr.addstr(
+            row, 2, "bt_agent_unified_env Status", curses.A_BOLD | curses.color_pair(4)
+        )
+        row += 1
+        for line in bt_agent_lines[1:]:
             if row < curses.LINES - 1:
-                stdscr.addstr(row, 4, f"{k}: {v}"[: curses.COLS - 6], curses.A_DIM)
+                stdscr.addstr(row, 4, line[: curses.COLS - 6], curses.A_DIM)
                 row += 1
-    else:
-        if row < curses.LINES - 1:
-            stdscr.addstr(row, 4, str(config_info)[: curses.COLS - 6], curses.A_DIM)
-            row += 1
-
-    # Show bt_agent_unified_env info
-    bt_agent_env = get_bt_agent_env_info()
-    stdscr.addstr(
-        row, 2, "bt_agent_unified_env Status", curses.A_BOLD | curses.color_pair(4)
-    )
-    row += 1
-    if isinstance(bt_agent_env, dict):
-        for k, v in bt_agent_env.items():
-            if row < curses.LINES - 1:
-                stdscr.addstr(row, 4, f"{k}: {v}"[: curses.COLS - 6], curses.A_DIM)
-                row += 1
-    else:
-        if row < curses.LINES - 1:
-            stdscr.addstr(row, 4, str(bt_agent_env)[: curses.COLS - 6], curses.A_DIM)
-            row += 1
 
     stdscr.refresh()
 
