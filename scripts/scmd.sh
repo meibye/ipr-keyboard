@@ -97,6 +97,8 @@ get_subcategory() {
     # Handle subdirectories
     if [[ "$script" == */service/* ]]; then
         echo "service"
+    elif [[ "$script" == */lib/* ]]; then
+        echo "service"
     elif [[ "$script" == */extras/* ]]; then
         echo "extras"
     # Extract prefix before first underscore
