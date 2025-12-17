@@ -1,3 +1,32 @@
+#!/usr/bin/env python3
+"""
+svc_status_monitor.py
+
+Interactive TUI for ipr-keyboard service/daemon status and control.
+Includes diagnostic information from diag_status.sh and diag_troubleshoot.sh.
+
+Usage:
+  sudo ./scripts/service/svc_status_monitor.py
+
+Prerequisites:
+  - Must be run as root
+  - python3, curses, systemctl, journalctl must be available
+
+category: Service
+purpose: Interactive TUI for monitoring and controlling services
+
+Requires: python3, curses, systemctl, journalctl
+"""
+
+import curses
+import json
+import os
+import subprocess
+import sys
+import threading
+import time
+
+
 def get_config_json_info():
     """Read config.json and return as dict (or error string)."""
     import json
@@ -45,35 +74,6 @@ def get_bt_agent_env_info():
     else:
         env = {"error": "env file not found"}
     return env
-
-
-#!/usr/bin/env python3
-"""
-svc_status_monitor.py
-
-Interactive TUI for ipr-keyboard service/daemon status and control.
-Includes diagnostic information from diag_status.sh and diag_troubleshoot.sh.
-
-Usage:
-  sudo ./scripts/service/svc_status_monitor.py
-
-Prerequisites:
-  - Must be run as root
-  - python3, curses, systemctl, journalctl must be available
-
-category: Service
-purpose: Interactive TUI for monitoring and controlling services
-
-Requires: python3, curses, systemctl, journalctl
-"""
-
-import curses
-import json
-import os
-import subprocess
-import sys
-import threading
-import time
 
 
 def get_status(service):
