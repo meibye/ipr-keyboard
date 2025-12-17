@@ -69,7 +69,7 @@ status_line "Selected Backend (config)" "$BACKEND"
 # Check for required services
 UINPUT_SVC="bt_hid_uinput.service"
 BLE_SVC="bt_hid_ble.service"
-AGENT_SVC="bt_hid_agent.service"
+AGENT_SVC="bt_hid_agent_unified.service"
 
 UINPUT_ACTIVE=false
 BLE_ACTIVE=false

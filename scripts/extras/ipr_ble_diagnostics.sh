@@ -46,10 +46,10 @@ else
 fi
 
 say "4. Checking Agent service"
-if systemctl is-active --quiet bt_hid_agent.service; then
-    ok "bt_hid_agent.service is active"
+if systemctl is-active --quiet bt_hid_agent_unified.service; then
+    ok "bt_hid_agent_unified.service is active"
 else
-    err "bt_hid_agent.service is NOT active (pairing likely to fail)"
+    err "bt_hid_agent_unified.service is NOT active (pairing likely to fail)"
 fi
 
 say "5. Adapter power state (btmgmt info)"

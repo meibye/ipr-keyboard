@@ -24,6 +24,7 @@ set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env_set_variables.sh"
+source "$SCRIPT_DIR/lib/bt_agent_unified_env.sh"
 
 PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
 CONFIG_PATH="$PROJECT_DIR/config.json"
@@ -61,6 +62,12 @@ fi
 sudo systemctl stop bt_hid_uinput.service 2>/dev/null || true
 sudo systemctl stop bt_hid_ble.service 2>/dev/null || true
 
+# Unified agent: keep configured for "no passkey" by default for both backends.
+bt_agent_unified_set_profile_nowinpasskey
+bt_agent_unified_disable_legacy_service
+bt_agent_unified_enable
+bt_agent_unified_ensure_running
+
 if [[ "$BACKEND" == "uinput" ]]; then
   echo "[ble_switch_backend] Enabling uinput backend (bt_hid_uinput.service)"
   sudo systemctl disable bt_hid_ble.service 2>/dev/null || true
@@ -73,13 +80,7 @@ else
   sudo systemctl enable bt_hid_ble.service
   sudo systemctl restart bt_hid_ble.service
 
-  # Ensure bt_hid_agent.service is running
-  if ! systemctl is-active --quiet bt_hid_agent.service; then
-    echo "[ble_switch_backend] bt_hid_agent.service is NOT active. Starting it..."
-    sudo systemctl start bt_hid_agent.service
-  else
-    echo "[ble_switch_backend] bt_hid_agent.service is already active."
-  fi
+  # Unified agent already ensured running above.
 fi
 
 echo "=== [ble_switch_backend] Backend switched to: $BACKEND ==="

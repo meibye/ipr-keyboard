@@ -41,7 +41,7 @@ cat > "$BACKEND_MANAGER" << 'EOF'
 #
 # Backends:
 #   uinput -> bt_hid_uinput.service
-#   ble    -> bt_hid_ble.service + bt_hid_agent.service
+#   ble    -> bt_hid_ble.service + bt_hid_agent_unified.service
 
 set -euo pipefail
 
@@ -55,22 +55,46 @@ CURRENT="$(tr -d '[:space:]' < "$CONFIG_FILE")"
 
 echo "[backend-manager] Requested backend: '$CURRENT'"
 
+HELPER="/usr/local/lib/ipr-keyboard/bt_agent_unified_env.sh"
+if [[ -f "$HELPER" ]]; then
+  # shellcheck disable=SC1090
+  source "$HELPER"
+else
+  echo "[backend-manager] WARNING: helper not found: $HELPER" >&2
+fi
+
 case "$CURRENT" in
   uinput)
-    systemctl stop bt_hid_ble.service bt_hid_agent.service 2>/dev/null || true
-    systemctl disable bt_hid_ble.service bt_hid_agent.service 2>/dev/null || true
+    # Unified agent settings: keep the no-passkey profile as default.
+    if command -v bt_agent_unified_set_profile_nowinpasskey >/dev/null 2>&1; then
+      bt_agent_unified_set_profile_nowinpasskey
+      bt_agent_unified_disable_legacy_service
+      bt_agent_unified_enable
+      bt_agent_unified_ensure_running
+    fi
 
-    systemctl enable bt_hid_uinput.service bt_hid_agent.service 2>/dev/null || true
-    systemctl restart bt_hid_uinput.service bt_hid_agent.service
-    echo "[backend-manager] Enabled uinput backend (bt_hid_uinput.service + bt_hid_agent.service)"
+    systemctl stop bt_hid_ble.service 2>/dev/null || true
+    systemctl disable bt_hid_ble.service 2>/dev/null || true
+
+    systemctl enable bt_hid_uinput.service bt_hid_agent_unified.service 2>/dev/null || true
+    systemctl restart bt_hid_uinput.service bt_hid_agent_unified.service
+    echo "[backend-manager] Enabled uinput backend (bt_hid_uinput.service + bt_hid_agent_unified.service)"
     ;;
   ble)
-    systemctl stop bt_hid_uinput.service bt_hid_agent.service 2>/dev/null || true
-    systemctl disable bt_hid_uinput.service bt_hid_agent.service 2>/dev/null || true
+    # Unified agent settings: keep the no-passkey profile as default.
+    if command -v bt_agent_unified_set_profile_nowinpasskey >/dev/null 2>&1; then
+      bt_agent_unified_set_profile_nowinpasskey
+      bt_agent_unified_disable_legacy_service
+      bt_agent_unified_enable
+      bt_agent_unified_ensure_running
+    fi
 
-    systemctl enable bt_hid_ble.service bt_hid_agent.service 2>/dev/null || true
-    systemctl restart bt_hid_ble.service bt_hid_agent.service
-    echo "[backend-manager] Enabled BLE backend (bt_hid_ble + bt_hid_agent)"
+    systemctl stop bt_hid_uinput.service 2>/dev/null || true
+    systemctl disable bt_hid_uinput.service 2>/dev/null || true
+
+    systemctl enable bt_hid_ble.service bt_hid_agent_unified.service 2>/dev/null || true
+    systemctl restart bt_hid_ble.service bt_hid_agent_unified.service
+    echo "[backend-manager] Enabled BLE backend (bt_hid_ble + bt_hid_agent_unified.service)"
     ;;
   *)
     echo "[backend-manager] ERROR: Unknown backend '$CURRENT' (expected 'ble' or 'uinput')"

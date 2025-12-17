@@ -156,12 +156,12 @@ echo "  - /etc/ipr-keyboard/backend       (backend selector: 'ble' or 'uinput')"
 echo "  - ipr_backend_manager.service     (ensures only one backend is active)"
 
 # ---------------------------------------------------------------------------
-# Final check: Ensure bt_hid_agent.service is active
+# Final check: Ensure bt_hid_agent_unified.service is active
 # ---------------------------------------------------------------------------
-echo "=== [ble_setup_extras] Checking bt_hid_agent.service status ==="
-if systemctl is-active --quiet bt_hid_agent.service; then
-  echo "[OK] bt_hid_agent.service is active."
+echo "=== [ble_setup_extras] Checking bt_hid_agent_unified.service status ==="
+if systemctl is-active --quiet bt_hid_agent_unified.service; then
+  echo "[OK] bt_hid_agent_unified.service is active."
 else
-  echo "[ERROR] bt_hid_agent.service is NOT active!"
-  echo "Run: sudo systemctl start bt_hid_agent.service"
+  echo "[ERROR] bt_hid_agent_unified.service is NOT active!"
+  echo "Run: sudo systemctl start bt_hid_agent_unified.service"
 fi

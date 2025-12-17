@@ -134,7 +134,7 @@ fi
 section "3. Agent Service Status"
 # ---------------------------------------------------------------------------
 
-AGENT_SERVICE="bt_hid_agent.service"
+AGENT_SERVICE="bt_hid_agent_unified.service"
 
 # Use awk to match only the first column (unit file name) exactly
 if systemctl list-unit-files | awk '{print $1}' | grep -qx "$AGENT_SERVICE"; then

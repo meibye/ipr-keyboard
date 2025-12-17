@@ -136,7 +136,7 @@ def get_diagnostic_info():
 SERVICES = [
     ("bluetooth.target", "System Bluetooth", "both"),
     ("ipr_keyboard.service", "Main Application", "both"),
-    ("bt_hid_agent.service", "BLE Pairing Agent", "both"),
+    ("bt_hid_agent_unified.service", "BLE Pairing Agent", "both"),
     ("bt_hid_uinput.service", "UInput HID Daemon", "uinput"),
     ("bt_hid_daemon.service", "BT HID virtual keyboard daemon", "legacy"),
     ("bt_hid_ble.service", "BLE HID Daemon", "ble"),

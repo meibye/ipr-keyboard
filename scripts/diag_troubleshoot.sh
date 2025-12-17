@@ -187,7 +187,7 @@ else
   SERVICE="bt_hid_uinput.service"
 fi
 
-for SVC in "$SERVICE" "bt_hid_agent.service"; do
+for SVC in "$SERVICE" "bt_hid_agent_unified.service"; do
   if systemctl list-unit-files "$SVC"; then
     echo "✓ $SVC is installed"
     if systemctl is-enabled --quiet "$SVC" 2>/dev/null; then
@@ -227,7 +227,7 @@ if command -v bluetoothctl >/dev/null 2>&1; then
   bluetoothctl devices | sed 's/^/  /' || echo "  (none)"
   echo ""
   echo "Recent agent pairing events:"
-  journalctl -u bt_hid_agent.service -n 20 --no-pager 2>/dev/null | \
+  journalctl -u bt_hid_agent_unified.service -n 20 --no-pager 2>/dev/null | \
     grep -E "\[agent\]|passkey|pincode" | sed 's/^/  /' || echo "  (no recent events)"
 else
   echo "⚠ bluetoothctl not available"

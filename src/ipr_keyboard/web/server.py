@@ -82,7 +82,7 @@ def create_app() -> Flask:
         services = {
             "bt_hid_uinput.service": _service_status("bt_hid_uinput.service"),
             "bt_hid_ble.service": _service_status("bt_hid_ble.service"),
-            "bt_hid_agent.service": _service_status("bt_hid_agent.service"),
+            "bt_hid_agent_unified.service": _service_status("bt_hid_agent_unified.service"),
         }
 
         # Bluetooth adapter info

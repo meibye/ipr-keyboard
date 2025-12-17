@@ -14,7 +14,7 @@ SERVICES=(
   ipr_keyboard.service
   bt_hid_uinput.service
   bt_hid_ble.service
-  bt_hid_agent.service
+  bt_hid_agent_unified.service
   ipr_backend_manager.service
 )
 echo "Service status for ipr-keyboard stack:"

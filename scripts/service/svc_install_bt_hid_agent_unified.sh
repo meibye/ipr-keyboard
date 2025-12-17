@@ -24,6 +24,10 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 AGENT_PATH="/usr/local/bin/bt_hid_agent_unified.py"
+HELPER_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HELPER_SRC_PATH="${HELPER_SRC_DIR}/lib/bt_agent_unified_env.sh"
+HELPER_DST_DIR="/usr/local/lib/ipr-keyboard"
+HELPER_DST_PATH="${HELPER_DST_DIR}/bt_agent_unified_env.sh"
 
 echo "=== [svc_install_bt_hid_agent_unified] Installing bt_hid_agent_unified service ==="
 
@@ -238,6 +242,13 @@ EOF
 chmod +x "$AGENT_PATH"
 
 ########################################
+# Install shared helper (used by other scripts)
+########################################
+echo "=== [svc_install_bt_hid_agent_unified] Installing shared helper to $HELPER_DST_PATH ==="
+install -d -m 0755 "$HELPER_DST_DIR"
+install -m 0755 "$HELPER_SRC_PATH" "$HELPER_DST_PATH"
+
+########################################
 # Create systemd service unit
 ########################################
 echo "=== [svc_install_bt_hid_agent_unified] Writing bt_hid_agent_unified.service ==="
@@ -264,5 +275,29 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
+
+########################################
+# Ensure default environment config exists
+########################################
+echo "=== [svc_install_bt_hid_agent_unified] Ensuring /etc/default/bt_hid_agent_unified exists ==="
+if [[ ! -f /etc/default/bt_hid_agent_unified ]]; then
+  install -d -m 0755 /etc/default
+  cat > /etc/default/bt_hid_agent_unified <<'EOF'
+# Unified BlueZ agent config (ipr-keyboard)
+BT_AGENT_MODE=nowinpasskey
+BT_AGENT_CAPABILITY=NoInputNoOutput
+BT_AGENT_PATH=/ipr/agent
+BT_AGENT_ADAPTER=hci0
+BT_AGENT_EXTRA_ARGS=
+EOF
+  chmod 0644 /etc/default/bt_hid_agent_unified
+fi
+
+########################################
+# Disable legacy agent (if present) and start unified agent
+########################################
+systemctl disable --now bt_hid_agent.service 2>/dev/null || true
+systemctl enable bt_hid_agent_unified.service
+systemctl restart bt_hid_agent_unified.service
 
 echo "=== [svc_install_bt_hid_agent_unified] Installation complete ==="

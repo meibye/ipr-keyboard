@@ -53,8 +53,8 @@ cat <<EOF > "$SERVICE_FILE"
 
 [Unit]
 Description=IrisPen to Bluetooth Keyboard Bridge
-After=network.target bluetooth.target bt_hid_agent.service
-Requires=bt_hid_agent.service
+After=network.target bluetooth.target bt_hid_agent_unified.service
+Requires=bt_hid_agent_unified.service
 
 [Service]
 Type=simple

@@ -90,7 +90,7 @@ fi
 section "Bluetooth Pairing Test - $BACKEND Backend"
 
 # Determine services based on backend
-AGENT_SERVICE="bt_hid_agent.service"
+AGENT_SERVICE="bt_hid_agent_unified.service"
 if [[ "$BACKEND" == "uinput" ]]; then
   BACKEND_SERVICE="bt_hid_uinput.service"
 else

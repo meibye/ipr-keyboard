@@ -42,6 +42,7 @@ HELPER_PATH="/usr/local/bin/bt_kb_send"
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/bt_agent_unified_env.sh"
 
 echo "=== [ble_install_helper] Installing Bluetooth keyboard helper and backends ==="
 
@@ -88,10 +89,10 @@ chmod +x "$HELPER_PATH"
 # 3. Install backend services
 ########################################
 echo "=== [ble_install_helper] Installing bt_hid_uinput service ==="
-"$SCRIPT_DIR/svc_install_bt_hid_uinput.sh"
+"$SCRIPT_DIR/service/svc_install_bt_hid_uinput.sh"
 
 echo "=== [ble_install_helper] Installing bt_hid_ble service ==="
-"$SCRIPT_DIR/svc_install_bt_hid_ble.sh"
+"$SCRIPT_DIR/service/svc_install_bt_hid_ble.sh"
 
 echo "=== [ble_install_helper] Enabling uinput backend by default ==="
 systemctl disable bt_hid_ble.service || true
@@ -101,15 +102,18 @@ systemctl restart bt_hid_uinput.service
 ########################################
 # 4. Install Bluetooth agent
 ########################################
-echo "=== [ble_install_helper] Installing bt_hid_agent service ==="
-"$SCRIPT_DIR/service/svc_install_bt_hid_agent.sh"
+echo "=== [ble_install_helper] Installing bt_hid_agent_unified service ==="
+"$SCRIPT_DIR/service/svc_install_bt_hid_agent_unified.sh"
 
-systemctl enable bt_hid_agent.service
-systemctl restart bt_hid_agent.service
+bt_agent_unified_require_root
+bt_agent_unified_disable_legacy_service
+bt_agent_unified_set_profile_nowinpasskey
+bt_agent_unified_enable
+bt_agent_unified_restart
 
 echo "=== [ble_install_helper] Installation complete. ==="
 echo "  - Helper:        $HELPER_PATH"
 echo "  - FIFO:          $FIFO_PATH"
 echo "  - Backends:      uinput (active), ble (fully working BLE HID over GATT)"
-echo "  - Agent:         bt_hid_agent.service (handles pairing & service authorization)"
+echo "  - Agent:         bt_hid_agent_unified.service (handles pairing & service authorization)"
 echo "To switch backend later, use scripts/ble_switch_backend.sh."

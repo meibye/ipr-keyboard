@@ -38,10 +38,10 @@ echo ""
 echo "=== Installing bt_hid_ble service ==="
 "$SCRIPT_DIR/svc_install_bt_hid_ble.sh"
 
-# Install bt_hid_agent service
+# Install bt_hid_agent_unified service
 echo ""
-echo "=== Installing bt_hid_agent service ==="
-"$SCRIPT_DIR/svc_install_bt_hid_agent.sh"
+echo "=== Installing bt_hid_agent_unified service ==="
+"$SCRIPT_DIR/svc_install_bt_hid_agent_unified.sh"
 
 # Install bt_hid_daemon service
 echo ""
@@ -58,6 +58,6 @@ echo "=== [svc_install_all_services] All services installed successfully ==="
 echo "Installed services:"
 echo "  - bt_hid_uinput.service"
 echo "  - bt_hid_ble.service"
-echo "  - bt_hid_agent.service"
+echo "  - bt_hid_agent_unified.service"
 echo "  - bt_hid_daemon.service"
 echo "  - ipr_backend_manager.service"

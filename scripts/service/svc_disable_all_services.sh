@@ -10,7 +10,7 @@
 #
 # category: Service
 # purpose: Disable all ipr-keyboard systemd services
-# sudo: no
+# sudo: yes
 
 set -eo pipefail
 SERVICES=(
@@ -18,6 +18,7 @@ SERVICES=(
   bt_hid_uinput.service
   bt_hid_daemon.service
   bt_hid_ble.service
+  bt_hid_agent_unified.service
   bt_hid_agent.service
   ipr_backend_manager.service
 )
