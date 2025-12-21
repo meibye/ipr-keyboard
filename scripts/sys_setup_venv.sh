@@ -214,7 +214,7 @@ echo "[sys_setup_venv] Adding/updating aliases in $ALIASES_FILE..."
 {
   echo "alias ll='ls -al'"
   echo "alias activate='source $IPR_PROJECT_ROOT/ipr-keyboard/.venv/bin/activate'"
-  echo "alias ipr='source $IPR_PROJECT_ROOT/ipr-keyboard && activate'
+  echo "alias ipr='source $IPR_PROJECT_ROOT/ipr-keyboard && activate'"
 } > "$ALIASES_FILE.tmp"
 
 # Merge with existing aliases if present, avoiding duplicates
