@@ -214,12 +214,14 @@ echo "[sys_setup_venv] Adding/updating aliases in $ALIASES_FILE..."
 {
   echo "alias ll='ls -al'"
   echo "alias activate='source $IPR_PROJECT_ROOT/ipr-keyboard/.venv/bin/activate'"
+  echo "alias ipr='source $IPR_PROJECT_ROOT/ipr-keyboard && activate'
 } > "$ALIASES_FILE.tmp"
 
 # Merge with existing aliases if present, avoiding duplicates
 if [[ -f "$ALIASES_FILE" ]]; then
   grep -v "^alias ll='ls -al'" "$ALIASES_FILE" | \
-  grep -v "^alias activate='source $IPR_PROJECT_ROOT/ipr-keyboard/.venv/bin/activate'" >> "$ALIASES_FILE.tmp" || true
+  grep -v "^alias activate='source $IPR_PROJECT_ROOT/ipr-keyboard/.venv/bin/activate'" >> "$ALIASES_FILE.tmp" | \  
+  grep -v "^alias ipr='source $IPR_PROJECT_ROOT/ipr-keyboard && activate'" >> "$ALIASES_FILE.tmp" || true 
 fi
 mv "$ALIASES_FILE.tmp" "$ALIASES_FILE"
 echo "[sys_setup_venv] Aliases 'll' and 'activate' are now available in $ALIASES_FILE."
