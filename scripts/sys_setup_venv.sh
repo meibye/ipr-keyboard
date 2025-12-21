@@ -200,8 +200,15 @@ else
     uv pip install -e .
 fi
 
+# 5. Install Python debugging tools
+echo "[sys_setup_venv] Installing debugpy using uv pip..."
+if uv pip install debugpy ; then
+    echo "[sys_setup_venv] Installed debugpy."
+else
+    echo "[sys_setup_venv] debugpy not available or failed; installing without extras."
+fi
 
-# 5. Create/update ~/.bash_aliases for convenience
+# 6. Create/update ~/.bash_aliases for convenience
 ALIASES_FILE="$HOME/.bash_aliases"
 echo "[sys_setup_venv] Adding/updating aliases in $ALIASES_FILE..."
 {
