@@ -392,20 +392,21 @@ def draw_table(
         bt_agent_lines.append(str(bt_agent_env))
 
     # Determine if we have enough width for columns
-    # Use more generous column width and wrap lines if needed
-    col_gap = 2
+
+    # Use more conservative column width and larger gap to avoid wrapping into adjacent columns
+    col_gap = 4
     col_count = 3
-    col_width = max(40, (curses.COLS - (col_gap * (col_count - 1)) - 4) // col_count)
+    col_width = max(28, (curses.COLS - (col_gap * (col_count - 1)) - 4) // col_count)
     can_do_columns = curses.COLS >= 90
     max_lines = max(len(diag_lines), len(config_lines), len(bt_agent_lines))
     start_row = row + 1
 
     def add_wrapped(stdscr, y, x, text, width, attr):
-        """Add text, wrapping if needed."""
+        """Add text, wrapping if needed, and pad to width to avoid column bleed."""
         lines = [text[i : i + width] for i in range(0, len(text), width)]
         for i, line in enumerate(lines):
             if y + i < curses.LINES - 1:
-                stdscr.addstr(y + i, x, line, attr)
+                stdscr.addstr(y + i, x, line.ljust(width), attr)
         return len(lines)
 
     if can_do_columns and start_row + max_lines < curses.LINES - 1:
@@ -431,14 +432,14 @@ def draw_table(
                 break
             y = r
             if i < len(diag_lines):
-                add_wrapped(stdscr, y, 2, diag_lines[i], col_width - 2, curses.A_DIM)
+                add_wrapped(stdscr, y, 2, diag_lines[i], col_width, curses.A_DIM)
             if i < len(config_lines) - 1:
                 add_wrapped(
                     stdscr,
                     y,
                     2 + col_width + col_gap,
                     config_lines[i + 1],
-                    col_width - 2,
+                    col_width,
                     curses.A_DIM,
                 )
             if i < len(bt_agent_lines) - 1:
@@ -447,7 +448,7 @@ def draw_table(
                     y,
                     2 + 2 * (col_width + col_gap),
                     bt_agent_lines[i + 1],
-                    col_width - 2,
+                    col_width,
                     curses.A_DIM,
                 )
     else:
