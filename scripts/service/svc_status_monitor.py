@@ -509,68 +509,82 @@ def show_journal(stdscr, svc):
             output = f"Error reading journal: {e}"
         return output.splitlines()
 
-    def wrap_line(line, width):
-        return [line[i : i + width] for i in range(0, len(line), width)]
 
-    lines = load_journal()
-    max_y, max_x = stdscr.getmaxyx()
-    pos = 0
-    hscroll = 0
-    wrap_mode = False
-    top_line_content = None
-    while True:
-        stdscr.clear()
-        stdscr.addstr(
-            0,
-            2,
-            f"Systemd Journal for {svc}",
-            curses.A_BOLD | curses.color_pair(4),
-        )
-        display_lines = []
-        for line in lines:
-            if wrap_mode:
-                display_lines.extend(wrap_line(line, max_x - 4))
-            else:
-                display_lines.append(line)
-        total_lines = len(display_lines)
-        # Track the content of the current top line
-        if total_lines > 0 and pos < total_lines:
-            top_line_content = display_lines[pos] if pos < len(display_lines) else None
-        for i in range(1, max_y - 2):
-            idx = pos + i - 1
-            if idx < total_lines:
-                to_show = display_lines[idx][hscroll : hscroll + max_x - 4]
-                stdscr.addstr(i, 2, to_show)
-        stdscr.addstr(
-            max_y - 1,
-            2,
-            f"Up/Down: Scroll  Left/Right: HScroll  w:Wrap  r:Refresh  q:Quit  ({pos + 1}-{min(pos + max_y - 2, total_lines)}/{total_lines})",
-            curses.A_DIM,
-        )
-        stdscr.refresh()
-        c = stdscr.getch()
-        if c in (ord("q"), ord("Q")):
-            break
-        elif c == curses.KEY_DOWN and pos < total_lines - (max_y - 2):
-            pos += 1
-        elif c == curses.KEY_UP and pos > 0:
-            pos -= 1
-        elif c == curses.KEY_RIGHT:
-            hscroll += 8
-        elif c == curses.KEY_LEFT and hscroll > 0:
-            hscroll -= 8
-            if hscroll < 0:
-                hscroll = 0
-        elif c in (ord("r"), ord("R")):
-            lines = load_journal()
-            # Restore top line after refresh
-            if top_line_content is not None:
-                # Find the new index of the previous top line
-                try:
-                    new_pos = display_lines.index(top_line_content)
-                    pos = new_pos
-                except ValueError:
+    def show_journal_follow(stdscr, svc):
+        """Display journalctl -u <svc> -f output in a scrollable window (auto-refresh)."""
+        import subprocess
+        import select
+        import time
+        pos = 0
+        hscroll = 0
+        wrap_mode = False
+        lines = []
+        max_y, max_x = stdscr.getmaxyx()
+
+        def wrap_line(line, width):
+            return [line[i : i + width] for i in range(0, len(line), width)]
+
+        proc = subprocess.Popen([
+            "journalctl", "-u", svc, "--no-pager", "-n", "100", "-f"
+        ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+
+        try:
+            while True:
+                # Non-blocking read of new lines
+                rlist, _, _ = select.select([proc.stdout], [], [], 0.5)
+                if rlist:
+                    for line in proc.stdout:
+                        lines.append(line.rstrip("\n"))
+                stdscr.clear()
+                stdscr.addstr(0, 2, f"Journal (follow) for {svc}", curses.A_BOLD | curses.color_pair(4))
+                display_lines = []
+                for line in lines:
+                    if wrap_mode:
+                        display_lines.extend(wrap_line(line, max_x - 4))
+                    else:
+                        display_lines.append(line)
+                total_lines = len(display_lines)
+                # Only show the last N lines if too many
+                max_display = max_y - 2
+                if pos > total_lines - max_display:
+                    pos = max(0, total_lines - max_display)
+                for i in range(1, max_y - 2):
+                    idx = pos + i - 1
+                    if idx < total_lines:
+                        to_show = display_lines[idx][hscroll : hscroll + max_x - 4]
+                        stdscr.addstr(i, 2, to_show)
+                stdscr.addstr(
+                    max_y - 1,
+                    2,
+                    f"Up/Down: Scroll  Left/Right: HScroll  w:Wrap  q:Quit  (auto-refresh)  ({pos + 1}-{min(pos + max_y - 2, total_lines)}/{total_lines})",
+                    curses.A_DIM,
+                )
+                stdscr.refresh()
+                stdscr.timeout(500)
+                c = stdscr.getch()
+                stdscr.timeout(-1)
+                if c in (ord("q"), ord("Q")):
+                    break
+                elif c == curses.KEY_DOWN and pos < total_lines - (max_y - 2):
+                    pos += 1
+                elif c == curses.KEY_UP and pos > 0:
+                    pos -= 1
+                elif c == curses.KEY_RIGHT:
+                    hscroll += 8
+                elif c == curses.KEY_LEFT and hscroll > 0:
+                    hscroll -= 8
+                    if hscroll < 0:
+                        hscroll = 0
+                elif c in (ord("w"), ord("W")):
+                    wrap_mode = not wrap_mode
                     pos = 0
+                    hscroll = 0
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=1)
+            except Exception:
+                pass
             hscroll = 0
         elif c in (ord("w"), ord("W")):
             wrap_mode = not wrap_mode
@@ -662,7 +676,7 @@ def show_tail_file(stdscr, file_path):
 
 def select_action(stdscr, svc):
     """Prompt user to select an action for the given service or tail a file."""
-    actions = ACTIONS + ["Tail log file"]
+    actions = ACTIONS + ["Journal (follow)"]
     selected = 0
     while True:
         stdscr.clear()
@@ -690,15 +704,8 @@ def select_action(stdscr, svc):
         elif c in (curses.KEY_DOWN, ord("j")):
             selected = (selected + 1) % len(actions)
         elif c in (curses.KEY_ENTER, 10, 13):
-            if actions[selected] == "Tail log file":
-                # Prompt for file path
-                curses.echo()
-                stdscr.addstr(len(actions) + 5, 2, "Enter file path to tail: ")
-                stdscr.clrtoeol()
-                file_path = stdscr.getstr(len(actions) + 5, 26, 128).decode("utf-8")
-                curses.noecho()
-                if file_path:
-                    show_tail_file(stdscr, file_path)
+            if actions[selected] == "Journal (follow)":
+                show_journal_follow(stdscr, svc)
                 continue
             return actions[selected]
         elif c in (27, ord("q"), ord("Q")):
