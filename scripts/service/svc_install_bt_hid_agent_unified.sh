@@ -263,14 +263,7 @@ Requires=bluetooth.target
 [Service]
 Type=simple
 EnvironmentFile=-/etc/default/bt_hid_agent_unified
-ExecStart=/bin/bash -c '
-    set -e
-    ARGS="--mode \"$BT_AGENT_MODE\" --capability \"$BT_AGENT_CAPABILITY\" --agent-path \"$BT_AGENT_PATH\" --adapter \"$BT_AGENT_ADAPTER\""
-    if [ -n "$BT_AGENT_EXTRA_ARGS" ]; then
-        ARGS="$ARGS $BT_AGENT_EXTRA_ARGS"
-    fi
-    exec /usr/bin/python3 /usr/local/bin/bt_hid_agent_unified.py $ARGS
-'
+ExecStart=/bin/bash -c 'set -e; ARGS="--mode \"$BT_AGENT_MODE\" --capability \"$BT_AGENT_CAPABILITY\" --agent-path \"$BT_AGENT_PATH\" --adapter \"$BT_AGENT_ADAPTER\""; if [ -n "$BT_AGENT_EXTRA_ARGS" ]; then ARGS="$ARGS $BT_AGENT_EXTRA_ARGS"; fi; exec /usr/bin/python3 /usr/local/bin/bt_hid_agent_unified.py $ARGS'
 Restart=on-failure
 
 [Install]

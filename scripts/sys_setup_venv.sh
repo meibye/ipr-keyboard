@@ -99,6 +99,11 @@ bind c new-window -c "#{pane_current_path}"
 # set-option -s focus-events on
 set-option -s extended-keys on
 
+# Move between panes using Alt-Arrow keys without prefix
+bind -n M-Left  select-pane -L
+bind -n M-Right select-pane -R
+bind -n M-Up    select-pane -U
+bind -n M-Down  select-pane -D
 
 # # Use vim arrow keys to resize
 # bind -r j resize-pane -D 5
@@ -107,7 +112,7 @@ set-option -s extended-keys on
 # bind -r h resize-pane -L 5
 
 # # Use m key to maximize pane
-# bind -r m resize-pane -Z
+bind -r m resize-pane -Z
 
 # # Don't exit copy mode when dragging with mouse
 # unbind -T copy-mode-vi MouseDragEnd1Pane
