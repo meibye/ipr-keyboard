@@ -509,9 +509,14 @@ def show_journal(stdscr, svc):
             output = f"Error reading journal: {e}"
         return output.splitlines()
 
+    def wrap_line(line, width):
+        return [line[i : i + width] for i in range(0, len(line), width)]
+
     lines = load_journal()
     max_y, max_x = stdscr.getmaxyx()
     pos = 0
+    hscroll = 0
+    wrap_mode = False
     while True:
         stdscr.clear()
         stdscr.addstr(
@@ -520,27 +525,115 @@ def show_journal(stdscr, svc):
             f"Systemd Journal for {svc}",
             curses.A_BOLD | curses.color_pair(4),
         )
+        display_lines = []
+        for line in lines:
+            if wrap_mode:
+                display_lines.extend(wrap_line(line, max_x - 4))
+            else:
+                display_lines.append(line)
+        total_lines = len(display_lines)
         for i in range(1, max_y - 2):
             idx = pos + i - 1
-            if idx < len(lines):
-                stdscr.addstr(i, 2, lines[idx][: max_x - 4])
+            if idx < total_lines:
+                to_show = display_lines[idx][hscroll : hscroll + max_x - 4]
+                stdscr.addstr(i, 2, to_show)
         stdscr.addstr(
             max_y - 1,
             2,
-            f"Up/Down: Scroll  r: Refresh  q: Quit journal  ({pos + 1}-{min(pos + max_y - 2, len(lines))}/{len(lines)})",
+            f"Up/Down: Scroll  Left/Right: HScroll  w:Wrap  r:Refresh  q:Quit  ({pos + 1}-{min(pos + max_y - 2, total_lines)}/{total_lines})",
             curses.A_DIM,
         )
         stdscr.refresh()
         c = stdscr.getch()
         if c in (ord("q"), ord("Q")):
             break
-        elif c == curses.KEY_DOWN and pos < len(lines) - (max_y - 2):
+        elif c == curses.KEY_DOWN and pos < total_lines - (max_y - 2):
             pos += 1
         elif c == curses.KEY_UP and pos > 0:
             pos -= 1
+        elif c == curses.KEY_RIGHT:
+            hscroll += 8
+        elif c == curses.KEY_LEFT and hscroll > 0:
+            hscroll -= 8
+            if hscroll < 0:
+                hscroll = 0
         elif c in (ord("r"), ord("R")):
             lines = load_journal()
             pos = 0
+            hscroll = 0
+        elif c in (ord("w"), ord("W")):
+            wrap_mode = not wrap_mode
+            pos = 0
+            hscroll = 0
+
+
+def show_tail_file(stdscr, file_path):
+    """Display a file with tail -f like follow mode, scrollable and horizontally scrollable."""
+    pos = 0
+    hscroll = 0
+    wrap_mode = False
+    lines = []
+    max_y, max_x = stdscr.getmaxyx()
+
+    def wrap_line(line, width):
+        return [line[i : i + width] for i in range(0, len(line), width)]
+
+    def read_file():
+        try:
+            with open(file_path, "r") as f:
+                return f.read().splitlines()
+        except Exception as e:
+            return [f"Error reading file: {e}"]
+
+    last_size = 0
+    while True:
+        stdscr.clear()
+        stdscr.addstr(
+            0, 2, f"Tail -f {file_path}", curses.A_BOLD | curses.color_pair(4)
+        )
+        new_lines = read_file()
+        if len(new_lines) != len(lines):
+            lines = new_lines
+        display_lines = []
+        for line in lines:
+            if wrap_mode:
+                display_lines.extend(wrap_line(line, max_x - 4))
+            else:
+                display_lines.append(line)
+        total_lines = len(display_lines)
+        for i in range(1, max_y - 2):
+            idx = pos + i - 1
+            if idx < total_lines:
+                to_show = display_lines[idx][hscroll : hscroll + max_x - 4]
+                stdscr.addstr(i, 2, to_show)
+        stdscr.addstr(
+            max_y - 1,
+            2,
+            f"Up/Down: Scroll  Left/Right: HScroll  w:Wrap  q:Quit  (auto-refresh)  ({pos + 1}-{min(pos + max_y - 2, total_lines)}/{total_lines})",
+            curses.A_DIM,
+        )
+        stdscr.refresh()
+        stdscr.timeout(500)
+        c = stdscr.getch()
+        stdscr.timeout(-1)
+        if c in (ord("q"), ord("Q")):
+            break
+        elif c == curses.KEY_DOWN and pos < total_lines - (max_y - 2):
+            pos += 1
+        elif c == curses.KEY_UP and pos > 0:
+            pos -= 1
+        elif c == curses.KEY_RIGHT:
+            hscroll += 8
+        elif c == curses.KEY_LEFT and hscroll > 0:
+            hscroll -= 8
+            if hscroll < 0:
+                hscroll = 0
+        elif c in (ord("w"), ord("W")):
+            wrap_mode = not wrap_mode
+            pos = 0
+            hscroll = 0
+        # auto-refresh every 0.5s
+        # (already handled by timeout above)
 
 
 def select_action(stdscr, svc):
