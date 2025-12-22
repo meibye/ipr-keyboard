@@ -392,10 +392,21 @@ def draw_table(
         bt_agent_lines.append(str(bt_agent_env))
 
     # Determine if we have enough width for columns
-    col_width = max(32, curses.COLS // 3 - 2)
+    # Use more generous column width and wrap lines if needed
+    col_gap = 2
+    col_count = 3
+    col_width = max(40, (curses.COLS - (col_gap * (col_count - 1)) - 4) // col_count)
     can_do_columns = curses.COLS >= 90
     max_lines = max(len(diag_lines), len(config_lines), len(bt_agent_lines))
     start_row = row + 1
+
+    def add_wrapped(stdscr, y, x, text, width, attr):
+        """Add text, wrapping if needed."""
+        lines = [text[i : i + width] for i in range(0, len(text), width)]
+        for i, line in enumerate(lines):
+            if y + i < curses.LINES - 1:
+                stdscr.addstr(y + i, x, line, attr)
+        return len(lines)
 
     if can_do_columns and start_row + max_lines < curses.LINES - 1:
         # Print headers
@@ -404,13 +415,13 @@ def draw_table(
         )
         stdscr.addstr(
             start_row,
-            2 + col_width,
+            2 + col_width + col_gap,
             "config.json Status",
             curses.A_BOLD | curses.color_pair(4),
         )
         stdscr.addstr(
             start_row,
-            2 + 2 * col_width,
+            2 + 2 * (col_width + col_gap),
             "bt_agent_unified_env Status",
             curses.A_BOLD | curses.color_pair(4),
         )
@@ -418,17 +429,25 @@ def draw_table(
             r = start_row + 1 + i
             if r >= curses.LINES - 1:
                 break
+            y = r
             if i < len(diag_lines):
-                stdscr.addstr(r, 2, diag_lines[i][: col_width - 2], curses.A_DIM)
+                add_wrapped(stdscr, y, 2, diag_lines[i], col_width - 2, curses.A_DIM)
             if i < len(config_lines) - 1:
-                stdscr.addstr(
-                    r, 2 + col_width, config_lines[i + 1][: col_width - 2], curses.A_DIM
+                add_wrapped(
+                    stdscr,
+                    y,
+                    2 + col_width + col_gap,
+                    config_lines[i + 1],
+                    col_width - 2,
+                    curses.A_DIM,
                 )
             if i < len(bt_agent_lines) - 1:
-                stdscr.addstr(
-                    r,
-                    2 + 2 * col_width,
-                    bt_agent_lines[i + 1][: col_width - 2],
+                add_wrapped(
+                    stdscr,
+                    y,
+                    2 + 2 * (col_width + col_gap),
+                    bt_agent_lines[i + 1],
+                    col_width - 2,
                     curses.A_DIM,
                 )
     else:
