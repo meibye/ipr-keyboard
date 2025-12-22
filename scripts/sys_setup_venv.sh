@@ -50,15 +50,22 @@ if [[ ! -f "$TMUX_CONF" ]]; then
 set -g default-shell /usr/bin/bash
 
 # Enable 256-color and true-color (24-bit) support in tmux
-set -g default-terminal "screen-256color" # Set terminal type for 256-color support
-set -ga terminal-overrides ",*256col*:Tc" # Override to enable true-color for compatible terminals
+set -s default-terminal "xterm-256color"    # Set terminal type for 256-color support
+set -as terminal-features ",xterm-256color:clipboard:ccolour:cstyle:focus:title"
+set -as terminal-overrides ",xterm*:Tc"
+
+# Performance
+set -as terminal-overrides ",xterm*:OT11"   # Silence the OSC 11 (rgb:0c0c...) garbage text
+set -s escape-time 10           # Remove delay for exiting insert mode with ESC in Neovim
+set -g history-limit 100000     # Increase history size (from 2.000)
+set -g mouse on                 # Enable mouse support
+
+# Clipboard: Correct use of Server flags
+set -s set-clipboard on                     # Use system clipboard for copy operations
+set -as terminal-overrides ',xterm*:Ms=\E]52;%p1%s;%p2%s\7'  # Enable clipboard access in xterm
 
 # General
-set -g set-clipboard on         # Use system clipboard
 set -g detach-on-destroy off    # Don't exit from tmux when closing a session
-set -g escape-time 0            # Remove delay for exiting insert mode with ESC in Neovim
-set -g history-limit 1000000    # Increase history size (from 2,000)
-set -g mouse on                 # Enable mouse support
 set -g status-interval 3        # Update the status bar every 3 seconds (default: 15 seconds)
 set -g allow-passthrough on     # Allow programs in the pane to bypass tmux (e.g. for image preview)
 set -g status-position bottom
@@ -66,83 +73,76 @@ set -g status-position bottom
 # Set prefix key
 unbind C-b              # Unbind the default prefix key
 set -g prefix C-Space   # Set new prefix key to Ctrl+Space
+bind C-Space send-prefix # Make Ctrl+Space send the prefix key
 
 # Refresh tmux config with r
 unbind r
-bind r source-file ~/.config/tmux/tmux.conf
+bind r source-file ~/.config/tmux/tmux.conf \; display "Config Reloaded!"
 
-# Split horizontally in CWD with \
-unbind %
-bind \\\ split-window -h -c "#{pane_current_path}"
+# Fix Terminal Title display, to not contain tmux specic information
+set-option -g set-titles on
+set-option -g set-titles-string "#{pane_title}"
 
-# Split vertically in CWD with -
+# Split horizontally in CWD with unbind |
+bind \| split-window -h -c "#{pane_current_path}"
+
+# # Split vertically in CWD with -
 unbind \"
 bind - split-window -v -c "#{pane_current_path}"
 
 # New window in same path
 bind c new-window -c "#{pane_current_path}"
 
-# Use vim arrow keys to resize
-bind -r j resize-pane -D 5
-bind -r k resize-pane -U 5
-bind -r l resize-pane -R 5
-bind -r h resize-pane -L 5
+# Enable extended support for some more sophisticated terminal emulator
+# features. Disable them if they are causing problems!
+####### THE ARE CAUSING PROBLEMS ON THE RPI ########
+# set-option -s focus-events on
+set-option -s extended-keys on
 
-# Use m key to maximize pane
-bind -r m resize-pane -Z
 
-# Enable vi mode to allow us to use vim keys to move around in copy mode (Prefix + [ places us in copy mode)
-set-window-option -g mode-keys vi
+# # Use vim arrow keys to resize
+# bind -r j resize-pane -D 5
+# bind -r k resize-pane -U 5
+# bind -r l resize-pane -R 5
+# bind -r h resize-pane -L 5
 
-# Start selecting text with "v"
-bind-key -T copy-mode-vi 'v' send -X begin-selection 
+# # Use m key to maximize pane
+# bind -r m resize-pane -Z
 
-# Copy text with "y"
-bind -T copy-mode-vi 'y' send-keys -X copy-pipe-and-cancel "pbcopy"
-
-# Paste yanked text with "Prefix + P" ("Prefix + p" goes to previous window)
-bind P paste-buffer
-
-# Don't exit copy mode when dragging with mouse
-unbind -T copy-mode-vi MouseDragEnd1Pane
+# # Don't exit copy mode when dragging with mouse
+# unbind -T copy-mode-vi MouseDragEnd1Pane
 
 # Start windows and panes at 1, not 0
 set -g base-index 1
 set -g pane-base-index 1
-set -g renumber-windows on # Automatically renumber windows when one is closed
+set -g renumber-windows on  # Automatically renumber windows when one is closed
+bind ½ move-window -r       # Move current window to the end with "Prefix + ½" 
 
 # tpm plugin manager
 set -g @plugin 'tmux-plugins/tpm'
 
 # List of tmux plugins
 set -g @plugin 'christoomey/vim-tmux-navigator' # Enable navigating between nvim and tmux
+set -g @plugin 'dracula/tmux'                   # Dracula theme for tmux
 set -g @plugin 'tmux-plugins/tmux-resurrect'    # Persist tmux sessions after computer restart
 set -g @plugin 'tmux-plugins/tmux-continuum'    # Automatically saves sessions every 15 minutes
-set -g @plugin 'hendrikmi/tmux-cpu-mem-monitor' # CPU and memory info
+# set -g @plugin 'hendrikmi/tmux-cpu-mem-monitor' # CPU and memory info
+set -g @plugin 'tmux-plugins/tmux-sidebar'      # File explorer sidebar for tmux
+set -g @plugin 'jaclu/tmux-menus'               # Easy to use menus for tmux
 
-# Style
-gray_light="#D8DEE9"
-gray_medium="#ABB2BF"
-gray_dark="#3B4252"
-green_soft="#A3BE8C"
-blue_muted="#81A1C1"
-cyan_soft="#88C0D0"
-
-set -g status-position top
-set -g status-left-length 100
-set -g status-style "fg=\${gray_light},bg=default"
-set -g status-left "#[fg=\${green_soft},bold] #S #[fg=\${gray_light},nobold] | "
-set -g status-right " #{cpu}   #{mem} "
-set -g window-status-current-format "#[fg=\${cyan_soft},bold]  #[underscore]#I:#W"
-set -g window-status-format " #I:#W"
-set -g message-style "fg=\${gray_light},bg=default"
-set -g mode-style "fg=\${gray_dark},bg=\${blue_muted}"
-set -g pane-border-style "fg=\${gray_dark}"
-set -g pane-active-border-style "fg=\${green_soft}"
+# Dracula theme settings (https://github.com/dracula/tmux/blob/master/docs/CONFIG.md)
+set -g @dracula-show-powerline true             # Enable powerline symbols
+set -g @dracula-show-window-status true         # Enable window status
+set -g @dracula-cpu-display-load false          # Enable CPU load display
+# set -g @dracula-continuum-mode countdown        # Show countdown timer for continuum
+set -g @dracula-show-empty-plugins true         # Hide empty plugins section
+set -g @dracula-plugins "cpu-usage ram-usage"
+set -g @dracula-show-flags true
+set -g @dracula-show-left-icon session
 
 # Resurrect
 set -g @resurrect-capture-pane-contents 'on'
-# set -g @continuum-restore 'on'
+# set -g @continuum-restore 'on'    # Last saved environment is automatically restored when tmux is started.
 
 # Initialize TMUX plugin manager (keep this line at the very bottom of tmux.conf)
 run '~/.config/tmux/plugins/tpm/tpm'
