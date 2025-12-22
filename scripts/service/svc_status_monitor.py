@@ -363,13 +363,13 @@ def draw_table(
     # Prepare status groups
     diag_lines = (
         [
-            f"Backend (file): {diag_info.get('backend_file', 'unknown')}  "
+            f"Backend (file): {diag_info.get('backend_file', 'unknown')}",
             f"Backend (config): {diag_info.get('config_backend', 'unknown')}",
-            f"BT Powered: {diag_info.get('bt_powered', 'unknown')}  "
-            f"Discoverable: {diag_info.get('bt_discoverable', 'unknown')}  "
+            f"BT Powered: {diag_info.get('bt_powered', 'unknown')}",
+            f"Discoverable: {diag_info.get('bt_discoverable', 'unknown')}",
             f"Pairable: {diag_info.get('bt_pairable', 'unknown')}",
-            f"Paired devices: {diag_info.get('paired_devices', 'unknown')}  "
-            f"FIFO: {diag_info.get('fifo_exists', 'unknown')}  "
+            f"Paired devices: {diag_info.get('paired_devices', 'unknown')}",
+            f"FIFO: {diag_info.get('fifo_exists', 'unknown')}",
             f"bt_kb_send: {diag_info.get('bt_kb_send', 'unknown')}",
             f"Web API: {diag_info.get('web_api', 'unknown')}",
         ]
