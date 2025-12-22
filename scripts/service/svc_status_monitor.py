@@ -517,6 +517,7 @@ def show_journal(stdscr, svc):
     pos = 0
     hscroll = 0
     wrap_mode = False
+    top_line_content = None
     while True:
         stdscr.clear()
         stdscr.addstr(
@@ -532,6 +533,9 @@ def show_journal(stdscr, svc):
             else:
                 display_lines.append(line)
         total_lines = len(display_lines)
+        # Track the content of the current top line
+        if total_lines > 0 and pos < total_lines:
+            top_line_content = display_lines[pos] if pos < len(display_lines) else None
         for i in range(1, max_y - 2):
             idx = pos + i - 1
             if idx < total_lines:
@@ -559,11 +563,31 @@ def show_journal(stdscr, svc):
                 hscroll = 0
         elif c in (ord("r"), ord("R")):
             lines = load_journal()
-            pos = 0
+            # Restore top line after refresh
+            if top_line_content is not None:
+                # Find the new index of the previous top line
+                try:
+                    new_pos = display_lines.index(top_line_content)
+                    pos = new_pos
+                except ValueError:
+                    pos = 0
             hscroll = 0
         elif c in (ord("w"), ord("W")):
             wrap_mode = not wrap_mode
-            pos = 0
+            # Restore top line after wrap toggle
+            if top_line_content is not None:
+                # Rebuild display_lines with new wrap mode
+                display_lines = []
+                for line in lines:
+                    if wrap_mode:
+                        display_lines.extend(wrap_line(line, max_x - 4))
+                    else:
+                        display_lines.append(line)
+                try:
+                    new_pos = display_lines.index(top_line_content)
+                    pos = new_pos
+                except ValueError:
+                    pos = 0
             hscroll = 0
 
 
@@ -637,8 +661,8 @@ def show_tail_file(stdscr, file_path):
 
 
 def select_action(stdscr, svc):
-    """Prompt user to select an action for the given service."""
-    actions = ACTIONS
+    """Prompt user to select an action for the given service or tail a file."""
+    actions = ACTIONS + ["Tail log file"]
     selected = 0
     while True:
         stdscr.clear()
@@ -666,8 +690,18 @@ def select_action(stdscr, svc):
         elif c in (curses.KEY_DOWN, ord("j")):
             selected = (selected + 1) % len(actions)
         elif c in (curses.KEY_ENTER, 10, 13):
+            if actions[selected] == "Tail log file":
+                # Prompt for file path
+                curses.echo()
+                stdscr.addstr(len(actions) + 5, 2, "Enter file path to tail: ")
+                stdscr.clrtoeol()
+                file_path = stdscr.getstr(len(actions) + 5, 26, 128).decode("utf-8")
+                curses.noecho()
+                if file_path:
+                    show_tail_file(stdscr, file_path)
+                continue
             return actions[selected]
-        elif c in (27, ord("q"), ord("Q")):  # Esc or q
+        elif c in (27, ord("q"), ord("Q")):
             return None
 
 
