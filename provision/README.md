@@ -39,6 +39,7 @@ nano provision/common.env  # Edit device-specific values
 sudo cp provision/common.env /opt/ipr_common.env
 
 # 4. Run provisioning scripts in order
+chmod +x ./provision/*.sh
 sudo ./provision/00_bootstrap.sh
 sudo ./provision/01_os_base.sh
 sudo reboot  # Required after OS base

@@ -67,7 +67,7 @@ log "Ensuring Bluetooth is not soft-blocked..."
 rfkill unblock bluetooth || true
 
 log "Enabling key services..."
-systemctl enable --now dbus
+systemctl start dbus
 systemctl enable --now bluetooth
 
 log "Recording baseline versions..."

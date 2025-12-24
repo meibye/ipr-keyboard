@@ -91,10 +91,17 @@ sudo systemctl enable bluetooth
 ########################################
 # 6. Install uv (Python package manager)
 ########################################
+
 echo "=== Installing uv ==="
 curl -fsSL https://astral.sh/uv/install.sh | sh
 
-# Ensure PATH contains ~/.local/bin for uv
+# Ensure uv is available system-wide
+if [ -f "$HOME/.local/bin/uv" ]; then
+    sudo ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv
+    echo "Symlinked uv to /usr/local/bin/uv"
+fi
+
+# Ensure PATH contains ~/.local/bin for uv (for interactive shells)
 if ! grep -q "~/.local/bin" ~/.bashrc; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 fi
