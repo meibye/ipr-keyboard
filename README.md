@@ -2,8 +2,25 @@
 
 **IrisPen to Bluetooth keyboard bridge for Raspberry Pi**
 
-
 This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID keyboard emulation. It monitors a USB or MTP mount for new text files created by the IrisPen, reads their content, and sends the text to a paired computer as keyboard input. All actions are logged, and configuration/logs are accessible via a web API.
+
+## Target Hardware & Device Names
+
+### Development Setup
+
+- **RPi 4 Model B (4GB)** - Primary development device
+  - Hostname: `ipr-dev-pi4`
+  - Bluetooth: "IPR Keyboard (Dev)"
+  - mDNS: `ipr-dev-pi4.local`
+  
+- **RPi Zero 2 W** - Target deployment hardware  
+  - Hostname: `ipr-target-zero2`
+  - Bluetooth: "IPR Keyboard"
+  - mDNS: `ipr-target-zero2.local`
+
+**Development Environment**: Windows 11 PC with VS Code Remote-SSH → RPi 4
+
+**Repository**: https://github.com/meibye/ipr-keyboard
 
 
 ## Bluetooth Backend Management & Extras
@@ -203,12 +220,41 @@ For detailed service descriptions, see [SERVICES.md](SERVICES.md).
 | Utilities | `src/ipr_keyboard/utils/helpers.py` | Project root, config path, JSON helpers |
 
 
+## Getting Started
+
+### Quick Start for Fresh Devices
+
+For detailed step-by-step instructions to set up both RPis from scratch:
+
+📖 **[DEVICE_BRINGUP.md](DEVICE_BRINGUP.md)** - Complete bring-up procedure (45-60 minutes)
+
+**Summary**:
+1. Flash SD cards with Raspberry Pi OS Lite (64-bit) Bookworm
+2. Configure device-specific settings via `provision/common.env`
+3. Run automated provisioning scripts (`provision/00_bootstrap.sh` through `05_verify.sh`)
+4. Both devices configured identically with BLE HID over GATT
+
+### Development Workflow
+
+For day-to-day development procedures:
+
+📖 **[DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md)** - Daily development workflow
+
+**Summary**:
+- Develop on RPi 4 via VS Code Remote-SSH
+- Test features locally with `pytest`
+- Validate on Pi Zero 2 W iteratively
+- Keep devices in sync using Git tags
+
 ## Developer Workflows
-- **Setup**: Use scripts in `scripts/` (see `scripts/README.md` for order)
+
+- **Automated Provisioning**: Use scripts in `provision/` for fresh device setup
+- **Manual Setup**: Use scripts in `scripts/` (see `scripts/README.md` for order)
 - **Run in Dev Mode**: `./scripts/dev_run_app.sh` (foreground, logs to console)
 - **Testing**: `pytest` or `pytest --cov=ipr_keyboard` (see `tests/README.md`)
 - **Service Mode**: Installed as systemd service via `svc_install_systemd.sh` and backend services via `ble_install_helper.sh`
 - **Diagnostics**: `./scripts/diag_troubleshoot.sh` for troubleshooting
+- **Headless Access**: Wi-Fi hotspot provisioning + USB OTG (Pi Zero) - see `scripts/headless/`
 
 
 ## Configuration
@@ -260,8 +306,11 @@ Edit `config.json` in the project root or use the web API:
   ```
 
 ## References
+- [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md) — Complete device setup from fresh OS install
+- [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md) — Daily development procedures  
 - [BLUETOOTH_PAIRING.md](BLUETOOTH_PAIRING.md) — Bluetooth pairing troubleshooting guide
 - [SERVICES.md](SERVICES.md) — Detailed service and script documentation
+- [provision/README.md](provision/README.md) — Automated provisioning system
 - [scripts/README.md](scripts/README.md) — Setup and workflow scripts
 - [src/ipr_keyboard/README.md](src/ipr_keyboard/README.md) — Code structure
 - [tests/README.md](tests/README.md) — Test suite

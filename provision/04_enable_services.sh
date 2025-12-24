@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+#
+# Service installation for ipr-keyboard
+# Installs and enables systemd services for the application
+#
+# Purpose:
+#   - Runs existing service installation scripts
+#   - Configures BLE backend (BLE HID over GATT only)
+#   - Enables all required services
+#
+# Usage:
+#   sudo ./provision/04_enable_services.sh
+#
+# Prerequisites:
+#   - 03_app_install.sh completed successfully
+#
+# category: Provisioning
+# purpose: Install and enable systemd services
+# sudo: yes
+
+set -euo pipefail
+
+# Color output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+log() { echo -e "${GREEN}[services]${NC} $*"; }
+warn() { echo -e "${YELLOW}[services]${NC} $*"; }
+error() { echo -e "${RED}[services ERROR]${NC} $*"; }
+
+if [[ $EUID -ne 0 ]]; then
+  error "This script must be run as root"
+  exit 1
+fi
+
+# Load environment
+ENV_FILE="/opt/ipr_common.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+  error "Environment file not found: $ENV_FILE"
+  exit 1
+fi
+
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+
+cd "$REPO_DIR"
+
+# Verify required scripts exist
+required_scripts=(
+  "scripts/service/svc_install_systemd.sh"
+  "scripts/ble_setup_extras.sh"
+  "scripts/ble_install_helper.sh"
+  "scripts/service/svc_enable_ble_services.sh"
+)
+
+for script in "${required_scripts[@]}"; do
+  if [[ ! -f "$script" ]]; then
+    error "Required script not found: $script"
+    exit 1
+  fi
+done
+
+log "Installing core ipr_keyboard.service..."
+bash scripts/service/svc_install_systemd.sh
+
+log "Installing BLE extras (backend manager, diagnostics, etc.)..."
+bash scripts/ble_setup_extras.sh
+
+log "Installing BLE helper and backend services..."
+bash scripts/ble_install_helper.sh
+
+log "Ensuring backend is set to BLE in config.json..."
+if [[ -f "config.json" ]]; then
+  # Update backend to BLE if not already set
+  if command -v jq &> /dev/null; then
+    jq '.KeyboardBackend = "ble"' config.json > config.json.tmp
+    mv config.json.tmp config.json
+    log "Set KeyboardBackend to 'ble' in config.json"
+  else
+    warn "jq not available, skipping automatic config.json update"
+    warn "Please manually ensure 'KeyboardBackend': 'ble' in config.json"
+  fi
+fi
+
+log "Enabling BLE service set..."
+bash scripts/service/svc_enable_ble_services.sh
+
+# Wait for services to start
+sleep 3
+
+log "Verifying service status..."
+systemctl --no-pager status ipr_keyboard.service || true
+systemctl --no-pager status bt_hid_ble.service || true
+systemctl --no-pager status bt_hid_agent_unified.service || true
+systemctl --no-pager status ipr_backend_manager.service || true
+
+# Update state
+cat >> /opt/ipr_state/bootstrap_info.txt <<EOF
+
+Services Enabled completed: $(date -Is)
+Backend: BLE (HID over GATT)
+Services:
+  - ipr_keyboard.service
+  - bt_hid_ble.service
+  - bt_hid_agent_unified.service
+  - ipr_backend_manager.service
+EOF
+
+# Record enabled services
+{
+  echo "====================================="
+  echo "IPR Keyboard - Enabled Services"
+  echo "====================================="
+  echo ""
+  echo "Date: $(date -Is)"
+  echo ""
+  echo "=== ipr_keyboard.service ==="
+  systemctl status ipr_keyboard.service --no-pager || echo "Not running"
+  echo ""
+  echo "=== bt_hid_ble.service ==="
+  systemctl status bt_hid_ble.service --no-pager || echo "Not running"
+  echo ""
+  echo "=== bt_hid_agent_unified.service ==="
+  systemctl status bt_hid_agent_unified.service --no-pager || echo "Not running"
+  echo ""
+  echo "=== ipr_backend_manager.service ==="
+  systemctl status ipr_backend_manager.service --no-pager || echo "Not running"
+  echo ""
+} > /opt/ipr_state/service_status.txt
+
+log "Service status saved to /opt/ipr_state/service_status.txt"
+
+log "Service installation complete!"
+echo ""
+log "Active services:"
+systemctl --no-pager list-units "ipr*" "bt_hid*" --all
+echo ""
+log "Next steps:"
+log "  1. sudo $REPO_DIR/provision/05_verify.sh"
+echo ""

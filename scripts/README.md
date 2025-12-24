@@ -4,14 +4,41 @@ This directory contains installation, setup, backend management, and diagnostic 
 
 ## Overview
 
-The scripts automate the complete setup process from system configuration to service installation, backend switching, and troubleshooting. They handle:
+The scripts automate the complete setup process from system configuration to service installation, backend switching, headless provisioning, and troubleshooting. They handle:
 - System package installation
 - Bluetooth configuration
 - Python environment setup with uv
 - Systemd service installation
 - USB mount configuration
 - Keyboard backend switching (uinput/BLE)
+- **Headless provisioning** (Wi-Fi hotspot, USB OTG, factory reset)
 - Testing and diagnostics
+
+## Automated Provisioning
+
+For fresh device setup from clean OS install, use the automated provisioning system in `provision/`:
+
+📖 **[provision/README.md](../provision/README.md)** - Complete provisioning system documentation
+
+**Quick overview**:
+```bash
+# 1. Configure device-specific settings
+cp provision/common.env.example provision/common.env
+nano provision/common.env
+sudo cp provision/common.env /opt/ipr_common.env
+
+# 2. Run provisioning scripts in order
+sudo ./provision/00_bootstrap.sh
+sudo ./provision/01_os_base.sh
+sudo reboot
+sudo ./provision/02_device_identity.sh  
+sudo reboot
+sudo ./provision/03_app_install.sh
+sudo ./provision/04_enable_services.sh
+sudo ./provision/05_verify.sh
+```
+
+The provisioning scripts leverage the existing scripts in this directory for the actual installation work.
 
 
 ## BLE Setup, Diagnostics, and Pairing
@@ -61,6 +88,7 @@ Scripts are organized by domain with descriptive prefixes:
 | `sys_` | System | System-level setup (packages, venv) |
 | `ble_` | Bluetooth | Bluetooth HID configuration and backends |
 | `usb_` | USB/MTP | IrisPen mount and sync operations |
+| `headless/` | Headless | Wi-Fi provisioning, USB OTG, factory reset (in headless/ subdirectory) |
 | `service/` | Service | Systemd service installation (in service/ subdirectory) |
 | `test_` | Testing | Smoke tests, E2E tests, Bluetooth tests |
 | `dev_` | Development | Development helpers |
@@ -129,6 +157,53 @@ sudo ./scripts/usb_setup_mount.sh /dev/sda1 # Configure persistent USB mount
 | `usb_setup_mount.sh` | Sets up persistent USB mount for IrisPen | root |
 | `usb_mount_mtp.sh` | Mount/unmount IrisPen as MTP device | root |
 | `usb_sync_cache.sh` | Sync files from MTP mount to local cache | user |
+
+### Headless Provisioning Scripts
+
+The following scripts enable headless Pi access and Wi-Fi provisioning:
+
+| Script | Description | Run as |
+|--------|-------------|--------|
+| `headless/net_provision_web.py` | **Flask web interface** for Wi-Fi configuration. Runs on port 80 at `http://10.42.0.1/` when hotspot is active. Allows scanning and connecting to Wi-Fi networks via browser. | root |
+| `headless/net_provision_hotspot.sh` | **Auto-hotspot provisioning**. If Pi can't connect to known Wi-Fi within 45s, creates hotspot `ipr-setup-XXXX` with web provisioning interface. | root |
+| `headless/net_factory_reset.sh` | **Factory reset via boot marker**. Detects `IPR_RESET_WIFI` file on boot partition, wipes Wi-Fi profiles, and reboots into provisioning mode. | root |
+| `headless/usb_otg_setup.sh` | **USB OTG Ethernet setup** for Pi Zero 2 W. Enables USB gadget mode - connect Pi Zero to laptop via USB for direct SSH access at `192.168.7.1`. | root |
+| `headless/gpio_factory_reset.py` | **GPIO-based factory reset**. Monitors GPIO17 (Pin 11) for jumper to ground. If held for 2 seconds during boot, wipes Wi-Fi and enters provisioning mode. | root |
+
+**Headless provisioning workflow**:
+1. **Normal operation**: Pi connects to known Wi-Fi automatically
+2. **Unknown Wi-Fi**: After 45s wait, Pi creates hotspot `ipr-setup-XXXX`
+   - Connect phone/laptop to hotspot
+   - Open `http://10.42.0.1/` in browser
+   - Select Wi-Fi network and enter password
+3. **USB OTG (Pi Zero)**: Plug USB cable to laptop
+   - SSH to `192.168.7.1`
+   - Configure Wi-Fi via `nmcli`
+4. **Factory reset**: Two methods
+   - Create empty file `IPR_RESET_WIFI` on boot partition
+   - Or connect GPIO17 to GND during boot (if enabled)
+
+**Installation** (done automatically by provisioning scripts):
+```bash
+# Web interface
+sudo cp scripts/headless/net_provision_web.py /usr/local/sbin/ipr-provision-web.py
+sudo chmod +x /usr/local/sbin/ipr-provision-web.py
+
+# Hotspot script  
+sudo cp scripts/headless/net_provision_hotspot.sh /usr/local/sbin/ipr-provision.sh
+sudo chmod +x /usr/local/sbin/ipr-provision.sh
+
+# Factory reset
+sudo cp scripts/headless/net_factory_reset.sh /usr/local/sbin/ipr-factory-reset.sh
+sudo chmod +x /usr/local/sbin/ipr-factory-reset.sh
+
+# GPIO reset (optional)
+sudo cp scripts/headless/gpio_factory_reset.py /usr/local/sbin/ipr-gpio-reset.py
+sudo chmod +x /usr/local/sbin/ipr-gpio-reset.py
+
+# USB OTG (Pi Zero only)
+sudo ./scripts/headless/usb_otg_setup.sh
+```
 
 
 
