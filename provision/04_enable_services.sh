@@ -87,6 +87,31 @@ fi
 log "Enabling BLE service set..."
 bash scripts/service/svc_enable_ble_services.sh
 
+# Install and enable headless Wi-Fi provisioning service
+log "Installing headless Wi-Fi provisioning service (ipr-provision) ..."
+PROVISION_SCRIPT="scripts/headless/net_provision_hotspot.sh"
+PROVISION_TARGET="/usr/local/sbin/ipr-provision.sh"
+PROVISION_SERVICE="scripts/headless/ipr-provision.service"
+
+if [[ -f "$PROVISION_SCRIPT" ]]; then
+  cp "$PROVISION_SCRIPT" "$PROVISION_TARGET"
+  chmod +x "$PROVISION_TARGET"
+  log "Installed $PROVISION_TARGET"
+else
+  warn "Headless provisioning script not found: $PROVISION_SCRIPT"
+fi
+
+# Install systemd service unit if present
+if [[ -f "$PROVISION_SERVICE" ]]; then
+  cp "$PROVISION_SERVICE" /etc/systemd/system/ipr-provision.service
+  systemctl daemon-reload
+  systemctl enable ipr-provision.service
+  systemctl start ipr-provision.service
+  log "Enabled and started ipr-provision.service"
+else
+  warn "Headless provisioning service unit not found: $PROVISION_SERVICE"
+fi
+
 # Wait for services to start
 sleep 3
 

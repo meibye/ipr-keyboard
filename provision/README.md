@@ -159,11 +159,13 @@ sudo ./provision/05_verify.sh
 
 **Execution time**: ~2-5 minutes
 
+
 **Services enabled**:
 - `ipr_keyboard.service` - Main application
 - `bt_hid_ble.service` - BLE HID backend
 - `bt_hid_agent_unified.service` - Bluetooth pairing agent
 - `ipr_backend_manager.service` - Backend switcher
+- `ipr-provision.service` - Headless Wi-Fi provisioning hotspot (auto-starts if Wi-Fi is not connected)
 
 ---
 

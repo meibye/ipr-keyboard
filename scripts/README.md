@@ -88,12 +88,13 @@ Scripts are organized by domain with descriptive prefixes:
 | `sys_` | System | System-level setup (packages, venv) |
 | `ble_` | Bluetooth | Bluetooth HID configuration and backends |
 | `usb_` | USB/MTP | IrisPen mount and sync operations |
-| `headless/` | Headless | Wi-Fi provisioning, USB OTG, factory reset (in headless/ subdirectory) |
+| `headless/` | Headless | Wi-Fi provisioning (auto-hotspot service), USB OTG, factory reset (in headless/ subdirectory) |
 | `service/` | Service | Systemd service installation (in service/ subdirectory) |
 | `test_` | Testing | Smoke tests, E2E tests, Bluetooth tests |
 | `dev_` | Development | Development helpers |
 | `diag_` | Diagnostics | Troubleshooting and status tools |
 | `extras/` | Extras | BLE diagnostics and tools (in extras/ subdirectory) |
+
 
 ## Fresh Installation Order
 
@@ -107,22 +108,17 @@ cd $IPR_PROJECT_ROOT/ipr-keyboard
 nano scripts/env_set_variables.sh
 
 # Step 2: System setup (requires root)
-sudo ./scripts/sys_install_packages.sh      # Install system packages
-sudo ./scripts/ble_configure_system.sh      # Configure Bluetooth for HID
-sudo ./scripts/ble_install_helper.sh        # Install Bluetooth keyboard helper
-
-# Step 3: Python environment (as user, not root)
-./scripts/sys_setup_venv.sh                 # Create Python venv with dependencies
-
-# Step 4: Smoke test (as user)
-./scripts/test_smoke.sh                     # Verify installation
-
-# Step 5: Install service (requires root)
-sudo ./scripts/service/svc_install_systemd.sh       # Install systemd service
-
-# Optional: Mount IrisPen USB (requires root)
-sudo ./scripts/usb_setup_mount.sh /dev/sda1 # Configure persistent USB mount
+sudo ./provision/00_bootstrap.sh
+sudo ./provision/01_os_base.sh
+sudo reboot
+sudo ./provision/02_device_identity.sh
+sudo reboot
+sudo ./provision/03_app_install.sh
+sudo ./provision/04_enable_services.sh
+sudo ./provision/05_verify.sh
 ```
+
+**Note:** The headless Wi-Fi provisioning service (`ipr-provision.service`) is automatically installed and enabled during provisioning. If the device cannot connect to Wi-Fi, it will create a hotspot for browser-based setup on boot.
 
 ## Script Reference
 

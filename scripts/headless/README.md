@@ -20,10 +20,13 @@ These features are essential for headless bring-up, recovery, and first-time set
 - **How it works**: Runs on port 80 when the device is in hotspot mode. Connect to the Pi's hotspot (SSID: `ipr-setup-XXXX`), then open `http://10.42.0.1/` in a browser to select and join a Wi-Fi network.
 - **Usage**: Automatically started by `net_provision_hotspot.sh`.
 
-### 2. `net_provision_hotspot.sh`
+
+### 2. `net_provision_hotspot.sh` (auto-installed)
 - **Purpose**: Auto-hotspot provisioning. If the Pi cannot connect to known Wi-Fi, it creates a hotspot for browser-based setup.
 - **How it works**: Waits for Wi-Fi connection on boot. If not found, starts a hotspot and launches the web UI.
-- **Usage**: Installed as a systemd service by provisioning scripts. No manual invocation needed.
+- **Usage**: Automatically installed and enabled as `ipr-provision.service` during provisioning. No manual steps required.
+   - Service: `ipr-provision.service` runs `/usr/local/sbin/ipr-provision.sh` (copied from this script).
+   - Hotspot is available on boot if Wi-Fi is not connected.
 
 ### 3. `net_factory_reset.sh`
 - **Purpose**: Factory reset via boot marker file.
