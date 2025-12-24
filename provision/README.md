@@ -19,21 +19,26 @@ The provisioning system provides:
 2. SSH access to the device
 3. Device-specific configuration values ready
 
+
 ### Installation Steps
 
 ```bash
-# 1. Clone repository
+# 1. Install git (required to clone the repository)
+sudo apt-get update
+sudo apt-get install -y git
+
+# 2. Clone the repository
 mkdir -p /home/meibye/dev
 cd /home/meibye/dev
 git clone https://github.com/meibye/ipr-keyboard.git
 cd ipr-keyboard
 
-# 2. Create device configuration
+# 3. Create device configuration
 cp provision/common.env.example provision/common.env
 nano provision/common.env  # Edit device-specific values
 sudo cp provision/common.env /opt/ipr_common.env
 
-# 3. Run provisioning scripts in order
+# 4. Run provisioning scripts in order
 sudo ./provision/00_bootstrap.sh
 sudo ./provision/01_os_base.sh
 sudo reboot  # Required after OS base
