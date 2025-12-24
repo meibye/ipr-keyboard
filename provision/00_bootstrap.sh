@@ -109,6 +109,9 @@ chown -R "${APP_USER}:${APP_GROUP}" "$(dirname "$REPO_DIR")"
 if [[ ! -d "$REPO_DIR/.git" ]]; then
   log "Cloning repository from $REPO_URL..."
   sudo -u "$APP_USER" git clone "$REPO_URL" "$REPO_DIR"
+  # Set git user config for this environment
+  git -C "$REPO_DIR" config --global user.email "michael@eibye.name"
+  git -C "$REPO_DIR" config --global user.name "Michael Eibye"
 else
   log "Repository already exists at $REPO_DIR"
 fi
