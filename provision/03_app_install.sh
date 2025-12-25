@@ -85,10 +85,10 @@ mkdir -p /opt/ipr_state
   sudo -u "$APP_USER" "$APP_VENV_DIR/bin/python" --version
   echo ""
   echo "=== UV Version ==="
-  sudo -u "$APP_USER" "$APP_VENV_DIR/bin/uv" --version || echo "uv not available"
+  sudo -u "$APP_USER" uv --version || echo "uv not available"
   echo ""
   echo "=== Installed Packages ==="
-  sudo -u "$APP_USER" "$APP_VENV_DIR/bin/uv" pip list --format=freeze
+  sudo -u "$APP_USER" uv pip list --format=freeze
   echo ""
 } > /opt/ipr_state/python_packages.txt
 
