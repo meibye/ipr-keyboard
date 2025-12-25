@@ -110,11 +110,45 @@ if [[ ! -d "$REPO_DIR/.git" ]]; then
   log "Cloning repository from $REPO_URL..."
   sudo -u "$APP_USER" git clone "$REPO_URL" "$REPO_DIR"
   # Set git user config for this environment
-  git -C "$REPO_DIR" config --global user.email "michael@eibye.name"
-  git -C "$REPO_DIR" config --global user.name "Michael Eibye"
+  if [[ -n "${GIT_USER_EMAIL:-}" ]]; then
+    git -C "$REPO_DIR" config --global user.email "$GIT_USER_EMAIL"
+  fi
+  if [[ -n "${GIT_USER_NAME:-}" ]]; then
+    git -C "$REPO_DIR" config --global user.name "$GIT_USER_NAME"
+  fi
 else
   log "Repository already exists at $REPO_DIR"
 fi
+
+# --- SSH Key Generation and GitHub Setup ---
+SSH_KEY="/home/$APP_USER/.ssh/id_ed25519"
+if [[ ! -f "$SSH_KEY.pub" ]]; then
+  log "No SSH key found for $APP_USER. Generating a new SSH key..."
+  sudo -u "$APP_USER" mkdir -p "/home/$APP_USER/.ssh"
+  sudo -u "$APP_USER" ssh-keygen -t ed25519 -C "$APP_USER@$(hostname)" -f "$SSH_KEY" -N ""
+  log "SSH key generated."
+else
+  log "SSH key already exists for $APP_USER."
+fi
+
+PUBKEY=$(sudo -u "$APP_USER" cat "$SSH_KEY.pub")
+cat <<INSTRUCTIONS
+
+====================================================================
+SSH key for $APP_USER:
+
+$PUBKEY
+
+1. Copy the above public key.
+2. Go to https://github.com/settings/keys (GitHub > Settings > SSH and GPG keys).
+3. Click "New SSH key", give it a name (e.g., Pi 4 or Pi Zero 2 W), and paste the key.
+4. Save the key.
+5. On this device, set the repo remote to use SSH:
+   git remote set-url origin git@github.com:meibye/ipr-keyboard.git
+6. Test with: ssh -T git@github.com
+====================================================================
+
+INSTRUCTIONS
 
 # Checkout specified ref
 log "Checking out Git ref: $GIT_REF"
