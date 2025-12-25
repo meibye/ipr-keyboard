@@ -18,7 +18,7 @@ The provisioning system provides:
 1. Fresh Raspberry Pi OS Lite (64-bit) Bookworm installation
 2. SSH access to the device
 3. Device-specific configuration values ready
-
+****
 
 ### Installation Steps
 
@@ -191,7 +191,7 @@ sudo ./provision/05_verify.sh
 - Produces summary with errors/warnings
 
 **Requires**:
-- All previous provisioning steps completed
+- All previous provisioning steps **completed**
 
 **Reboot required**: No
 
