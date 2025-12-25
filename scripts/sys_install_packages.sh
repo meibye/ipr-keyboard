@@ -126,20 +126,33 @@ if [[ "$MODE" == "system" ]]; then
 fi
 
 if [[ "$MODE" == "venv" ]]; then
-    ########################################
-    # 7. Prepare project venv using uv (user mode)
-    ########################################
-    PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
-    VENV_DIR="$PROJECT_DIR/.venv"
+        ########################################
+        # 7. Prepare project venv using uv (user mode)
+        ########################################
+        PROJECT_DIR="$IPR_PROJECT_ROOT/ipr-keyboard"
+        VENV_DIR="$PROJECT_DIR/.venv"
 
-    echo "=== Setting up Python venv with uv (user mode) ==="
-    cd "$PROJECT_DIR"
+        echo "=== Setting up Python venv with uv (user mode) ==="
+        cd "$PROJECT_DIR"
 
-    if [[ ! -d "$VENV_DIR" ]]; then
-            uv venv .venv
-    fi
+        # Ensure uv is installed for the user
+        if ! command -v uv >/dev/null 2>&1; then
+                echo "[venv setup] uv not found for user, installing..."
+                curl -fsSL https://astral.sh/uv/install.sh | sh
+        fi
 
-    # Install project deps (editable mode)
-    uv pip install -e ".[dev]" || uv pip install -e .
+        # Ensure ~/.local/bin is in PATH for the user (where uv is installed)
+        export PATH="$HOME/.local/bin:$PATH"
+
+        if [[ ! -d "$VENV_DIR" ]]; then
+                uv venv .venv
+                echo "[venv setup] Created virtualenv at $VENV_DIR"
+        else
+                echo "[venv setup] Virtualenv already exists at $VENV_DIR"
+        fi
+
+        # Install project deps (editable mode)
+        echo "=== Installing project dependencies in venv ==="
+        uv pip install -e ".[dev]" || uv pip install -e .
 fi
 echo "  ./scripts/dev_run_app.sh"
