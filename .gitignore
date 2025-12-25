@@ -38,6 +38,9 @@ env/
 Thumbs.db
 
 # Logs
+
+# Device-specific configuration
+provision/common.env
 logs/
 *.log
 
