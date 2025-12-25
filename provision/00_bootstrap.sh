@@ -150,6 +150,7 @@ $PUBKEY
 
 INSTRUCTIONS
 
+
 # Checkout specified ref
 log "Checking out Git ref: $GIT_REF"
 cd "$REPO_DIR"
@@ -161,6 +162,54 @@ CURRENT_COMMIT=$(git rev-parse HEAD)
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 log "Current commit: $CURRENT_COMMIT"
 log "Current branch: $CURRENT_BRANCH"
+
+# --- Wi-Fi Power Save Disable ---
+WIFI_PS_STATE="unknown"
+if command -v iw &>/dev/null; then
+  PS_RESULT=$(iw dev wlan0 get power_save 2>/dev/null | grep -i 'Power save:')
+  if [[ "$PS_RESULT" =~ "on" ]]; then
+    log "Wi-Fi power save is ON. Disabling..."
+    sudo nmcli connection modify preconfigured wifi.powersave disable || true
+    WIFI_PS_STATE="disabled"
+  elif [[ "$PS_RESULT" =~ "off" ]]; then
+    log "Wi-Fi power save is already OFF."
+    WIFI_PS_STATE="already off"
+  else
+    log "Wi-Fi power save state unknown or not supported."
+    WIFI_PS_STATE="unknown"
+  fi
+else
+  log "iw command not found; skipping Wi-Fi power save check."
+  WIFI_PS_STATE="not checked"
+fi
+
+# --- SSH Timeout Hardening ---
+SSHD_CONFIG="/etc/ssh/sshd_config"
+SSH_CHANGED=0
+if [[ -f "$SSHD_CONFIG" ]]; then
+  # Set or uncomment ClientAliveInterval
+  if grep -qE '^[#[:space:]]*ClientAliveInterval' "$SSHD_CONFIG"; then
+    sed -i 's|^[#[:space:]]*ClientAliveInterval.*|ClientAliveInterval 60|' "$SSHD_CONFIG"
+    SSH_CHANGED=1
+  elif ! grep -q '^ClientAliveInterval' "$SSHD_CONFIG"; then
+    echo 'ClientAliveInterval 60' >> "$SSHD_CONFIG"
+    SSH_CHANGED=1
+  fi
+  # Set or uncomment ClientAliveCountMax
+  if grep -qE '^[#[:space:]]*ClientAliveCountMax' "$SSHD_CONFIG"; then
+    sed -i 's|^[#[:space:]]*ClientAliveCountMax.*|ClientAliveCountMax 3|' "$SSHD_CONFIG"
+    SSH_CHANGED=1
+  elif ! grep -q '^ClientAliveCountMax' "$SSHD_CONFIG"; then
+    echo 'ClientAliveCountMax 3' >> "$SSHD_CONFIG"
+    SSH_CHANGED=1
+  fi
+  if [[ $SSH_CHANGED -eq 1 ]]; then
+    log "Reloading SSH daemon to apply timeout settings..."
+    systemctl reload sshd || systemctl restart sshd || true
+  fi
+else
+  warn "$SSHD_CONFIG not found; skipping SSH timeout hardening."
+fi
 
 # Create state directory for tracking
 log "Creating state directory..."
@@ -175,6 +224,8 @@ Git Ref: $GIT_REF
 Commit: $CURRENT_COMMIT
 Branch: $CURRENT_BRANCH
 User: $APP_USER
+Wi-Fi Power Save: $WIFI_PS_STATE
+SSH Timeout Hardened: $([[ $SSH_CHANGED -eq 1 ]] && echo "yes" || echo "no")
 EOF
 
 log "Bootstrap complete!"
