@@ -41,14 +41,22 @@ sudo cp provision/common.env /opt/ipr_common.env
 # 4. Run provisioning scripts in order
 chmod +x ./provision/*.sh
 sudo ./provision/00_bootstrap.sh
+
+# 5. Follow the instructions for setting up and testing GitHub SSH keys
+git remote set-url origin git@github.com:meibye/ipr-keyboard.git
+ssh -T git@github.com      # Test connection: answer "yes" when asked to continue
+
+# 6. Continue provisioning scripts in order
 sudo ./provision/01_os_base.sh
 sudo reboot  # Required after OS base
 
 # After reboot:
+cd /home/meibye/dev/ipr-keyboard
 sudo ./provision/02_device_identity.sh
 sudo reboot  # Required after identity
 
 # After reboot:
+cd /home/meibye/dev/ipr-keyboard
 sudo ./provision/03_app_install.sh
 sudo ./provision/04_enable_services.sh
 sudo ./provision/05_verify.sh

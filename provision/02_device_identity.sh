@@ -65,24 +65,15 @@ else
   log "Hostname already set correctly: $HOSTNAME"
 fi
 
-# Configure Bluetooth device name in main.conf
-log "Configuring Bluetooth device name..."
-MAINCONF="/etc/bluetooth/main.conf"
 
-if grep -qE '^\s*Name\s*=' "$MAINCONF"; then
-  # Name exists, update it
-  sed -i "s/^\s*Name\s*=.*/Name = $BT_DEVICE_NAME/" "$MAINCONF"
-  log "Updated existing Bluetooth name"
+# Set PRETTY_HOSTNAME in /etc/machine-info for Bluetooth name override
+MACHINE_INFO="/etc/machine-info"
+if grep -q '^PRETTY_HOSTNAME=' "$MACHINE_INFO"; then
+  sed -i "s|^PRETTY_HOSTNAME=.*|PRETTY_HOSTNAME=\"$BT_DEVICE_NAME\"|" "$MACHINE_INFO"
+  log "Updated PRETTY_HOSTNAME in $MACHINE_INFO"
 else
-  # Name doesn't exist, add it
-  if grep -qE '^\[General\]' "$MAINCONF"; then
-    # Add under [General] section
-    sed -i "/^\[General\]/a Name = $BT_DEVICE_NAME" "$MAINCONF"
-  else
-    # Add [General] section with Name
-    echo -e "\n[General]\nName = $BT_DEVICE_NAME" >> "$MAINCONF"
-  fi
-  log "Added Bluetooth name to config"
+  echo "PRETTY_HOSTNAME=\"$BT_DEVICE_NAME\"" >> "$MACHINE_INFO"
+  log "Added PRETTY_HOSTNAME to $MACHINE_INFO"
 fi
 
 # Restart Bluetooth to apply name change

@@ -22,6 +22,7 @@
 
 set -eo pipefail
 
+
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
@@ -41,18 +42,18 @@ if [[ -f "$CONF" ]]; then
   cp "$CONF" "$BACKUP"
 fi
 
-cat <<'EOF' >> "$CONF"
+# Insert comment about this script above the changes
+if ! grep -q '# Modified by ble_configure_system.sh' "$CONF"; then
+  sed -i '1i# Modified by ble_configure_system.sh' "$CONF"
+fi
 
-# ---- ipr_keyboard custom config ----
-[General]
-Class = 0x002540
-DiscoverableTimeout = 0
-PairableTimeout = 0
-
-[Policy]
-AutoEnable=true
-# ---- end ipr_keyboard custom config ----
-EOF
+# Update or insert the required settings idempotently (match commented or uncommented lines)
+sed -i \
+  -e '/^[#[:space:]]*Class[[:space:]]*=.*/{s/^#\?//;s|Class[[:space:]]*=.*|Class = 0x002540|;b};$aClass = 0x002540' \
+  -e '/^[#[:space:]]*DiscoverableTimeout[[:space:]]*=.*/{s/^#\?//;s|DiscoverableTimeout[[:space:]]*=.*|DiscoverableTimeout = 0|;b};$aDiscoverableTimeout = 0' \
+  -e '/^[#[:space:]]*PairableTimeout[[:space:]]*=.*/{s/^#\?//;s|PairableTimeout[[:space:]]*=.*|PairableTimeout = 0|;b};$aPairableTimeout = 0' \
+  -e '/^[#[:space:]]*AutoEnable[[:space:]]*=.*/{s/^#\?//;s|AutoEnable[[:space:]]*=.*|AutoEnable = true|;b};$aAutoEnable = true' \
+  "$CONF"
 
 echo "Restarting bluetooth service..."
 systemctl restart bluetooth
