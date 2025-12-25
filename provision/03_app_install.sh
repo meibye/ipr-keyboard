@@ -53,7 +53,8 @@ if [[ ! -f "scripts/sys_setup_venv.sh" ]]; then
   exit 1
 fi
 
-log "Setting up Python virtual environment (running as $APP_USER)..."
+# 1. Set up Python venv and install dependencies as APP_USER (already uses sudo -u)
+echo "[03_app_install] Setting up Python venv and installing dependencies as $APP_USER..."
 sudo -u "$APP_USER" bash scripts/sys_setup_venv.sh
 
 # Verify venv was created

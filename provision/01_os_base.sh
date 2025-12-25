@@ -60,6 +60,14 @@ apt-get -y full-upgrade
 log "Running sys_install_packages.sh..."
 bash scripts/sys_install_packages.sh
 
+# Run system package install as root
+log "Running sys_install_packages.sh for system packages..."
+bash scripts/sys_install_packages.sh --system-only
+
+# Run venv/project setup as APP_USER
+log "Running sys_install_packages.sh for user venv setup as $APP_USER..."
+sudo -u "$APP_USER" bash scripts/sys_install_packages.sh --user-venv-setup
+
 log "Running ble_configure_system.sh..."
 bash scripts/ble_configure_system.sh
 

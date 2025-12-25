@@ -185,6 +185,7 @@ if ! command -v uv >/dev/null 2>&1; then
     export PATH="$HOME/.local/bin:$PATH"
 else
     echo "[sys_setup_venv] uv already installed."
+    export PATH="$HOME/.local/bin:$PATH"
 fi
 
 # 2. Create venv using uv (faster than python -m venv)

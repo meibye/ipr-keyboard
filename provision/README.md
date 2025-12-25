@@ -57,7 +57,7 @@ sudo reboot  # Required after identity
 
 # After reboot:
 cd /home/meibye/dev/ipr-keyboard
-sudo ./provision/03_app_install.sh
+sudo ./provision/03_app_install.sh  # (Python venv setup will run as APP_USER automatically)
 sudo ./provision/04_enable_services.sh
 sudo ./provision/05_verify.sh
 ```
@@ -87,13 +87,15 @@ sudo ./provision/05_verify.sh
 
 ---
 
+
 ### 01_os_base.sh
 
 **Purpose**: Configure OS baseline and install system packages
 
 **What it does**:
 - Runs full system upgrade (`apt full-upgrade`)
-- Executes `sys_install_packages.sh` (installs bluez, python3-dbus, uv, etc.)
+- Executes `sys_install_packages.sh --system-only` as root (installs bluez, python3-dbus, uv, etc.)
+- Executes `sys_install_packages.sh --user-venv-setup` as APP_USER (creates Python venv and installs project dependencies)
 - Executes `ble_configure_system.sh` (configures Bluetooth for HID)
 - Enables essential services (dbus, bluetooth)
 - Records baseline versions to `/opt/ipr_state/baseline_versions.txt`
@@ -133,12 +135,13 @@ sudo ./provision/05_verify.sh
 
 ---
 
+
 ### 03_app_install.sh
 
 **Purpose**: Create Python environment and install dependencies
 
 **What it does**:
-- Executes `sys_setup_venv.sh` (creates venv with uv)
+- Executes `sys_setup_venv.sh` as APP_USER (creates venv with uv)
 - Installs Python packages from `pyproject.toml`
 - Verifies Python environment
 - Records installed packages to `/opt/ipr_state/python_packages.txt`
@@ -291,6 +294,7 @@ code --diff dev_report.txt zero_report.txt
 
 ---
 
+
 ## Updating Devices
 
 ### Sync to New Git Commit
@@ -302,7 +306,7 @@ cd /home/meibye/dev/ipr-keyboard
 git fetch --all --tags
 git checkout <tag-or-branch>
 
-# Update Python environment
+# Update Python environment (venv setup will run as APP_USER automatically)
 sudo ./provision/03_app_install.sh
 
 # Restart services
