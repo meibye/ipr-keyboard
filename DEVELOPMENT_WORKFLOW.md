@@ -482,6 +482,32 @@ sudo ./scripts/diag_ble.sh
 
 ## Git Workflow
 
+### Comparing Branches Against Each Other
+
+To see how branches differ from each other (e.g., which commits or changes are unique to each):
+
+```bash
+# 1. Show commits in branchA not in branchB:
+git log branchB..branchA --oneline
+
+# 2. Show commits in branchB not in branchA:
+git log branchA..branchB --oneline
+
+# 3. See file-level differences between two branches:
+git diff branchA..branchB
+
+# 4. See which branches are already merged into the current branch:
+git branch --merged
+
+# 5. See which branches are NOT yet merged into the current branch:
+git branch --no-merged
+
+# 6. Visualize all branches and their relationships:
+git log --oneline --decorate --graph --all
+```
+
+These commands help you understand which changes are present or missing between branches, and which branches are ahead, behind, or fully merged.
+
 ### Setting push.autoSetupRemote Globally
 
 To automatically set the upstream (remote tracking branch) when pushing new branches, configure the following global git option:
