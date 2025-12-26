@@ -250,7 +250,6 @@ fi
 if [[ "$wizard_step" -le 6 ]]; then
   ensure_project_dir
   step "[Step 6/10] Setup and test GitHub SSH keys"
-  git remote set-url origin git@github.com:meibye/ipr-keyboard.git
 
   # Ensure ssh-agent is running and key is added
   SSH_KEY=""
@@ -279,6 +278,7 @@ if [[ "$wizard_step" -le 6 ]]; then
 
   echo -e "${YELLOW}Testing SSH connection to GitHub. Answer 'yes' if prompted.${NC}"
   ssh -T git@github.com || warn "SSH test failed. You may need to set up your SSH key."
+  git remote set-url origin git@github.com:meibye/ipr-keyboard.git
   echo "wizard_step=7" > "$STATE_FILE"
   prompt_continue
 fi
