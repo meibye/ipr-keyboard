@@ -258,6 +258,7 @@ if [[ "$wizard_step" -le 6 ]]; then
   elif [[ -f "$HOME/.ssh/id_ed25519" ]]; then
     SSH_KEY="$HOME/.ssh/id_ed25519"
   fi
+  echo -e "${YELLOW}Configuring ssh-agent for user: ${SUDO_USER:-$USER}${NC}"
   if [[ -n "$SSH_KEY" ]]; then
     # Start ssh-agent if not running
     if ! pgrep -u "$USER" ssh-agent > /dev/null; then
@@ -268,12 +269,14 @@ if [[ "$wizard_step" -le 6 ]]; then
       echo "ssh-agent is already running."
     fi
     # Check if key is already added
+    set -x
     if ! ssh-add -l | grep -q "$(ssh-keygen -lf "$SSH_KEY" | awk '{print $2}')"; then
       ssh-add "$SSH_KEY"
-        echo "SSH key $SSH_KEY added to ssh-agent."
+      echo "SSH key $SSH_KEY added to ssh-agent."
     else
       echo "SSH key $SSH_KEY is already added to ssh-agent."
     fi
+    set +x
   fi
 
   echo -e "${YELLOW}Testing SSH connection to GitHub. Answer 'yes' if prompted.${NC}"
