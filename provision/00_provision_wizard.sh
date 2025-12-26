@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 #
-echo -e "${GREEN}All provisioning steps completed!${NC}"
-echo -e "${GREEN}Device is ready for use.${NC}"
-
 # Interactive Provisioning Wizard for ipr-keyboard (with reboot resume)
 #
 # Guides the user through all provisioning steps, handles reboots, and resumes automatically.
