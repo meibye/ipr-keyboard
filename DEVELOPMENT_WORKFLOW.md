@@ -482,6 +482,29 @@ sudo ./scripts/diag_ble.sh
 
 ## Git Workflow
 
+### Deleting Git Branches
+
+To delete branches you no longer need:
+
+```bash
+# 1. Delete a local branch
+git branch -d branch-name      # Safe delete (prevents deleting unmerged changes)
+git branch -D branch-name     # Force delete (use with caution)
+
+# 2. Delete a remote branch
+git push origin --delete branch-name
+# or (older syntax):
+# git push origin :branch-name
+
+# 3. Prune local references to deleted remote branches
+git fetch --prune
+```
+
+**Note:**
+- Only delete branches that are no longer needed or have been merged.
+- Always double-check before using -D (force delete).
+- Deleting a remote branch does not delete anyone's local copy.
+
 ### Comparing Branches Against Each Other
 
 To see how branches differ from each other (e.g., which commits or changes are unique to each):
@@ -583,19 +606,75 @@ git branch -vv
 # The output will show which local branches are tracking which remote branches and whether they are ahead/behind.
 ```
 
-### Recommended Branch Strategy
+### Git Flow Branching Model (Recommended)
+
+This project uses the [Git Flow](https://nvie.com/posts/a-successful-git-branching-model/) workflow, which is fully supported by the VS Code extension **Git Flow** (`serhioromano.vscode-gitflow`).
+
+#### Branch Types
+
+- **main**: Production-ready code. Only stable, released versions.
+- **develop**: Integration branch for features and fixes. All completed work is merged here before release.
+- **feature/**: Short-lived branches for new features. Created from `develop`, merged back to `develop`.
+- **release/**: Prepares a new production release. Created from `develop`, finalized, then merged to both `main` and `develop`.
+- **hotfix/**: For urgent fixes to production. Created from `main`, merged to both `main` and `develop`.
+- **support/**: (Optional) For long-term maintenance of previous releases.
+
+Branch structure:
 
 ```
-main (production)
-  │
-  ├─ develop (integration)
-  │   │
-  │   ├─ feature/scan-text
-  │   ├─ feature/ble-improvements
-  │   └─ bugfix/pairing-issue
-  │
-  └─ release/v1.x (release prep)
+main
+ ├─ develop
+ │   ├─ feature/xyz
+ │   └─ ...
+ ├─ release/x.y.z
+ └─ hotfix/x.y.z
 ```
+
+#### Using Git Flow in VS Code
+
+Install the [Git Flow extension for VS Code](https://marketplace.visualstudio.com/items?itemName=serhioromano.vscode-gitflow):
+
+- Search for `Git Flow` in the Extensions view or run:
+  - `ext install serhioromano.vscode-gitflow`
+
+The extension provides UI and command palette actions for all Git Flow operations:
+- Initialize Git Flow in your repo
+- Start/finish feature, release, hotfix, and support branches
+- Merge and tag releases
+
+#### Typical Git Flow Commands (CLI)
+
+You can also use the CLI (after installing git-flow):
+
+```bash
+# Initialize Git Flow (first time only)
+git flow init
+
+# Start a new feature
+git flow feature start my-feature
+# Finish a feature (merges to develop)
+git flow feature finish my-feature
+
+# Start a release
+git flow release start 1.2.0
+# Finish a release (merges to main and develop, tags release)
+git flow release finish 1.2.0
+
+# Start a hotfix
+git flow hotfix start 1.2.1
+# Finish a hotfix (merges to main and develop, tags hotfix)
+git flow hotfix finish 1.2.1
+```
+
+#### Release Strategy
+
+- All new development is done in feature branches off `develop`.
+- When ready for release, create a `release/x.y.z` branch from `develop`.
+- Finalize, test, and version-bump in the release branch.
+- Finish the release: merges to `main` and `develop`, tags the release.
+- Hotfixes are made from `main` using `hotfix/` branches and merged back to both `main` and `develop`.
+
+For more, see the [Git Flow extension documentation](https://marketplace.visualstudio.com/items?itemName=serhioromano.vscode-gitflow) and [original Git Flow model](https://nvie.com/posts/a-successful-git-branching-model/).
 
 ### Initial Branch Setup (First-Time Only)
 
