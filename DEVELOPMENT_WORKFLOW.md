@@ -482,6 +482,30 @@ sudo ./scripts/diag_ble.sh
 
 ## Git Workflow
 
+### Checking if Branches Are Up to Date
+
+To verify whether your local branches are up to date with their remote counterparts:
+
+```bash
+# 1. Fetch latest info from remote
+git fetch origin
+
+# 2. Check status for your current branch
+git status
+# If you see "Your branch is up to date with 'origin/branch-name'", you are up to date.
+# If you see "Your branch is behind..." or "ahead of...", you need to pull or push.
+
+# 3. To compare local and remote branches explicitly:
+git log --oneline --decorate --graph --all
+# Or for a specific branch:
+git log HEAD..origin/branch-name   # Shows commits on remote not in local
+git log origin/branch-name..HEAD   # Shows commits on local not in remote
+
+# 4. To see all branches and their tracking status:
+git branch -vv
+# The output will show which local branches are tracking which remote branches and whether they are ahead/behind.
+```
+
 ### Recommended Branch Strategy
 
 ```
