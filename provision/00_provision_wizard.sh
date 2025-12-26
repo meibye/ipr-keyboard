@@ -11,7 +11,7 @@
 # purpose: Interactive, stepwise provisioning with color-coded feedback and reboot resume
 # sudo: yes
 
-set -euo pipefail
+set -eo pipefail
 
 # Color codes
 RED='\033[0;31m'
@@ -261,26 +261,38 @@ if [[ "$wizard_step" -le 6 ]]; then
   fi
   echo -e "${YELLOW}Configuring ssh-agent for user: $SSH_USER${NC}"
   if [[ -n "$SSH_KEY" ]]; then
+    echo -e "${BLUE}Debug: SSH_USER=$SSH_USER, SSH_KEY=$SSH_KEY, SSH_HOME=$SSH_HOME${NC}"
     # Try to get SSH_AUTH_SOCK from the user's environment
     SSH_AUTH_SOCK_PATH=""
     SSH_ENV_FILE="$SSH_HOME/.ssh/agent.env"
-    # Try to find a running agent or start one if needed
+    echo -e "${BLUE}Debug: Checking for running ssh-agent for $SSH_USER...${NC}"
     if sudo -u "$SSH_USER" pgrep ssh-agent > /dev/null; then
-      # Try to get SSH_AUTH_SOCK from a running agent
+      echo -e "${BLUE}Debug: ssh-agent is running for $SSH_USER${NC}"
       SSH_AUTH_SOCK_PATH=$(sudo -u "$SSH_USER" bash -c 'echo $SSH_AUTH_SOCK')
+      echo -e "${BLUE}Debug: SSH_AUTH_SOCK from running agent: $SSH_AUTH_SOCK_PATH${NC}"
+    else
+      echo -e "${YELLOW}Debug: No running ssh-agent found for $SSH_USER${NC}"
     fi
     if [[ -z "$SSH_AUTH_SOCK_PATH" ]]; then
-      # Start a new agent and save env
-      sudo -u "$SSH_USER" bash -c 'eval "$(ssh-agent -s)" > "$HOME/.ssh/agent.env"'
-      SSH_AUTH_SOCK_PATH=$(sudo -u "$SSH_USER" bash -c 'source "$HOME/.ssh/agent.env" && echo $SSH_AUTH_SOCK')
+      echo -e "${YELLOW}Debug: Starting new ssh-agent for $SSH_USER and saving env to $SSH_ENV_FILE${NC}"
+      rm -f "$SSH_HOME/.ssh/agent.env"
+      sudo -u "$SSH_USER" bash -c 'ssh-agent -s' > "$SSH_HOME/.ssh/agent.env"
+      echo -e "${BLUE}Debug: Contents of $SSH_ENV_FILE:${NC}"
+      # Extract SSH_AUTH_SOCK value directly from agent.env to avoid echo line
+      SSH_AUTH_SOCK_PATH=$(awk -F= '/^SSH_AUTH_SOCK=/ {gsub(/;.*/,"",$2); print $2}' "$SSH_HOME/.ssh/agent.env")
+      echo -e "${BLUE}Debug: SSH_AUTH_SOCK from new agent: $SSH_AUTH_SOCK_PATH${NC}"
     fi
     if [[ -n "$SSH_AUTH_SOCK_PATH" ]]; then
+      echo -e "${BLUE}Debug: Using SSH_AUTH_SOCK=$SSH_AUTH_SOCK_PATH for ssh-add${NC}"
       # Check if key is already added
-      if ! sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh-add -l | grep -q "$(ssh-keygen -lf "$SSH_KEY" | awk '{print $2}')"; then
+      KEY_FINGERPRINT=$(ssh-keygen -lf "$SSH_KEY" | awk '{print $2}')
+      echo -e "${BLUE}Debug: Key fingerprint: $KEY_FINGERPRINT${NC}"
+      if ! sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh-add -l | grep -q "$KEY_FINGERPRINT"; then
+        echo -e "${YELLOW}Debug: Key not found in agent, adding...${NC}"
         sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh-add "$SSH_KEY"
         echo "SSH key $SSH_KEY added to ssh-agent."
       else
-        echo "SSH key $SSH_KEY is already added to ssh-agent."
+        echo -e "${BLUE}Debug: SSH key $SSH_KEY is already added to ssh-agent.${NC}"
       fi
     else
       warn "Could not determine SSH_AUTH_SOCK for $SSH_USER. ssh-add may fail."
@@ -288,7 +300,15 @@ if [[ "$wizard_step" -le 6 ]]; then
   fi
 
   echo -e "${YELLOW}Testing SSH connection to GitHub. Answer 'yes' if prompted.${NC}"
-  ssh -T git@github.com || warn "SSH test failed. You may need to set up your SSH key."
+  set +e
+  SSH_TEST_OUTPUT=$(sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh -T git@github.com 2>&1)
+  echo "$SSH_TEST_OUTPUT"
+  if echo "$SSH_TEST_OUTPUT" | grep -q "successfully authenticated"; then
+    success "SSH authentication to GitHub succeeded."
+  else
+    warn "SSH test failed. You may need to set up your SSH key."
+  fi
+  set -e
   git remote set-url origin git@github.com:meibye/ipr-keyboard.git
   echo "wizard_step=7" > "$STATE_FILE"
   prompt_continue
