@@ -66,14 +66,14 @@ done
 log "Installing Bluetooth HID Agent (unified)..."
 bash scripts/service/svc_install_bt_hid_agent_unified.sh
 
+log "Installing BLE helper and backend services..."
+bash scripts/ble_install_helper.sh
+
 log "Installing core ipr_keyboard.service..."
 bash scripts/service/svc_install_systemd.sh
 
 log "Installing BLE extras (backend manager, diagnostics, etc.)..."
 bash scripts/ble_setup_extras.sh
-
-log "Installing BLE helper and backend services..."
-bash scripts/ble_install_helper.sh
 
 log "Ensuring backend is set to BLE in config.json..."
 if [[ -f "config.json" ]]; then
