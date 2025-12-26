@@ -251,32 +251,40 @@ if [[ "$wizard_step" -le 6 ]]; then
   ensure_project_dir
   step "[Step 6/10] Setup and test GitHub SSH keys"
 
-  # Ensure ssh-agent is running and key is added
+
+  # Ensure ssh-agent is running and key is added for the correct user
   SSH_KEY=""
-  if [[ -n "${SUDO_USER:-}" && -f "/home/$SUDO_USER/.ssh/id_ed25519" ]]; then
-    SSH_KEY="/home/$SUDO_USER/.ssh/id_ed25519"
-  elif [[ -f "$HOME/.ssh/id_ed25519" ]]; then
-    SSH_KEY="$HOME/.ssh/id_ed25519"
+  SSH_USER="${SUDO_USER:-$USER}"
+  SSH_HOME="/home/$SSH_USER"
+  if [[ -f "$SSH_HOME/.ssh/id_ed25519" ]]; then
+    SSH_KEY="$SSH_HOME/.ssh/id_ed25519"
   fi
-  echo -e "${YELLOW}Configuring ssh-agent for user: ${SUDO_USER:-$USER}${NC}"
+  echo -e "${YELLOW}Configuring ssh-agent for user: $SSH_USER${NC}"
   if [[ -n "$SSH_KEY" ]]; then
-    # Start ssh-agent if not running
-    if ! pgrep -u "$USER" ssh-agent > /dev/null; then
-      echo "Starting ssh-agent..."
-      eval "$(ssh-agent -s)"
-      echo "ssh-agent started."
-    else
-      echo "ssh-agent is already running."
+    # Try to get SSH_AUTH_SOCK from the user's environment
+    SSH_AUTH_SOCK_PATH=""
+    SSH_ENV_FILE="$SSH_HOME/.ssh/agent.env"
+    # Try to find a running agent or start one if needed
+    if sudo -u "$SSH_USER" pgrep ssh-agent > /dev/null; then
+      # Try to get SSH_AUTH_SOCK from a running agent
+      SSH_AUTH_SOCK_PATH=$(sudo -u "$SSH_USER" bash -c 'echo $SSH_AUTH_SOCK')
     fi
-    # Check if key is already added
-    set -x
-    if ! ssh-add -l | grep -q "$(ssh-keygen -lf "$SSH_KEY" | awk '{print $2}')"; then
-      ssh-add "$SSH_KEY"
-      echo "SSH key $SSH_KEY added to ssh-agent."
-    else
-      echo "SSH key $SSH_KEY is already added to ssh-agent."
+    if [[ -z "$SSH_AUTH_SOCK_PATH" ]]; then
+      # Start a new agent and save env
+      sudo -u "$SSH_USER" bash -c 'eval "$(ssh-agent -s)" > "$HOME/.ssh/agent.env"'
+      SSH_AUTH_SOCK_PATH=$(sudo -u "$SSH_USER" bash -c 'source "$HOME/.ssh/agent.env" && echo $SSH_AUTH_SOCK')
     fi
-    set +x
+    if [[ -n "$SSH_AUTH_SOCK_PATH" ]]; then
+      # Check if key is already added
+      if ! sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh-add -l | grep -q "$(ssh-keygen -lf "$SSH_KEY" | awk '{print $2}')"; then
+        sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh-add "$SSH_KEY"
+        echo "SSH key $SSH_KEY added to ssh-agent."
+      else
+        echo "SSH key $SSH_KEY is already added to ssh-agent."
+      fi
+    else
+      warn "Could not determine SSH_AUTH_SOCK for $SSH_USER. ssh-add may fail."
+    fi
   fi
 
   echo -e "${YELLOW}Testing SSH connection to GitHub. Answer 'yes' if prompted.${NC}"
