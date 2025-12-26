@@ -561,6 +561,26 @@ main (production)
   └─ release/v1.x (release prep)
 ```
 
+### Initial Branch Setup (First-Time Only)
+
+If this is a new clone or the repository does not yet have develop or release branches, create them as follows:
+
+```bash
+# Ensure you are on the main branch and up to date
+git checkout main
+git pull origin main
+
+# Create develop branch from main
+git checkout -b develop
+git push origin develop
+
+# (Optional) Create initial release branch from develop
+git checkout -b release/v1.0.0 develop
+git push origin release/v1.0.0
+```
+
+After this, all feature branches should be created from develop, and release branches from develop as needed.
+
 ### Feature Development
 
 ```bash
