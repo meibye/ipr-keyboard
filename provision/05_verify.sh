@@ -19,7 +19,7 @@
 # purpose: Verify device configuration and produce comparison report
 # sudo: yes (for full system access)
 
-set -euo pipefail
+set -eo pipefail
 
 # Color output
 RED='\033[0;31m'
