@@ -164,7 +164,7 @@ fi
 
 # Step 1: Install git
 if [[ "$wizard_step" -le 1 ]]; then
-  step "[Step 1/10] Install git (required to clone the repository)"
+  step "[Step 1/11] Install git (required to clone the repository)"
   if sudo apt-get update && sudo apt-get install -y git; then
     success "Git installed successfully."
   else
@@ -177,7 +177,7 @@ fi
 
 # Step 2: Clone the repository
 if [[ "$wizard_step" -le 2 ]]; then
-  step "[Step 2/10] Clone the repository"
+  step "[Step 2/11] Clone the repository"
   mkdir -p /home/meibye/dev
   cd /home/meibye/dev
   if [[ -d ipr-keyboard ]]; then
@@ -206,7 +206,7 @@ fi
 # Step 3: Create device configuration
 if [[ "$wizard_step" -le 3 ]]; then
   ensure_project_dir
-  step "[Step 3/10] Create device configuration"
+  step "[Step 3/11] Create device configuration"
   cp provision/common.env.example provision/common.env
   echo -e "${YELLOW}Please edit provision/common.env with device-specific values.${NC}"
   nano provision/common.env
@@ -229,7 +229,7 @@ fi
 # Step 5: Run 00_bootstrap.sh
 if [[ "$wizard_step" -le 5 ]]; then
   ensure_project_dir
-  run_step "./provision/00_bootstrap.sh" "[Step 5/10] Bootstrap: Install base tools and clone repo" 6
+  run_step "./provision/00_bootstrap.sh" "[Step 5/11] Bootstrap: Install base tools and clone repo" 6
 
   # Check if a new SSH key was generated (look for id_ed25519.pub in /home/$SUDO_USER/.ssh/ or /root/.ssh/)
   SSH_KEY=""
@@ -282,23 +282,33 @@ fi
 # Step 7: Run 01_os_base.sh (reboot required)
 if [[ "$wizard_step" -le 7 ]]; then
   ensure_project_dir
-  run_step "./provision/01_os_base.sh" "[Step 7/10] OS Base: System packages and Bluetooth config" 8
+  run_step "./provision/01_os_base.sh" "[Step 7/11] OS Base: System packages and Bluetooth config" 8
   prompt_reboot 8
 fi
 
 # Step 8: Run 02_device_identity.sh (reboot required)
 if [[ "$wizard_step" -le 8 ]]; then
   ensure_project_dir
-  run_step "./provision/02_device_identity.sh" "[Step 8/10] Device Identity: Hostname and Bluetooth name" 9
+  run_step "./provision/02_device_identity.sh" "[Step 8/11] Device Identity: Hostname and Bluetooth name" 9
   prompt_reboot 9
 fi
 
-# Step 9: Run 03_app_install.sh, 04_enable_services.sh, 05_verify.sh
+# Step 9: Run 03_app_install.sh
 if [[ "$wizard_step" -le 9 ]]; then
-  ensure_project_dir
-  run_step "./provision/03_app_install.sh" "[Step 9/10] App Install: Python venv and dependencies" 10
-  run_step "./provision/04_enable_services.sh" "[Step 10/10] Enable Services: Systemd and BLE backends" 11
-  run_step "./provision/05_verify.sh" "[Final Step] Verify: System and service check" 12
+    ensure_project_dir
+    run_step "./provision/03_app_install.sh" "[Step 9/11] App Install: Python venv and dependencies" 10
+fi
+
+# Step 10: Run 04_enable_services.sh
+if [[ "$wizard_step" -le 10 ]]; then
+    ensure_project_dir
+    run_step "./provision/04_enable_services.sh" "[Step 10/11] Enable Services: Systemd and BLE backends" 11
+fi
+
+# Step 11: Run 05_verify.sh
+if [[ "$wizard_step" -le 11 ]]; then
+    ensure_project_dir
+    run_step "./provision/05_verify.sh" "[Step 11/11] Verify: System and service check" 12
 fi
 
 rm -f "$STATE_FILE"

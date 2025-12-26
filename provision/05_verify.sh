@@ -189,10 +189,8 @@ info "════════════════════════�
 echo ""
 
 # Check critical items
-ERRORS=0
-WARNINGS=0
-declare -i WARNINGS
-declare -i ERRORS
+declare -i WARNINGS=0
+declare -i ERRORS=0
 
 # Hostname
 if [[ "$(hostname)" == "$HOSTNAME" ]]; then
