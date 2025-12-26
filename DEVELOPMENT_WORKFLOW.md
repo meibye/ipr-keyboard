@@ -482,6 +482,81 @@ sudo ./scripts/diag_ble.sh
 
 ## Git Workflow
 
+### Setting push.autoSetupRemote Globally
+
+To automatically set the upstream (remote tracking branch) when pushing new branches, configure the following global git option:
+
+```bash
+git config --global push.autoSetupRemote true
+```
+
+This ensures that when you push a new branch (e.g., git push origin my-branch), git will automatically set the upstream, so future git push and git pull commands work as expected.
+
+### Bringing Branches Up to Date
+
+To update your local branches with the latest changes from their remote counterparts:
+
+```bash
+# 1. Update develop branch
+git checkout develop
+git pull origin develop
+
+# 2. Update main branch
+git checkout main
+git pull origin main
+
+# 3. Update a release branch (example: release/v1.1.0)
+git checkout release/v1.1.0
+git pull origin release/v1.1.0
+
+# 4. Update a feature branch (example: feature/your-feature)
+git checkout feature/your-feature
+git pull origin feature/your-feature
+```
+
+To bring a branch up to date with another branch (e.g., keep your feature branch current with develop):
+
+```bash
+# While on your feature branch
+git checkout feature/your-feature
+git fetch origin
+git merge origin/develop
+# or, to rebase instead of merge:
+# git rebase origin/develop
+```
+
+After resolving any conflicts, commit and push:
+
+```bash
+git push origin feature/your-feature
+```
+
+Repeat as needed for other branches. Always coordinate merges to main and release branches according to project policy.
+
+### Checking if Branches Are Up to Date
+
+To verify whether your local branches are up to date with their remote counterparts:
+
+```bash
+# 1. Fetch latest info from remote
+git fetch origin
+
+# 2. Check status for your current branch
+git status
+# If you see "Your branch is up to date with 'origin/branch-name'", you are up to date.
+# If you see "Your branch is behind..." or "ahead of...", you need to pull or push.
+
+# 3. To compare local and remote branches explicitly:
+git log --oneline --decorate --graph --all
+# Or for a specific branch:
+git log HEAD..origin/branch-name   # Shows commits on remote not in local
+git log origin/branch-name..HEAD   # Shows commits on local not in remote
+
+# 4. To see all branches and their tracking status:
+git branch -vv
+# The output will show which local branches are tracking which remote branches and whether they are ahead/behind.
+```
+
 ### Recommended Branch Strategy
 
 ```
