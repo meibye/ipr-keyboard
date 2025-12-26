@@ -125,10 +125,23 @@ if [[ "$wizard_step" -le 2 ]]; then
   step "[Step 2/10] Clone the repository"
   mkdir -p /home/meibye/dev
   cd /home/meibye/dev
-  if git clone https://github.com/meibye/ipr-keyboard.git; then
-    success "Repository cloned successfully."
-  else
-    warn "Repository may already exist or clone failed."
+  if [[ -d ipr-keyboard ]]; then
+      warn "Repository directory already exists."
+      echo -en "${YELLOW}Delete and re-clone the repository? [y/N]: ${NC}"
+      read -r ans
+      if [[ "${ans,,}" =~ ^(y|yes)$ ]]; then
+          rm -rf ipr-keyboard
+          success "Old repository deleted."
+      else
+          warn "Skipping clone. Using existing repository."
+      fi
+  fi
+  if [[ ! -d ipr-keyboard ]]; then
+      if git clone https://github.com/meibye/ipr-keyboard.git; then
+          success "Repository cloned successfully."
+      else
+          warn "Repository may already exist or clone failed."
+      fi
   fi
   cd ipr-keyboard
   echo "wizard_step=3" > "$STATE_FILE"
