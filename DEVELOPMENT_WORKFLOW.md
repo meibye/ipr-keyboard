@@ -482,6 +482,16 @@ sudo ./scripts/diag_ble.sh
 
 ## Git Workflow
 
+### Setting push.autoSetupRemote Globally
+
+To automatically set the upstream (remote tracking branch) when pushing new branches, configure the following global git option:
+
+```bash
+git config --global push.autoSetupRemote true
+```
+
+This ensures that when you push a new branch (e.g., git push origin my-branch), git will automatically set the upstream, so future git push and git pull commands work as expected.
+
 ### Bringing Branches Up to Date
 
 To update your local branches with the latest changes from their remote counterparts:
