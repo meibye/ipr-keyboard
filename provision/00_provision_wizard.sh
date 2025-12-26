@@ -87,6 +87,10 @@ echo "This script will guide you through all provisioning steps."
 echo "You must run this as root (sudo)."
 echo ""
 
+# Ensure state directory exists
+STATE_DIR="$(dirname "$STATE_FILE")"
+mkdir -p "$STATE_DIR"
+
 # Offer to start over if state file exists
 if [[ -f "$STATE_FILE" ]]; then
   source "$STATE_FILE"
@@ -151,9 +155,27 @@ if [[ "$wizard_step" -le 4 ]]; then
   prompt_continue
 fi
 
+
 # Step 5: Run 00_bootstrap.sh
 if [[ "$wizard_step" -le 5 ]]; then
   run_step "./provision/00_bootstrap.sh" "[Step 5/10] Bootstrap: Install base tools and clone repo" 6
+
+  # Check if a new SSH key was generated (look for id_ed25519.pub in /home/$SUDO_USER/.ssh/ or /root/.ssh/)
+  SSH_KEY=""
+  if [[ -n "${SUDO_USER:-}" && -f "/home/$SUDO_USER/.ssh/id_ed25519.pub" ]]; then
+    SSH_KEY="/home/$SUDO_USER/.ssh/id_ed25519.pub"
+  elif [[ -f "$HOME/.ssh/id_ed25519.pub" ]]; then
+    SSH_KEY="$HOME/.ssh/id_ed25519.pub"
+  fi
+  if [[ -n "$SSH_KEY" ]]; then
+    echo -e "${YELLOW}If a new SSH key was generated, you must add it to your GitHub account before continuing.${NC}"
+    echo -e "${YELLOW}Copy the following public key and add it at:${NC} https://github.com/settings/keys"
+    echo -e "${BLUE}--- BEGIN PUBLIC KEY ---${NC}"
+    cat "$SSH_KEY"
+    echo -e "${BLUE}--- END PUBLIC KEY ---${NC}"
+    echo -en "${YELLOW}Press Enter after you have added the key to GitHub...${NC}"
+    read -r _
+  fi
 fi
 
 # Step 6: Setup and test GitHub SSH keys
