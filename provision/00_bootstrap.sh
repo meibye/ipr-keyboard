@@ -40,6 +40,13 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+# Logging helper for git config
+log_git_config_action() {
+  local msg="$1"
+  echo "[GIT CONFIG] $msg" | tee -a /var/log/ipr_bootstrap.log
+  echo "[GIT CONFIG] $msg" >> /opt/ipr_state/bootstrap_info.txt
+}
+
 # Check for environment file
 ENV_FILE="/opt/ipr_common.env"
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -112,12 +119,23 @@ if [[ ! -d "$REPO_DIR/.git" ]]; then
   # Set git user config for this environment
   if [[ -n "${GIT_USER_EMAIL:-}" ]]; then
     git -C "$REPO_DIR" config --global user.email "$GIT_USER_EMAIL"
+    log_git_config_action "Set user.email to $GIT_USER_EMAIL"
+  else
+    log_git_config_action "No GIT_USER_EMAIL provided, not set."
   fi
   if [[ -n "${GIT_USER_NAME:-}" ]]; then
     git -C "$REPO_DIR" config --global user.name "$GIT_USER_NAME"
+    log_git_config_action "Set user.name to $GIT_USER_NAME"
+  else
+    log_git_config_action "No GIT_USER_NAME provided, not set."
   fi
 else
   log "Repository already exists at $REPO_DIR"
+  # Log current git config
+  CURRENT_EMAIL=$(git -C "$REPO_DIR" config --global user.email || echo "unset")
+  CURRENT_NAME=$(git -C "$REPO_DIR" config --global user.name || echo "unset")
+  log_git_config_action "Existing user.email: $CURRENT_EMAIL"
+  log_git_config_action "Existing user.name: $CURRENT_NAME"
 fi
 
 # --- SSH Key Generation and GitHub Setup ---
