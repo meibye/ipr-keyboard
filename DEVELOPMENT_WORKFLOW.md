@@ -36,13 +36,13 @@ This document describes the day-to-day development workflow for the ipr-keyboard
 ### Development Flow
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Windows 11 PC                           │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │  VS Code    │  │  Git         │  │  SSH Terminals   │  │
-│  │  Remote-SSH │  │  (GitHub)    │  │  (both devices)  │  │
-│  └──────┬──────┘  └──────┬───────┘  └──────────────────┘  │
-└─────────┼─────────────────┼──────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                     Windows 11 PC                          │
+│  ┌─────────────┐   ┌──────────────┐  ┌──────────────────┐  │
+│  │  VS Code    │   │  Git         │  │  SSH Terminals   │  │
+│  │  Remote-SSH │   │  (GitHub)    │  │  (both devices)  │  │
+│  └──────┬──────┘   └──────┬───────┘  └──────────────────┘  │
+└─────────┼─────────────────┼────────────────────────────────┘
           │                 │
           │                 │ push/pull
           ▼                 ▼
@@ -76,19 +76,24 @@ This document describes the day-to-day development workflow for the ipr-keyboard
 1. Edit `~/.ssh/config` (or `C:\Users\<YourName>\.ssh\config`):
 
 ```
+# Both RPI's
+Host ipr-dev-pi4 ipr-dev-pi4-wifi ipr-target-zero2
+  User meibye
+  IdentityFile ~/.ssh/id_ed25519_ipr_kb
+  ForwardAgent yes
+  ServerAliveInterval 60
+  ServerAliveCountMax 3
+
 # RPi 4 Development Device
 Host ipr-dev-pi4
-    HostName ipr-dev-pi4.local
-    User meibye
-    ForwardAgent yes
-    ServerAliveInterval 60
+  HostName 192.168.1.98
+
+Host ipr-dev-pi4-wifi
+  HostName 192.168.1.99
 
 # Pi Zero 2 W Target Device  
 Host ipr-target-zero2
-    HostName ipr-target-zero2.local
-    User meibye
-    ForwardAgent yes
-    ServerAliveInterval 60
+  HostName 192.168.1.100
 ```
 
 2. Install VS Code extensions:
