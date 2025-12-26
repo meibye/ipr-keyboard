@@ -191,6 +191,8 @@ echo ""
 # Check critical items
 ERRORS=0
 WARNINGS=0
+declare -i WARNINGS
+declare -i ERRORS
 
 # Hostname
 if [[ "$(hostname)" == "$HOSTNAME" ]]; then
