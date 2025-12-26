@@ -230,6 +230,7 @@ for service in ipr_keyboard.service bt_hid_ble.service bt_hid_agent_unified.serv
     log "✓ Service active: $service"
   else
     warn "⚠ Service not active: $service"
+    log "...before increment $service:" 
     ((WARNINGS++))
     log "...after increment $service:" 
   fi
