@@ -49,6 +49,7 @@ cd "$REPO_DIR"
 
 # Verify required scripts exist
 required_scripts=(
+  "scripts/service/svc_install_bt_hid_agent_unified.sh"
   "scripts/service/svc_install_systemd.sh"
   "scripts/ble_setup_extras.sh"
   "scripts/ble_install_helper.sh"
@@ -61,6 +62,9 @@ for script in "${required_scripts[@]}"; do
     exit 1
   fi
 done
+
+log "Installing Bluetooth HID Agent (unified)..."
+bash scripts/service/svc_install_bt_hid_agent_unified.sh
 
 log "Installing core ipr_keyboard.service..."
 bash scripts/service/svc_install_systemd.sh
