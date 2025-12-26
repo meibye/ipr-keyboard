@@ -109,8 +109,9 @@ REPORT_FILE="/opt/ipr_state/verification_report.txt"
   echo "Venv Location: $APP_VENV_DIR"
   if [[ -d "$APP_VENV_DIR" ]]; then
     echo "✓ Virtual environment exists"
+    APP_USER_HOME=$(getent passwd "$APP_USER" | cut -d: -f6)
     echo "Venv Python: $(sudo -u "$APP_USER" "$APP_VENV_DIR/bin/python" --version)"
-    echo "Package count: $(sudo -u "$APP_USER" "$APP_VENV_DIR/bin/pip" list --format=freeze | wc -l)"
+    echo "Package count: $(sudo -u "$APP_USER" bash -c 'HOME="$APP_USER_HOME" "$HOME/.local/bin/uv" pip list --format=freeze' | wc -l)"
   else
     echo "✗ Virtual environment not found!"
   fi
