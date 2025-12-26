@@ -119,13 +119,16 @@ fi
 # Wait for services to start
 sleep 3
 
+
 log "Verifying service status..."
 systemctl --no-pager status ipr_keyboard.service || true
 systemctl --no-pager status bt_hid_ble.service || true
 systemctl --no-pager status bt_hid_agent_unified.service || true
 systemctl --no-pager status ipr_backend_manager.service || true
+systemctl --no-pager status ipr-provision.service || true
 
 # Update state
+
 cat >> /opt/ipr_state/bootstrap_info.txt <<EOF
 
 Services Enabled completed: $(date -Is)
@@ -135,6 +138,7 @@ Services:
   - bt_hid_ble.service
   - bt_hid_agent_unified.service
   - ipr_backend_manager.service
+  - ipr-provision.service
 EOF
 
 # Record enabled services
@@ -156,6 +160,9 @@ EOF
   echo ""
   echo "=== ipr_backend_manager.service ==="
   systemctl status ipr_backend_manager.service --no-pager || echo "Not running"
+  echo ""
+  echo "=== ipr-provision.service ==="
+  systemctl status ipr-provision.service --no-pager || echo "Not running"
   echo ""
 } > /opt/ipr_state/service_status.txt
 
