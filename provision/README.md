@@ -11,6 +11,7 @@ The provisioning system provides:
 - **Device-specific customization** (hostnames, Bluetooth names)
 - **Verification reports** for comparing device configurations
 
+
 ## Quick Start
 
 ### Prerequisites
@@ -18,9 +19,43 @@ The provisioning system provides:
 1. Fresh Raspberry Pi OS Lite (64-bit) Bookworm installation
 2. SSH access to the device
 3. Device-specific configuration values ready
-****
 
-### Installation Steps
+### Essential First Step: Transfer and Run the Provisioning Wizard
+
+The recommended workflow is to use the interactive provisioning wizard script, which guides you through all steps, handles reboots, and resumes automatically:
+
+#### 1. Transfer the Wizard Script
+
+Before cloning the repository, copy provision/00_provision_wizard.sh from your local machine to the target device (e.g. via scp):
+
+```bash
+# On your local machine (from the repo folder):
+scp provision/00_provision_wizard.sh meibye@ipr-target-zero2:/home/meibye/00_provision_wizard.sh
+scp provision/00_provision_wizard.sh meibye@ipr-dev-pi4:/home/meibye/00_provision_wizard.sh
+```
+
+#### 2. Run the Wizard
+
+SSH into the device and run:
+
+```bash
+sudo bash /home/meibye/00_provision_wizard.sh
+```
+
+The wizard will:
+- Install git
+- Clone the repository
+- Guide you through device config creation
+- Set up SSH keys
+- Run all provisioning scripts in order
+- Handle required reboots and resume automatically
+- Color-code each step and prompt to continue or quit
+
+You can always start over by choosing the option at the beginning of the wizard.
+
+---
+
+### Manual Installation Steps (if not using the wizard)
 
 ```bash
 # 1. Install git (required to clone the repository)
@@ -61,6 +96,25 @@ sudo ./provision/03_app_install.sh  # (Python venv setup will run as APP_USER au
 sudo ./provision/04_enable_services.sh
 sudo ./provision/05_verify.sh
 ```
+### Wizard Script Reference
+
+#### provision/00_provision_wizard.sh
+
+**Purpose**: Interactive, stepwise provisioning for ipr-keyboard. Guides the user through all required steps, including package install, repo clone, config creation, SSH key setup, and all provisioning scripts. Handles required reboots and resumes automatically. Color-codes each step and prompts to continue or quit. Optionally allows starting over from the beginning.
+
+**Usage**:
+1. Transfer the script to the device before cloning the repo (see above).
+2. Run with `sudo bash /home/pi/00_provision_wizard.sh`.
+3. Follow the prompts and guidance.
+
+**Features**:
+- Stepwise guidance for all provisioning steps
+- Color-coded status for each step
+- Interactive continue/quit prompts
+- Handles required reboots and resumes automatically
+- Option to start over from the beginning
+
+**Recommended**: Use this wizard for all new device setups for maximum reliability and ease of use.
 
 ---
 
