@@ -482,6 +482,47 @@ sudo ./scripts/diag_ble.sh
 
 ## Git Workflow
 
+### Bringing Branches Up to Date
+
+To update your local branches with the latest changes from their remote counterparts:
+
+```bash
+# 1. Update develop branch
+git checkout develop
+git pull origin develop
+
+# 2. Update main branch
+git checkout main
+git pull origin main
+
+# 3. Update a release branch (example: release/v1.1.0)
+git checkout release/v1.1.0
+git pull origin release/v1.1.0
+
+# 4. Update a feature branch (example: feature/your-feature)
+git checkout feature/your-feature
+git pull origin feature/your-feature
+```
+
+To bring a branch up to date with another branch (e.g., keep your feature branch current with develop):
+
+```bash
+# While on your feature branch
+git checkout feature/your-feature
+git fetch origin
+git merge origin/develop
+# or, to rebase instead of merge:
+# git rebase origin/develop
+```
+
+After resolving any conflicts, commit and push:
+
+```bash
+git push origin feature/your-feature
+```
+
+Repeat as needed for other branches. Always coordinate merges to main and release branches according to project policy.
+
 ### Checking if Branches Are Up to Date
 
 To verify whether your local branches are up to date with their remote counterparts:
