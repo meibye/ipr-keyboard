@@ -197,7 +197,7 @@ if [[ "$(hostname)" == "$HOSTNAME" ]]; then
   log "✓ Hostname: $HOSTNAME"
 else
   error "✗ Hostname mismatch: expected=$HOSTNAME, actual=$(hostname)"
-  ((ERRORS++))
+  ERRORS=$(( ${ERRORS:-0} + 1 ))
 fi
 
 # Bluetooth name
@@ -206,7 +206,7 @@ if [[ "$BT_NAME_ACTUAL" == "$BT_DEVICE_NAME" ]]; then
   log "✓ Bluetooth name: $BT_DEVICE_NAME"
 else
   warn "⚠ Bluetooth name mismatch: expected='$BT_DEVICE_NAME', actual='$BT_NAME_ACTUAL'"
-  ((WARNINGS++))
+  WARNINGS=$(( ${WARNINGS:-0} + 1 ))
 fi
 
 # Venv
@@ -214,7 +214,7 @@ if [[ -d "$APP_VENV_DIR" ]]; then
   log "✓ Python venv: $APP_VENV_DIR"
 else
   error "✗ Python venv not found: $APP_VENV_DIR"
-  ((ERRORS++))
+  ERRORS=$(( ${ERRORS:-0} + 1 ))
 fi
 
 # Repository
@@ -231,7 +231,7 @@ for service in ipr_keyboard.service bt_hid_ble.service bt_hid_agent_unified.serv
   else
     warn "⚠ Service not active: $service"
     log "...before increment $service:" 
-    ((WARNINGS++))
+    WARNINGS=$(( ${WARNINGS:-0} + 1 ))
     log "...after increment $service:" 
   fi
 done
@@ -241,7 +241,7 @@ if bluetoothctl show &>/dev/null; then
   log "✓ Bluetooth adapter operational"
 else
   error "✗ Bluetooth adapter not available"
-  ((ERRORS++))
+  ERRORS=$(( ${ERRORS:-0} + 1 ))
 fi
 
 echo ""
