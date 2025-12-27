@@ -50,6 +50,7 @@ if [[ "$MODE" == "system" ]]; then
             python3-venv \
             python3-pip \
             python3-systemd \
+            python3-dbus \
             bluez \
             bluez-tools \
             bluetooth \

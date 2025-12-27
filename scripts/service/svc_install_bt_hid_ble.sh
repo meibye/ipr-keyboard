@@ -527,12 +527,17 @@ def process_text(hid: BleHidServer, text: str) -> None:
         for ch in text:
                 usage, mods = map_char_to_hid(ch)
                 if usage == 0x00:
+                        journal.send(f"[ble] Unsupported character: {ch!r}, skipping")
                         continue
+                journal.send(f"[ble] Key down: char={ch!r} usage=0x{usage:02X} mods=0x{mods:02X}")
                 down = make_key_report(usage, mods)
                 up = make_key_release_report()
+                journal.send(f"[ble] Sending HID report: {list(down)}")
                 hid.send_input_report(down)
                 time.sleep(0.01)
+                journal.send(f"[ble] Key up: char={ch!r} usage=0x{usage:02X} mods=0x{mods:02X}")
                 hid.send_input_report(up)
+                journal.send(f"[ble] Key released for char={ch!r}")
                 time.sleep(0.005)
 
 

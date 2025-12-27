@@ -57,6 +57,7 @@ if [[ ! -f "scripts/sys_setup_venv.sh" ]]; then
   exit 1
 fi
 
+
 # 1. Set up Python venv and install dependencies as APP_USER (already uses sudo -u)
 echo "[03_app_install] Setting up Python venv and installing dependencies as $APP_USER..."
 sudo -u "$APP_USER" bash scripts/sys_setup_venv.sh
@@ -105,6 +106,15 @@ Application Install completed: $(date -Is)
 Python venv: $APP_VENV_DIR
 Python version: $PYTHON_VERSION
 EOF
+
+
+# Ensure logs directory is owned by the application user and has correct permissions
+LOGS_DIR="$REPO_DIR/logs"
+if [[ -d "$LOGS_DIR" ]]; then
+  chown -R "$APP_USER:$APP_USER" "$LOGS_DIR"
+  chmod -R 755 "$LOGS_DIR"
+  log "Set ownership and permissions for logs directory: $LOGS_DIR"
+fi
 
 log "Application installation complete!"
 echo ""
