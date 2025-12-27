@@ -112,11 +112,18 @@ class StatusThread(threading.Thread):
 
 def main(stdscr, delay):
     # Color pairs: 1=red, 2=green, 3=yellow, 4=dim/gray
-    curses.start_color()
-    curses.init_pair(1, curses.COLOR_RED, -1)
-    curses.init_pair(2, curses.COLOR_GREEN, -1)
-    curses.init_pair(3, curses.COLOR_YELLOW, -1)
-    curses.init_pair(4, curses.COLOR_CYAN, -1)
+    has_colors = False
+    if curses.has_colors():
+        try:
+            curses.start_color()
+            curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_RED, -1)
+            curses.init_pair(2, curses.COLOR_GREEN, -1)
+            curses.init_pair(3, curses.COLOR_YELLOW, -1)
+            curses.init_pair(4, curses.COLOR_CYAN, -1)
+            has_colors = True
+        except Exception:
+            has_colors = False
 
     sel_type = "service"
     sel_idx = 0
@@ -132,7 +139,9 @@ def main(stdscr, delay):
             status = status_thread.status.get(svc[0], "unknown")
             label = f"{svc[1]} [{status}]"
             color = status_color(status)
-            attr = curses.color_pair(color)
+            attr = curses.A_NORMAL
+            if has_colors:
+                attr |= curses.color_pair(color)
             if sel_type == "service" and sel_idx == i:
                 attr |= curses.A_REVERSE
             stdscr.addstr(5 + i, 4, label, attr)
@@ -142,7 +151,9 @@ def main(stdscr, delay):
         for i, dev in enumerate(devices):
             label = f"{dev[1]} ({dev[0]}) [{'Connected' if dev[2] else 'Disconnected'}{'/Paired' if dev[3] else '/Unpaired'}]"
             color = device_status_color(dev[2], dev[3])
-            attr = curses.color_pair(color)
+            attr = curses.A_NORMAL
+            if has_colors:
+                attr |= curses.color_pair(color)
             if sel_type == "device" and sel_idx == i:
                 attr |= curses.A_REVERSE
             stdscr.addstr(dev_start + 1 + i, 4, label, attr)
