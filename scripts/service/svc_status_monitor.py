@@ -24,39 +24,15 @@ import threading
 import time
 
 # Comprehensive list of all relevant ipr-keyboard and BLE GATT/agent services
-# (unit, label, description)
+# (unit, description)
 SERVICES = [
-    (
-        "ipr_keyboard.service",
-        "IPR Keyboard",
-        "Main app: USB→BT bridge, web API, config, logs",
-    ),
-    (
-        "bt_hid_uinput.service",
-        "BT HID UInput",
-        "Classic BT HID backend (uinput, Linux only)",
-    ),
-    ("bt_hid_ble.service", "BT HID BLE", "BLE HID backend (GATT, modern devices)"),
-    (
-        "bt_hid_daemon.service",
-        "BT HID Daemon (Legacy)",
-        "Legacy/alt HID daemon (rarely used)",
-    ),
-    (
-        "bt_hid_agent_unified.service",
-        "BT HID Agent (Unified)",
-        "Pairing/authorization agent (all backends)",
-    ),
-    (
-        "bt_hid_agent.service",
-        "BT HID Agent (Classic)",
-        "Classic agent (legacy, not default)",
-    ),
-    (
-        "ipr_backend_manager.service",
-        "IPR Backend Manager",
-        "Switches/monitors backend daemons",
-    ),
+    ("ipr_keyboard.service", "Main app: USB→BT bridge, web API, config, logs"),
+    ("bt_hid_uinput.service", "Classic BT HID backend (uinput, Linux only)"),
+    ("bt_hid_ble.service", "BLE HID backend (GATT, modern devices)"),
+    ("bt_hid_daemon.service", "Legacy/alt HID daemon (rarely used)"),
+    ("bt_hid_agent_unified.service", "Pairing/authorization agent (all backends)"),
+    ("bt_hid_agent.service", "Classic agent (legacy, not default)"),
+    ("ipr_backend_manager.service", "Switches/monitors backend daemons"),
 ]
 
 
@@ -85,11 +61,8 @@ def status_color(status):
 def get_bt_devices():
     # Placeholder: should call bluetoothctl or similar
     # (addr, name, connected, paired)
-    return [
-        ("AA:BB:CC:DD:EE:FF", "Test Device", True, True),
-        ("11:22:33:44:55:66", "Other Device", False, True),
-        ("22:33:44:55:66:77", "Unpaired Device", False, False),
-    ]
+    # Return empty list to simulate no devices (remove test devices)
+    return []
 
 
 def device_status_color(connected, paired):
@@ -162,9 +135,8 @@ def main(stdscr, delay):
         # Service table headers
         stdscr.addstr(4, 2, "Services:", curses.A_UNDERLINE)
         stdscr.addstr(5, 4, "Status", curses.A_BOLD | curses.A_UNDERLINE)
-        stdscr.addstr(5, 15, "Unit", curses.A_BOLD | curses.A_UNDERLINE)
-        stdscr.addstr(5, 38, "Label", curses.A_BOLD | curses.A_UNDERLINE)
-        stdscr.addstr(5, 60, "Description", curses.A_BOLD | curses.A_UNDERLINE)
+        stdscr.addstr(5, 15, "Service", curses.A_BOLD | curses.A_UNDERLINE)
+        stdscr.addstr(5, 45, "Description", curses.A_BOLD | curses.A_UNDERLINE)
         for i, svc in enumerate(SERVICES):
             status = status_thread.status.get(svc[0], "unknown")
             color = status_color(status)
@@ -174,9 +146,8 @@ def main(stdscr, delay):
             if sel_type == "service" and sel_idx == i:
                 attr |= curses.A_REVERSE
             stdscr.addstr(6 + i, 4, f"{status:8}", attr)
-            stdscr.addstr(6 + i, 15, f"{svc[0]:22}", attr)
-            stdscr.addstr(6 + i, 38, f"{svc[1]:20}", attr)
-            stdscr.addstr(6 + i, 60, f"{svc[2]}", attr)
+            stdscr.addstr(6 + i, 15, f"{svc[0]:28}", attr)
+            stdscr.addstr(6 + i, 45, f"{svc[1]}", attr)
 
         dev_start = 6 + len(SERVICES) + 2
         stdscr.addstr(dev_start, 2, "Bluetooth Devices:", curses.A_UNDERLINE)
@@ -240,8 +211,8 @@ def main(stdscr, delay):
         elif c == curses.KEY_ENTER or c == 10 or c == 13:
             stdscr.clear()
             if sel_type == "service":
-                svc, svc_label, svc_desc = SERVICES[sel_idx]
-                stdscr.addstr(0, 2, f"Service: {svc_label}", curses.A_BOLD)
+                svc, svc_desc = SERVICES[sel_idx]
+                stdscr.addstr(0, 2, f"Service: {svc}", curses.A_BOLD)
                 stdscr.addstr(
                     2,
                     2,
@@ -262,7 +233,7 @@ def main(stdscr, delay):
                     subprocess.run(["systemctl", "restart", svc])
                 elif action in (ord("j"), ord("J")):
                     stdscr.clear()
-                    stdscr.addstr(0, 2, f"Journal for {svc_label}", curses.A_BOLD)
+                    stdscr.addstr(0, 2, f"Journal for {svc}", curses.A_BOLD)
                     try:
                         out = subprocess.check_output(
                             ["journalctl", "-u", svc, "-n", "20", "--no-pager"],
