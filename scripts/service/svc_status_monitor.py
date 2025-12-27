@@ -85,19 +85,6 @@ def main(stdscr, delay):
 
 if __name__ == "__main__":
     curses.wrapper(main, delay)
-            matches = subprocess.check_output(
-                f"ls {alt_path} 2>/dev/null || true", shell=True, text=True
-            ).strip()
-            if matches:
-                config_path = matches.split("\n")[0]
-                break
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r") as f:
-                return json.load(f)
-        except Exception as e:
-            return {"error": f"Failed to parse: {e}"}
-    else:
         return {"error": "config.json not found"}
 
 
