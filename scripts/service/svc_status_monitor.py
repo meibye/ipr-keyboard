@@ -334,6 +334,8 @@ def draw_table(
     if selectable_indices is not None:
         selectable_indices.clear()
 
+    device_select_indices = []
+    device_info_list = []
     for backend, label in BACKEND_LABELS:
         stdscr.addstr(row, 2, label, curses.A_BOLD | curses.color_pair(4))
         row += 1
@@ -356,12 +358,12 @@ def draw_table(
                     color | (curses.A_REVERSE if idx == selected else 0),
                 )
                 if selectable_indices is not None:
-                    selectable_indices.append(svc_idx)
+                    selectable_indices.append(("service", svc_idx))
                 row += 1
                 idx += 1
         row += 1
 
-    # Show paired Bluetooth devices after service groups
+    # Show paired Bluetooth devices after service groups, with connection status, and make them selectable
     try:
         devices = subprocess.check_output(
             ["bluetoothctl", "devices"], text=True, stderr=subprocess.DEVNULL
@@ -377,9 +379,38 @@ def draw_table(
                 curses.A_BOLD | curses.color_pair(4),
             )
             row += 1
-            for dev in device_lines:
-                stdscr.addstr(row, svc_col, dev)
+            for dev_idx, dev in enumerate(device_lines):
+                # dev format: Device XX:XX:XX:XX:XX:XX Name
+                parts = dev.split()
+                mac = parts[1] if len(parts) > 1 else None
+                name = " ".join(parts[2:]) if len(parts) > 2 else ""
+                connected = "no"
+                if mac:
+                    try:
+                        info_out = subprocess.check_output(
+                            ["bluetoothctl", "info", mac],
+                            text=True,
+                            stderr=subprocess.DEVNULL,
+                        )
+                        if "Connected: yes" in info_out:
+                            connected = "yes"
+                    except Exception:
+                        pass
+                color = (
+                    curses.color_pair(2) if connected == "yes" else curses.color_pair(3)
+                )
+                marker = ">" if idx == selected else " "
+                stdscr.addstr(
+                    row,
+                    svc_col,
+                    f"{marker} {mac or '':<17} {connected:<9} {name}",
+                    color | (curses.A_REVERSE if idx == selected else 0),
+                )
+                device_info_list.append((mac, name, connected))
+                if selectable_indices is not None:
+                    selectable_indices.append(("device", dev_idx))
                 row += 1
+                idx += 1
         else:
             stdscr.addstr(
                 row,
@@ -396,6 +427,8 @@ def draw_table(
             curses.A_BOLD | curses.color_pair(1),
         )
         row += 1
+
+    return device_info_list
 
     # Prepare status groups
     diag_lines = (
@@ -839,6 +872,7 @@ def main(stdscr, delay):
     curses.init_pair(4, curses.COLOR_CYAN, -1)
     selected = 0
     selectable_indices = []
+    device_info_list = []
 
     status_snapshot = {svc: "unknown" for svc, _, _ in SERVICES}
     diag_info = {}
@@ -874,11 +908,13 @@ def main(stdscr, delay):
     except Exception:
         pass
 
-    draw_table(stdscr, selected, delay, status_snapshot, diag_info, selectable_indices)
+    device_info_list = draw_table(
+        stdscr, selected, delay, status_snapshot, diag_info, selectable_indices
+    )
     while True:
         if redraw_event.is_set():
             with status_lock:
-                draw_table(
+                device_info_list = draw_table(
                     stdscr,
                     selected,
                     delay,
@@ -922,7 +958,7 @@ def main(stdscr, delay):
         elif c == curses.KEY_UP:
             selected = (selected - 1) % len(selectable_indices)
             with status_lock:
-                draw_table(
+                device_info_list = draw_table(
                     stdscr,
                     selected,
                     delay,
@@ -933,7 +969,7 @@ def main(stdscr, delay):
         elif c == curses.KEY_DOWN:
             selected = (selected + 1) % len(selectable_indices)
             with status_lock:
-                draw_table(
+                device_info_list = draw_table(
                     stdscr,
                     selected,
                     delay,
@@ -944,70 +980,126 @@ def main(stdscr, delay):
         elif c == curses.KEY_ENTER or c == 10 or c == 13:
             if not selectable_indices:
                 continue
-            svc_idx = selectable_indices[selected]
-            svc, desc, backend = SERVICES[svc_idx]
-            action = select_action(stdscr, svc)
-            (stdscr, svc)
+            sel_type, sel_idx = selectable_indices[selected]
+            if sel_type == "service":
+                svc, desc, backend = SERVICES[sel_idx]
+                action = select_action(stdscr, svc)
 
-            def run_action(cmd):
-                try:
-                    subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
-                    return None
-                except subprocess.CalledProcessError as e:
-                    return e.output
+                def run_action(cmd):
+                    try:
+                        subprocess.check_output(
+                            cmd, text=True, stderr=subprocess.STDOUT
+                        )
+                        return None
+                    except subprocess.CalledProcessError as e:
+                        return e.output
 
-            error_msg = None
-            if action == "Start":
-                error_msg = run_action(["sudo", "systemctl", "start", svc])
-                with status_lock:
-                    status_snapshot[svc] = get_status(svc)
-                redraw_event.set()
-            elif action == "Stop":
-                error_msg = run_action(["sudo", "systemctl", "stop", svc])
-                with status_lock:
-                    status_snapshot[svc] = get_status(svc)
-                redraw_event.set()
-            elif action == "Restart":
-                error_msg = run_action(["sudo", "systemctl", "restart", svc])
-                with status_lock:
-                    status_snapshot[svc] = get_status(svc)
-                redraw_event.set()
-            elif action == "Journal":
-                show_journal(stdscr, svc)
-                with status_lock:
-                    draw_table(
-                        stdscr,
-                        selected,
-                        delay,
-                        status_snapshot,
-                        diag_info,
-                        selectable_indices,
+                error_msg = None
+                if action == "Start":
+                    error_msg = run_action(["sudo", "systemctl", "start", svc])
+                    with status_lock:
+                        status_snapshot[svc] = get_status(svc)
+                    redraw_event.set()
+                elif action == "Stop":
+                    error_msg = run_action(["sudo", "systemctl", "stop", svc])
+                    with status_lock:
+                        status_snapshot[svc] = get_status(svc)
+                    redraw_event.set()
+                elif action == "Restart":
+                    error_msg = run_action(["sudo", "systemctl", "restart", svc])
+                    with status_lock:
+                        status_snapshot[svc] = get_status(svc)
+                    redraw_event.set()
+                elif action == "Journal":
+                    show_journal(stdscr, svc)
+                    with status_lock:
+                        device_info_list = draw_table(
+                            stdscr,
+                            selected,
+                            delay,
+                            status_snapshot,
+                            diag_info,
+                            selectable_indices,
+                        )
+                elif action == "Diagnostics":
+                    show_diagnostics(stdscr)
+                    with status_lock:
+                        device_info_list = draw_table(
+                            stdscr,
+                            selected,
+                            delay,
+                            status_snapshot,
+                            diag_info,
+                            selectable_indices,
+                        )
+                if error_msg:
+                    stdscr.clear()
+                    stdscr.addstr(
+                        0,
+                        2,
+                        f"Error running {action} for {svc}",
+                        curses.A_BOLD | curses.color_pair(1),
                     )
-            elif action == "Diagnostics":
-                show_diagnostics(stdscr)
-                with status_lock:
-                    draw_table(
-                        stdscr,
-                        selected,
-                        delay,
-                        status_snapshot,
-                        diag_info,
-                        selectable_indices,
+                    lines = error_msg.splitlines()
+                    for i, line in enumerate(lines[: curses.LINES - 3]):
+                        stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
+                    stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+                    stdscr.refresh()
+                    stdscr.getch()
+            elif sel_type == "device":
+                # Bluetooth device actions
+                mac, name, connected = device_info_list[sel_idx]
+                bt_actions = [
+                    ("Connect" if connected == "no" else "Disconnect"),
+                    "Remove",
+                    "Info",
+                    "Cancel",
+                ]
+                action_idx = 0
+                while True:
+                    stdscr.clear()
+                    stdscr.addstr(
+                        0, 2, f"Bluetooth Device: {mac} {name}", curses.A_BOLD
                     )
-            if error_msg:
-                stdscr.clear()
-                stdscr.addstr(
-                    0,
-                    2,
-                    f"Error running {action} for {svc}",
-                    curses.A_BOLD | curses.color_pair(1),
-                )
-                lines = error_msg.splitlines()
-                for i, line in enumerate(lines[: curses.LINES - 3]):
-                    stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
-                stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
-                stdscr.refresh()
-                stdscr.getch()
+                    stdscr.addstr(1, 2, f"Connected: {connected}", curses.A_DIM)
+                    for i, act in enumerate(bt_actions):
+                        attr = curses.A_REVERSE if i == action_idx else 0
+                        stdscr.addstr(3 + i, 4, act, attr)
+                    stdscr.refresh()
+                    c2 = stdscr.getch()
+                    if c2 == curses.KEY_UP:
+                        action_idx = (action_idx - 1) % len(bt_actions)
+                    elif c2 == curses.KEY_DOWN:
+                        action_idx = (action_idx + 1) % len(bt_actions)
+                    elif c2 in (curses.KEY_ENTER, 10, 13):
+                        chosen = bt_actions[action_idx]
+                        if chosen == "Cancel":
+                            break
+                        elif chosen == "Connect":
+                            cmd = ["bluetoothctl", "connect", mac]
+                        elif chosen == "Disconnect":
+                            cmd = ["bluetoothctl", "disconnect", mac]
+                        elif chosen == "Remove":
+                            cmd = ["bluetoothctl", "remove", mac]
+                        elif chosen == "Info":
+                            cmd = ["bluetoothctl", "info", mac]
+                        else:
+                            break
+                        try:
+                            output = subprocess.check_output(
+                                cmd, text=True, stderr=subprocess.STDOUT
+                            )
+                        except subprocess.CalledProcessError as e:
+                            output = e.output
+                        stdscr.clear()
+                        stdscr.addstr(0, 2, f"{chosen} {mac}", curses.A_BOLD)
+                        lines = output.splitlines()
+                        for i, line in enumerate(lines[: curses.LINES - 3]):
+                            stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
+                        stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+                        stdscr.refresh()
+                        stdscr.getch()
+                        break
         elif c == ord("+"):
             delay = min(delay + 1, 30)
         elif c == ord("-"):

@@ -449,7 +449,7 @@ class BleHidServer:
                         index=0,
                         advertising_type="peripheral",
                         service_uuids=[HID_SERVICE_UUID],
-                        local_name="ipr-keyboard",
+                        local_name=os.environ.get("BT_DEVICE_NAME", "IPR Keyboard"),
                         appearance=APPEARANCE_KEYBOARD,
                 )
                 self._register_advertisement()
@@ -574,6 +574,7 @@ Requires=bluetooth.target
 
 [Service]
 Type=simple
+EnvironmentFile=/opt/ipr_common.env
 ExecStart=/usr/bin/python3 /usr/local/bin/bt_hid_ble_daemon.py
 Restart=on-failure
 
