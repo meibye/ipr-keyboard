@@ -979,37 +979,87 @@ def select_action(stdscr, svc):
 
 
 def main(stdscr, delay):
-    curses.start_color()
-    curses.use_default_colors()
-    # Initialize required variables
-    selected = 0
-    status_lock = threading.Lock()
-    status_snapshot = {}
-    redraw_event = threading.Event()
-    diag_info = {}
-    selectable_indices = []
-    device_info_list = []
-    while True:
-        c = stdscr.getch()
-        if c == curses.KEY_ENTER or c == 10 or c == 13:
-            if not selectable_indices:
-                continue
-            sel_type, sel_idx = selectable_indices[selected]
-            if sel_type == "service":
-                svc, desc, backend = SERVICES[sel_idx]
-                action = select_action(stdscr, svc)
+        # Example services and devices for demo purposes
+        SERVICES = [
+            ("ipr_keyboard.service", "Main App Service", "uinput"),
+            ("bt_hid_uinput.service", "UInput Backend", "uinput"),
+            ("bt_hid_ble.service", "BLE Backend", "ble"),
+        ]
+        device_info_list = [
+            ("AA:BB:CC:DD:EE:FF", "Test Device 1", "yes"),
+            ("11:22:33:44:55:66", "Test Device 2", "no"),
+        ]
+        selectable_indices = [("service", i) for i in range(len(SERVICES))] + [("device", i) for i in range(len(device_info_list))]
+        selected = 0
 
-                def run_action(cmd):
-                    try:
-                        subprocess.check_output(
-                            cmd, text=True, stderr=subprocess.STDOUT
-                        )
-                        return None
-                    except subprocess.CalledProcessError as e:
-                        return e.output
+        def draw_main_screen():
+            stdscr.clear()
+            stdscr.addstr(0, 2, "IPR Keyboard Service Monitor", curses.A_BOLD | curses.color_pair(2))
+            stdscr.addstr(1, 2, "Services:", curses.A_UNDERLINE)
+            for i, (svc, desc, backend) in enumerate(SERVICES):
+                status = get_status(svc)
+                attr = curses.A_REVERSE if selected == i else 0
+                stdscr.addstr(2 + i, 4, f"{svc:25} [{status}] - {desc} ({backend})", attr)
+            curses.start_color()
+            curses.use_default_colors()
+            # Example services and devices for demo purposes
+            SERVICES = [
+                ("ipr_keyboard.service", "Main App Service", "uinput"),
+                ("bt_hid_uinput.service", "UInput Backend", "uinput"),
+                ("bt_hid_ble.service", "BLE Backend", "ble"),
+            ]
+            device_info_list = [
+                ("AA:BB:CC:DD:EE:FF", "Test Device 1", "yes"),
+                ("11:22:33:44:55:66", "Test Device 2", "no"),
+            ]
+            selectable_indices = [("service", i) for i in range(len(SERVICES))] + [("device", i) for i in range(len(device_info_list))]
+            selected = 0
 
-                error_msg = None
-                if action == "Start":
+            def draw_main_screen():
+                stdscr.clear()
+                stdscr.addstr(0, 2, "IPR Keyboard Service Monitor", curses.A_BOLD | curses.color_pair(2))
+                stdscr.addstr(1, 2, "Services:", curses.A_UNDERLINE)
+                for i, (svc, desc, backend) in enumerate(SERVICES):
+                    status = get_status(svc)
+                    attr = curses.A_REVERSE if selected == i else 0
+                    stdscr.addstr(2 + i, 4, f"{svc:25} [{status}] - {desc} ({backend})", attr)
+                offset = 2 + len(SERVICES)
+                stdscr.addstr(offset, 2, "Bluetooth Devices:", curses.A_UNDERLINE)
+                for j, (mac, name, connected) in enumerate(device_info_list):
+                    idx = len(SERVICES) + j
+                    attr = curses.A_REVERSE if selected == idx else 0
+                    stdscr.addstr(offset + 1 + j, 4, f"{mac:17} {name:20} Connected: {connected}", attr)
+                # Config/diagnostic section
+                stdscr.addstr(offset + 2 + len(device_info_list), 2, "Config/Diagnostics:", curses.A_UNDERLINE)
+                stdscr.addstr(offset + 3 + len(device_info_list), 4, "(Config and diagnostics info would appear here)", curses.A_DIM)
+                stdscr.addstr(curses.LINES - 1, 2, "Up/Down: Move  Enter: Action  q: Quit", curses.A_DIM)
+                stdscr.refresh()
+
+            while True:
+                draw_main_screen()
+                c = stdscr.getch()
+                if c in (ord('q'), ord('Q')):
+                    break
+                if c == curses.KEY_UP:
+                    selected = (selected - 1) % len(selectable_indices)
+                if c == curses.KEY_DOWN:
+                    selected = (selected + 1) % len(selectable_indices)
+                if c == curses.KEY_ENTER or c == 10 or c == 13:
+                    sel_type, sel_idx = selectable_indices[selected]
+                    if sel_type == "service":
+                        stdscr.clear()
+                        stdscr.addstr(0, 2, f"Service action for {SERVICES[sel_idx][0]}", curses.A_BOLD)
+                        stdscr.addstr(2, 2, "(Service actions would appear here)", curses.A_DIM)
+                        stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+                        stdscr.refresh()
+                        stdscr.getch()
+                    if sel_type == "device":
+                        stdscr.clear()
+                        stdscr.addstr(0, 2, f"Bluetooth Device: {device_info_list[sel_idx][1]}", curses.A_BOLD)
+                        stdscr.addstr(2, 2, "(Device actions would appear here)", curses.A_DIM)
+                        stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+                        stdscr.refresh()
+                        stdscr.getch()
                     error_msg = run_action(["sudo", "systemctl", "start", svc])
                     with status_lock:
                         status_snapshot[svc] = get_status(svc)
