@@ -85,7 +85,7 @@ def main(stdscr, delay):
 
 if __name__ == "__main__":
     curses.wrapper(main, delay)
-        return {"error": "config.json not found"}
+    # End of file. Remove all lines below this.
 
 
 def get_bt_agent_env_info():
