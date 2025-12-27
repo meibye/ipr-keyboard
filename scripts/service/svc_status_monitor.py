@@ -1,43 +1,71 @@
-#!/usr/bin/env python3
-"""
-svc_status_monitor.py
-
-Interactive TUI for ipr-keyboard service/daemon status and control.
-Includes diagnostic information from diag_status.sh and diag_troubleshoot.sh.
-
-Usage:
-  sudo ./scripts/service/svc_status_monitor.py
-
-Prerequisites:
-  - Must be run as root
-  - python3, curses, systemctl, journalctl must be available
-
-category: Service
-purpose: Interactive TUI for monitoring and controlling services
-
-Requires: python3, curses, systemctl, journalctl
-"""
-
 import curses
-import json
-import os
-import subprocess
-import sys
-import threading
 
+SERVICES = [("ipr_keyboard.service",), ("bt_hid_uinput.service",), ("bt_hid_ble.service",)]
+device_info_list = [("AA:BB:CC:DD:EE:FF", "Test Device", True)]
+sel_type = "service"
+sel_idx = 0
+delay = 5
 
-def get_config_json_info():
-    """Read config.json and return as dict (or error string)."""
-    import json
+def main(stdscr, delay):
+    global sel_type, sel_idx
+    while True:
+        stdscr.clear()
+        stdscr.addstr(0, 2, "IPR Service Monitor", curses.A_BOLD)
+        stdscr.addstr(1, 2, "Navigate: ↑↓  Select: Enter  Quit: q", curses.A_DIM)
+        stdscr.addstr(2, 2, f"Delay: {delay}s (+/-)", curses.A_DIM)
+        stdscr.addstr(4, 2, "Services:", curses.A_UNDERLINE)
+        for i, svc in enumerate(SERVICES):
+            attr = curses.A_REVERSE if sel_type == "service" and sel_idx == i else curses.A_NORMAL
+            stdscr.addstr(5 + i, 4, f"{svc[0]}", attr)
+        dev_start = 5 + len(SERVICES) + 2
+        stdscr.addstr(dev_start, 2, "Bluetooth Devices:", curses.A_UNDERLINE)
+        for i, dev in enumerate(device_info_list):
+            attr = curses.A_REVERSE if sel_type == "device" and sel_idx == i else curses.A_NORMAL
+            stdscr.addstr(dev_start + 1 + i, 4, f"{dev[1]} ({dev[0]})", attr)
+        stdscr.addstr(curses.LINES - 2, 2, "Config/Diagnostics: c", curses.A_DIM)
+        stdscr.refresh()
+        c = stdscr.getch()
+        if c == curses.KEY_UP:
+            sel_idx = max(sel_idx - 1, 0)
+        elif c == curses.KEY_DOWN:
+            if sel_type == "service":
+                sel_idx = min(sel_idx + 1, len(SERVICES) - 1)
+            else:
+                sel_idx = min(sel_idx + 1, len(device_info_list) - 1)
+        elif c == ord('q'):
+            break
+        elif c == ord('c'):
+            stdscr.clear()
+            stdscr.addstr(0, 2, "Config/Diagnostics", curses.A_BOLD)
+            stdscr.addstr(2, 2, "(Config and diagnostics info would appear here)", curses.A_DIM)
+            stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+            stdscr.refresh()
+            stdscr.getch()
+        elif c == curses.KEY_RIGHT or c == curses.KEY_LEFT:
+            if sel_type == "service":
+                sel_type = "device"
+                sel_idx = 0
+            else:
+                sel_type = "service"
+                sel_idx = 0
+        elif c == ord('+'):
+            delay = min(delay + 1, 30)
+        elif c == ord('-'):
+            delay = max(delay - 1, 1)
+        elif c == curses.KEY_ENTER or c == 10 or c == 13:
+            stdscr.clear()
+            if sel_type == "service":
+                stdscr.addstr(0, 2, f"Service action for {SERVICES[sel_idx][0]}", curses.A_BOLD)
+                stdscr.addstr(2, 2, "(Service actions would appear here)", curses.A_DIM)
+            else:
+                stdscr.addstr(0, 2, f"Bluetooth Device: {device_info_list[sel_idx][1]}", curses.A_BOLD)
+                stdscr.addstr(2, 2, "(Device actions would appear here)", curses.A_DIM)
+            stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+            stdscr.refresh()
+            stdscr.getch()
 
-    config_path = os.path.expanduser("~/dev/ipr-keyboard/config.json")
-    if not os.path.exists(config_path):
-        # Try alternate locations
-        for alt_path in [
-            "/home/*/dev/ipr-keyboard/config.json",
-            "./config.json",
-            "../config.json",
-        ]:
+if __name__ == "__main__":
+    curses.wrapper(main, delay)
             matches = subprocess.check_output(
                 f"ls {alt_path} 2>/dev/null || true", shell=True, text=True
             ).strip()
@@ -57,107 +85,106 @@ def get_config_json_info():
 def get_bt_agent_env_info():
     """Read /etc/default/bt_hid_agent_unified as key-value pairs."""
     env_file = "/etc/default/bt_hid_agent_unified"
-    env = {}
-    if os.path.exists(env_file):
-        try:
-            with open(env_file, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    if "=" in line:
-                        k, v = line.split("=", 1)
-                        env[k.strip()] = v.strip()
-        except Exception as e:
-            env = {"error": f"Failed to read: {e}"}
-    else:
-        env = {"error": "env file not found"}
-    return env
 
+    import curses
 
-def get_status(service):
-    try:
-        out = subprocess.check_output(
-            ["systemctl", "is-active", service], text=True
-        ).strip()
-        return out if out else "unknown"
-    except subprocess.CalledProcessError:
-        return "unknown"
+    SERVICES = [("ipr_keyboard.service",), ("bt_hid_uinput.service",), ("bt_hid_ble.service",)]
+    device_info_list = [("AA:BB:CC:DD:EE:FF", "Test Device", True)]
+    sel_type = "service"
+    sel_idx = 0
+    delay = 5
 
+    def main(stdscr, delay):
+        global sel_type, sel_idx
+        while True:
+            stdscr.clear()
+            stdscr.addstr(0, 2, "IPR Service Monitor", curses.A_BOLD)
+            stdscr.addstr(1, 2, "Navigate: ↑↓  Select: Enter  Quit: q", curses.A_DIM)
+            stdscr.addstr(2, 2, f"Delay: {delay}s (+/-)", curses.A_DIM)
+            stdscr.addstr(4, 2, "Services:", curses.A_UNDERLINE)
+            for i, svc in enumerate(SERVICES):
+                attr = curses.A_REVERSE if sel_type == "service" and sel_idx == i else curses.A_NORMAL
+                stdscr.addstr(5 + i, 4, f"{svc[0]}", attr)
+            dev_start = 5 + len(SERVICES) + 2
+            stdscr.addstr(dev_start, 2, "Bluetooth Devices:", curses.A_UNDERLINE)
+            for i, dev in enumerate(device_info_list):
+                attr = curses.A_REVERSE if sel_type == "device" and sel_idx == i else curses.A_NORMAL
+                stdscr.addstr(dev_start + 1 + i, 4, f"{dev[1]} ({dev[0]})", attr)
+            stdscr.addstr(curses.LINES - 2, 2, "Config/Diagnostics: c", curses.A_DIM)
+            stdscr.refresh()
+            c = stdscr.getch()
+            if c == curses.KEY_UP:
+                sel_idx = max(sel_idx - 1, 0)
+            elif c == curses.KEY_DOWN:
 
-def get_diagnostic_info():
-    def get_config_json_info():
-        """Read config.json and return as dict (or error string)."""
-        import json
+                import curses
 
-        config_path = os.path.expanduser("~/dev/ipr-keyboard/config.json")
-        if not os.path.exists(config_path):
-            # Try alternate locations
-            for alt_path in [
-                "/home/*/dev/ipr-keyboard/config.json",
-                "./config.json",
-                "../config.json",
-            ]:
-                matches = subprocess.check_output(
-                    f"ls {alt_path} 2>/dev/null || true", shell=True, text=True
-                ).strip()
-                if matches:
-                    config_path = matches.split("\n")[0]
-                    break
-        if os.path.exists(config_path):
-            try:
-                with open(config_path, "r") as f:
-                    return json.load(f)
-            except Exception as e:
-                return {"error": f"Failed to parse: {e}"}
-        else:
-            return {"error": "config.json not found"}
+                SERVICES = [("ipr_keyboard.service",), ("bt_hid_uinput.service",), ("bt_hid_ble.service",)]
+                device_info_list = [("AA:BB:CC:DD:EE:FF", "Test Device", True)]
+                sel_type = "service"
+                sel_idx = 0
+                delay = 5
 
-    def get_bt_agent_env_info():
-        """Read /etc/default/bt_hid_agent_unified as key-value pairs."""
-        env_file = "/etc/default/bt_hid_agent_unified"
-        env = {}
-        if os.path.exists(env_file):
-            try:
-                with open(env_file, "r") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith("#"):
-                            continue
-                        if "=" in line:
-                            k, v = line.split("=", 1)
-                            env[k.strip()] = v.strip()
-            except Exception as e:
-                env = {"error": f"Failed to read: {e}"}
-        else:
-            env = {"error": "env file not found"}
-        return env
+                def main(stdscr, delay):
+                    global sel_type, sel_idx
+                    while True:
+                        stdscr.clear()
+                        stdscr.addstr(0, 2, "IPR Service Monitor", curses.A_BOLD)
+                        stdscr.addstr(1, 2, "Navigate: ↑↓  Select: Enter  Quit: q", curses.A_DIM)
+                        stdscr.addstr(2, 2, f"Delay: {delay}s (+/-)", curses.A_DIM)
+                        stdscr.addstr(4, 2, "Services:", curses.A_UNDERLINE)
+                        for i, svc in enumerate(SERVICES):
+                            attr = curses.A_REVERSE if sel_type == "service" and sel_idx == i else curses.A_NORMAL
+                            stdscr.addstr(5 + i, 4, f"{svc[0]}", attr)
+                        dev_start = 5 + len(SERVICES) + 2
+                        stdscr.addstr(dev_start, 2, "Bluetooth Devices:", curses.A_UNDERLINE)
+                        for i, dev in enumerate(device_info_list):
+                            attr = curses.A_REVERSE if sel_type == "device" and sel_idx == i else curses.A_NORMAL
+                            stdscr.addstr(dev_start + 1 + i, 4, f"{dev[1]} ({dev[0]})", attr)
+                        stdscr.addstr(curses.LINES - 2, 2, "Config/Diagnostics: c", curses.A_DIM)
+                        stdscr.refresh()
+                        c = stdscr.getch()
+                        if c == curses.KEY_UP:
+                            sel_idx = max(sel_idx - 1, 0)
+                        elif c == curses.KEY_DOWN:
+                            if sel_type == "service":
+                                sel_idx = min(sel_idx + 1, len(SERVICES) - 1)
+                            else:
+                                sel_idx = min(sel_idx + 1, len(device_info_list) - 1)
+                        elif c == ord('q'):
+                            break
+                        elif c == ord('c'):
+                            stdscr.clear()
+                            stdscr.addstr(0, 2, "Config/Diagnostics", curses.A_BOLD)
+                            stdscr.addstr(2, 2, "(Config and diagnostics info would appear here)", curses.A_DIM)
+                            stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+                            stdscr.refresh()
+                            stdscr.getch()
+                        elif c == curses.KEY_RIGHT or c == curses.KEY_LEFT:
+                            if sel_type == "service":
+                                sel_type = "device"
+                                sel_idx = 0
+                            else:
+                                sel_type = "service"
+                                sel_idx = 0
+                        elif c == ord('+'):
+                            delay = min(delay + 1, 30)
+                        elif c == ord('-'):
+                            delay = max(delay - 1, 1)
+                        elif c == curses.KEY_ENTER or c == 10 or c == 13:
+                            stdscr.clear()
+                            if sel_type == "service":
+                                stdscr.addstr(0, 2, f"Service action for {SERVICES[sel_idx][0]}", curses.A_BOLD)
+                                stdscr.addstr(2, 2, "(Service actions would appear here)", curses.A_DIM)
+                            else:
+                                stdscr.addstr(0, 2, f"Bluetooth Device: {device_info_list[sel_idx][1]}", curses.A_BOLD)
+                                stdscr.addstr(2, 2, "(Device actions would appear here)", curses.A_DIM)
+                            stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
+                            stdscr.refresh()
+                            stdscr.getch()
 
-    """Gather diagnostic information from various sources."""
-    info = {}
-
-    # Backend selection
-    try:
-        if os.path.exists("/etc/ipr-keyboard/backend"):
-            with open("/etc/ipr-keyboard/backend", "r") as f:
-                info["backend_file"] = f.read().strip()
-        else:
-            info["backend_file"] = "not found"
-    except Exception:
-        info["backend_file"] = "error reading"
-
-    # Config file backend
-    try:
-        config_path = os.path.expanduser("~/dev/ipr-keyboard/config.json")
-        if not os.path.exists(config_path):
-            # Try alternate locations
-            for alt_path in [
-                "/home/*/dev/ipr-keyboard/config.json",
-                "./config.json",
-                "../config.json",
-            ]:
-                matches = subprocess.check_output(
-                    f"ls {alt_path} 2>/dev/null || true", shell=True, text=True
+                if __name__ == "__main__":
+                    curses.wrapper(main, delay)
                 ).strip()
                 if matches:
                     config_path = matches.split("\n")[0]
@@ -1023,75 +1050,59 @@ def main(stdscr, delay):
                     status = get_status(svc)
                     attr = curses.A_REVERSE if selected == i else 0
                     stdscr.addstr(2 + i, 4, f"{svc:25} [{status}] - {desc} ({backend})", attr)
-                offset = 2 + len(SERVICES)
-                stdscr.addstr(offset, 2, "Bluetooth Devices:", curses.A_UNDERLINE)
-                for j, (mac, name, connected) in enumerate(device_info_list):
-                    idx = len(SERVICES) + j
-                    attr = curses.A_REVERSE if selected == idx else 0
-                    stdscr.addstr(offset + 1 + j, 4, f"{mac:17} {name:20} Connected: {connected}", attr)
-                # Config/diagnostic section
-                stdscr.addstr(offset + 2 + len(device_info_list), 2, "Config/Diagnostics:", curses.A_UNDERLINE)
-                stdscr.addstr(offset + 3 + len(device_info_list), 4, "(Config and diagnostics info would appear here)", curses.A_DIM)
-                stdscr.addstr(curses.LINES - 1, 2, "Up/Down: Move  Enter: Action  q: Quit", curses.A_DIM)
-                stdscr.refresh()
+                while True:
+                    stdscr.clear()
+                    stdscr.addstr(0, 2, "IPR Service Monitor", curses.A_BOLD)
+                    stdscr.addstr(1, 2, "Navigate: ↑↓  Select: Enter  Quit: q", curses.A_DIM)
+                    stdscr.addstr(2, 2, f"Delay: {delay}s (+/-)", curses.A_DIM)
+                    stdscr.addstr(4, 2, "Services:", curses.A_UNDERLINE)
+                    for i, svc in enumerate(SERVICES):
+                        attr = curses.A_REVERSE if sel_type == "service" and sel_idx == i else curses.A_NORMAL
+                        stdscr.addstr(5 + i, 4, f"{svc[0]}", attr)
+                    dev_start = 5 + len(SERVICES) + 2
+                    stdscr.addstr(dev_start, 2, "Bluetooth Devices:", curses.A_UNDERLINE)
+                    for i, dev in enumerate(device_info_list):
+                        attr = curses.A_REVERSE if sel_type == "device" and sel_idx == i else curses.A_NORMAL
+                        stdscr.addstr(dev_start + 1 + i, 4, f"{dev[1]} ({dev[0]})", attr)
+                    stdscr.addstr(curses.LINES - 2, 2, "Config/Diagnostics: c", curses.A_DIM)
+                    stdscr.refresh()
+                    c = stdscr.getch()
+                    if c == curses.KEY_UP:
+                        sel_idx = max(sel_idx - 1, 0)
+                    elif c == curses.KEY_DOWN:
+                        if sel_type == "service":
+                            sel_idx = min(sel_idx + 1, len(SERVICES) - 1)
+                        else:
+                            sel_idx = min(sel_idx + 1, len(device_info_list) - 1)
+                    elif c == ord('q'):
+                        break
+                    elif c == ord('c'):
+                        stdscr.clear()
+                        stdscr.addstr(0, 2, "Config/Diagnostics", curses.A_BOLD)
 
-            while True:
-                draw_main_screen()
-                c = stdscr.getch()
-                if c in (ord('q'), ord('Q')):
-                    break
-                if c == curses.KEY_UP:
-                    selected = (selected - 1) % len(selectable_indices)
-                if c == curses.KEY_DOWN:
-                    selected = (selected + 1) % len(selectable_indices)
-                if c == curses.KEY_ENTER or c == 10 or c == 13:
-                    sel_type, sel_idx = selectable_indices[selected]
-                    if sel_type == "service":
+            # Minimal entrypoint
+            if __name__ == "__main__":
+                import curses
+                SERVICES = [("ipr_keyboard.service",), ("bt_hid_uinput.service",), ("bt_hid_ble.service",)]
+                device_info_list = [("AA:BB:CC:DD:EE:FF", "Test Device", True)]
+                sel_type = "service"
+                sel_idx = 0
+                delay = 5
+                curses.wrapper(main, delay)
+                        delay = min(delay + 1, 30)
+                    elif c == ord('-'):
+                        delay = max(delay - 1, 1)
+                    elif c == curses.KEY_ENTER or c == 10 or c == 13:
                         stdscr.clear()
-                        stdscr.addstr(0, 2, f"Service action for {SERVICES[sel_idx][0]}", curses.A_BOLD)
-                        stdscr.addstr(2, 2, "(Service actions would appear here)", curses.A_DIM)
+                        if sel_type == "service":
+                            stdscr.addstr(0, 2, f"Service action for {SERVICES[sel_idx][0]}", curses.A_BOLD)
+                            stdscr.addstr(2, 2, "(Service actions would appear here)", curses.A_DIM)
+                        else:
+                            stdscr.addstr(0, 2, f"Bluetooth Device: {device_info_list[sel_idx][1]}", curses.A_BOLD)
+                            stdscr.addstr(2, 2, "(Device actions would appear here)", curses.A_DIM)
                         stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
                         stdscr.refresh()
                         stdscr.getch()
-                    if sel_type == "device":
-                        stdscr.clear()
-                        stdscr.addstr(0, 2, f"Bluetooth Device: {device_info_list[sel_idx][1]}", curses.A_BOLD)
-                        stdscr.addstr(2, 2, "(Device actions would appear here)", curses.A_DIM)
-                        stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
-                        stdscr.refresh()
-                        stdscr.getch()
-                    error_msg = run_action(["sudo", "systemctl", "start", svc])
-                    with status_lock:
-                        status_snapshot[svc] = get_status(svc)
-                    redraw_event.set()
-                elif action == "Stop":
-                    error_msg = run_action(["sudo", "systemctl", "stop", svc])
-                    with status_lock:
-                        status_snapshot[svc] = get_status(svc)
-                    redraw_event.set()
-                elif action == "Restart":
-                    error_msg = run_action(["sudo", "systemctl", "restart", svc])
-                    with status_lock:
-                        status_snapshot[svc] = get_status(svc)
-                    redraw_event.set()
-                elif action == "Journal":
-                    show_journal(stdscr, svc)
-                    with status_lock:
-                        device_info_list = draw_table(
-                            stdscr,
-                            selected,
-                            delay,
-                            status_snapshot,
-                            diag_info,
-                            selectable_indices,
-                        )
-                elif action == "Diagnostics":
-                    show_diagnostics(stdscr)
-                    with status_lock:
-                        device_info_list = draw_table(
-                            stdscr,
-                            selected,
-                            delay,
                             status_snapshot,
                             diag_info,
                             selectable_indices,
