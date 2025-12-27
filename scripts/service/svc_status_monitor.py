@@ -428,6 +428,122 @@ def draw_table(
         )
         row += 1
 
+    # After device list, restore configuration/diagnostic sections
+    # Prepare status groups
+    diag_lines = (
+        [
+            f"Backend (file): {diag_info.get('backend_file', 'unknown')}",
+            f"Backend (config): {diag_info.get('config_backend', 'unknown')}",
+            f"BT Powered: {diag_info.get('bt_powered', 'unknown')}",
+            f"Discoverable: {diag_info.get('bt_discoverable', 'unknown')}",
+            f"Pairable: {diag_info.get('bt_pairable', 'unknown')}",
+            f"Paired devices: {diag_info.get('paired_devices', 'unknown')}",
+            f"FIFO: {diag_info.get('fifo_exists', 'unknown')}",
+            f"bt_kb_send: {diag_info.get('bt_kb_send', 'unknown')}",
+            f"Web API: {diag_info.get('web_api', 'unknown')}",
+        ]
+        if diag_info
+        else []
+    )
+
+    config_info = get_config_json_info()
+    config_lines = ["config.json Status"]
+    if isinstance(config_info, dict):
+        config_lines += [f"{k}: {v}" for k, v in config_info.items()]
+    else:
+        config_lines.append(str(config_info))
+
+    bt_agent_env = get_bt_agent_env_info()
+    bt_agent_lines = ["bt_agent_unified_env Status"]
+    if isinstance(bt_agent_env, dict):
+        bt_agent_lines += [f"{k}: {v}" for k, v in bt_agent_env.items()]
+    else:
+        bt_agent_lines.append(str(bt_agent_env))
+
+    # Show diagnostics/config columns below device list
+    col_gap = 4
+    col_count = 3
+    col_width = max(28, (curses.COLS - (col_gap * (col_count - 1)) - 4) // col_count)
+    can_do_columns = curses.COLS >= 90
+    max_lines = max(len(diag_lines), len(config_lines), len(bt_agent_lines))
+    start_row = row + 1
+
+    def add_wrapped(stdscr, y, x, text, width, attr):
+        lines = [text[i : i + width] for i in range(0, len(text), width)]
+        for i, line in enumerate(lines):
+            if y + i < curses.LINES - 1:
+                stdscr.addstr(y + i, x, line.ljust(width), attr)
+        return len(lines)
+
+    if can_do_columns and start_row + max_lines < curses.LINES - 1:
+        stdscr.addstr(
+            start_row, 2, "System Diagnostics", curses.A_BOLD | curses.color_pair(4)
+        )
+        stdscr.addstr(
+            start_row,
+            2 + col_width + col_gap,
+            "config.json Status",
+            curses.A_BOLD | curses.color_pair(4),
+        )
+        stdscr.addstr(
+            start_row,
+            2 + 2 * (col_width + col_gap),
+            "bt_agent_unified_env Status",
+            curses.A_BOLD | curses.color_pair(4),
+        )
+        for i in range(max_lines):
+            r = start_row + 1 + i
+            if r >= curses.LINES - 1:
+                break
+            y = r
+            if i < len(diag_lines):
+                add_wrapped(stdscr, y, 2, diag_lines[i], col_width, curses.A_DIM)
+            if i < len(config_lines) - 1:
+                add_wrapped(
+                    stdscr,
+                    y,
+                    2 + col_width + col_gap,
+                    config_lines[i + 1],
+                    col_width,
+                    curses.A_DIM,
+                )
+            if i < len(bt_agent_lines) - 1:
+                add_wrapped(
+                    stdscr,
+                    y,
+                    2 + 2 * (col_width + col_gap),
+                    bt_agent_lines[i + 1],
+                    col_width,
+                    curses.A_DIM,
+                )
+    else:
+        if diag_info and row < curses.LINES - 8:
+            row += 1
+            stdscr.addstr(
+                row, 2, "System Diagnostics", curses.A_BOLD | curses.color_pair(4)
+            )
+            row += 1
+            for line in diag_lines:
+                if row < curses.LINES - 1:
+                    stdscr.addstr(row, 4, line[: curses.COLS - 6], curses.A_DIM)
+                    row += 1
+        stdscr.addstr(
+            row, 2, "config.json Status", curses.A_BOLD | curses.color_pair(4)
+        )
+        row += 1
+        for line in config_lines[1:]:
+            if row < curses.LINES - 1:
+                stdscr.addstr(row, 4, line[: curses.COLS - 6], curses.A_DIM)
+                row += 1
+        stdscr.addstr(
+            row, 2, "bt_agent_unified_env Status", curses.A_BOLD | curses.color_pair(4)
+        )
+        row += 1
+        for line in bt_agent_lines[1:]:
+            if row < curses.LINES - 1:
+                stdscr.addstr(row, 4, line[: curses.COLS - 6], curses.A_DIM)
+                row += 1
+
     return device_info_list
 
     # Prepare status groups
@@ -1077,55 +1193,71 @@ def main(stdscr, delay):
                             break
                         elif chosen == "Connect":
                             cmd = ["bluetoothctl", "connect", mac]
-                        elif chosen == "Disconnect":
-                            cmd = ["bluetoothctl", "disconnect", mac]
-                        elif chosen == "Remove":
-                            cmd = ["bluetoothctl", "remove", mac]
-                        elif chosen == "Info":
-                            cmd = ["bluetoothctl", "info", mac]
-                        else:
-                            break
-                        try:
-                            output = subprocess.check_output(
-                                cmd, text=True, stderr=subprocess.STDOUT
-                            )
-                        except subprocess.CalledProcessError as e:
-                            output = e.output
-                        stdscr.clear()
-                        stdscr.addstr(0, 2, f"{chosen} {mac}", curses.A_BOLD)
-                        lines = output.splitlines()
-                        for i, line in enumerate(lines[: curses.LINES - 3]):
-                            stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
-                        stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
-                        stdscr.refresh()
-                        stdscr.getch()
-                        break
-        elif c == ord("+"):
-            delay = min(delay + 1, 30)
-        elif c == ord("-"):
-            delay = max(delay - 1, 1)
-            # No sleep here; input is responsive
-            show_diagnostics(stdscr)
-            with status_lock:
-                draw_table(stdscr, selected, delay, status_snapshot, diag_info)
-        elif c in (ord("r"), ord("R")):
-            with status_lock:
-                try:
-                    diag_info = get_diagnostic_info()
-                except Exception:
-                    pass
-                draw_table(stdscr, selected, delay, status_snapshot, diag_info)
-        elif c == curses.KEY_UP:
-            selected = (selected - 1) % len(selectable_indices)
-            with status_lock:
-                draw_table(stdscr, selected, delay, status_snapshot, diag_info)
-        elif c == curses.KEY_DOWN:
-            selected = (selected + 1) % len(selectable_indices)
-            with status_lock:
-                draw_table(stdscr, selected, delay, status_snapshot, diag_info)
-        elif c == curses.KEY_ENTER or c == 10 or c == 13:
-            svc, desc, backend = SERVICES[selected]
-            action = select_action(stdscr, svc)
+                        elif sel_type == "device":
+                            # Bluetooth device actions
+                            mac, name, connected = device_info_list[sel_idx]
+                            bt_actions = [
+                                ("Connect" if connected == "no" else "Disconnect"),
+                                "Remove",
+                                "Info",
+                                "Back",
+                            ]
+                            action_idx = 0
+                            while True:
+                                stdscr.clear()
+                                stdscr.addstr(
+                                    0,
+                                    2,
+                                    f"Bluetooth Device: {mac} {name}",
+                                    curses.A_BOLD,
+                                )
+                                stdscr.addstr(
+                                    1, 2, f"Connected: {connected}", curses.A_DIM
+                                )
+                                for i, act in enumerate(bt_actions):
+                                    attr = curses.A_REVERSE if i == action_idx else 0
+                                    stdscr.addstr(3 + i, 4, act, attr)
+                                stdscr.refresh()
+                                c2 = stdscr.getch()
+                                if c2 == curses.KEY_UP:
+                                    action_idx = (action_idx - 1) % len(bt_actions)
+                                elif c2 == curses.KEY_DOWN:
+                                    action_idx = (action_idx + 1) % len(bt_actions)
+                                elif c2 in (curses.KEY_ENTER, 10, 13):
+                                    chosen = bt_actions[action_idx]
+                                    if chosen == "Back":
+                                        break
+                                    elif chosen == "Connect":
+                                        cmd = ["bluetoothctl", "connect", mac]
+                                    elif chosen == "Disconnect":
+                                        cmd = ["bluetoothctl", "disconnect", mac]
+                                    elif chosen == "Remove":
+                                        cmd = ["bluetoothctl", "remove", mac]
+                                    elif chosen == "Info":
+                                        cmd = ["bluetoothctl", "info", mac]
+                                    else:
+                                        break
+                                    try:
+                                        output = subprocess.check_output(
+                                            cmd, text=True, stderr=subprocess.STDOUT
+                                        )
+                                    except subprocess.CalledProcessError as e:
+                                        output = e.output
+                                    stdscr.clear()
+                                    stdscr.addstr(
+                                        0, 2, f"{chosen} {mac}", curses.A_BOLD
+                                    )
+                                    lines = output.splitlines()
+                                    for i, line in enumerate(lines[: curses.LINES - 3]):
+                                        stdscr.addstr(i + 2, 2, line[: curses.COLS - 4])
+                                    stdscr.addstr(
+                                        curses.LINES - 1,
+                                        2,
+                                        "Press any key to return...",
+                                    )
+                                    stdscr.refresh()
+                                    stdscr.getch()
+                                    # After showing result, return to device menu
 
             def run_action(cmd):
                 try:
