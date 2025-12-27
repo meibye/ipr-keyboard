@@ -306,6 +306,7 @@ if [[ "$wizard_step" -le 6 ]]; then
   if echo "$SSH_TEST_OUTPUT" | grep -q "successfully authenticated"; then
     success "SSH authentication to GitHub succeeded."
   else
+  
     warn "SSH test failed. You may need to set up your SSH key."
   fi
   set -e
