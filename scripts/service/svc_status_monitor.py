@@ -333,6 +333,7 @@ def draw_table(
     svc_col = 4
     if selectable_indices is not None:
         selectable_indices.clear()
+
     for backend, label in BACKEND_LABELS:
         stdscr.addstr(row, 2, label, curses.A_BOLD | curses.color_pair(4))
         row += 1
@@ -358,6 +359,42 @@ def draw_table(
                     selectable_indices.append(svc_idx)
                 row += 1
                 idx += 1
+        row += 1
+
+    # Show paired Bluetooth devices after service groups
+    try:
+        devices = subprocess.check_output(
+            ["bluetoothctl", "devices"], text=True, stderr=subprocess.DEVNULL
+        )
+        device_lines = [
+            line.strip() for line in devices.strip().split("\n") if line.strip()
+        ]
+        if device_lines:
+            stdscr.addstr(
+                row,
+                2,
+                "Paired Bluetooth Devices:",
+                curses.A_BOLD | curses.color_pair(4),
+            )
+            row += 1
+            for dev in device_lines:
+                stdscr.addstr(row, svc_col, dev)
+                row += 1
+        else:
+            stdscr.addstr(
+                row,
+                2,
+                "Paired Bluetooth Devices: None",
+                curses.A_BOLD | curses.color_pair(4),
+            )
+            row += 1
+    except Exception:
+        stdscr.addstr(
+            row,
+            2,
+            "Paired Bluetooth Devices: [Error reading]",
+            curses.A_BOLD | curses.color_pair(1),
+        )
         row += 1
 
     # Prepare status groups

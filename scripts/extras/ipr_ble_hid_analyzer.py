@@ -6,8 +6,12 @@ Debug tool for BLE HID:
   - Watches PropertiesChanged for GATT characteristics
   - Logs HID report Value changes and connection-related indicators
 
+
 Usage:
   sudo /usr/local/bin/ipr_ble_hid_analyzer.py
+
+To view output in the systemd journal, run:
+  journalctl -t ipr_ble_hid_analyzer -f
 
 Prerequisites:
   - Must be run as root
@@ -37,6 +41,13 @@ def on_properties_changed(interface, changed, invalidated, path=None):
 
 
 def main():
+    print(
+        "ipr_ble_hid_analyzer: starting up (watching BLE HID GATT characteristics)..."
+    )
+    print("View output with: journalctl -t ipr_ble_hid_analyzer -f")
+    journal.send(
+        "ipr_ble_hid_analyzer: starting up (watching BLE HID GATT characteristics)..."
+    )
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
 

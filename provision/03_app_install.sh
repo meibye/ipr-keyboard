@@ -51,6 +51,10 @@ APP_USER_HOME=$(getent passwd "$APP_USER" | cut -d: -f6)
 
 cd "$REPO_DIR"
 
+
+# NOTE: BLE analyzer and other scripts requiring gi.repository (PyGObject) must use system Python (with python3-gi), not venv.
+# This is a Debian/Ubuntu packaging limitation. Do not attempt to run these scripts from a venv.
+
 # Verify scripts exist
 if [[ ! -f "scripts/sys_setup_venv.sh" ]]; then
   error "Cannot find scripts/sys_setup_venv.sh"

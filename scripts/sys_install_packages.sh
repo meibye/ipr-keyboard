@@ -51,12 +51,15 @@ if [[ "$MODE" == "system" ]]; then
             python3-pip \
             python3-systemd \
             python3-dbus \
+            python3-gi \
             bluez \
             bluez-tools \
             bluetooth \
             libcairo2-dev \
             libgirepository1.0-dev \
             jq
+
+    # Note: PyGObject (gi.repository) is only available for the system Python via python3-gi. For venvs, use system Python for scripts requiring gi.
 
     ########################################
     # 3. MTP support for IRISPen

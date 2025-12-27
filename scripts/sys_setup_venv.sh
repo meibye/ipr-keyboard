@@ -161,7 +161,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/env_set_variables.sh"
 
+
 echo "[sys_setup_venv] Setting up Python virtual environment using uv"
+
+# Warn about PyGObject/gi availability
+if ! python3 -c 'import gi' 2>/dev/null; then
+  echo "[sys_setup_venv] WARNING: PyGObject (gi.repository) is not available in this venv."
+  echo "[sys_setup_venv] If you need gi.repository, use the system Python with 'python3-gi' installed."
+fi
 
 if [[ $EUID -eq 0 ]]; then
   echo "Do NOT run this as root. Run as user '$IPR_USER'."
