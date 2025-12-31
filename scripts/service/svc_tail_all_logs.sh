@@ -20,3 +20,5 @@ sudo journalctl \
   -u "dbus.service" \
   -u "systemd-udevd.service" \
   -f
+  -o short 
+  --output-fields=_SYSTEMD_UNIT,MESSAGE

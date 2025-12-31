@@ -58,28 +58,57 @@ if ! grep -qE '^\[General\]' "$CONF"; then
   printf '\n[General]\n' >> "$CONF"
 fi
 
+
+# set_or_add <key> <value> <section>
 set_or_add() {
   local key="$1"
   local value="$2"
-  if grep -qE "^[#[:space:]]*${key}[[:space:]]*=" "$CONF"; then
-    # replace first match (commented or uncommented)
-    sed -i -E "0,/^[#[:space:]]*${key}[[:space:]]*=/{s/^[#[:space:]]*${key}[[:space:]]*=.*/${key} = ${value}/}" "$CONF"
-  else
-    # append under [General]
-    awk -v k="$key" -v v="$value" '
-      BEGIN{done=0}
-      /^\[General\]/{print; if(!done){print k" = "v; done=1; next}}
-      {print}
-      END{if(!done){print "\n[General]\n"k" = "v}}
-    ' "$CONF" > "${CONF}.tmp"
-    mv "${CONF}.tmp" "$CONF"
+  local section="$3"
+  local tmpfile="${CONF}.tmp"
+
+  # Ensure section exists
+  if ! grep -qE "^\[$section\]" "$CONF"; then
+    printf '\n[%s]\n' "$section" >> "$CONF"
   fi
+
+  # awk script: replace or add key in section
+  awk -v k="$key" -v v="$value" -v s="$section" '
+    BEGIN{in_section=0; done=0}
+    /^\[/{
+      if(in_section && !done){print k" = "v; done=1}
+      in_section=($0=="["s"]")
+    }
+    in_section && $0 ~ "^[#[:space:]]*"k"[[:space:]]*=" {
+      if(!done){print k" = "v; done=1}
+      next
+    }
+    {print}
+    END{if(!done){print "\n["s"]\n"k" = "v}}
+  ' "$CONF" > "$tmpfile"
+  mv "$tmpfile" "$CONF"
 }
 
-set_or_add "AutoEnable" "true"
-set_or_add "PairableTimeout" "0"
-set_or_add "DiscoverableTimeout" "0"
-set_or_add "ControllerMode" "$BT_CONTROLLER_MODE"
+
+# Key:Section mapping
+set_or_add "AutoEnable" "true" "General"
+# set_or_add "PairableTimeout" "0" "General"
+# set_or_add "DiscoverableTimeout" "0" "Policy"
+set_or_add "ControllerMode" "$BT_CONTROLLER_MODE" "General"
+
+# Create systemd override for bluetooth.service
+echo "[ble_configure_system] Creating systemd override for bluetooth.service (ConfigurationDirectoryMode=0755)"
+mkdir -p /etc/systemd/system/bluetooth.service.d
+
+echo "[ble_configure_system] Writing override.conf for bluetooth.service..."
+cat > /etc/systemd/system/bluetooth.service.d/override.conf <<EOF
+[Service]
+ConfigurationDirectoryMode=0755
+ExecStart=
+ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp
+EOF
+
+echo "[ble_configure_system] Reloading systemd daemon..."
+systemctl daemon-reload
 
 echo "[ble_configure_system] Restarting bluetooth..."
 systemctl restart bluetooth
