@@ -19,6 +19,7 @@ Requires: python3, curses, systemctl, journalctl
 """
 
 import curses
+import os
 import subprocess
 import threading
 import time
@@ -33,6 +34,10 @@ SERVICES = [
     ("bt_hid_agent_unified.service", "Pairing/authorization agent (all backends)"),
     ("bt_hid_agent.service", "Classic agent (legacy, not default)"),
     ("ipr_backend_manager.service", "Switches/monitors backend daemons"),
+    # Standard Bluetooth stack services
+    ("bluetooth.service", "BlueZ Bluetooth stack daemon"),
+    ("dbus.service", "D-Bus system message bus"),
+    ("systemd-udevd.service", "Device event manager (udev)"),
 ]
 
 
@@ -75,20 +80,46 @@ def device_status_color(connected, paired):
 
 
 def get_config_info():
-    # Placeholder: should read config.json
-    return {
-        "DeleteFiles": True,
-        "KeyboardBackend": "uinput",
-        "IrisPenFolder": "/mnt/irispen",
-        "LogPort": 8080,
-        "Logging": True,
-        "MaxFileSize": 1048576,
-    }
+    import json
+    import os
+
+    config_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config.json"
+    )
+    try:
+        with open(config_path, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        return {"error": f"Failed to read config.json: {e}"}
 
 
 def get_diag_info():
-    # Placeholder: should call diag_status.sh/diag_troubleshoot.sh
-    return "Diagnostics OK"
+    import subprocess
+
+    try:
+        out = subprocess.check_output(
+            [
+                os.path.join(
+                    os.path.dirname(os.path.dirname(__file__)), "diag_status.sh"
+                )
+            ],
+            text=True,
+        )
+        return out.strip()
+    except Exception:
+        try:
+            out = subprocess.check_output(
+                [
+                    os.path.join(
+                        os.path.dirname(os.path.dirname(__file__)),
+                        "diag_troubleshoot.sh",
+                    )
+                ],
+                text=True,
+            )
+            return out.strip()
+        except Exception as e:
+            return f"Diagnostics unavailable: {e}"
 
 
 class StatusThread(threading.Thread):
@@ -130,7 +161,9 @@ def main(stdscr, delay):
     while True:
         stdscr.clear()
         stdscr.addstr(0, 2, "IPR Service Monitor", curses.A_BOLD)
-        stdscr.addstr(1, 2, "Navigate: ↑↓  Select: Enter  Quit: q", curses.A_DIM)
+        stdscr.addstr(
+            1, 2, "Navigate: ↑↓  Select: Enter  Refresh: r  Quit: q", curses.A_DIM
+        )
         stdscr.addstr(2, 2, f"Delay: {delay}s (+/-)", curses.A_DIM)
         # Service table headers
         stdscr.addstr(4, 2, "Services:", curses.A_UNDERLINE)
@@ -176,6 +209,11 @@ def main(stdscr, delay):
         stdscr.addstr(diag_start, 2, "Diagnostics: c", curses.A_DIM)
         stdscr.refresh()
         c = stdscr.getch()
+        if c in (ord("r"), ord("R")):
+            # Immediate refresh: update all service statuses
+            for svc in SERVICES:
+                status_thread.status[svc[0]] = get_service_status(svc[0])
+            continue
         if c == curses.KEY_UP:
             sel_idx = max(sel_idx - 1, 0)
         elif c == curses.KEY_DOWN:
@@ -216,7 +254,7 @@ def main(stdscr, delay):
                 stdscr.addstr(
                     2,
                     2,
-                    "Actions: [S]tart [T]op [R]estart [J]ournal [E]nable [D]isable",
+                    "Actions: [S]tart s[T]op [R]estart [J]ournal [E]nable [D]isable",
                     curses.A_DIM,
                 )
                 stdscr.addstr(
