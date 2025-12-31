@@ -1,61 +1,87 @@
 #!/usr/bin/env bash
 #
-# Bluetooth Configuration Script
+# ble_configure_system.sh
 #
 # Purpose:
-#   Configures /etc/bluetooth/main.conf with appropriate Class and AutoEnable for HID keyboard profile.
-#   Makes a backup before modifying. Must be run as root.
+#   Configure /etc/bluetooth/main.conf so the Pi behaves like a BLE-only HID
+#   peripheral (recommended for BLE HID over GATT). This avoids Windows showing
+#   two devices (one BR/EDR "classic" and one BLE advertisement).
+#
+# What it does:
+#   - Ensures AutoEnable = true
+#   - Ensures PairableTimeout = 0 (never times out)
+#   - Ensures DiscoverableTimeout = 0 (only matters if classic discoverable is enabled)
+#   - Sets ControllerMode = le   (DISABLES BR/EDR; only LE)
+#
+# Notes:
+#   - If you want to use the classic/uinput backend (BR/EDR HID), do NOT set
+#     ControllerMode=le. In that case, set BT_CONTROLLER_MODE=dual in /opt/ipr_common.env
+#     and rerun this script.
 #
 # Usage:
-#   sudo ./scripts/02_configure_bluetooth.sh
+#   sudo ./scripts/ble_configure_system.sh
 #
-# Prerequisites:
-#   - Must be run as root (uses sudo)
-#   - Environment variables set (sources env_set_variables.sh)
-#
-# Note:
-#   This script is required for enabling Bluetooth HID keyboard emulation.
-#
-# category: Bluetooth
-# purpose: Configure Bluetooth for HID keyboard profile
-# sudo: yes
-
-set -eo pipefail
-
-
-# Load environment variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC1091
-source "$SCRIPT_DIR/env_set_variables.sh"
-echo "[ble_configure_system] Configure /etc/bluetooth/main.conf for HID keyboard profile"
-
-if [[ $EUID -ne 0 ]]; then
-  echo "Please run as root: sudo $0"
-  exit 1
-fi
+set -euo pipefail
 
 CONF="/etc/bluetooth/main.conf"
 BACKUP="/etc/bluetooth/main.conf.bak.$(date +%Y%m%d%H%M%S)"
 
+if [[ $EUID -ne 0 ]]; then
+  echo "ERROR: must be run as root"
+  exit 1
+fi
+
+# Optional: load desired mode from /opt/ipr_common.env if present
+BT_CONTROLLER_MODE="le"
+if [[ -f /opt/ipr_common.env ]]; then
+  # shellcheck disable=SC1091
+  source /opt/ipr_common.env || true
+fi
+if [[ "${BT_CONTROLLER_MODE:-le}" == "dual" ]]; then
+  BT_CONTROLLER_MODE="dual"
+else
+  BT_CONTROLLER_MODE="le"
+fi
+
+echo "[ble_configure_system] Updating $CONF (BT_CONTROLLER_MODE=$BT_CONTROLLER_MODE)"
+
 if [[ -f "$CONF" ]]; then
-  echo "Backing up $CONF to $BACKUP"
+  echo "[ble_configure_system] Backup $CONF -> $BACKUP"
   cp "$CONF" "$BACKUP"
+else
+  echo "[ble_configure_system] $CONF does not exist, creating"
+  touch "$CONF"
 fi
 
-# Insert comment about this script above the changes
-if ! grep -q '# Modified by ble_configure_system.sh' "$CONF"; then
-  sed -i '1i# Modified by ble_configure_system.sh' "$CONF"
+# Ensure we have a [General] section
+if ! grep -qE '^\[General\]' "$CONF"; then
+  printf '\n[General]\n' >> "$CONF"
 fi
 
-# Update or insert the required settings idempotently (match commented or uncommented lines)
-sed -i \
-  -e '/^[#[:space:]]*Class[[:space:]]*=.*/{s/^#\?//;s|Class[[:space:]]*=.*|Class = 0x002540|;b};$aClass = 0x002540' \
-  -e '/^[#[:space:]]*DiscoverableTimeout[[:space:]]*=.*/{s/^#\?//;s|DiscoverableTimeout[[:space:]]*=.*|DiscoverableTimeout = 0|;b};$aDiscoverableTimeout = 0' \
-  -e '/^[#[:space:]]*PairableTimeout[[:space:]]*=.*/{s/^#\?//;s|PairableTimeout[[:space:]]*=.*|PairableTimeout = 0|;b};$aPairableTimeout = 0' \
-  -e '/^[#[:space:]]*AutoEnable[[:space:]]*=.*/{s/^#\?//;s|AutoEnable[[:space:]]*=.*|AutoEnable = true|;b};$aAutoEnable = true' \
-  "$CONF"
+set_or_add() {
+  local key="$1"
+  local value="$2"
+  if grep -qE "^[#[:space:]]*${key}[[:space:]]*=" "$CONF"; then
+    # replace first match (commented or uncommented)
+    sed -i -E "0,/^[#[:space:]]*${key}[[:space:]]*=/{s/^[#[:space:]]*${key}[[:space:]]*=.*/${key} = ${value}/}" "$CONF"
+  else
+    # append under [General]
+    awk -v k="$key" -v v="$value" '
+      BEGIN{done=0}
+      /^\[General\]/{print; if(!done){print k" = "v; done=1; next}}
+      {print}
+      END{if(!done){print "\n[General]\n"k" = "v}}
+    ' "$CONF" > "${CONF}.tmp"
+    mv "${CONF}.tmp" "$CONF"
+  fi
+}
 
-echo "Restarting bluetooth service..."
+set_or_add "AutoEnable" "true"
+set_or_add "PairableTimeout" "0"
+set_or_add "DiscoverableTimeout" "0"
+set_or_add "ControllerMode" "$BT_CONTROLLER_MODE"
+
+echo "[ble_configure_system] Restarting bluetooth..."
 systemctl restart bluetooth
 
 echo "[ble_configure_system] Done."

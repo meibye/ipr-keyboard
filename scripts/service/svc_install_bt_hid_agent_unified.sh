@@ -2,155 +2,106 @@
 #
 # svc_install_bt_hid_agent_unified.sh
 #
-# Installs the bt_hid_agent_unified service and script.
-# This service provides Bluetooth pairing and authorization.
+# Installs the unified BlueZ agent service used for pairing.
+#
+# IMPORTANT:
+#   Windows will often show TWO devices if the adapter is made classic-discoverable
+#   (BR/EDR inquiry scan) while you also advertise a BLE peripheral.
+#
+#   Default behavior here is BLE-only pairing UX:
+#     - Powered = True
+#     - Pairable = True
+#     - Discoverable (classic) = False
+#
+#   To explicitly enable classic discoverability (only if you need it):
+#     set BT_ENABLE_CLASSIC_DISCOVERABLE="1" in /opt/ipr_common.env
 #
 # Usage:
 #   sudo ./scripts/service/svc_install_bt_hid_agent_unified.sh
 #
-# Prerequisites:
-#   - Must be run as root (uses sudo)
-#
-# category: Service
-# purpose: Install UNIFIED Bluetooth HID agent service for pairing
-# sudo: yes
-#
-
-set -eo pipefail
+set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root: sudo $0"
   exit 1
 fi
 
-AGENT_PATH="/usr/local/bin/bt_hid_agent_unified.py"
-HELPER_SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HELPER_SRC_PATH="${HELPER_SRC_DIR}/lib/bt_agent_unified_env.sh"
-HELPER_DST_DIR="/usr/local/lib/ipr-keyboard"
-HELPER_DST_PATH="${HELPER_DST_DIR}/bt_agent_unified_env.sh"
+SERVICE_NAME="bt_hid_agent_unified"
+AGENT_BIN="/usr/local/bin/bt_hid_agent_unified.py"
+ENV_FILE="/opt/ipr_common.env"
 
-echo "=== [svc_install_bt_hid_agent_unified] Installing bt_hid_agent_unified service ==="
-
-
-################################################################################################################
-# How to run it for “Windows should not ask for passkeys”
-# A) BLE HID over GATT (the one that actually meets the requirement reliably)
-#
-# Run the agent like this:
-#       sudo python3 bt_agent_unified.py --mode nowinpasskey --capability NoInputNoOutput
-#
-# And in your BLE HID GATT implementation, ensure your Security/Permissions do not require MITM. 
-# Concretely:
-#       - IO capability: NoInputNoOutput
-#       - Bonding: OK
-#       - MITM: off
-#       - LE Secure Connections: fine, but if you require MITM, you’ll force numeric comparison/passkey flows.
-# If your BLE HID code currently sets flags like “MITM required” (often via BlueZ/gatt permission/security levels), remove that requirement.
-#
-# Windows steps (important):
-#       - Remove the device from Windows “Bluetooth & devices” (forget it).
-#       - On the Pi: remove old bonds (see “clean bonds” section below).
-# Pair again from Windows. You should get a simple Pair without a code.
-#
-# B) Classic HID fallback (best-effort “no passkey”)
-#       sudo python3 bt_agent_unified.py --mode nowinpasskey --capability NoInputNoOutput
-#
-# This may still trigger a Windows passkey/number prompt depending on how Windows decides to pair with that classic HID device. If it does, you have two choices:
-#       - accept that Classic HID won’t meet “never ask passkey”
-#       - stick to BLE HID for Windows
-################################################################################################################
-
-########################################
-# Create Bluetooth agent script
-########################################
-echo "=== [svc_install_bt_hid_agent_unified] Writing $AGENT_PATH ==="
-cat > "$AGENT_PATH" << 'EOF'
+echo "=== [svc_install_bt_hid_agent_unified] Writing $AGENT_BIN ==="
+cat > "$AGENT_BIN" << 'PYEOF'
 #!/usr/bin/env python3
-"""
-bt_hid_agent_unified.py
-
-Unified BlueZ Agent that supports both “no passkey” and “fixed PIN” (when legacy happens)
-
-Use one agent and select a mode:
-        -mode nowinpasskey = prefer flows that do not involve passkey entry (JustWorks / auto-confirm)
-        -mode fixedpin = provide a legacy PIN (only if Windows chooses legacy PIN pairing)
-"""
-
+import os
+import sys
 import argparse
-import signal
 import dbus
 import dbus.service
 import dbus.mainloop.glib
 from gi.repository import GLib
 
 BLUEZ = "org.bluez"
+AGENT_MGR_IFACE = "org.bluez.AgentManager1"
 AGENT_IFACE = "org.bluez.Agent1"
-AGENT_MGR = "org.bluez.AgentManager1"
-OM_IFACE = "org.freedesktop.DBus.ObjectManager"
 PROP_IFACE = "org.freedesktop.DBus.Properties"
 
-class Rejected(dbus.DBusException):
-    _dbus_error_name = "org.bluez.Error.Rejected"
-
-class Canceled(dbus.DBusException):
-    _dbus_error_name = "org.bluez.Error.Canceled"
-
 def dev_short(path: str) -> str:
+    if not path:
+        return "<?>"
     return path.split("/")[-1]
 
 class Agent(dbus.service.Object):
-    """
-    Modes:
-      - nowinpasskey: avoid RequestPasskey; auto-confirm RequestConfirmation; authorize automatically
-      - fixedpin: respond to RequestPinCode with fixed PIN (legacy pairing only)
-    """
-    def __init__(self, bus, path, mode, fixed_pin=None, verbose=True):
+    def __init__(self, bus, path="/ipr/agent", mode="nowinpasskey", fixed_pin="0000", verbose=True):
         super().__init__(bus, path)
+        self.bus = bus
+        self.path = path
         self.mode = mode
         self.fixed_pin = fixed_pin
         self.verbose = verbose
 
-    def log(self, msg):
+    def log(self, msg: str):
         if self.verbose:
             print(msg, flush=True)
 
-    @dbus.service.method(AGENT_IFACE, in_signature="", out_signature="")
-    def Release(self):
-        self.log("[agent] Release()")
-
-    @dbus.service.method(AGENT_IFACE, in_signature="", out_signature="")
-    def Cancel(self):
-        self.log("[agent] Cancel()")
-        raise Canceled("Canceled")
-
-    # Legacy PIN (old pairing model)
     @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="s")
     def RequestPinCode(self, device):
         d = dev_short(device)
-        if self.mode == "fixedpin" and self.fixed_pin is not None:
-            self.log(f"[agent] RequestPinCode({d}) -> {self.fixed_pin}")
-            return str(self.fixed_pin)
-        self.log(f"[agent] RequestPinCode({d}) -> rejecting (mode={self.mode})")
-        raise Rejected("No PIN")
+        if self.mode == "fixedpin":
+            self.log(f"[agent] RequestPinCode for {d} -> fixed pin {self.fixed_pin}")
+            return self.fixed_pin
+        self.log(f"[agent] RequestPinCode for {d} -> returning 0000")
+        return "0000"
 
-    # SSP Passkey Entry (what we want Windows to NOT do)
     @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="u")
     def RequestPasskey(self, device):
         d = dev_short(device)
-        if self.mode == "nowinpasskey":
-            self.log(f"[agent] RequestPasskey({d}) -> rejecting to avoid passkey-entry")
-            raise Rejected("Avoid passkey-entry")
-        self.log(f"[agent] RequestPasskey({d}) -> rejecting (no passkey configured)")
-        raise Rejected("No passkey")
+        # Windows may reject passkey flows for certain BLE HID configs;
+        # keep it deterministic and simple.
+        if self.mode == "fixedpin":
+            pk = int(self.fixed_pin)
+            self.log(f"[agent] RequestPasskey for {d} -> fixed passkey {pk}")
+            return dbus.UInt32(pk)
+        self.log(f"[agent] RequestPasskey for {d} -> returning 0")
+        return dbus.UInt32(0)
 
-    # Numeric comparison
+    @dbus.service.method(AGENT_IFACE, in_signature="ou", out_signature="")
+    def DisplayPasskey(self, device, passkey):
+        d = dev_short(device)
+        self.log(f"[agent] DisplayPasskey({d}) passkey={int(passkey):06d}")
+
+    @dbus.service.method(AGENT_IFACE, in_signature="os", out_signature="")
+    def DisplayPinCode(self, device, pincode):
+        d = dev_short(device)
+        self.log(f"[agent] DisplayPinCode({d}) pin={pincode}")
+
     @dbus.service.method(AGENT_IFACE, in_signature="ou", out_signature="")
     def RequestConfirmation(self, device, passkey):
         d = dev_short(device)
-        self.log(f"[agent] RequestConfirmation({d}) number={int(passkey):06d} -> accepting")
+        # For NoInputNoOutput capability, auto-accept.
+        self.log(f"[agent] RequestConfirmation({d}) passkey={int(passkey):06d} -> accepting")
         return
 
-    # Some stacks call these:
     @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="")
     def RequestAuthorization(self, device):
         d = dev_short(device)
@@ -163,32 +114,48 @@ class Agent(dbus.service.Object):
         self.log(f"[agent] AuthorizeService({d}) uuid={uuid} -> accepting")
         return
 
-    @dbus.service.method(AGENT_IFACE, in_signature="ouq", out_signature="")
-    def DisplayPasskey(self, device, passkey, entered):
-        d = dev_short(device)
-        self.log(f"[agent] DisplayPasskey({d}) passkey={int(passkey):06d} entered={int(entered)}")
+    @dbus.service.method(AGENT_IFACE, in_signature="", out_signature="")
+    def Cancel(self):
+        self.log("[agent] Cancel()")
+        return
 
-    @dbus.service.method(AGENT_IFACE, in_signature="os", out_signature="")
-    def DisplayPinCode(self, device, pincode):
-        d = dev_short(device)
-        self.log(f"[agent] DisplayPinCode({d}) pin={pincode}")
-
-def find_adapter(bus, prefer="hci0"):
-    om = dbus.Interface(bus.get_object(BLUEZ, "/"), OM_IFACE)
-    objs = om.GetManagedObjects()
-    adapters = [p for p, ifs in objs.items() if "org.bluez.Adapter1" in ifs]
-    if not adapters:
-        raise RuntimeError("No Bluetooth adapter found")
-    for a in adapters:
-        if a.endswith("/" + prefer):
-            return a
-    return adapters[0]
+def find_adapter(bus, prefer="hci0") -> str:
+    om = dbus.Interface(bus.get_object(BLUEZ, "/"), "org.freedesktop.DBus.ObjectManager")
+    objects = om.GetManagedObjects()
+    # Prefer explicit hci name
+    for path, ifaces in objects.items():
+        if "org.bluez.Adapter1" in ifaces and path.endswith(prefer):
+            return path
+    # Else first adapter
+    for path, ifaces in objects.items():
+        if "org.bluez.Adapter1" in ifaces:
+            return path
+    raise RuntimeError("No BlueZ adapter found")
 
 def set_adapter_ready(bus, adapter_path: str):
     props = dbus.Interface(bus.get_object(BLUEZ, adapter_path), PROP_IFACE)
     props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(True))
     props.Set("org.bluez.Adapter1", "Pairable", dbus.Boolean(True))
-    props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(True))
+
+    # IMPORTANT:
+    #  - If we also set Adapter1.Discoverable=True (classic/BR-EDR inquiry scan),
+    #    Windows often shows *two* devices: one BR/EDR entry and one BLE advertising entry.
+    #  - We default to BLE-only pairing UX, so we keep classic discoverability OFF.
+    #
+    # If you explicitly want classic discoverability for the uinput/BR-EDR backend,
+    # set BT_ENABLE_CLASSIC_DISCOVERABLE=1 in /opt/ipr_common.env.
+    enable_classic = os.environ.get("BT_ENABLE_CLASSIC_DISCOVERABLE", "0").strip()
+    # strip inline comment if present (people sometimes write: 1  # comment)
+    if " #" in enable_classic:
+        enable_classic = enable_classic.split(" #", 1)[0].strip()
+    if enable_classic == "1":
+        props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(True))
+    else:
+        try:
+            props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(False))
+        except Exception:
+            # Some adapters/drivers don't allow setting this explicitly; ignore.
+            pass
 
 def main():
     ap = argparse.ArgumentParser()
@@ -207,7 +174,7 @@ def main():
     adapter = find_adapter(bus, args.adapter)
     set_adapter_ready(bus, adapter)
 
-    Agent(
+    agent = Agent(
         bus=bus,
         path=args.agent_path,
         mode=args.mode,
@@ -215,55 +182,39 @@ def main():
         verbose=not args.quiet,
     )
 
-    mgr = dbus.Interface(bus.get_object(BLUEZ, "/org/bluez"), AGENT_MGR)
+    mgr = dbus.Interface(bus.get_object(BLUEZ, "/org/bluez"), AGENT_MGR_IFACE)
+
+    try:
+        mgr.UnregisterAgent(args.agent_path)
+    except Exception:
+        pass
+
     mgr.RegisterAgent(args.agent_path, args.capability)
     mgr.RequestDefaultAgent(args.agent_path)
 
-    print(f"[agent] mode={args.mode} capability={args.capability} adapter={adapter}", flush=True)
-
-    loop = GLib.MainLoop()
-
-    def stop(*_):
-        try:
-            mgr.UnregisterAgent(args.agent_path)
-        except Exception:
-            pass
-        loop.quit()
-
-    signal.signal(signal.SIGINT, stop)
-    signal.signal(signal.SIGTERM, stop)
-
-    loop.run()
+    print(f"[agent] Registered. mode={args.mode} capability={args.capability} adapter={adapter}", flush=True)
+    GLib.MainLoop().run()
 
 if __name__ == "__main__":
-    main()
-EOF
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(0)
+PYEOF
 
-chmod +x "$AGENT_PATH"
+chmod +x "$AGENT_BIN"
 
-########################################
-# Install shared helper (used by other scripts)
-########################################
-echo "=== [svc_install_bt_hid_agent_unified] Installing shared helper to $HELPER_DST_PATH ==="
-install -d -m 0755 "$HELPER_DST_DIR"
-install -m 0755 "$HELPER_SRC_PATH" "$HELPER_DST_PATH"
-
-########################################
-# Create systemd service unit
-########################################
-echo "=== [svc_install_bt_hid_agent_unified] Writing bt_hid_agent_unified.service ==="
-
-cat > /etc/systemd/system/bt_hid_agent_unified.service << 'EOF'
-# /etc/systemd/system/bt_hid_agent_unified.service
+echo "=== [svc_install_bt_hid_agent_unified] Writing service unit ==="
+cat > "/etc/systemd/system/${SERVICE_NAME}.service" << EOF
 [Unit]
-Description=IPR Bluetooth Agent (Unified BlueZ Agent1)
+Description=IPR Keyboard Unified BlueZ Agent
 After=bluetooth.target
 Requires=bluetooth.target
 
 [Service]
 Type=simple
-EnvironmentFile=-/etc/default/bt_hid_agent_unified
-ExecStart=/bin/bash -c 'set -e; ARGS="--mode \"$BT_AGENT_MODE\" --capability \"$BT_AGENT_CAPABILITY\" --agent-path \"$BT_AGENT_PATH\" --adapter \"$BT_AGENT_ADAPTER\""; if [ -n "$BT_AGENT_EXTRA_ARGS" ]; then ARGS="$ARGS $BT_AGENT_EXTRA_ARGS"; fi; exec /usr/bin/python3 /usr/local/bin/bt_hid_agent_unified.py $ARGS'
+EnvironmentFile=${ENV_FILE}
+ExecStart=/usr/bin/python3 ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter hci0
 Restart=on-failure
 
 [Install]
@@ -271,29 +222,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
+systemctl enable "${SERVICE_NAME}.service"
 
-########################################
-# Ensure default environment config exists
-########################################
-echo "=== [svc_install_bt_hid_agent_unified] Ensuring /etc/default/bt_hid_agent_unified exists ==="
-if [[ ! -f /etc/default/bt_hid_agent_unified ]]; then
-  install -d -m 0755 /etc/default
-  cat > /etc/default/bt_hid_agent_unified <<'EOF'
-# Unified BlueZ agent config (ipr-keyboard)
-BT_AGENT_MODE=nowinpasskey
-BT_AGENT_CAPABILITY=NoInputNoOutput
-BT_AGENT_PATH=/ipr/agent
-BT_AGENT_ADAPTER=hci0
-BT_AGENT_EXTRA_ARGS=
-EOF
-  chmod 0644 /etc/default/bt_hid_agent_unified
-fi
-
-########################################
-# Disable legacy agent (if present) and start unified agent
-########################################
-systemctl disable --now bt_hid_agent.service 2>/dev/null || true
-systemctl enable bt_hid_agent_unified.service
-systemctl restart bt_hid_agent_unified.service
-
-echo "=== [svc_install_bt_hid_agent_unified] Installation complete ==="
+echo "=== [svc_install_bt_hid_agent_unified] Done ==="
+echo "Start with:"
+echo "  sudo systemctl restart ${SERVICE_NAME}.service"
