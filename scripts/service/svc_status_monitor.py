@@ -264,9 +264,9 @@ def main(stdscr, delay):
                 action = stdscr.getch()
                 # Implement service actions
                 if action in (ord("s"), ord("S")):
-                    subprocess.run(["systemctl", "start", svc])
+                    subprocess.run(["sudo", "systemctl", "start", svc])
                 elif action in (ord("t"), ord("T")):
-                    subprocess.run(["systemctl", "stop", svc])
+                    subprocess.run(["sudo", "systemctl", "stop", svc])
                 elif action in (ord("r"), ord("R")):
                     subprocess.run(["sudo", "systemctl", "restart", svc])
                 elif action in (ord("j"), ord("J")):
