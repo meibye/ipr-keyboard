@@ -268,7 +268,7 @@ def main(stdscr, delay):
                 elif action in (ord("t"), ord("T")):
                     subprocess.run(["systemctl", "stop", svc])
                 elif action in (ord("r"), ord("R")):
-                    subprocess.run(["systemctl", "restart", svc])
+                    subprocess.run(["sudo systemctl", "restart", svc])
                 elif action in (ord("j"), ord("J")):
                     stdscr.clear()
                     stdscr.addstr(0, 2, f"Journal for {svc}", curses.A_BOLD)
