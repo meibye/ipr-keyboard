@@ -47,8 +47,19 @@ def get_service_status(svc):
             ["systemctl", "is-active", svc], text=True
         ).strip()
         return out
+    except subprocess.CalledProcessError:
+        # If service is not loaded, systemctl returns exit code 3 and prints 'inactive' or 'unknown'
+        try:
+            loaded = subprocess.check_output(
+                ["systemctl", "is-enabled", svc], text=True
+            ).strip()
+            if loaded == "disabled":
+                return "not loaded"
+        except Exception:
+            return "not found"
+        return "inactive"
     except Exception:
-        return "unknown"
+        return "error"
 
 
 def status_color(status):
