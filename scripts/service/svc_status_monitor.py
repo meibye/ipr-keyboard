@@ -49,29 +49,46 @@ def get_service_status(svc):
         return out
     except subprocess.CalledProcessError:
         # If service is not loaded, systemctl returns exit code 3 and prints 'inactive' or 'unknown'
+        # Check if the unit file exists
+        unit_paths = [
+            f"/etc/systemd/system/{svc}",
+            f"/lib/systemd/system/{svc}",
+            f"/usr/lib/systemd/system/{svc}",
+        ]
+        if not any(os.path.exists(p) for p in unit_paths):
+            return "not installed"
         try:
-            loaded = subprocess.check_output(
-                ["systemctl", "is-enabled", svc], text=True
+            out = subprocess.check_output(
+                ["systemctl", "is-active", svc], text=True
             ).strip()
-            if loaded == "disabled":
-                return "not loaded"
+            return out
+        except subprocess.CalledProcessError:
+            try:
+                loaded = subprocess.check_output(
+                    ["systemctl", "is-enabled", svc],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+                if loaded == "disabled":
+                    return "not loaded"
+            except Exception:
+                return "not found"
+            return "inactive"
         except Exception:
-            return "not found"
-        return "inactive"
-    except Exception:
-        return "error"
+            return "error"
 
 
 def status_color(status):
-    # Map status to color pair index
+    # Map status string to color pair index
     if status in ("active", "running"):
         return 2  # green
-    elif status in ("failed", "inactive", "dead"):
+    if status in ("failed", "inactive", "dead"):
         return 1  # red
-    elif status == "activating":
+    if status == "activating":
         return 3  # yellow
-    else:
+    if status in ("not loaded", "not installed", "not found", "error"):
         return 4  # dim/gray
+    return 4  # dim/gray
 
 
 def get_bt_devices():
