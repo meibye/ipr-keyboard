@@ -104,7 +104,7 @@ cat > /etc/systemd/system/bluetooth.service.d/override.conf <<EOF
 [Service]
 ConfigurationDirectoryMode=0755
 ExecStart=
-ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp
+ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,deviceinfo
 EOF
 
 echo "[ble_configure_system] Reloading systemd daemon..."

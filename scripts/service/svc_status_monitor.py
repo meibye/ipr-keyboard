@@ -29,10 +29,10 @@ import time
 SERVICES = [
     ("ipr_keyboard.service", "Main app: USB→BT bridge, web API, config, logs"),
     ("bt_hid_uinput.service", "Classic BT HID backend (uinput, Linux only)"),
-    ("bt_hid_ble.service", "BLE HID backend (GATT, modern devices)"),
-    ("bt_hid_daemon.service", "Legacy/alt HID daemon (rarely used)"),
-    ("bt_hid_agent_unified.service", "Pairing/authorization agent (all backends)"),
     ("bt_hid_agent.service", "Classic agent (legacy, not default)"),
+    ("bt_hid_daemon.service", "Legacy/alt HID daemon (rarely used)"),
+    ("bt_hid_ble.service", "BLE HID backend (GATT, modern devices)"),
+    ("bt_hid_agent_unified.service", "Pairing/authorization agent (all backends)"),
     ("ipr_backend_manager.service", "Switches/monitors backend daemons"),
     # Standard Bluetooth stack services
     ("bluetooth.service", "BlueZ Bluetooth stack daemon"),
@@ -196,8 +196,8 @@ def main(stdscr, delay):
         # Service table headers
         stdscr.addstr(4, 2, "Services:", curses.A_UNDERLINE)
         stdscr.addstr(5, 4, "Status", curses.A_BOLD | curses.A_UNDERLINE)
-        stdscr.addstr(5, 15, "Service", curses.A_BOLD | curses.A_UNDERLINE)
-        stdscr.addstr(5, 45, "Description", curses.A_BOLD | curses.A_UNDERLINE)
+        stdscr.addstr(5, 18, "Service", curses.A_BOLD | curses.A_UNDERLINE)
+        stdscr.addstr(5, 48, "Description", curses.A_BOLD | curses.A_UNDERLINE)
         for i, svc in enumerate(SERVICES):
             status = status_thread.status.get(svc[0], "unknown")
             color = status_color(status)
@@ -206,9 +206,9 @@ def main(stdscr, delay):
                 attr |= curses.color_pair(color)
             if sel_type == "service" and sel_idx == i:
                 attr |= curses.A_REVERSE
-            stdscr.addstr(6 + i, 4, f"{status:8}", attr)
-            stdscr.addstr(6 + i, 15, f"{svc[0]:28}", attr)
-            stdscr.addstr(6 + i, 45, f"{svc[1]}", attr)
+            stdscr.addstr(6 + i, 4, f"{status:14}", attr)  # 14 chars for status
+            stdscr.addstr(6 + i, 18, f"{svc[0]:28}", attr)
+            stdscr.addstr(6 + i, 48, f"{svc[1]}", attr)
 
         dev_start = 6 + len(SERVICES) + 2
         stdscr.addstr(dev_start, 2, "Bluetooth Devices:", curses.A_UNDERLINE)

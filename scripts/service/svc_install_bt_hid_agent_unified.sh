@@ -600,10 +600,22 @@ class Advertisement(dbus.service.Object):
         return dbus.ObjectPath(self.path)
 
     def get_properties(self):
+        # Windows is picky during "Add device": make advertisement explicitly discoverable + connectable
+        # and force name/appearance into advertising/scanner response in a predictable way.
         return {
             ADVERTISEMENT_IFACE: {
-                "Type": self.ad_type,
+                "Type": self.ad_type,  # "peripheral"
                 "ServiceUUIDs": dbus.Array(self.service_uuids, signature="s"),
+
+                # Explicit AD flags improve Windows reliability
+                # 0x02 = General Discoverable Mode
+                # 0x04 = BR/EDR Not Supported (LE-only)
+                "Flags": dbus.Array([dbus.Byte(0x02), dbus.Byte(0x04)], signature="y"),
+
+                # Force BlueZ to include these fields (often ends up in scan response depending on size)
+                # This makes Windows more likely to show a stable entry and connect successfully.
+                "Includes": dbus.Array(["local-name", "appearance"], signature="s"),
+
                 "LocalName": self.local_name,
                 "Appearance": dbus.UInt16(self.appearance),
             }
@@ -617,22 +629,74 @@ class Advertisement(dbus.service.Object):
 
     @dbus.service.method(ADVERTISEMENT_IFACE, in_signature="", out_signature="")
     def Release(self):
-        journal.send("[ble] Advertisement released – scheduling re-register", PRIORITY=journal.LOG_INFO)
-        GLib.timeout_add_seconds(1, self._reregister)
+        # BlueZ may drop the advertisement (e.g. bluetoothd restart, adapter reset, internal cleanup).
+        # Windows pairing is sensitive to disappearing advertisements; we aggressively recover.
+        journal.send("[ble] Advertisement released – scheduling robust re-register", PRIORITY=journal.LOG_INFO)
 
-    def _reregister(self):
-        if not self._adv_mgr:
+        # Try a few times with backoff
+        self._rr_attempt = 0
+        GLib.timeout_add_seconds(1, self._reregister_robust)
+
+    def _reregister_robust(self):
+        """
+        Robust adv recovery:
+        1) UnregisterAdvertisement (ignore errors)
+        2) RegisterAdvertisement
+        3) Retry on failure a few times
+        """
+        if not getattr(self, "_adv_mgr", None):
             journal.send("[ble][ERROR] No adv manager bound; cannot re-register", PRIORITY=getattr(journal, "LOG_ERR", 3))
             return False
+
+        self._rr_attempt = getattr(self, "_rr_attempt", 0) + 1
+        attempt = self._rr_attempt
+
+        def _log_info(msg: str):
+            journal.send(msg, PRIORITY=journal.LOG_INFO)
+
+        def _log_err(msg: str):
+            journal.send(msg, PRIORITY=getattr(journal, "LOG_ERR", 3))
+
+        _log_info(f"[ble] Adv re-register attempt {attempt}/5")
+
+        # Step 1: best-effort unregister (may fail if BlueZ already dropped it)
+        try:
+            self._adv_mgr.UnregisterAdvertisement(self.get_path())
+        except Exception as e:
+            # Common/expected during recovery
+            _log_info(f"[ble] UnregisterAdvertisement ignored: {e}")
+
+        # Step 2: try register again
+        def _ok():
+            _log_info("[ble] Advertisement re-registered (robust)")
+            # Stop retry loop
+            return
+
+        def _err(e):
+            _log_err(f"[ble][ERROR] RegisterAdvertisement failed (attempt {attempt}): {e}")
+            if attempt < 5:
+                # Retry in a couple seconds
+                GLib.timeout_add_seconds(2, self._reregister_robust)
+            else:
+                _log_err("[ble][ERROR] Advertisement re-register gave up after 5 attempts")
+            return
+
         try:
             self._adv_mgr.RegisterAdvertisement(
                 self.get_path(), {},
-                reply_handler=lambda: journal.send("[ble] Advertisement re-registered", PRIORITY=journal.LOG_INFO),
-                error_handler=lambda e: journal.send(f"[ble][ERROR] Re-register adv failed: {e}", PRIORITY=getattr(journal, "LOG_ERR", 3)),
+                reply_handler=_ok,
+                error_handler=_err,
             )
         except Exception as e:
-            journal.send(f"[ble][ERROR] Exception during adv re-register: {e}", PRIORITY=getattr(journal, "LOG_ERR", 3))
+            _log_err(f"[ble][ERROR] Exception during RegisterAdvertisement (attempt {attempt}): {e}")
+            if attempt < 5:
+                GLib.timeout_add_seconds(2, self._reregister_robust)
+            else:
+                _log_err("[ble][ERROR] Advertisement re-register gave up after 5 attempts")
+
+        # Return False: this GLib callback instance should run once; retries schedule new callbacks.
         return False
+
 
 def ensure_fifo():
     if not os.path.exists(FIFO_PATH):
