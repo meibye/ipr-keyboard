@@ -155,18 +155,19 @@ def find_adapter(bus, prefer="hci0") -> str:
 def set_adapter_ready(bus, adapter_path: str):
     props = dbus.Interface(bus.get_object(BLUEZ, adapter_path), PROP_IFACE)
 
-    # Always power on + allow pairing requests
     props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(True))
     props.Set("org.bluez.Adapter1", "Pairable", dbus.Boolean(True))
 
     # IMPORTANT:
-    # Adapter1.Discoverable controls *classic BR/EDR* discoverability (inquiry scan), NOT BLE.
-    # For BLE HID over GATT, enabling classic discoverable often causes Windows to pair/connect
-    # via the wrong transport (classic), which results in "Connected" then immediately
-    # "Not connected" and/or flickering visibility.
+    # Adapter1.Discoverable is a BR/EDR (classic) visibility switch, BUT in practice
+    # Windows often won't list a BLE HID peripheral unless Discoverable is ON.
     #
-    # Therefore: keep classic discoverable OFF by default for ALL controller modes.
-    # Only enable classic discoverable if you explicitly request it (uinput/classic backend).
+    # The safe way to avoid classic pairing is to run the adapter in LE-only mode.
+    # Therefore:
+    #   - If BT_CONTROLLER_MODE=le  -> Discoverable ON (Windows can see it; BR/EDR should be disabled)
+    #   - Else (dual/bredr)         -> Discoverable only if BT_ENABLE_CLASSIC_DISCOVERABLE=1
+
+    controller_mode = env_clean("BT_CONTROLLER_MODE", "dual").lower()  # le/dual/bredr
     enable_classic = env_clean("BT_ENABLE_CLASSIC_DISCOVERABLE", "0")
 
     # Best-effort set timeout (some controllers reject)
@@ -175,18 +176,25 @@ def set_adapter_ready(bus, adapter_path: str):
     except Exception:
         pass
 
-    if enable_classic == "1":
-        # Explicitly allow classic discoverable (BR/EDR)
+    if controller_mode == "le":
+        # Windows visibility helper. In LE-only mode this should not create a second BR/EDR identity.
         try:
             props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(True))
         except Exception:
             pass
     else:
-        # Default: classic discoverable OFF (BLE advertising is handled by our LEAdvertisement1)
-        try:
-            props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(False))
-        except Exception:
-            pass
+        # Dual/BREDR: default OFF unless explicitly enabled.
+        if enable_classic == "1":
+            try:
+                props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(True))
+            except Exception:
+                pass
+        else:
+            try:
+                props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(False))
+            except Exception:
+                pass
+
 
 
 def main():
