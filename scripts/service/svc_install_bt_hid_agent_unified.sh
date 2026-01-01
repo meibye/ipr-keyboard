@@ -19,6 +19,10 @@
 # Usage:
 #   sudo ./scripts/service/svc_install_bt_hid_agent_unified.sh
 #
+# category: Service
+# purpose: Install bt_hid_agent_unified service
+# sudo: yes
+
 set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then

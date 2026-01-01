@@ -78,7 +78,16 @@ is_valid_number() {
 get_category() {
     script="$1"
     if [ -f "$script" ]; then
-        # Match both '# category:' and '#  category:'
+        # If Python file, extract from first triple-quoted docstring if present
+        if head -40 "$script" | grep -q '^"""'; then
+            docstring=$(awk '/^"""/{flag=!flag; next} flag {print}' "$script" | head -20)
+            category=$(echo "$docstring" | grep -m 1 -E 'category:' | sed -E 's/.*category:[[:space:]]*(.*)$/\1/')
+            if [ -n "$category" ]; then
+                echo "$category"
+                return
+            fi
+        fi
+        # Fallback to shell comment
         category=$(grep -m 1 -E "^[[:space:]]*# ? ?category:.*" "$script" | sed -E 's/^[[:space:]]*# ? ?category:[[:space:]]*(.*)$/\1/')
         if [ -n "$category" ]; then
             echo "$category"
@@ -114,7 +123,16 @@ get_subcategory() {
 explain_purpose() {
     script="$1"
     if [ -f "$script" ]; then
-        # Match both '# purpose:' and '#  purpose:'
+        # If Python file, extract from first triple-quoted docstring if present
+        if head -40 "$script" | grep -q '^"""'; then
+            docstring=$(awk '/^"""/{flag=!flag; next} flag {print}' "$script" | head -20)
+            purpose=$(echo "$docstring" | grep -m 1 -E 'purpose:' | sed -E 's/.*purpose:[[:space:]]*(.*)$/\1/')
+            if [ -n "$purpose" ]; then
+                echo "$purpose"
+                return
+            fi
+        fi
+        # Fallback to shell comment
         purpose_function=$(grep -m 1 -E "^[[:space:]]*# ? ?purpose:.*" "$script" | sed -E 's/^[[:space:]]*# ? ?purpose:[[:space:]]*(.*)$/\1/')
         if [ -n "$purpose_function" ]; then
             echo "$purpose_function"
@@ -392,8 +410,15 @@ while true; do
                         params="${params_array[@]}"
                     fi
 
-                    # Check for sudo metadata
-                    sudo_flag=$(grep -m 1 -E '^[[:space:]]*# ?sudo:[[:space:]]*yes' "$script_path" || true)
+                    # Check for sudo metadata in shell or Python docstring
+                    sudo_flag=""
+                    if head -40 "$script_path" | grep -q '^"""'; then
+                        docstring=$(awk '/^"""/{flag=!flag; next} flag {print}' "$script_path" | head -20)
+                        sudo_flag=$(echo "$docstring" | grep -m 1 -E 'sudo:[[:space:]]*yes')
+                    fi
+                    if [ -z "$sudo_flag" ]; then
+                        sudo_flag=$(grep -m 1 -E '^[[:space:]]*# ?sudo:[[:space:]]*yes' "$script_path" || true)
+                    fi
                     sudo_prefix=""
                     if [ -n "$sudo_flag" ]; then
                         sudo_prefix="sudo "

@@ -8,6 +8,10 @@
 #   - /etc/default/bt_hid_agent_unified
 #
 # This script remains as a compatibility wrapper for older docs and scripts.
+#
+# category: Service
+# purpose: Install bt_hid_agent service
+# sudo: yes
 
 set -eo pipefail
 
