@@ -152,41 +152,41 @@ def find_adapter(bus, prefer="hci0") -> str:
 
     raise RuntimeError("No BlueZ adapter found")
 
-    def set_adapter_ready(bus, adapter_path: str):
-        props = dbus.Interface(bus.get_object(BLUEZ, adapter_path), PROP_IFACE)
+def set_adapter_ready(bus, adapter_path: str):
+    props = dbus.Interface(bus.get_object(BLUEZ, adapter_path), PROP_IFACE)
 
-        # Always power on + allow pairing requests
-        props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(True))
-        props.Set("org.bluez.Adapter1", "Pairable", dbus.Boolean(True))
+    # Always power on + allow pairing requests
+    props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(True))
+    props.Set("org.bluez.Adapter1", "Pairable", dbus.Boolean(True))
 
-        # IMPORTANT:
-        # Adapter1.Discoverable controls *classic BR/EDR* discoverability (inquiry scan), NOT BLE.
-        # For BLE HID over GATT, enabling classic discoverable often causes Windows to pair/connect
-        # via the wrong transport (classic), which results in "Connected" then immediately
-        # "Not connected" and/or flickering visibility.
-        #
-        # Therefore: keep classic discoverable OFF by default for ALL controller modes.
-        # Only enable classic discoverable if you explicitly request it (uinput/classic backend).
-        enable_classic = env_clean("BT_ENABLE_CLASSIC_DISCOVERABLE", "0")
+    # IMPORTANT:
+    # Adapter1.Discoverable controls *classic BR/EDR* discoverability (inquiry scan), NOT BLE.
+    # For BLE HID over GATT, enabling classic discoverable often causes Windows to pair/connect
+    # via the wrong transport (classic), which results in "Connected" then immediately
+    # "Not connected" and/or flickering visibility.
+    #
+    # Therefore: keep classic discoverable OFF by default for ALL controller modes.
+    # Only enable classic discoverable if you explicitly request it (uinput/classic backend).
+    enable_classic = env_clean("BT_ENABLE_CLASSIC_DISCOVERABLE", "0")
 
-        # Best-effort set timeout (some controllers reject)
+    # Best-effort set timeout (some controllers reject)
+    try:
+        props.Set("org.bluez.Adapter1", "DiscoverableTimeout", dbus.UInt32(0))
+    except Exception:
+        pass
+
+    if enable_classic == "1":
+        # Explicitly allow classic discoverable (BR/EDR)
         try:
-            props.Set("org.bluez.Adapter1", "DiscoverableTimeout", dbus.UInt32(0))
+            props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(True))
         except Exception:
             pass
-
-        if enable_classic == "1":
-            # Explicitly allow classic discoverable (BR/EDR)
-            try:
-                props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(True))
-            except Exception:
-                pass
-        else:
-            # Default: classic discoverable OFF (BLE advertising is handled by our LEAdvertisement1)
-            try:
-                props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(False))
-            except Exception:
-                pass
+    else:
+        # Default: classic discoverable OFF (BLE advertising is handled by our LEAdvertisement1)
+        try:
+            props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(False))
+        except Exception:
+            pass
 
 
 def main():
