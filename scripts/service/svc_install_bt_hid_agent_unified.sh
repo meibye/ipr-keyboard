@@ -591,10 +591,14 @@ class Advertisement(dbus.service.Object):
         self.appearance = appearance
         super().__init__(bus, self.path)
 
-        self._adv_mgr = None  # assigned later
+        self._adv_mgr = None          # optional cached proxy (may go stale on bluetooth restart)
+        self._adapter_path = None     # set by bind_manager()
+        self._rr_attempt = 0
 
-    def bind_manager(self, adv_mgr):
+    def bind_manager(self, adv_mgr, adapter_path: str):
         self._adv_mgr = adv_mgr
+        self._adapter_path = adapter_path
+
 
     def get_path(self):
         return dbus.ObjectPath(self.path)
@@ -629,26 +633,22 @@ class Advertisement(dbus.service.Object):
 
     @dbus.service.method(ADVERTISEMENT_IFACE, in_signature="", out_signature="")
     def Release(self):
-        # BlueZ may drop the advertisement (e.g. bluetoothd restart, adapter reset, internal cleanup).
-        # Windows pairing is sensitive to disappearing advertisements; we aggressively recover.
         journal.send("[ble] Advertisement released – scheduling robust re-register", PRIORITY=journal.LOG_INFO)
-
-        # Try a few times with backoff
         self._rr_attempt = 0
-        GLib.timeout_add_seconds(1, self._reregister_robust)
+        GLib.timeout_add_seconds(1, self._reregister_fresh)
 
-    def _reregister_robust(self):
+    def _get_adv_mgr_fresh(self):
         """
-        Robust adv recovery:
-        1) UnregisterAdvertisement (ignore errors)
-        2) RegisterAdvertisement
-        3) Retry on failure a few times
+        After bluetoothd restarts, old D-Bus proxies become stale.
+        Always reacquire LEAdvertisingManager1 from the system bus.
         """
-        if not getattr(self, "_adv_mgr", None):
-            journal.send("[ble][ERROR] No adv manager bound; cannot re-register", PRIORITY=getattr(journal, "LOG_ERR", 3))
-            return False
+        if not self._adapter_path:
+            raise RuntimeError("Advertisement has no adapter_path bound")
+        obj = self.bus.get_object(BLUEZ, self._adapter_path)
+        return dbus.Interface(obj, LE_ADV_MGR_IFACE)
 
-        self._rr_attempt = getattr(self, "_rr_attempt", 0) + 1
+    def _reregister_fresh(self):
+        self._rr_attempt += 1
         attempt = self._rr_attempt
 
         def _log_info(msg: str):
@@ -657,46 +657,44 @@ class Advertisement(dbus.service.Object):
         def _log_err(msg: str):
             journal.send(msg, PRIORITY=getattr(journal, "LOG_ERR", 3))
 
-        _log_info(f"[ble] Adv re-register attempt {attempt}/5")
-
-        # Step 1: best-effort unregister (may fail if BlueZ already dropped it)
         try:
-            self._adv_mgr.UnregisterAdvertisement(self.get_path())
+            adv_mgr = self._get_adv_mgr_fresh()
         except Exception as e:
-            # Common/expected during recovery
+            _log_err(f"[ble][ERROR] Cannot reacquire adv manager (attempt {attempt}): {e}")
+            if attempt < 6:
+                GLib.timeout_add_seconds(2, self._reregister_fresh)
+            return False
+
+        _log_info(f"[ble] Adv re-register attempt {attempt}/6 (fresh proxy)")
+
+        # Best-effort unregister (ignore errors)
+        try:
+            adv_mgr.UnregisterAdvertisement(self.get_path())
+        except Exception as e:
             _log_info(f"[ble] UnregisterAdvertisement ignored: {e}")
 
-        # Step 2: try register again
         def _ok():
-            _log_info("[ble] Advertisement re-registered (robust)")
-            # Stop retry loop
+            _log_info("[ble] Advertisement re-registered (fresh proxy)")
             return
 
         def _err(e):
             _log_err(f"[ble][ERROR] RegisterAdvertisement failed (attempt {attempt}): {e}")
-            if attempt < 5:
-                # Retry in a couple seconds
-                GLib.timeout_add_seconds(2, self._reregister_robust)
+            if attempt < 6:
+                GLib.timeout_add_seconds(2, self._reregister_fresh)
             else:
-                _log_err("[ble][ERROR] Advertisement re-register gave up after 5 attempts")
+                _log_err("[ble][ERROR] Advertisement re-register gave up after 6 attempts")
             return
 
         try:
-            self._adv_mgr.RegisterAdvertisement(
-                self.get_path(), {},
-                reply_handler=_ok,
-                error_handler=_err,
-            )
+            adv_mgr.RegisterAdvertisement(self.get_path(), {}, reply_handler=_ok, error_handler=_err)
         except Exception as e:
             _log_err(f"[ble][ERROR] Exception during RegisterAdvertisement (attempt {attempt}): {e}")
-            if attempt < 5:
-                GLib.timeout_add_seconds(2, self._reregister_robust)
+            if attempt < 6:
+                GLib.timeout_add_seconds(2, self._reregister_fresh)
             else:
-                _log_err("[ble][ERROR] Advertisement re-register gave up after 5 attempts")
+                _log_err("[ble][ERROR] Advertisement re-register gave up after 6 attempts")
 
-        # Return False: this GLib callback instance should run once; retries schedule new callbacks.
         return False
-
 
 def ensure_fifo():
     if not os.path.exists(FIFO_PATH):
@@ -774,7 +772,7 @@ def main():
         local_name=env_str("BT_DEVICE_NAME", "IPR Keyboard"),
         appearance=0x03C1,  # Keyboard
     )
-    adv.bind_manager(adv_mgr)
+    adv.bind_manager(adv_mgr, adapter_path)
 
     journal.send("[ble] Starting BLE HID daemon...", PRIORITY=journal.LOG_INFO)
     journal.send(f"[ble] Advertising LocalName='{env_str('BT_DEVICE_NAME', 'IPR Keyboard')}'", PRIORITY=journal.LOG_INFO)
