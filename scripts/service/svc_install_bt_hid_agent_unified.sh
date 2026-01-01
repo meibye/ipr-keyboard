@@ -604,22 +604,20 @@ class Advertisement(dbus.service.Object):
         return dbus.ObjectPath(self.path)
 
     def get_properties(self):
-        # Windows is picky during "Add device": make advertisement explicitly discoverable + connectable
-        # and force name/appearance into advertising/scanner response in a predictable way.
+        # Windows reliability: explicit discoverable + LE-only flags help.
+        # NOTE: Do NOT include "local-name" in Includes if you also set LocalName,
+        # or BlueZ 5.66 will fail parsing ("Local name already included").
         return {
             ADVERTISEMENT_IFACE: {
                 "Type": self.ad_type,  # "peripheral"
                 "ServiceUUIDs": dbus.Array(self.service_uuids, signature="s"),
 
-                # Explicit AD flags improve Windows reliability
+                # AD flags:
                 # 0x02 = General Discoverable Mode
                 # 0x04 = BR/EDR Not Supported (LE-only)
                 "Flags": dbus.Array([dbus.Byte(0x02), dbus.Byte(0x04)], signature="y"),
 
-                # Force BlueZ to include these fields (often ends up in scan response depending on size)
-                # This makes Windows more likely to show a stable entry and connect successfully.
-                "Includes": dbus.Array(["local-name", "appearance"], signature="s"),
-
+                # Provide these explicitly (no Includes to avoid duplication parsing issues)
                 "LocalName": self.local_name,
                 "Appearance": dbus.UInt16(self.appearance),
             }
