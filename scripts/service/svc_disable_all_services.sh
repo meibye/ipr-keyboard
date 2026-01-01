@@ -12,7 +12,7 @@
 # purpose: Disable all ipr-keyboard systemd services
 # sudo: yes
 
-set -eo pipefail
+set -e
 SERVICES=(
   ipr_keyboard.service
   bt_hid_uinput.service
@@ -25,10 +25,14 @@ SERVICES=(
 
 for svc in "${SERVICES[@]}"; do
   echo "Stopping $svc..."
-  sudo systemctl stop "$svc"
+  if ! sudo systemctl stop "$svc"; then
+    echo "Warning: Failed to stop $svc" >&2
+  fi
   if systemctl is-enabled "$svc" &>/dev/null; then
     echo "Disabling $svc..."
-    sudo systemctl disable "$svc"
+    if ! sudo systemctl disable "$svc"; then
+      echo "Warning: Failed to disable $svc" >&2
+    fi
   else
     echo "$svc is already disabled."
   fi
