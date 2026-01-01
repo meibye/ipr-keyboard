@@ -825,10 +825,9 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
-# Optionally install bt_hid_ble.service if it's missing (common when only agent script was run)
-if [[ ! -f "$BLE_UNIT" ]]; then
-  echo "=== [svc_install_bt_hid_agent_unified] bt_hid_ble.service not found; writing $BLE_UNIT ==="
-  cat > "$BLE_UNIT" << EOF
+echo "=== [svc_install_bt_hid_agent_unified] Writing service unit: $BLE_UNIT ==="
+
+cat > "$BLE_UNIT" << EOF
 [Unit]
 Description=IPR Keyboard BLE HID Daemon
 After=bluetooth.target
@@ -843,10 +842,7 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
-  systemctl enable bt_hid_ble.service >/dev/null 2>&1 || true
-else
-  echo "=== [svc_install_bt_hid_agent_unified] bt_hid_ble.service already exists; not overwriting ==="
-fi
+systemctl enable bt_hid_ble.service >/dev/null 2>&1 || true
 
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}.service" >/dev/null 2>&1 || true
