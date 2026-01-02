@@ -36,13 +36,14 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-SERVICE_NAME="bt_hid_agent_unified"
+AGENT_SERVICE_NAME="bt_hid_agent_unified"
+BLE_SERVICE_NAME="bt_hid_ble"
 AGENT_BIN="/usr/local/bin/bt_hid_agent_unified.py"
 BLE_BIN="/usr/local/bin/bt_hid_ble_daemon.py"
 
 ENV_FILE="/opt/ipr_common.env"
-AGENT_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
-BLE_UNIT="/etc/systemd/system/bt_hid_ble.service"
+AGENT_UNIT="/etc/systemd/system/${AGENT_SERVICE_NAME}.service"
+BLE_UNIT="/etc/systemd/system/${BLE_SERVICE_NAME}.service"
 
 # Parse parameters
 AGENT_DEBUG=0
@@ -72,6 +73,11 @@ if [ -f "$ENV_FILE" ]; then
     else
         echo 'BT_BLE_DEBUG="'$BLE_DEBUG'"' >> "$ENV_FILE"
     fi
+else
+    echo "Creating $ENV_FILE with debug settings..."
+    touch "$ENV_FILE"
+    echo 'BT_AGENT_DEBUG="'$AGENT_DEBUG'"' >> "$ENV_FILE"
+    echo 'BT_BLE_DEBUG="'$BLE_DEBUG'"' >> "$ENV_FILE"
 fi
 
 echo "=== [svc_install_bt_hid_agent_unified] Writing $AGENT_BIN ==="
@@ -865,14 +871,18 @@ echo "=== [svc_install_bt_hid_agent_unified] Writing service unit: $AGENT_UNIT =
 cat > "$AGENT_UNIT" << EOF
 [Unit]
 Description=IPR Keyboard Unified BlueZ Agent
-After=bluetooth.target
-Requires=bluetooth.target
+After=bluetooth.service
+Requires=bluetooth.service
 
 [Service]
 Type=simple
-EnvironmentFile=${ENV_FILE}
-ExecStart=/usr/bin/python3 ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter hci0
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=${AGENT_SERVICE_NAME}
+EnvironmentFile=-${ENV_FILE}
+ExecStart=/usr/bin/python3 -u ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter hci0
 Restart=on-failure
+RestartSec=1
 
 [Install]
 WantedBy=multi-user.target
@@ -882,22 +892,26 @@ echo "=== [svc_install_bt_hid_agent_unified] Writing service unit: $BLE_UNIT ===
 cat > "$BLE_UNIT" << EOF
 [Unit]
 Description=IPR Keyboard BLE HID Daemon
-After=bluetooth.target
-Requires=bluetooth.target
+After=bluetooth.service
+Requires=bluetooth.service
 
 [Service]
 Type=simple
-EnvironmentFile=${ENV_FILE}
-ExecStart=/usr/bin/python3 ${BLE_BIN}
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=${BLE_SERVICE_NAME}
+EnvironmentFile=-${ENV_FILE}
+ExecStart=/usr/bin/python3 -u ${BLE_BIN}
 Restart=on-failure
+RestartSec=1
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-systemctl enable bt_hid_ble.service >/dev/null 2>&1 || true
+systemctl enable "${BLE_SERVICE_NAME}.service" >/dev/null 2>&1 || true
 systemctl daemon-reload
-systemctl enable "${SERVICE_NAME}.service" >/dev/null 2>&1 || true
+systemctl enable "${AGENT_SERVICE_NAME}.service" >/dev/null 2>&1 || true
 
 echo "=== [svc_install_bt_hid_agent_unified] Done ==="
 echo ""
@@ -907,10 +921,10 @@ echo "  BT_BLE_DEBUG=\"1\""
 echo ""
 echo "Restart services with:"
 echo "  sudo systemctl restart bluetooth"
-echo "  sudo systemctl restart ${SERVICE_NAME}.service"
-echo "  sudo systemctl restart bt_hid_ble.service"
+echo "  sudo systemctl restart ${AGENT_SERVICE_NAME}.service"
+echo "  sudo systemctl restart ${BLE_SERVICE_NAME}.service"
 echo ""
 echo "Then verify:"
 echo "  bluetoothctl show"
-echo "  journalctl -u bt_hid_ble.service -n 200 --no-pager"
-echo "  journalctl -u bt_hid_agent_unified.service -n 120 --no-pager"
+echo "  journalctl -u ${BLE_SERVICE_NAME}.service -n 200 --no-pager"
+echo "  journalctl -u ${AGENT_SERVICE_NAME}.service -n 120 --no-pager"
