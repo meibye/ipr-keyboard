@@ -3,23 +3,32 @@
 # svc_install_bt_hid_agent_unified.sh
 #
 # Installs:
-#  - Unified BlueZ Agent service used for pairing (bt_hid_agent_unified.service)
-#  - BLE HID daemon (bt_hid_ble_daemon.py) implementing HID over GATT keyboard
+#   - Unified BlueZ Agent service for pairing (bt_hid_agent_unified.service)
+#   - BLE HID daemon (bt_hid_ble_daemon.py) for HID over GATT keyboard
 #
-# Debugging (toggle in /opt/ipr_common.env):
+# Features:
+#   - Supports --agent-debug and --ble-debug parameters to enable verbose logging
+#   - Updates /opt/ipr_common.env with BT_AGENT_DEBUG and BT_BLE_DEBUG accordingly
+#   - Ensures correct discoverability for Windows BLE HID pairing
+#
+# Debugging:
 #   BT_AGENT_DEBUG="1"   -> verbose agent logs (otherwise quiet)
 #   BT_BLE_DEBUG="1"     -> verbose BLE daemon logs (otherwise concise)
 #
 # IMPORTANT (Windows visibility):
-#   Windows often won't list a BLE HID peripheral unless Adapter1.Discoverable is ON.
-#   But Discoverable in dual-mode can cause Windows to show TWO devices (BR/EDR + BLE).
-#   Therefore:
-#     - If BT_CONTROLLER_MODE=le: Discoverable is set ON (safe; no BR/EDR identity)
-#     - Else: Discoverable follows BT_ENABLE_CLASSIC_DISCOVERABLE (default off)
+#   Windows may not list a BLE HID peripheral unless Adapter1.Discoverable is ON.
+#   In dual-mode, this can cause Windows to show TWO devices (BR/EDR + BLE).
+#   - If BT_CONTROLLER_MODE=le: Discoverable is set ON (safe; no BR/EDR identity)
+#   - Else: Discoverable follows BT_ENABLE_CLASSIC_DISCOVERABLE (default off)
 #
 # Usage:
-#   sudo ./scripts/service/svc_install_bt_hid_agent_unified.sh
+#   sudo ./scripts/service/svc_install_bt_hid_agent_unified.sh [--agent-debug] [--ble-debug]
 #
+# category: Service
+# purpose: Install unified BlueZ agent and BLE HID daemon
+# parameters: --agent-debug,--ble-debug
+# sudo: yes
+
 set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then
@@ -34,6 +43,36 @@ BLE_BIN="/usr/local/bin/bt_hid_ble_daemon.py"
 ENV_FILE="/opt/ipr_common.env"
 AGENT_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
 BLE_UNIT="/etc/systemd/system/bt_hid_ble.service"
+
+# Parse parameters
+AGENT_DEBUG=0
+BLE_DEBUG=0
+for arg in "$@"; do
+    case "$arg" in
+        --agent-debug)
+            AGENT_DEBUG=1
+            ;;
+        --ble-debug)
+            BLE_DEBUG=1
+            ;;
+    esac
+done
+
+# Update /opt/ipr_common.env if it exists
+if [ -f "$ENV_FILE" ]; then
+    # Set or update BT_AGENT_DEBUG
+    if grep -q '^BT_AGENT_DEBUG=' "$ENV_FILE"; then
+        sed -i 's/^BT_AGENT_DEBUG=.*/BT_AGENT_DEBUG="'$AGENT_DEBUG'"/' "$ENV_FILE"
+    else
+        echo 'BT_AGENT_DEBUG="'$AGENT_DEBUG'"' >> "$ENV_FILE"
+    fi
+    # Set or update BT_BLE_DEBUG
+    if grep -q '^BT_BLE_DEBUG=' "$ENV_FILE"; then
+        sed -i 's/^BT_BLE_DEBUG=.*/BT_BLE_DEBUG="'$BLE_DEBUG'"/' "$ENV_FILE"
+    else
+        echo 'BT_BLE_DEBUG="'$BLE_DEBUG'"' >> "$ENV_FILE"
+    fi
+fi
 
 echo "=== [svc_install_bt_hid_agent_unified] Writing $AGENT_BIN ==="
 cat > "$AGENT_BIN" << 'PYEOF'
