@@ -880,7 +880,7 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=${AGENT_SERVICE_NAME}
 EnvironmentFile=-${ENV_FILE}
-ExecStart=/usr/bin/python3 -u ${AGENT_BIN} --mode winpasskey --capability KeyboardOnly --adapter ${BT_HCI:-hci0}
+ExecStart=/usr/bin/python3 -u ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter ${BT_HCI:-hci0}
 Restart=on-failure
 RestartSec=1
 
