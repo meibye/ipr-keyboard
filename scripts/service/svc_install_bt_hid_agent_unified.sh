@@ -45,41 +45,96 @@ ENV_FILE="/opt/ipr_common.env"
 AGENT_UNIT="/etc/systemd/system/${AGENT_SERVICE_NAME}.service"
 BLE_UNIT="/etc/systemd/system/${BLE_SERVICE_NAME}.service"
 
+BT_OVERRIDE_DIR="/etc/systemd/system/bluetooth.service.d"
+BT_OVERRIDE_FILE="${BT_OVERRIDE_DIR}/override.conf"
+
 # Parse parameters
 AGENT_DEBUG=0
 BLE_DEBUG=0
 for arg in "$@"; do
-    case "$arg" in
-        --agent-debug)
-            AGENT_DEBUG=1
-            ;;
-        --ble-debug)
-            BLE_DEBUG=1
-            ;;
-    esac
+  case "$arg" in
+    --agent-debug) AGENT_DEBUG=1 ;;
+    --ble-debug)   BLE_DEBUG=1 ;;
+  esac
 done
 
-# Update /opt/ipr_common.env if it exists
-if [ -f "$ENV_FILE" ]; then
-    # Set or update BT_AGENT_DEBUG
-    if grep -q '^BT_AGENT_DEBUG=' "$ENV_FILE"; then
-        sed -i 's/^BT_AGENT_DEBUG=.*/BT_AGENT_DEBUG="'$AGENT_DEBUG'"/' "$ENV_FILE"
-    else
-        echo 'BT_AGENT_DEBUG="'$AGENT_DEBUG'"' >> "$ENV_FILE"
-    fi
-    # Set or update BT_BLE_DEBUG
-    if grep -q '^BT_BLE_DEBUG=' "$ENV_FILE"; then
-        sed -i 's/^BT_BLE_DEBUG=.*/BT_BLE_DEBUG="'$BLE_DEBUG'"/' "$ENV_FILE"
-    else
-        echo 'BT_BLE_DEBUG="'$BLE_DEBUG'"' >> "$ENV_FILE"
-    fi
-else
-    echo "Creating $ENV_FILE with debug settings..."
-    touch "$ENV_FILE"
-    echo 'BT_AGENT_DEBUG="'$AGENT_DEBUG'"' >> "$ENV_FILE"
-    echo 'BT_BLE_DEBUG="'$BLE_DEBUG'"' >> "$ENV_FILE"
+mkdir -p "$(dirname "$ENV_FILE")"
+
+# Ensure ENV_FILE exists and has sane defaults for stable Windows BLE HID
+if [[ ! -f "$ENV_FILE" ]]; then
+  cat > "$ENV_FILE" <<EOF
+# Common env for IPR BT keyboard services
+# Debug
+BT_AGENT_DEBUG="0"
+BT_BLE_DEBUG="0"
+
+# Prefer LE-only to avoid Windows showing two devices (Classic + BLE)
+BT_CONTROLLER_MODE="le"
+BT_ENABLE_CLASSIC_DISCOVERABLE="0"
+
+# Adapter to use
+BT_HCI="hci0"
+
+# Advertising/local name
+BT_DEVICE_NAME="IPR Keyboard (Dev)"
+
+# Device Information Service values
+BT_MANUFACTURER="IPR"
+BT_MODEL="IPR Keyboard"
+
+# PnP ID (USB VID/PID/VER). Linux Foundation defaults are fine for testing.
+BT_USB_VID="0x1D6B"
+BT_USB_PID="0x0246"
+BT_USB_VER="0x0100"
+EOF
 fi
 
+# Update debug flags in ENV_FILE
+if grep -q '^BT_AGENT_DEBUG=' "$ENV_FILE"; then
+  sed -i 's/^BT_AGENT_DEBUG=.*/BT_AGENT_DEBUG="'$AGENT_DEBUG'"/' "$ENV_FILE"
+else
+  echo 'BT_AGENT_DEBUG="'$AGENT_DEBUG'"' >> "$ENV_FILE"
+fi
+
+if grep -q '^BT_BLE_DEBUG=' "$ENV_FILE"; then
+  sed -i 's/^BT_BLE_DEBUG=.*/BT_BLE_DEBUG="'$BLE_DEBUG'"/' "$ENV_FILE"
+else
+  echo 'BT_BLE_DEBUG="'$BLE_DEBUG'"' >> "$ENV_FILE"
+fi
+
+# ------------------------------------------------------------------------------
+# Bluetooth daemon plugin minimization (stability / remove "unknown display")
+# Keep only what BLE HID over GATT needs:
+#   - hog (HID over GATT)
+#   - gap (advertising / GAP)
+#   - scanparam (LE scan parameters)
+#   - battery (optional; harmless, used by some hosts)
+#
+# Disable:
+#   - a2dp,avrcp,bap (audio/media)
+#   - network (PAN)
+#   - input (classic HID)
+#   - midi
+#   - neard,health,deviceinfo,sap
+#   - gamepad plugins (sixaxis, wiimote)
+#   - autopair (can fight your custom agent)
+# ------------------------------------------------------------------------------
+mkdir -p "$BT_OVERRIDE_DIR"
+
+echo "=== [svc_install_bt_hid_agent_unified] Writing $BT_OVERRIDE_FILE ==="
+cat > "$BT_OVERRIDE_FILE" <<'EOF'
+[Service]
+ExecStart=
+ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,deviceinfo,a2dp,network,input,midi,bap,health,neard,wiimote,sixaxis,autopair
+ConfigurationDirectoryMode=0755
+EOF
+
+# ------------------------------------------------------------------------------
+# Write Unified Agent
+# - Forces adapter into stable state: Powered/Pairable/Discoverable, timeouts=0
+# - Sets Alias from BT_DEVICE_NAME (helps Windows caching)
+# - Trusts the device on RequestAuthorization/RequestConfirmation
+# ------------------------------------------------------------------------------
 echo "=== [svc_install_bt_hid_agent_unified] Writing $AGENT_BIN ==="
 cat > "$AGENT_BIN" << 'PYEOF'
 #!/usr/bin/env python3
@@ -97,12 +152,14 @@ AGENT_IFACE = "org.bluez.Agent1"
 PROP_IFACE = "org.freedesktop.DBus.Properties"
 OM_IFACE = "org.freedesktop.DBus.ObjectManager"
 
+ADAPTER_IFACE = "org.bluez.Adapter1"
+DEVICE_IFACE = "org.bluez.Device1"
+
 def env_clean(name: str, default: str = "") -> str:
     v = os.environ.get(name, default)
     if v is None:
         return default
     v = str(v).strip()
-    # strip accidental inline comments: 1  # comment
     if " #" in v:
         v = v.split(" #", 1)[0].strip()
     if "\t#" in v:
@@ -110,9 +167,82 @@ def env_clean(name: str, default: str = "") -> str:
     return v
 
 def dev_short(path: str) -> str:
-    if not path:
-        return "<?>"
-    return path.split("/")[-1]
+    return path.split("/")[-1] if path else "<?>"
+
+def find_adapter(bus, prefer="hci0") -> str:
+    om = dbus.Interface(bus.get_object(BLUEZ, "/"), OM_IFACE)
+    objects = om.GetManagedObjects()
+
+    for path, ifaces in objects.items():
+        if ADAPTER_IFACE in ifaces and path.endswith(prefer):
+            return path
+
+    for path, ifaces in objects.items():
+        if ADAPTER_IFACE in ifaces:
+            return path
+
+    raise RuntimeError("No BlueZ adapter found")
+
+def set_adapter_ready(bus, adapter_path: str, verbose: bool = False):
+    props = dbus.Interface(bus.get_object(BLUEZ, adapter_path), PROP_IFACE)
+
+    # Always ensure powered/pairable
+    props.Set(ADAPTER_IFACE, "Powered", dbus.Boolean(True))
+    props.Set(ADAPTER_IFACE, "Pairable", dbus.Boolean(True))
+
+    # Timeouts = 0 => keep it pairable/discoverable until you stop services
+    try:
+        props.Set(ADAPTER_IFACE, "PairableTimeout", dbus.UInt32(0))
+    except Exception:
+        pass
+    try:
+        props.Set(ADAPTER_IFACE, "DiscoverableTimeout", dbus.UInt32(0))
+    except Exception:
+        pass
+
+    # Set Alias to reduce Windows cache weirdness
+    alias = env_clean("BT_DEVICE_NAME", "")
+    if alias:
+        try:
+            props.Set(ADAPTER_IFACE, "Alias", dbus.String(alias))
+        except Exception:
+            pass
+
+    controller_mode = env_clean("BT_CONTROLLER_MODE", "le").lower()  # le/dual/bredr
+    enable_classic = env_clean("BT_ENABLE_CLASSIC_DISCOVERABLE", "0")
+
+    if verbose:
+        print(f"[agent] BT_CONTROLLER_MODE={controller_mode} BT_ENABLE_CLASSIC_DISCOVERABLE={enable_classic}", flush=True)
+
+    # For LE HID + Windows: make adapter discoverable.
+    # In LE-only mode this should not create a BR/EDR “second device”.
+    if controller_mode == "le":
+        try:
+            props.Set(ADAPTER_IFACE, "Discoverable", dbus.Boolean(True))
+        except Exception:
+            pass
+    else:
+        # Dual/BREDR: default OFF unless explicitly enabled.
+        if enable_classic == "1":
+            try:
+                props.Set(ADAPTER_IFACE, "Discoverable", dbus.Boolean(True))
+            except Exception:
+                pass
+        else:
+            try:
+                props.Set(ADAPTER_IFACE, "Discoverable", dbus.Boolean(False))
+            except Exception:
+                pass
+
+def trust_device(bus, device_path: str, verbose: bool = False):
+    try:
+        props = dbus.Interface(bus.get_object(BLUEZ, device_path), PROP_IFACE)
+        props.Set(DEVICE_IFACE, "Trusted", dbus.Boolean(True))
+        if verbose:
+            print(f"[agent] Trusted set for {dev_short(device_path)}", flush=True)
+    except Exception as e:
+        if verbose:
+            print(f"[agent] Trust set failed for {dev_short(device_path)}: {e}", flush=True)
 
 class Agent(dbus.service.Object):
     def __init__(self, bus, path="/ipr/agent", mode="nowinpasskey", fixed_pin="0000", verbose=True):
@@ -139,11 +269,11 @@ class Agent(dbus.service.Object):
     @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="u")
     def RequestPasskey(self, device):
         d = dev_short(device)
-        # Keep deterministic/simple for Windows BLE HID flows.
         if self.mode == "fixedpin":
             pk = int(self.fixed_pin)
             self.log(f"[agent] RequestPasskey for {d} -> fixed passkey {pk}")
             return dbus.UInt32(pk)
+        # For your "no win passkey" mode, keep it deterministic.
         self.log(f"[agent] RequestPasskey for {d} -> returning 0")
         return dbus.UInt32(0)
 
@@ -160,19 +290,23 @@ class Agent(dbus.service.Object):
     @dbus.service.method(AGENT_IFACE, in_signature="ou", out_signature="")
     def RequestConfirmation(self, device, passkey):
         d = dev_short(device)
-        self.log(f"[agent] RequestConfirmation({d}) passkey={int(passkey):06d} -> accepting")
+        self.log(f"[agent] RequestConfirmation({d}) passkey={int(passkey):06d} -> accepting + trusting")
+        trust_device(self.bus, device, verbose=self.verbose)
         return
 
     @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="")
     def RequestAuthorization(self, device):
         d = dev_short(device)
-        self.log(f"[agent] RequestAuthorization({d}) -> accepting")
+        self.log(f"[agent] RequestAuthorization({d}) -> accepting + trusting")
+        trust_device(self.bus, device, verbose=self.verbose)
         return
 
     @dbus.service.method(AGENT_IFACE, in_signature="os", out_signature="")
     def AuthorizeService(self, device, uuid):
         d = dev_short(device)
         self.log(f"[agent] AuthorizeService({d}) uuid={uuid} -> accepting")
+        # Trust here too (some stacks call this instead)
+        trust_device(self.bus, device, verbose=self.verbose)
         return
 
     @dbus.service.method(AGENT_IFACE, in_signature="", out_signature="")
@@ -180,69 +314,16 @@ class Agent(dbus.service.Object):
         self.log("[agent] Cancel()")
         return
 
-def find_adapter(bus, prefer="hci0") -> str:
-    om = dbus.Interface(bus.get_object(BLUEZ, "/"), OM_IFACE)
-    objects = om.GetManagedObjects()
-
-    for path, ifaces in objects.items():
-        if "org.bluez.Adapter1" in ifaces and path.endswith(prefer):
-            return path
-
-    for path, ifaces in objects.items():
-        if "org.bluez.Adapter1" in ifaces:
-            return path
-
-    raise RuntimeError("No BlueZ adapter found")
-
-def set_adapter_ready(bus, adapter_path: str, verbose: bool = False):
-    props = dbus.Interface(bus.get_object(BLUEZ, adapter_path), PROP_IFACE)
-
-    props.Set("org.bluez.Adapter1", "Powered", dbus.Boolean(True))
-    props.Set("org.bluez.Adapter1", "Pairable", dbus.Boolean(True))
-
-    controller_mode = env_clean("BT_CONTROLLER_MODE", "dual").lower()  # le/dual/bredr
-    enable_classic = env_clean("BT_ENABLE_CLASSIC_DISCOVERABLE", "0")
-
-    if verbose:
-        print(f"[agent] BT_CONTROLLER_MODE={controller_mode} BT_ENABLE_CLASSIC_DISCOVERABLE={enable_classic}", flush=True)
-
-    # Best-effort set timeout (some controllers reject)
-    try:
-        props.Set("org.bluez.Adapter1", "DiscoverableTimeout", dbus.UInt32(0))
-    except Exception:
-        pass
-
-    if controller_mode == "le":
-        # Windows visibility helper. In LE-only mode this should not create a second BR/EDR identity.
-        try:
-            props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(True))
-        except Exception:
-            pass
-    else:
-        # Dual/BREDR: default OFF unless explicitly enabled.
-        if enable_classic == "1":
-            try:
-                props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(True))
-            except Exception:
-                pass
-        else:
-            try:
-                props.Set("org.bluez.Adapter1", "Discoverable", dbus.Boolean(False))
-            except Exception:
-                pass
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["nowinpasskey", "fixedpin"], default="nowinpasskey")
     ap.add_argument("--fixed-pin", default="0000")
-    ap.add_argument("--capability", default="NoInputNoOutput",
-                    help="Use NoInputNoOutput for 'no passkey' goal")
+    ap.add_argument("--capability", default="NoInputNoOutput")
     ap.add_argument("--agent-path", default="/ipr/agent")
     ap.add_argument("--adapter", default="hci0")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
-    # Env override for debugging (BT_AGENT_DEBUG=1 -> verbose)
     env_dbg = env_clean("BT_AGENT_DEBUG", "0")
     verbose = (not args.quiet) or (env_dbg == "1")
 
@@ -256,7 +337,7 @@ def main():
         bus=bus,
         path=args.agent_path,
         mode=args.mode,
-        fixed_pin=args.fixed_pin if args.mode == "fixedpin" else None,
+        fixed_pin=args.fixed_pin,
         verbose=verbose,
     )
 
@@ -279,28 +360,31 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         sys.exit(0)
 PYEOF
-
 chmod +x "$AGENT_BIN"
 
+# ------------------------------------------------------------------------------
+# Write BLE HID daemon
+# - Buffers FIFO text until StartNotify happens (Windows subscribed)
+# - Avoid log spam for every dropped key while unsubscribed
+# ------------------------------------------------------------------------------
 echo "=== [svc_install_bt_hid_agent_unified] Writing $BLE_BIN ==="
 cat > "$BLE_BIN" << 'PYEOF'
 #!/usr/bin/env python3
 """
-bt_hid_ble_daemon.py
+bt_hid_ble_daemon.py - BLE HID over GATT keyboard daemon.
 
-BLE HID over GATT keyboard daemon.
-
-Fixes/behavior:
-  - Correctly emits org.freedesktop.DBus.Properties.PropertiesChanged as a SIGNAL
-    (required for notifications to actually reach Windows)
-  - Logs StartNotify/StopNotify for Input Report so you can confirm subscription
-  - Robust advertisement re-register after Release(), reacquiring fresh proxy
+Key fixes for your current symptoms:
+  - Buffer FIFO input until Windows subscribes to Input Report notifications
+    (StartNotify). This stops: "InputReport not notifying yet; dropping report".
+  - PropertiesChanged is emitted as a SIGNAL (required for notifications).
 """
 
 import os
 import sys
 import time
 import threading
+from collections import deque
+
 import dbus
 import dbus.service
 import dbus.mainloop.glib
@@ -371,7 +455,6 @@ UUID_MODEL_NUMBER = "2a24"
 # HID modifier bits
 MOD_LSHIFT = 0x02
 
-# Minimal mapping (extend later)
 LETTER_USAGES = {chr(ord('a') + i): 0x04 + i for i in range(26)}
 DIGIT_USAGES = {
     "1": 0x1E, "2": 0x1F, "3": 0x20, "4": 0x21, "5": 0x22,
@@ -385,14 +468,10 @@ PUNCT = {
     "-": (0x2D, 0),
     "_": (0x2D, MOD_LSHIFT),
 }
-# Danish letters assuming host uses Danish layout; physical keys [ ; '
 SPECIAL_DK = {
-    "å": (0x2F, 0),
-    "Å": (0x2F, MOD_LSHIFT),
-    "æ": (0x33, 0),
-    "Æ": (0x33, MOD_LSHIFT),
-    "ø": (0x34, 0),
-    "Ø": (0x34, MOD_LSHIFT),
+    "å": (0x2F, 0), "Å": (0x2F, MOD_LSHIFT),
+    "æ": (0x33, 0), "Æ": (0x33, MOD_LSHIFT),
+    "ø": (0x34, 0), "Ø": (0x34, MOD_LSHIFT),
 }
 
 def map_char(ch: str):
@@ -409,10 +488,8 @@ def map_char(ch: str):
     return (0, 0)
 
 def build_kbd_report(mods: int, keycode: int) -> bytes:
-    # 8 bytes: modifiers, reserved, 6 keycodes
     return bytes([mods & 0xFF, 0x00, keycode & 0xFF, 0, 0, 0, 0, 0])
 
-# HID report map: basic keyboard, no report ID
 HID_REPORT_MAP = bytes([
     0x05, 0x01, 0x09, 0x06, 0xA1, 0x01,
     0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7,
@@ -523,13 +600,11 @@ class Characteristic(dbus.service.Object):
     def StopNotify(self):
         self.notifying = False
 
-    # IMPORTANT: PropertiesChanged is a SIGNAL, not a callable method.
     @dbus.service.signal(DBUS_PROP_IFACE, signature="sa{sv}as")
     def PropertiesChanged(self, interface, changed, invalidated):
         pass
 
     def _emit_properties_changed(self, changed_dict):
-        # Emit the signal so BlueZ forwards notifications to the client.
         self.PropertiesChanged(GATT_CHRC_IFACE, changed_dict, [])
 
 class Descriptor(dbus.service.Object):
@@ -591,38 +666,39 @@ class HidControlPointCharacteristic(Characteristic):
         self._value = bytearray([0x00])
 
 class InputReportCharacteristic(Characteristic):
-    def __init__(self, bus, index, service):
+    def __init__(self, bus, index, service, notify_event: threading.Event):
         super().__init__(bus, index, UUID_REPORT, ["read", "notify"], service)
         self._value = bytearray(build_kbd_report(0, 0))
-        # Report ID = 0 because HID_REPORT_MAP has NO Report ID item (0x85)
+        self.notify_event = notify_event
         self.add_descriptor(ReportReferenceDescriptor(bus, 0, self, report_id=0, report_type=1))
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="")
     def StartNotify(self, options):
         self.notifying = True
-        log_info("[ble] InputReport StartNotify (client subscribed)", always=True)
+        self.notify_event.set()
+        log_info("[ble] InputReport StartNotify (Windows subscribed)", always=True)
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
     def StopNotify(self):
         self.notifying = False
-        log_info("[ble] InputReport StopNotify (client unsubscribed)", always=True)
+        self.notify_event.clear()
+        log_info("[ble] InputReport StopNotify (Windows unsubscribed)", always=True)
 
     def notify_report(self, report_bytes: bytes):
         if not self.notifying:
-            log_info("[ble] InputReport not notifying yet; dropping report")
-            return
+            return False
         self._value = bytearray(report_bytes)
         self._emit_properties_changed({"Value": dbus.Array(self._value, signature="y")})
-        log_info(f"[ble] HID notify Value={list(self._value)}")
+        return True
 
 class HidService(Service):
-    def __init__(self, bus, index):
+    def __init__(self, bus, index, notify_event: threading.Event):
         super().__init__(bus, index, UUID_HID_SERVICE, primary=True)
         self.hid_info = HidInformationCharacteristic(bus, 0, self)
         self.report_map = ReportMapCharacteristic(bus, 1, self)
         self.protocol_mode = ProtocolModeCharacteristic(bus, 2, self)
         self.control_point = HidControlPointCharacteristic(bus, 3, self)
-        self.input_report = InputReportCharacteristic(bus, 4, self)
+        self.input_report = InputReportCharacteristic(bus, 4, self, notify_event)
 
         self.add_characteristic(self.hid_info)
         self.add_characteristic(self.report_map)
@@ -638,9 +714,7 @@ class ReadOnlyStringCharacteristic(Characteristic):
 class PnpIdCharacteristic(Characteristic):
     def __init__(self, bus, index, service):
         super().__init__(bus, index, UUID_PNP_ID, ["read"], service)
-        # 7 bytes: [VIDSource, VID(LE), PID(LE), Version(LE)]
-        # VIDSource=0x02 (USB)
-        vid = int(env_str("BT_USB_VID", "0x1D6B"), 0)  # default: Linux Foundation
+        vid = int(env_str("BT_USB_VID", "0x1D6B"), 0)
         pid = int(env_str("BT_USB_PID", "0x0246"), 0)
         ver = int(env_str("BT_USB_VER", "0x0100"), 0)
         self._value = bytearray([
@@ -670,26 +744,15 @@ class Advertisement(dbus.service.Object):
         self.appearance = appearance
         super().__init__(bus, self.path)
 
-        self._adapter_path = None
-        self._rr_attempt = 0
-
-    def bind_manager(self, adapter_path: str):
-        self._adapter_path = adapter_path
-
     def get_path(self):
         return dbus.ObjectPath(self.path)
 
     def get_properties(self):
-        # Do NOT include "local-name" in Includes if you also set LocalName,
-        # or BlueZ 5.66 may fail parsing ("Local name already included").
         return {
             ADVERTISEMENT_IFACE: {
-                "Type": self.ad_type,  # "peripheral"
+                "Type": self.ad_type,
                 "ServiceUUIDs": dbus.Array(self.service_uuids, signature="s"),
-                # AD flags:
-                # 0x02 = General Discoverable Mode
-                # 0x04 = BR/EDR Not Supported (LE-only)
-                "Flags": dbus.Array([dbus.Byte(0x02), dbus.Byte(0x04)], signature="y"),
+                "Flags": dbus.Array([dbus.Byte(0x02), dbus.Byte(0x04)], signature="y"),  # general + BR/EDR not supported
                 "LocalName": self.local_name,
                 "Appearance": dbus.UInt16(self.appearance),
             }
@@ -703,58 +766,7 @@ class Advertisement(dbus.service.Object):
 
     @dbus.service.method(ADVERTISEMENT_IFACE, in_signature="", out_signature="")
     def Release(self):
-        log_info("[ble] Advertisement released – scheduling robust re-register", always=True)
-        self._rr_attempt = 0
-        GLib.timeout_add_seconds(1, self._reregister_fresh)
-
-    def _get_adv_mgr_fresh(self):
-        if not self._adapter_path:
-            raise RuntimeError("Advertisement has no adapter_path bound")
-        obj = self.bus.get_object(BLUEZ, self._adapter_path)
-        return dbus.Interface(obj, LE_ADV_MGR_IFACE)
-
-    def _reregister_fresh(self):
-        self._rr_attempt += 1
-        attempt = self._rr_attempt
-
-        try:
-            adv_mgr = self._get_adv_mgr_fresh()
-        except Exception as e:
-            log_err(f"[ble][ERROR] Cannot reacquire adv manager (attempt {attempt}): {e}")
-            if attempt < 6:
-                GLib.timeout_add_seconds(2, self._reregister_fresh)
-            return False
-
-        log_info(f"[ble] Adv re-register attempt {attempt}/6 (fresh proxy)", always=True)
-
-        # Best-effort unregister (ignore errors)
-        try:
-            adv_mgr.UnregisterAdvertisement(self.get_path())
-        except Exception as e:
-            log_info(f"[ble] UnregisterAdvertisement ignored: {e}")
-
-        def _ok():
-            log_info("[ble] Advertisement re-registered (fresh proxy)", always=True)
-            return
-
-        def _err(e):
-            log_err(f"[ble][ERROR] RegisterAdvertisement failed (attempt {attempt}): {e}")
-            if attempt < 6:
-                GLib.timeout_add_seconds(2, self._reregister_fresh)
-            else:
-                log_err("[ble][ERROR] Advertisement re-register gave up after 6 attempts")
-            return
-
-        try:
-            adv_mgr.RegisterAdvertisement(self.get_path(), {}, reply_handler=_ok, error_handler=_err)
-        except Exception as e:
-            log_err(f"[ble][ERROR] Exception during RegisterAdvertisement (attempt {attempt}): {e}")
-            if attempt < 6:
-                GLib.timeout_add_seconds(2, self._reregister_fresh)
-            else:
-                log_err("[ble][ERROR] Advertisement re-register gave up after 6 attempts")
-
-        return False
+        log_info("[ble] Advertisement released", always=True)
 
 def ensure_fifo():
     if not os.path.exists(FIFO_PATH):
@@ -782,9 +794,43 @@ def on_ok(msg: str):
         log_info(msg, always=True)
     return _h
 
-def fifo_worker(input_report: InputReportCharacteristic):
+def fifo_worker(input_report: InputReportCharacteristic, notify_event: threading.Event):
     ensure_fifo()
     log_info(f"[ble] FIFO ready at {FIFO_PATH}", always=True)
+
+    # Queue characters received before StartNotify.
+    q = deque()
+    q_max = 2048
+    last_drop_log = 0.0
+
+    def enqueue_text(s: str):
+        nonlocal last_drop_log
+        for ch in s:
+            if len(q) >= q_max:
+                # Drop oldest to keep "latest" data
+                q.popleft()
+                now = time.time()
+                if now - last_drop_log > 2.0:
+                    log_info("[ble] FIFO queue full; dropping oldest buffered chars (waiting for StartNotify)", always=True)
+                    last_drop_log = now
+            q.append(ch)
+
+    def flush_queue():
+        # Drain queue respecting notify state.
+        while q and notify_event.is_set():
+            ch = q.popleft()
+            keycode, mods = map_char(ch)
+            if keycode == 0:
+                continue
+            ok = input_report.notify_report(build_kbd_report(mods, keycode))
+            if ok:
+                time.sleep(0.008)
+                input_report.notify_report(build_kbd_report(0, 0))
+                time.sleep(0.008)
+            else:
+                # Lost notify mid-flight: put char back and stop.
+                q.appendleft(ch)
+                break
 
     while True:
         try:
@@ -794,17 +840,19 @@ def fifo_worker(input_report: InputReportCharacteristic):
                     if not text:
                         continue
                     log_info(f"[ble] FIFO received: {text!r}", always=True)
-                    for ch in text:
-                        keycode, mods = map_char(ch)
-                        if keycode == 0:
-                            log_info(f"[ble] Unsupported character: {ch!r}, skipping")
-                            continue
-                        # key down
-                        input_report.notify_report(build_kbd_report(mods, keycode))
-                        time.sleep(0.008)
-                        # key up
-                        input_report.notify_report(build_kbd_report(0, 0))
-                        time.sleep(0.008)
+
+                    enqueue_text(text)
+
+                    # Wait briefly for subscription; if not, keep buffering.
+                    if not notify_event.is_set():
+                        notify_event.wait(timeout=1.5)
+
+                    if notify_event.is_set():
+                        flush_queue()
+                    else:
+                        # Don’t spam per-key logs; one line per message is enough.
+                        log_info("[ble] Waiting for InputReport StartNotify; buffered text (not dropped).", always=True)
+
         except Exception as ex:
             log_err(f"[ble][ERROR] FIFO worker exception: {ex}")
             time.sleep(1.0)
@@ -818,8 +866,10 @@ def main():
     gatt_mgr = dbus.Interface(bus.get_object(BLUEZ, adapter_path), GATT_MANAGER_IFACE)
     adv_mgr = dbus.Interface(bus.get_object(BLUEZ, adapter_path), LE_ADV_MGR_IFACE)
 
+    notify_event = threading.Event()
+
     app = Application(bus)
-    hid_service = HidService(bus, 0)
+    hid_service = HidService(bus, 0, notify_event)
     dis_service = DeviceInfoService(bus, 1)
     app.add_service(hid_service)
     app.add_service(dis_service)
@@ -832,7 +882,6 @@ def main():
         local_name=env_str("BT_DEVICE_NAME", "IPR Keyboard"),
         appearance=0x03C1,  # Keyboard
     )
-    adv.bind_manager(adapter_path)
 
     log_info("[ble] Starting BLE HID daemon...", always=True)
     log_info(f"[ble] Advertising LocalName='{env_str('BT_DEVICE_NAME', 'IPR Keyboard')}'", always=True)
@@ -852,10 +901,10 @@ def main():
         error_handler=on_err("RegisterAdvertisement"),
     )
 
-    t = threading.Thread(target=fifo_worker, args=(hid_service.input_report,), daemon=True)
+    t = threading.Thread(target=fifo_worker, args=(hid_service.input_report, notify_event), daemon=True)
     t.start()
 
-    log_info("[ble] BLE HID ready. Waiting for connections and FIFO input...", always=True)
+    log_info("[ble] BLE HID ready. Waiting for Windows connection + StartNotify...", always=True)
     GLib.MainLoop().run()
 
 if __name__ == "__main__":
@@ -864,15 +913,20 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         sys.exit(0)
 PYEOF
-
 chmod +x "$BLE_BIN"
 
+# ------------------------------------------------------------------------------
+# systemd units
+# - Restart=always: BLE can get "released" or transient failures
+# - PartOf=bluetooth.service: keep them aligned with bluetooth restarts
+# ------------------------------------------------------------------------------
 echo "=== [svc_install_bt_hid_agent_unified] Writing service unit: $AGENT_UNIT ==="
 cat > "$AGENT_UNIT" << EOF
 [Unit]
 Description=IPR Keyboard Unified BlueZ Agent
 After=bluetooth.service
 Requires=bluetooth.service
+PartOf=bluetooth.service
 
 [Service]
 Type=simple
@@ -880,9 +934,9 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=${AGENT_SERVICE_NAME}
 EnvironmentFile=-${ENV_FILE}
-ExecStart=/usr/bin/python3 -u ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter ${BT_HCI:-hci0}
-Restart=on-failure
-RestartSec=1
+ExecStart=/usr/bin/python3 -u ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter \${BT_HCI:-hci0}
+Restart=always
+RestartSec=2
 
 [Install]
 WantedBy=multi-user.target
@@ -894,6 +948,7 @@ cat > "$BLE_UNIT" << EOF
 Description=IPR Keyboard BLE HID Daemon
 After=bluetooth.service
 Requires=bluetooth.service
+PartOf=bluetooth.service
 
 [Service]
 Type=simple
@@ -902,29 +957,31 @@ StandardError=journal
 SyslogIdentifier=${BLE_SERVICE_NAME}
 EnvironmentFile=-${ENV_FILE}
 ExecStart=/usr/bin/python3 -u ${BLE_BIN}
-Restart=on-failure
-RestartSec=1
+Restart=always
+RestartSec=2
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-systemctl enable "${BLE_SERVICE_NAME}.service" >/dev/null 2>&1 || true
 systemctl daemon-reload
+systemctl enable "${BLE_SERVICE_NAME}.service" >/dev/null 2>&1 || true
 systemctl enable "${AGENT_SERVICE_NAME}.service" >/dev/null 2>&1 || true
 
 echo "=== [svc_install_bt_hid_agent_unified] Done ==="
 echo ""
+echo "Next steps (important):"
+echo "  1) Restart bluetooth to apply plugin drop-in:"
+echo "     sudo systemctl restart bluetooth"
+echo "  2) Restart services:"
+echo "     sudo systemctl restart ${AGENT_SERVICE_NAME}.service"
+echo "     sudo systemctl restart ${BLE_SERVICE_NAME}.service"
+echo ""
+echo "Verify:"
+echo "  sudo systemctl status bluetooth ${AGENT_SERVICE_NAME}.service ${BLE_SERVICE_NAME}.service -n 30"
+echo "  sudo journalctl -u ${AGENT_SERVICE_NAME}.service -n 120 --no-pager"
+echo "  sudo journalctl -u ${BLE_SERVICE_NAME}.service -n 200 --no-pager"
+echo ""
 echo "If you want debug logs, set in ${ENV_FILE}:"
 echo "  BT_AGENT_DEBUG=\"1\""
 echo "  BT_BLE_DEBUG=\"1\""
-echo ""
-echo "Restart services with:"
-echo "  sudo systemctl restart bluetooth"
-echo "  sudo systemctl restart ${AGENT_SERVICE_NAME}.service"
-echo "  sudo systemctl restart ${BLE_SERVICE_NAME}.service"
-echo ""
-echo "Then verify:"
-echo "  bluetoothctl show"
-echo "  journalctl -u ${BLE_SERVICE_NAME}.service -n 200 --no-pager"
-echo "  journalctl -u ${AGENT_SERVICE_NAME}.service -n 120 --no-pager"
