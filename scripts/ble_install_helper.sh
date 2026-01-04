@@ -133,10 +133,10 @@ echo "=== [ble_install_helper] Installing bt_hid_uinput service ==="
 echo "=== [ble_install_helper] Installing bt_hid_ble service ==="
 "$SCRIPT_DIR/service/svc_install_bt_hid_ble.sh"
 
-echo "=== [ble_install_helper] Enabling uinput backend by default ==="
-systemctl disable bt_hid_ble.service || true
-systemctl enable bt_hid_uinput.service
-systemctl restart bt_hid_uinput.service
+echo "=== [ble_install_helper] Enabling BLE backend by default ==="
+systemctl enable bt_hid_ble.service || true
+systemctl disable bt_hid_uinput.service
+systemctl restart bt_hid_ble.service
 
 ########################################
 # 4. Install Bluetooth agent
