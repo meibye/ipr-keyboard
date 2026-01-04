@@ -2,6 +2,8 @@
 #
 # svc_install_bt_hid_agent_unified.sh
 #
+# VERSION: 2026/01/04 20:40:48
+# 
 # Installs:
 #   - Unified BlueZ Agent service for pairing (bt_hid_agent_unified.service)
 #   - BLE HID daemon (bt_hid_ble_daemon.py) for HID over GATT keyboard
@@ -83,8 +85,8 @@ BT_MANUFACTURER="IPR"
 BT_MODEL="IPR Keyboard"
 
 # PnP ID (USB VID/PID/VER). Linux Foundation defaults are fine for testing.
-BT_USB_VID="0x1D6B"
-BT_USB_PID="0x0246"
+BT_USB_VID="0x1234"
+BT_USB_PID="0x5678"
 BT_USB_VER="0x0100"
 EOF
 fi
@@ -589,7 +591,13 @@ class Characteristic(dbus.service.Object):
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="ay")
     def ReadValue(self, options):
-        return dbus.Array(self._value, signature="y")
+        value = bytes(self._value)
+        offset = int(options.get("offset", 0)) if isinstance(options, dict) else 0
+        if offset > len(value):
+            raise dbus.exceptions.DBusException(
+                "org.bluez.Error.InvalidOffset", "Invalid offset"
+            )
+        return dbus.Array(value[offset:], signature="y")
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="aya{sv}", out_signature="")
     def WriteValue(self, value, options):
@@ -739,6 +747,8 @@ class PnpIdCharacteristic(Characteristic):
             pid & 0xFF, (pid >> 8) & 0xFF,
             ver & 0xFF, (ver >> 8) & 0xFF,
         ])
+        if BLE_DEBUG:
+            log_info(f"[ble] PnpIdCharacteristic bytes: {list(self._value)}")
 
 class DeviceInfoService(Service):
     def __init__(self, bus, index):
@@ -955,6 +965,7 @@ SyslogIdentifier=${AGENT_SERVICE_NAME}
 EnvironmentFile=-${ENV_FILE}
 ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} le on
 ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} bredr off
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} advertising on
 ExecStart=/usr/bin/python3 -u ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter \${BT_HCI:-hci0}
 Restart=always
 RestartSec=2
@@ -967,8 +978,8 @@ echo "=== [svc_install_bt_hid_agent_unified] Writing service unit: $BLE_UNIT ===
 cat > "$BLE_UNIT" << EOF
 [Unit]
 Description=IPR Keyboard BLE HID Daemon
-After=bluetooth.service
-Requires=bluetooth.service
+After=bt_hid_agent_unified.service bluetooth.service
+Requires=bt_hid_agent_unified.service bluetooth.service
 BindsTo=bluetooth.service
 
 [Service]
@@ -986,8 +997,8 @@ WantedBy=multi-user.target bluetooth.service
 EOF
 
 systemctl daemon-reload
-systemctl enable "${BLE_SERVICE_NAME}.service" >/dev/null 2>&1 || true
 systemctl enable "${AGENT_SERVICE_NAME}.service" >/dev/null 2>&1 || true
+systemctl enable "${BLE_SERVICE_NAME}.service" >/dev/null 2>&1 || true
 
 echo "=== [svc_install_bt_hid_agent_unified] Done ==="
 echo ""
