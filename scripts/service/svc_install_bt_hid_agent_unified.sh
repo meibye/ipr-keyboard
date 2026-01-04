@@ -125,9 +125,10 @@ echo "=== [svc_install_bt_hid_agent_unified] Writing $BT_OVERRIDE_FILE ==="
 cat > "$BT_OVERRIDE_FILE" <<'EOF'
 [Service]
 ExecStart=
-ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,a2dp,network,input,health,midi,battery,bap,neard,wiimote,sixaxis,autopair,deviceinfo,hostname
+ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,a2dp,network,input,midi,neard,wiimote,sixaxis,autopair,hostname,bap
 ConfigurationDirectoryMode=0755
 EOF
+#ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,a2dp,network,input,health,midi,battery,bap,neard,wiimote,sixaxis,autopair,deviceinfo,hostname
 
 # ------------------------------------------------------------------------------
 # Write Unified Agent
