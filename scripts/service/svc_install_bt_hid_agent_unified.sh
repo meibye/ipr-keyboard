@@ -941,7 +941,7 @@ cat > "$AGENT_UNIT" << EOF
 Description=IPR Keyboard Unified BlueZ Agent
 After=bluetooth.service
 Requires=bluetooth.service
-PartOf=bluetooth.service
+BindsTo=bluetooth.service
 
 [Service]
 Type=simple
@@ -954,7 +954,7 @@ Restart=always
 RestartSec=2
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=multi-user.target bluetooth.service
 EOF
 
 echo "=== [svc_install_bt_hid_agent_unified] Writing service unit: $BLE_UNIT ==="
@@ -963,7 +963,7 @@ cat > "$BLE_UNIT" << EOF
 Description=IPR Keyboard BLE HID Daemon
 After=bluetooth.service
 Requires=bluetooth.service
-PartOf=bluetooth.service
+BindsTo=bluetooth.service
 
 [Service]
 Type=simple
@@ -976,7 +976,7 @@ Restart=always
 RestartSec=2
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=multi-user.target bluetooth.service
 EOF
 
 systemctl daemon-reload
