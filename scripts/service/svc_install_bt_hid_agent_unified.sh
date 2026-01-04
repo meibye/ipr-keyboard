@@ -118,6 +118,8 @@ fi
 #   - neard,health,deviceinfo,sap
 #   - gamepad plugins (sixaxis, wiimote)
 #   - autopair (can fight your custom agent)
+#
+#    OLD: sap,avrcp,a2dp,network,input,health,midi,battery,bap,neard,wiimote,sixaxis,autopair,deviceinfo,hostname
 # ------------------------------------------------------------------------------
 mkdir -p "$BT_OVERRIDE_DIR"
 
@@ -128,7 +130,6 @@ ExecStart=
 ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,a2dp,network,input,midi,neard,wiimote,sixaxis,autopair,hostname,bap
 ConfigurationDirectoryMode=0755
 EOF
-#ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,a2dp,network,input,health,midi,battery,bap,neard,wiimote,sixaxis,autopair,deviceinfo,hostname
 
 # ------------------------------------------------------------------------------
 # Write Unified Agent
@@ -952,9 +953,8 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=${AGENT_SERVICE_NAME}
 EnvironmentFile=-${ENV_FILE}
-ExecStartPre=/usr/bin/btmgmt -i %I le on
-ExecStartPre=/usr/bin/btmgmt -i %I bredr off
-ExecStartPre=/bin/rm -rf /var/lib/bluetooth/*/cache/*
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} le on
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} bredr off
 ExecStart=/usr/bin/python3 -u ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter \${BT_HCI:-hci0}
 Restart=always
 RestartSec=2
@@ -977,7 +977,6 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=${BLE_SERVICE_NAME}
 EnvironmentFile=-${ENV_FILE}
-ExecStartPre=/bin/rm -rf /var/lib/bluetooth/*/cache/*
 ExecStart=/usr/bin/python3 -u ${BLE_BIN}
 Restart=always
 RestartSec=2
