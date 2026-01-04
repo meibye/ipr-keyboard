@@ -258,35 +258,35 @@ class Agent(dbus.service.Object):
         if self.verbose:
             print(msg, flush=True)
 
-    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="s")
-    def RequestPinCode(self, device):
-        d = dev_short(device)
-        if self.mode == "fixedpin":
-            self.log(f"[agent] RequestPinCode for {d} -> fixed pin {self.fixed_pin}")
-            return self.fixed_pin
-        self.log(f"[agent] RequestPinCode for {d} -> returning 0000")
-        return "0000"
+    # @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="s")
+    # def RequestPinCode(self, device):
+    #     d = dev_short(device)
+    #     if self.mode == "fixedpin":
+    #         self.log(f"[agent] RequestPinCode for {d} -> fixed pin {self.fixed_pin}")
+    #         return self.fixed_pin
+    #     self.log(f"[agent] RequestPinCode for {d} -> returning 0000")
+    #     return "0000"
 
-    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="u")
-    def RequestPasskey(self, device):
-        d = dev_short(device)
-        if self.mode == "fixedpin":
-            pk = int(self.fixed_pin)
-            self.log(f"[agent] RequestPasskey for {d} -> fixed passkey {pk}")
-            return dbus.UInt32(pk)
-        # For your "no win passkey" mode, keep it deterministic.
-        self.log(f"[agent] RequestPasskey for {d} -> returning 0")
-        return dbus.UInt32(0)
+    # @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="u")
+    # def RequestPasskey(self, device):
+    #     d = dev_short(device)
+    #     if self.mode == "fixedpin":
+    #         pk = int(self.fixed_pin)
+    #         self.log(f"[agent] RequestPasskey for {d} -> fixed passkey {pk}")
+    #         return dbus.UInt32(pk)
+    #     # For your "no win passkey" mode, keep it deterministic.
+    #     self.log(f"[agent] RequestPasskey for {d} -> returning 0")
+    #     return dbus.UInt32(0)
 
-    @dbus.service.method(AGENT_IFACE, in_signature="ou", out_signature="")
-    def DisplayPasskey(self, device, passkey):
-        d = dev_short(device)
-        self.log(f"[agent] DisplayPasskey({d}) passkey={int(passkey):06d}")
+    # @dbus.service.method(AGENT_IFACE, in_signature="ou", out_signature="")
+    # def DisplayPasskey(self, device, passkey):
+    #     d = dev_short(device)
+    #     self.log(f"[agent] DisplayPasskey({d}) passkey={int(passkey):06d}")
 
-    @dbus.service.method(AGENT_IFACE, in_signature="os", out_signature="")
-    def DisplayPinCode(self, device, pincode):
-        d = dev_short(device)
-        self.log(f"[agent] DisplayPinCode({d}) pin={pincode}")
+    # @dbus.service.method(AGENT_IFACE, in_signature="os", out_signature="")
+    # def DisplayPinCode(self, device, pincode):
+    #     d = dev_short(device)
+    #     self.log(f"[agent] DisplayPinCode({d}) pin={pincode}")
 
     @dbus.service.method(AGENT_IFACE, in_signature="ou", out_signature="")
     def RequestConfirmation(self, device, passkey):
@@ -781,7 +781,9 @@ class Advertisement(dbus.service.Object):
 
     @dbus.service.method(ADVERTISEMENT_IFACE, in_signature="", out_signature="")
     def Release(self):
-        log_info("[ble] Advertisement released", always=True)
+        log_info("[ble] Advertisement released -> exiting for restart", always=True)
+        os._exit(0)
+
 
 def ensure_fifo():
     if not os.path.exists(FIFO_PATH):
@@ -950,6 +952,9 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=${AGENT_SERVICE_NAME}
 EnvironmentFile=-${ENV_FILE}
+ExecStartPre=/usr/bin/btmgmt -i %I le on
+ExecStartPre=/usr/bin/btmgmt -i %I bredr off
+ExecStartPre=/bin/rm -rf /var/lib/bluetooth/*/cache/*
 ExecStart=/usr/bin/python3 -u ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter \${BT_HCI:-hci0}
 Restart=always
 RestartSec=2
@@ -972,6 +977,7 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=${BLE_SERVICE_NAME}
 EnvironmentFile=-${ENV_FILE}
+ExecStartPre=/bin/rm -rf /var/lib/bluetooth/*/cache/*
 ExecStart=/usr/bin/python3 -u ${BLE_BIN}
 Restart=always
 RestartSec=2
