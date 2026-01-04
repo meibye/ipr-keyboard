@@ -441,9 +441,6 @@ NOTIFY_FLAG_PATH = "/run/ipr_bt_keyboard_notifying"
 
 # UUIDs
 UUID_HID_SERVICE = "1812"
-UUID_GAP_SERVICE = "1800"
-UUID_DEVICE_NAME = "2a00"
-UUID_APPEARANCE  = "2a01"
 UUID_HID_INFORMATION = "2a4a"
 UUID_REPORT_MAP = "2a4b"
 UUID_HID_CONTROL_POINT = "2a4c"
@@ -708,30 +705,6 @@ class InputReportCharacteristic(Characteristic):
         self._emit_properties_changed({"Value": dbus.Array(self._value, signature="y")})
         return True
 
-class DeviceNameCharacteristic(Characteristic):
-    def __init__(self, bus, index, service, name: str):
-        super().__init__(bus, index, UUID_DEVICE_NAME, ["read"], service)
-        self._name = name.encode("utf-8")
-
-    def ReadValue(self, options):
-        return dbus.Array(self._name, signature="y")
-
-class AppearanceCharacteristic(Characteristic):
-    def __init__(self, bus, index, service, appearance: int):
-        super().__init__(bus, index, UUID_APPEARANCE, ["read"], service)
-        # 16-bit little endian
-        self._value = bytearray([appearance & 0xFF, (appearance >> 8) & 0xFF])
-
-    def ReadValue(self, options):
-        return dbus.Array(self._value, signature="y")
-
-class GenericAccessService(Service):
-    def __init__(self, bus, index, device_name: str, appearance: int):
-        super().__init__(bus, index, UUID_GAP_SERVICE, True)
-        self.add_characteristic(DeviceNameCharacteristic(bus, 0, self, device_name))
-        self.add_characteristic(AppearanceCharacteristic(bus, 1, self, appearance))
-
-
 class HidService(Service):
     def __init__(self, bus, index, notify_event: threading.Event):
         super().__init__(bus, index, UUID_HID_SERVICE, primary=True)
@@ -910,16 +883,9 @@ def main():
     notify_event = threading.Event()
 
     app = Application(bus)
-
-    gap_service = GenericAccessService(
-        bus, 0,
-        device_name=env_str("BT_DEVICE_NAME", "IPR Keyboard"),
-        appearance=0x03C1,  # Keyboard
-    )
     hid_service = HidService(bus, 1, notify_event)
     dis_service = DeviceInfoService(bus, 2)
 
-    app.add_service(gap_service)
     app.add_service(hid_service)
     app.add_service(dis_service)
 
