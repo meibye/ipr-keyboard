@@ -125,7 +125,7 @@ echo "=== [svc_install_bt_hid_agent_unified] Writing $BT_OVERRIDE_FILE ==="
 cat > "$BT_OVERRIDE_FILE" <<'EOF'
 [Service]
 ExecStart=
-ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,deviceinfo,a2dp,network,input,midi,bap,health,neard,wiimote,sixaxis,autopair
+ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,a2dp,network,input,health,midi,battery,bap,neard,wiimote,sixaxis,autopair,deviceinfo,hostname
 ConfigurationDirectoryMode=0755
 EOF
 
@@ -437,9 +437,13 @@ GATT_DESC_IFACE = "org.bluez.GattDescriptor1"
 ADVERTISEMENT_IFACE = "org.bluez.LEAdvertisement1"
 
 FIFO_PATH = "/run/ipr_bt_keyboard_fifo"
+NOTIFY_FLAG_PATH = "/run/ipr_bt_keyboard_notifying"
 
 # UUIDs
 UUID_HID_SERVICE = "1812"
+UUID_GAP_SERVICE = "1800"
+UUID_DEVICE_NAME = "2a00"
+UUID_APPEARANCE  = "2a01"
 UUID_HID_INFORMATION = "2a4a"
 UUID_REPORT_MAP = "2a4b"
 UUID_HID_CONTROL_POINT = "2a4c"
@@ -676,13 +680,26 @@ class InputReportCharacteristic(Characteristic):
     def StartNotify(self, options):
         self.notifying = True
         self.notify_event.set()
+        try:
+            with open(NOTIFY_FLAG_PATH, "w", encoding="utf-8") as f:
+                f.write("1\n")
+        except Exception:
+            pass
         log_info("[ble] InputReport StartNotify (Windows subscribed)", always=True)
+
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
     def StopNotify(self):
         self.notifying = False
         self.notify_event.clear()
+        try:
+            os.unlink(NOTIFY_FLAG_PATH)
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
         log_info("[ble] InputReport StopNotify (Windows unsubscribed)", always=True)
+
 
     def notify_report(self, report_bytes: bytes):
         if not self.notifying:
@@ -690,6 +707,30 @@ class InputReportCharacteristic(Characteristic):
         self._value = bytearray(report_bytes)
         self._emit_properties_changed({"Value": dbus.Array(self._value, signature="y")})
         return True
+
+class DeviceNameCharacteristic(Characteristic):
+    def __init__(self, bus, index, service, name: str):
+        super().__init__(bus, index, UUID_DEVICE_NAME, ["read"], service)
+        self._name = name.encode("utf-8")
+
+    def ReadValue(self, options):
+        return dbus.Array(self._name, signature="y")
+
+class AppearanceCharacteristic(Characteristic):
+    def __init__(self, bus, index, service, appearance: int):
+        super().__init__(bus, index, UUID_APPEARANCE, ["read"], service)
+        # 16-bit little endian
+        self._value = bytearray([appearance & 0xFF, (appearance >> 8) & 0xFF])
+
+    def ReadValue(self, options):
+        return dbus.Array(self._value, signature="y")
+
+class GenericAccessService(Service):
+    def __init__(self, bus, index, device_name: str, appearance: int):
+        super().__init__(bus, index, UUID_GAP_SERVICE, True)
+        self.add_characteristic(DeviceNameCharacteristic(bus, 0, self, device_name))
+        self.add_characteristic(AppearanceCharacteristic(bus, 1, self, appearance))
+
 
 class HidService(Service):
     def __init__(self, bus, index, notify_event: threading.Event):
@@ -869,8 +910,16 @@ def main():
     notify_event = threading.Event()
 
     app = Application(bus)
-    hid_service = HidService(bus, 0, notify_event)
-    dis_service = DeviceInfoService(bus, 1)
+
+    gap_service = GenericAccessService(
+        bus, 0,
+        device_name=env_str("BT_DEVICE_NAME", "IPR Keyboard"),
+        appearance=0x03C1,  # Keyboard
+    )
+    hid_service = HidService(bus, 1, notify_event)
+    dis_service = DeviceInfoService(bus, 2)
+
+    app.add_service(gap_service)
     app.add_service(hid_service)
     app.add_service(dis_service)
 
