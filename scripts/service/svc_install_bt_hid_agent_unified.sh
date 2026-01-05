@@ -49,6 +49,7 @@ BLE_UNIT="/etc/systemd/system/${BLE_SERVICE_NAME}.service"
 
 BT_OVERRIDE_DIR="/etc/systemd/system/bluetooth.service.d"
 BT_OVERRIDE_FILE="${BT_OVERRIDE_DIR}/override.conf"
+BT_MAIN_CONF="/etc/bluetooth/main.conf"
 
 # Parse parameters
 AGENT_DEBUG=0
@@ -125,11 +126,20 @@ fi
 # ------------------------------------------------------------------------------
 mkdir -p "$BT_OVERRIDE_DIR"
 
+# Ensure Experimental=true in main.conf (some BlueZ builds require it for LE GATT/advertising)
+if [[ -f "$BT_MAIN_CONF" ]] && ! grep -q '^Experimental=true' "$BT_MAIN_CONF"; then
+  if grep -q '^\[General\]' "$BT_MAIN_CONF"; then
+    sed -i '/^\[General\]/a Experimental=true' "$BT_MAIN_CONF"
+  else
+    printf '\n[General]\nExperimental=true\n' >> "$BT_MAIN_CONF"
+  fi
+fi
+
 echo "=== [svc_install_bt_hid_agent_unified] Writing $BT_OVERRIDE_FILE ==="
 cat > "$BT_OVERRIDE_FILE" <<'EOF'
 [Service]
 ExecStart=
-ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap,avrcp,a2dp,network,input,midi,neard,wiimote,sixaxis,autopair,hostname,bap
+ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental --noplugin=sap,avrcp,a2dp,network,input,midi,neard,wiimote,sixaxis,autopair,hostname,bap
 ConfigurationDirectoryMode=0755
 EOF
 
