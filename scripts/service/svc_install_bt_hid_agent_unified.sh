@@ -973,12 +973,11 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=${AGENT_SERVICE_NAME}
 EnvironmentFile=-${ENV_FILE}
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} le on
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} bredr off
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} power off
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} power on
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} ext-adv off
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} advertising on
+ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" le on'
+ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" bredr off'
+# ext-adv is not supported on all stacks; keep it best-effort to avoid hard failure
+ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" ext-adv off >/dev/null 2>&1 || true'
+ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" advertising on'
 ExecStart=/usr/bin/python3 -u ${AGENT_BIN} --mode nowinpasskey --capability NoInputNoOutput --adapter \${BT_HCI:-hci0}
 Restart=always
 RestartSec=2
