@@ -85,8 +85,12 @@ echo "$BTINFO" | grep -qi "current settings:.*discoverable" && pass "Adapter is 
 echo "$BTINFO" | grep -qi "current settings:.*le"           && pass "LE is enabled"          || warn "LE not shown as enabled (should be ON for BLE HID)"
 
 # Advertising state is not always shown in `info`, but we still attempt to read it:
-ADVSTATE="$(btmgmt -i "$HCI" advertising 2>&1 || true)"
-echo "$ADVSTATE" | head -n 20 || true
+ADVSTATE="$(btmgmt -i "$HCI" info 2>&1 || true)"
+if echo "$ADVSTATE" | grep -qi "current settings:.*advertising"; then
+  pass "Adapter is ADVERTISING"
+else
+  fail "Adapter is NOT advertising"
+fi
 
 section "3) bluetoothd ExecStart / experimental mode"
 # Show effective unit file
