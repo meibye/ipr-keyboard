@@ -117,6 +117,55 @@ bind -r m resize-pane -Z
 # # Don't exit copy mode when dragging with mouse
 # unbind -T copy-mode-vi MouseDragEnd1Pane
 
+# --- Copy Mode (Vi Style) ---
+#
+# Goal	                  Key Combination
+# ----------------------  --------------------------------------
+# Enter Copy Mode	        C-Space then [ (or your new C-Space + v)
+# Start Selecting	        Press v
+# Copy to Windows	        Press y (This uses the OSC 52 logic you already have)
+# Jump to Top of History	Press Home or g
+# Jump to Current Prompt	Press End or G
+# Jump to Start of Line	  Press H or 0
+# Jump to End of Line	    Press L or $
+# Fast Half-Page Scroll	  Alt + Shift + Up/Down (Works even from the prompt)
+#
+# Enable Vi-style keybindings in copy mode
+setw -g mode-keys vi
+
+# Enter copy mode more intuitively with Prefix + v
+bind v copy-mode
+
+# Selection and Yanking (Vi-like)
+bind-key -T copy-mode-vi v send -X begin-selection     # Start selection with 'v'
+bind-key -T copy-mode-vi V send -X select-line         # Select entire line with 'V'
+bind-key -T copy-mode-vi C-v send -X rectangle-toggle  # Block selection with 'Ctrl-v'
+bind-key -T copy-mode-vi y send -X copy-pipe-and-cancel # Copy with 'y' and exit
+
+# --- Fast Navigation (Start/End) ---
+# 1. Start/End of the current LINE (matches Bash/Vim)
+bind-key -T copy-mode-vi H send -X start-of-line
+bind-key -T copy-mode-vi L send -X end-of-line
+
+# 2. Start/End of the VISIBLE window (H=High, L=Low)
+# Default Vi keys are H and L, but these aliases are faster:
+bind-key -T copy-mode-vi Top send -X middle-line # Jump to middle
+# (Use 'H' for top and 'L' for bottom of current screen)
+
+# 3. Start/End of the entire HISTORY (Scrollback buffer)
+# Jump to the very first line of history or back to the current prompt
+bind-key -T copy-mode-vi Home send -X history-top
+bind-key -T copy-mode-vi End  send -X history-bottom
+
+# --- Fast Entry & Scroll ---
+# Enter copy mode and jump to the top of the history in one shot
+bind -n M-PageUp copy-mode \; send -X history-top
+
+# Scroll faster using Alt + Up/Down without needing the prefix
+# This scrolls by half-pages for quick scanning
+bind -n M-S-Up copy-mode \; send -X halfpage-up
+bind -n M-S-Down send -X halfpage-down
+
 # Start windows and panes at 1, not 0
 set -g base-index 1
 set -g pane-base-index 1
