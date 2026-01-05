@@ -119,52 +119,63 @@ bind -r m resize-pane -Z
 
 # --- Copy Mode (Vi Style) ---
 #
-# Goal	                  Key Combination
-# ----------------------  --------------------------------------
-# Enter Copy Mode	        C-Space then [ (or your new C-Space + v)
-# Start Selecting	        Press v
-# Copy to Windows	        Press y (This uses the OSC 52 logic you already have)
-# Jump to Top of History	Press Home or g
-# Jump to Current Prompt	Press End or G
-# Jump to Start of Line	  Press H or 0
-# Jump to End of Line	    Press L or $
-# Fast Half-Page Scroll	  Alt + Shift + Up/Down (Works even from the prompt)
+# +-----------------------------------------------------------------------------+
+# |                     TMUX CUSTOM VI-MODE CHEAT SHEET                         |
+# |-----------------------------------------------------------------------------|
+# | CATEGORY      | ACTION              | KEY (Copy Mode) | DESCRIPTION         |
+# |---------------|---------------------|-----------------|---------------------|
+# | MODE CONTROL  | Enter Copy Mode     | Prefix + v      | Open scroll buffer  |
+# |               | Exit Copy Mode      | q or Enter      | Return to prompt    |
+# |               | Paste               | Prefix + ]      | Paste from buffer   |
+# |---------------|---------------------|-----------------|---------------------|
+# | HISTORY NAV   | Start of History    | g or Home       | Jump to first line  |
+# |               | End of History      | G or End        | Jump to last line   |
+# |---------------|---------------------|-----------------|---------------------|
+# | WINDOW NAV    | Top of Window       | H               | Move to screen top  |
+# |               | Middle of Window    | M               | Move to screen mid  |
+# |               | Bottom of Window    | L               | Move to screen bot  |
+# |---------------|---------------------|-----------------|---------------------|
+# | LINE NAV      | Start of Line       | 0               | Jump to line start  |
+# |               | End of Line         | $               | Jump to line end    |
+# |---------------|---------------------|-----------------|---------------------|
+# | SELECTION     | Start Selection     | v               | Character selection |
+# |               | Select Line         | V               | Select entire line  |
+# |               | Block Selection     | Ctrl + v        | Select columns      |
+# |---------------|---------------------|-----------------|---------------------|
+# | COPYING       | Yank (Copy)         | y               | Copy to Win + Tmux  |
+# +-----------------------------------------------------------------------------+
+#  * Note: Prefix is [Ctrl + Space]
 #
-# Enable Vi-style keybindings in copy mode
+# Enable Vi-style keybindings
 setw -g mode-keys vi
 
-# Enter copy mode more intuitively with Prefix + v
+# Use Prefix + v to enter copy mode
 bind v copy-mode
 
-# Selection and Yanking (Vi-like)
-bind-key -T copy-mode-vi v send -X begin-selection     # Start selection with 'v'
-bind-key -T copy-mode-vi V send -X select-line         # Select entire line with 'V'
-bind-key -T copy-mode-vi C-v send -X rectangle-toggle  # Block selection with 'Ctrl-v'
-bind-key -T copy-mode-vi y send -X copy-pipe-and-cancel # Copy with 'y' and exit
+# Selection and Yanking (Matches your clipboard setup)
+bind-key -T copy-mode-vi v send -X begin-selection
+bind-key -T copy-mode-vi y send -X copy-pipe-and-cancel
+bind-key -T copy-mode-vi C-v send -X rectangle-toggle
 
-# --- Fast Navigation (Start/End) ---
-# 1. Start/End of the current LINE (matches Bash/Vim)
-bind-key -T copy-mode-vi H send -X start-of-line
-bind-key -T copy-mode-vi L send -X end-of-line
+# --- Fast Navigation within the VIEWPORT (Window) ---
+# Jump to the Top, Middle, or Bottom of the visible screen
+bind-key -T copy-mode-vi H send -X top-line
+bind-key -T copy-mode-vi M send -X middle-line
+bind-key -T copy-mode-vi L send -X bottom-line
 
-# 2. Start/End of the VISIBLE window (H=High, L=Low)
-# Default Vi keys are H and L, but these aliases are faster:
-bind-key -T copy-mode-vi Top send -X middle-line # Jump to middle
-# (Use 'H' for top and 'L' for bottom of current screen)
+# --- Fast Navigation within the HISTORY (Scrollback) ---
+# Jump to the very beginning or very end of all terminal output
+bind-key -T copy-mode-vi g send -X history-top
+bind-key -T copy-mode-vi G send -X history-bottom
 
-# 3. Start/End of the entire HISTORY (Scrollback buffer)
-# Jump to the very first line of history or back to the current prompt
+# Also map physical Home/End keys for the same purpose
 bind-key -T copy-mode-vi Home send -X history-top
-bind-key -T copy-mode-vi End  send -X history-bottom
+bind-key -T copy-mode-vi End send -X history-bottom
 
-# --- Fast Entry & Scroll ---
-# Enter copy mode and jump to the top of the history in one shot
-bind -n M-PageUp copy-mode \; send -X history-top
-
-# Scroll faster using Alt + Up/Down without needing the prefix
-# This scrolls by half-pages for quick scanning
-bind -n M-S-Up copy-mode \; send -X halfpage-up
-bind -n M-S-Down send -X halfpage-down
+# --- Fast Navigation within a LINE ---
+# Jump to start or end of the current line
+bind-key -T copy-mode-vi 0 send -X start-of-line
+bind-key -T copy-mode-vi $ send -X end-of-line
 
 # Start windows and panes at 1, not 0
 set -g base-index 1
