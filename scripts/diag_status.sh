@@ -54,30 +54,15 @@ else
   status_line "Config File" "NOT FOUND" "$red"
 fi
 
-section "Bluetooth HID Service/Backend"
-
-# Detect which backend is selected
-BACKEND="unknown"
-if [[ -f "$CONFIG_FILE" ]]; then
-  BACKEND=$(jq -r '.KeyboardBackend // empty' "$CONFIG_FILE" 2>/dev/null || echo "unknown")
-fi
-if [[ "$BACKEND" == "" || "$BACKEND" == "null" ]]; then
-  BACKEND="default (check config)"
-fi
-status_line "Selected Backend (config)" "$BACKEND"
+section "Bluetooth GATT HID Services"
 
 # Check for required services
-UINPUT_SVC="bt_hid_uinput.service"
 BLE_SVC="bt_hid_ble.service"
 AGENT_SVC="bt_hid_agent_unified.service"
 
-UINPUT_ACTIVE=false
 BLE_ACTIVE=false
 AGENT_ACTIVE=false
 
-if systemctl list-units --type=service | grep -q "$UINPUT_SVC"; then
-  if systemctl is-active --quiet "$UINPUT_SVC"; then UINPUT_ACTIVE=true; fi
-fi
 if systemctl list-units --type=service | grep -q "$BLE_SVC"; then
   if systemctl is-active --quiet "$BLE_SVC"; then BLE_ACTIVE=true; fi
 fi
@@ -85,29 +70,16 @@ if systemctl list-units --type=service | grep -q "$AGENT_SVC"; then
   if systemctl is-active --quiet "$AGENT_SVC"; then AGENT_ACTIVE=true; fi
 fi
 
-status_line "$UINPUT_SVC" "$([[ $UINPUT_ACTIVE == true ]] && echo "active" || echo "inactive/missing")" "$([[ $UINPUT_ACTIVE == true ]] && echo "$green" || echo "$red")"
 status_line "$BLE_SVC" "$([[ $BLE_ACTIVE == true ]] && echo "active" || echo "inactive/missing")" "$([[ $BLE_ACTIVE == true ]] && echo "$green" || echo "$red")"
 status_line "$AGENT_SVC" "$([[ $AGENT_ACTIVE == true ]] && echo "active" || echo "inactive/missing")" "$([[ $AGENT_ACTIVE == true ]] && echo "$green" || echo "$red")"
 
-# Analyze support for selected backend
-if [[ "$BACKEND" == "uinput" ]]; then
-  if [[ $UINPUT_ACTIVE == true && $AGENT_ACTIVE == true ]]; then
-    status_line "uinput backend support" "OK (all required services active)" "$green"
-  else
-    status_line "uinput backend support" "MISSING required services:" "$red"
-    [[ $UINPUT_ACTIVE != true ]] && echo "  - $UINPUT_SVC not active or missing"
-    [[ $AGENT_ACTIVE != true ]] && echo "  - $AGENT_SVC not active or missing"
-  fi
-elif [[ "$BACKEND" == "ble" ]]; then
-  if [[ $BLE_ACTIVE == true && $AGENT_ACTIVE == true ]]; then
-    status_line "ble backend support" "OK (all required services active)" "$green"
-  else
-    status_line "ble backend support" "MISSING required services:" "$red"
-    [[ $BLE_ACTIVE != true ]] && echo "  - $BLE_SVC not active or missing"
-    [[ $AGENT_ACTIVE != true ]] && echo "  - $AGENT_SVC not active or missing"
-  fi
+# Analyze GATT HID support
+if [[ $BLE_ACTIVE == true && $AGENT_ACTIVE == true ]]; then
+  status_line "Bluetooth GATT HID support" "OK (all required services active)" "$green"
 else
-  status_line "backend support" "Unknown backend config: $BACKEND" "$yellow"
+  status_line "Bluetooth GATT HID support" "MISSING required services:" "$red"
+  [[ $BLE_ACTIVE != true ]] && echo "  - $BLE_SVC not active or missing"
+  [[ $AGENT_ACTIVE != true ]] && echo "  - $AGENT_SVC not active or missing"
 fi
 
 # Check for helper script
