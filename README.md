@@ -27,13 +27,13 @@ This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID
 
 - **BLE and uinput backends** are installed and managed by `scripts/ble_install_helper.sh`, which creates and enables the following systemd services:
   - `bt_hid_uinput.service` — UInput backend daemon
-  - `bt_hid_ble.service` — BLE HID backend daemon
-  - `bt_hid_agent.service` — BLE pairing/authorization agent
+  - `bt_hid_ble.service` — BLE HID backend daemon (recommended for Windows 11)
+  - `bt_hid_agent_unified.service` — Unified pairing/authorization agent with "Just Works" pairing
 - **Pairing wizard, diagnostics, and backend manager** are provided by `scripts/ble_setup_extras.sh` (creates `ipr_backend_manager.service`).
 - **BLE diagnostics**: `ipr_ble_diagnostics.sh` (health check), `ipr_ble_hid_analyzer.py` (HID report analyzer).
 - **Web pairing wizard**: `/pairing` endpoint (see web server docs).
 - **Backend selection**: Automatically synchronized between `config.json` `KeyboardBackend` and `/etc/ipr-keyboard/backend`.
-- **Agent service**: `bt_hid_agent.service` ensures seamless pairing and authorization.
+- **Agent service**: `bt_hid_agent_unified.service` ensures seamless "Just Works" pairing with NoInputNoOutput capability - no passkey entry required, optimal for Windows 11.
 
 ### Backend Synchronization
 
@@ -136,15 +136,15 @@ The ipr-keyboard system consists of multiple layers working together to bridge I
 │  │                       Common Supporting Services                           │           │
 │  │                                                                             │           │
 │  │  ┌────────────────────────────────────────┐  ┌──────────────────────────┐  │           │
-│  │  │ bt_hid_agent.service                   │  │ ipr_backend_manager.     │  │           │
+│  │  │ bt_hid_agent_unified.service           │  │ ipr_backend_manager.     │  │           │
 │  │  │ (Bluetooth Pairing & Auth Agent)       │  │ service                  │  │           │
 │  │  │                                        │  │ (Backend Switcher)       │  │           │
 │  │  │ • Registers as BlueZ Agent1            │  │                          │  │           │
-│  │  │ • Auto-accepts pairing                 │  │ • Reads /etc/ipr-        │  │           │
-│  │  │ • Auto-accepts service auth            │  │   keyboard/backend       │  │           │
-│  │  │ • Sets adapter powered/discoverable    │  │ • Enables correct backend│  │           │
-│  │  │ • Required for both backends           │  │ • Disables conflicting   │  │           │
-│  │  │                                        │  │   services               │  │           │
+│  │  │ • NoInputNoOutput capability           │  │ • Reads /etc/ipr-        │  │           │
+│  │  │ • "Just Works" auto-pairing            │  │   keyboard/backend       │  │           │
+│  │  │ • Auto-accepts service auth            │  │ • Enables correct backend│  │           │
+│  │  │ • Sets adapter powered/discoverable    │  │ • Disables conflicting   │  │           │
+│  │  │ • Required for both backends           │  │   services               │  │           │
 │  │  └────────────────────────────────────────┘  └──────────────────────────┘  │           │
 │  └─────────────────────────────────────────────────────────────────────────────┘           │
 │                                        │                                                   │
@@ -191,7 +191,7 @@ Backend Selection:  uinput ◄──┬──► ble
 | **bt_hid_uinput.service** | UInput backend | uinput mode | `ble_install_helper.sh` |
 | **bt_hid_ble.service** | BLE backend | ble mode | `ble_install_helper.sh` |
 | **bt_hid_daemon.service** | Legacy HID daemon | uinput mode (alt) | `ble_install_daemon.sh` |
-| **bt_hid_agent.service** | Pairing agent | Both backends | `ble_install_helper.sh` |
+| **bt_hid_agent_unified.service** | Pairing agent (Just Works) | Both backends | `ble_install_helper.sh` |
 | **ipr_backend_manager.service** | Backend switcher | Both backends | `ble_setup_extras.sh` |
 
 ### Key Components
@@ -212,7 +212,7 @@ For detailed service descriptions, see [SERVICES.md](SERVICES.md).
 |-----------|------|-------------|
 | Entry Point | `src/ipr_keyboard/main.py` | Starts web server and USB/Bluetooth monitor threads |
 | Bluetooth | `src/ipr_keyboard/bluetooth/keyboard.py` | Wraps system helper for keyboard emulation |
-| Backend Services | Installed by `scripts/ble_install_helper.sh`:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend)<br> &nbsp; - `bt_hid_agent.service` (pairing agent) |
+| Backend Services | Installed by `scripts/ble_install_helper.sh`:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend - recommended for Windows 11)<br> &nbsp; - `bt_hid_agent_unified.service` (pairing agent with "Just Works") |
 | USB Handling | `src/ipr_keyboard/usb/` | File detection, reading, deletion |
 | Config | `src/ipr_keyboard/config/manager.py` | Thread-safe singleton, JSON-backed |
 | Logging | `src/ipr_keyboard/logging/logger.py` | Rotating file + console logging |

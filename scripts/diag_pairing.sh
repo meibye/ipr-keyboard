@@ -260,49 +260,54 @@ info "Analyzing agent pairing method configuration..."
 echo ""
 
 # Check agent script for pairing methods
-AGENT_SCRIPT="/usr/local/bin/bt_hid_agent.py"
+AGENT_SCRIPT="/usr/local/bin/bt_hid_agent_unified.py"
 
 if [[ -f "$AGENT_SCRIPT" ]]; then
   ok "Agent script found: $AGENT_SCRIPT"
   echo ""
   
-  # Check RequestPasskey implementation
-  if grep -q "def RequestPasskey" "$AGENT_SCRIPT"; then
-    info "RequestPasskey method: Found"
-    PASSKEY_VALUE=$(grep -A 10 "def RequestPasskey" "$AGENT_SCRIPT" | grep "return" | awk '{print $NF}')
-    if [[ "$PASSKEY_VALUE" == "0" ]]; then
-      warn "  Returns hardcoded value: 0 (displays as 000000)"
-      warn "  This is used when agent generates the passkey"
-    fi
-  fi
-  
-  # Check DisplayPasskey implementation  
-  if grep -q "def DisplayPasskey" "$AGENT_SCRIPT"; then
-    info "DisplayPasskey method: Found"
-    info "  This is called when BlueZ generates a passkey to display"
-  fi
-  
-  # Check RequestConfirmation implementation
+  # Check RequestConfirmation implementation (main method for "Just Works")
   if grep -q "def RequestConfirmation" "$AGENT_SCRIPT"; then
-    info "RequestConfirmation method: Found"
-    info "  Auto-accepts pairing confirmation requests"
+    ok "RequestConfirmation method: Found"
+    info "  Implements 'Just Works' auto-pairing (no passkey entry required)"
+  else
+    warn "RequestConfirmation method: Not found"
   fi
   
-  # Check AuthorizeService implementation
+  # Check AuthorizeService implementation (critical for HID)
   if grep -q "def AuthorizeService" "$AGENT_SCRIPT"; then
-    info "AuthorizeService method: Found"
+    ok "AuthorizeService method: Found"
     info "  Auto-accepts HID service authorization"
+  else
+    err "AuthorizeService method: Not found (HID will not work!)"
+  fi
+  
+  # Check RequestAuthorization implementation
+  if grep -q "def RequestAuthorization" "$AGENT_SCRIPT"; then
+    info "RequestAuthorization method: Found"
+    info "  Auto-accepts authorization requests"
   fi
   
   echo ""
   info "Agent capability:"
-  AGENT_CAP=$(grep "RegisterAgent.*KeyboardOnly" "$AGENT_SCRIPT" || echo "not found")
+  AGENT_CAP=$(grep -E 'RegisterAgent.*NoInputNoOutput|--capability.*NoInputNoOutput' "$AGENT_SCRIPT" || echo "not found")
   if [[ "$AGENT_CAP" != "not found" ]]; then
-    ok "  Registered as 'KeyboardOnly' agent"
-    info "  This means pairing typically uses DisplayPasskey or RequestConfirmation"
+    ok "  Registered as 'NoInputNoOutput' agent"
+    info "  This implements 'Just Works' pairing - no passkey display or entry needed"
+    info "  Optimal for Windows 11 and modern BLE HID keyboards"
+  else
+    warn "  NoInputNoOutput capability not found"
+    info "  Check service unit file for --capability parameter"
   fi
 else
   err "Agent script not found: $AGENT_SCRIPT"
+  info "Try the old agent path..."
+  AGENT_SCRIPT="/usr/local/bin/bt_hid_agent.py"
+  if [[ -f "$AGENT_SCRIPT" ]]; then
+    warn "Found old agent: $AGENT_SCRIPT"
+    info "  This is an outdated agent implementation"
+    info "  Reinstall with: sudo ./scripts/service/svc_install_bt_gatt_hid.sh"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
