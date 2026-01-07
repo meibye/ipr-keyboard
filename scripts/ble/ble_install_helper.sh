@@ -42,7 +42,7 @@ HELPER_PATH="/usr/local/bin/bt_kb_send"
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/lib/bt_agent_unified_env.sh"
+source "${SCRIPT_DIR}/../lib/bt_agent_unified_env.sh"
 
 echo "=== [ble_install_helper] Installing Bluetooth keyboard helper and backends ==="
 
@@ -60,78 +60,28 @@ apt install -y \
   bluez-tools
 
 ########################################
-# 2. Create helper script: bt_kb_send
+# 2. Install helper script: bt_kb_send
 ########################################
-echo "=== [ble_install_helper] Writing $HELPER_PATH ==="
+echo "=== [ble_install_helper] Installing $HELPER_PATH ==="
 # bt_kb_send: write text into the BLE keyboard FIFO
 # - waits for FIFO to exist
 # - waits for Windows to subscribe to InputReport notifications (flag file)
-cat > "$HELPER_PATH" << 'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-FIFO="/run/ipr_bt_keyboard_fifo"
-NOTIFY_FLAG="/run/ipr_bt_keyboard_notifying"
-
-WAIT_SECS="${BT_KB_WAIT_SECS:-10}"
-
-usage() {
-  echo "Usage: bt_kb_send [--nowait] [--wait <seconds>] \"text...\""
-}
-
-NOWAIT=0
-if [[ "${1:-}" == "--nowait" ]]; then
-  NOWAIT=1
-  shift
-elif [[ "${1:-}" == "--wait" ]]; then
-  shift
-  WAIT_SECS="${1:-}"
-  shift || true
+if [[ ! -f "$SCRIPT_DIR/bt_kb_send.sh" ]]; then
+  echo "ERROR: bt_kb_send.sh not found at $SCRIPT_DIR/bt_kb_send.sh"
+  exit 1
 fi
 
-TEXT="${1:-}"
-if [[ -z "$TEXT" ]]; then
-  usage
-  exit 2
-fi
-
-# Wait for FIFO
-t=0
-until [[ -p "$FIFO" ]]; do
-  (( t++ )) || true
-  if (( t >= WAIT_SECS )); then
-    echo "ERROR: FIFO not ready: $FIFO" >&2
-    exit 1
-  fi
-  sleep 1
-done
-
-if (( NOWAIT == 0 )); then
-  # Wait for HID notify subscription (StartNotify creates the flag file)
-  t=0
-  until [[ -f "$NOTIFY_FLAG" ]]; do
-    (( t++ )) || true
-    if (( t >= WAIT_SECS )); then
-      echo "ERROR: HID notify not ready (no StartNotify yet). Flag: $NOTIFY_FLAG" >&2
-      exit 1
-    fi
-    sleep 1
-  done
-fi
-
-printf "%s" "$TEXT" > "$FIFO"
-EOF
-
+cp "$SCRIPT_DIR/bt_kb_send.sh" "$HELPER_PATH"
 chmod +x "$HELPER_PATH"
 
 ########################################
 # 3. Install backend services
 ########################################
 echo "=== [ble_install_helper] Installing bt_hid_uinput service ==="
-"$SCRIPT_DIR/service/svc_install_bt_hid_uinput.sh"
+"$SCRIPT_DIR/../service/svc_install_bt_hid_uinput.sh"
 
 echo "=== [ble_install_helper] Installing bt_hid_ble service ==="
-"$SCRIPT_DIR/service/svc_install_bt_hid_ble.sh"
+"$SCRIPT_DIR/../service/svc_install_bt_hid_ble.sh"
 
 echo "=== [ble_install_helper] Enabling BLE backend by default ==="
 systemctl enable bt_hid_ble.service || true
@@ -142,7 +92,7 @@ systemctl restart bt_hid_ble.service
 # 4. Install Bluetooth agent
 ########################################
 echo "=== [ble_install_helper] Installing bt_hid_agent_unified service ==="
-"$SCRIPT_DIR/service/svc_install_bt_hid_agent_unified.sh"
+"$SCRIPT_DIR/../service/svc_install_bt_hid_agent_unified.sh"
 
 bt_agent_unified_require_root
 bt_agent_unified_disable_legacy_service
@@ -155,4 +105,4 @@ echo "  - Helper:        $HELPER_PATH"
 echo "  - FIFO:          $FIFO_PATH"
 echo "  - Backends:      uinput (active), ble (fully working BLE HID over GATT)"
 echo "  - Agent:         bt_hid_agent_unified.service (handles pairing & service authorization)"
-echo "To switch backend later, use scripts/ble_switch_backend.sh."
+echo "To switch backend later, use scripts/ble/ble_switch_backend.sh."

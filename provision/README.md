@@ -150,7 +150,7 @@ sudo ./provision/05_verify.sh
 - Runs full system upgrade (`apt full-upgrade`)
 - Executes `sys_install_packages.sh --system-only` as root (installs bluez, python3-dbus, uv, etc.)
 - Executes `sys_install_packages.sh --user-venv-setup` as APP_USER (creates Python venv and installs project dependencies)
-- Executes `ble_configure_system.sh` (configures Bluetooth for HID)
+- Executes `bt_configure_system.sh` (configures Bluetooth for HID)
 - Enables essential services (dbus, bluetooth)
 - Records baseline versions to `/opt/ipr_state/baseline_versions.txt`
 
@@ -497,9 +497,9 @@ Provisioning scripts leverage existing setup scripts from `scripts/` directory:
 
 | Provisioning Script | Calls Existing Script |
 |---------------------|----------------------|
-| `01_os_base.sh` | → `scripts/sys_install_packages.sh`<br>→ `scripts/ble_configure_system.sh` |
+| `01_os_base.sh` | → `scripts/sys_install_packages.sh`<br>→ `scripts/ble/bt_configure_system.sh` |
 | `03_app_install.sh` | → `scripts/sys_setup_venv.sh` |
-| `04_enable_services.sh` | → `scripts/service/svc_install_systemd.sh`<br>→ `scripts/ble_setup_extras.sh`<br>→ `scripts/ble_install_helper.sh`<br>→ `scripts/service/svc_enable_ble_services.sh` |
+| `04_enable_services.sh` | → `scripts/service/svc_install_systemd.sh`<br>→ `scripts/ble/ble_setup_extras.sh`<br>→ `scripts/ble/ble_install_helper.sh`<br>→ `scripts/service/svc_enable_ble_services.sh` |
 
 This ensures provisioning uses the same tested installation procedures as manual setup.
 

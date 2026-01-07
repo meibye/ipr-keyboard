@@ -25,15 +25,15 @@ This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID
 
 ## Bluetooth Backend Management & Extras
 
-- **BLE and uinput backends** are installed and managed by `scripts/ble_install_helper.sh`, which creates and enables the following systemd services:
+- **BLE and uinput backends** are installed and managed by `scripts/ble/ble_install_helper.sh`, which creates and enables the following systemd services:
   - `bt_hid_uinput.service` — UInput backend daemon
   - `bt_hid_ble.service` — BLE HID backend daemon
-  - `bt_hid_agent.service` — BLE pairing/authorization agent
-- **Pairing wizard, diagnostics, and backend manager** are provided by `scripts/ble_setup_extras.sh` (creates `ipr_backend_manager.service`).
+  - `bt_hid_agent_unified.service` — BLE pairing/authorization agent
+- **Pairing wizard, diagnostics, and backend manager** are provided by `scripts/ble/ble_setup_extras.sh` (creates `ipr_backend_manager.service`).
 - **BLE diagnostics**: `ipr_ble_diagnostics.sh` (health check), `ipr_ble_hid_analyzer.py` (HID report analyzer).
 - **Web pairing wizard**: `/pairing` endpoint (see web server docs).
 - **Backend selection**: Automatically synchronized between `config.json` `KeyboardBackend` and `/etc/ipr-keyboard/backend`.
-- **Agent service**: `bt_hid_agent.service` ensures seamless pairing and authorization.
+- **Agent service**: `bt_hid_agent_unified.service` ensures seamless pairing and authorization.
 
 ### Backend Synchronization
 
@@ -49,13 +49,13 @@ You can switch backends using the provided script:
 
 ```bash
 # Switch to BLE backend (updates both config.json and /etc/ipr-keyboard/backend)
-./scripts/ble_switch_backend.sh ble
+./scripts/ble/ble_switch_backend.sh ble
 
 # Switch to uinput backend
-./scripts/ble_switch_backend.sh uinput
+./scripts/ble/ble_switch_backend.sh uinput
 
 # Or read from config.json automatically
-./scripts/ble_switch_backend.sh
+./scripts/ble/ble_switch_backend.sh
 ```
 
 
@@ -102,8 +102,8 @@ The ipr-keyboard system consists of multiple layers working together to bridge I
 │                                     └──────────┬────────────────────────────┘  │
 │                                                │                               │
 │  Setup Scripts:                                ▼                               │
-│  • ble_configure_system.sh      ┌──────────────────────────────────────────┐   │
-│  • ble_install_helper.sh        │         bt_kb_send                       │   │
+│  • ble/bt_configure_system.sh   ┌──────────────────────────────────────────┐   │
+│  • ble/ble_install_helper.sh    │         bt_kb_send                       │   │
 │                                 │   /usr/local/bin/bt_kb_send              │   │
 │                                 │   (writes to FIFO)                       │   │
 │                                 └──────────┬───────────────────────────────┘   │
@@ -254,7 +254,7 @@ For day-to-day development procedures:
 - **Testing**: `pytest` or `pytest --cov=ipr_keyboard` (see `tests/README.md`)
 - **Service Mode**: Installed as systemd service via `svc_install_systemd.sh` and backend services via `ble_install_helper.sh`
 - **Diagnostics**: `./scripts/diag_troubleshoot.sh` for troubleshooting
-- **Remote Diagnostics**: GitHub Copilot integration via MCP SSH - see `scripts/diag/README.md`
+- **Remote Diagnostics**: GitHub Copilot integration via MCP SSH - see `scripts/rpi-debug/README.md`
 - **Headless Access**: Wi-Fi hotspot provisioning + USB OTG (Pi Zero) - see `scripts/headless/`
 
 
