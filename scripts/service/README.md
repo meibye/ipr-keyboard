@@ -1,108 +1,86 @@
-# Service Installation Scripts
+# Service Scripts
 
-This directory contains systemd service installation and management scripts for ipr-keyboard.
+This directory contains scripts and files for managing systemd services for ipr-keyboard.
 
-## Overview
+## Directory Structure
 
-The service scripts handle installation, configuration, and management of various systemd services required for ipr-keyboard operation, including:
-- Main ipr-keyboard application service
-- Bluetooth HID backend services (uinput and BLE)
-- Bluetooth agent service for pairing
-- Backend manager service for switching between backends
-
-## Service Scripts
-
-### Main Application Service
-
-- **svc_install_systemd.sh** - Installs the main ipr_keyboard systemd service
-  - Service name: `ipr_keyboard.service`
-  - Runs the main application automatically on system boot
-  - Runs as non-root user for security
-
-### Bluetooth Backend Services
-
-- **svc_install_bt_hid_uinput.sh** - Installs uinput backend service
-  - Service name: `bt_hid_uinput.service`
-  - Local keyboard emulation via Linux uinput
-
-- **svc_install_bt_hid_ble.sh** - Installs BLE HID backend service
-  - Service name: `bt_hid_ble.service`
-  - Bluetooth Low Energy HID over GATT
-
-- **svc_install_bt_hid_daemon.sh** - Installs alternative HID daemon
-  - Service name: `bt_hid_daemon.service`
-  - Optional alternative implementation
-
-### Supporting Services
-
-- **svc_install_bt_hid_agent.sh** - Installs Bluetooth pairing agent
-  - Service name: `bt_hid_agent.service`
-  - Handles Bluetooth pairing and authorization
-  - Required for successful BLE connections
-
-- **svc_install_ipr_backend_manager.sh** - Installs backend manager
-  - Service name: `ipr_backend_manager.service`
-  - Ensures only one backend (uinput or BLE) is active at a time
-  - Automatically switches services based on `/etc/ipr-keyboard/backend`
-
-### Management Scripts
-
-- **svc_install_all_services.sh** - Installs all Bluetooth services at once
-- **svc_enable_uinput_services.sh** - Enables uinput backend and disables BLE
-- **svc_enable_ble_services.sh** - Enables BLE backend and disables uinput
-- **svc_disable_all_services.sh** - Disables all managed services
-- **svc_status_services.sh** - Shows status of all managed services
-- **svc_status_monitor.py** - Python script for monitoring service status
-
-## Usage Examples
-
-### Install Main Service
-```bash
-sudo ./scripts/service/svc_install_systemd.sh
-sudo systemctl start ipr_keyboard.service
-sudo systemctl status ipr_keyboard.service
+```
+service/
+├── bin/                              # Service executables
+│   ├── bt_hid_agent_unified.py       # BlueZ agent for pairing
+│   └── bt_hid_ble_daemon.py          # BLE HID GATT keyboard daemon
+├── svc/                              # Service unit definitions
+│   ├── bt_hid_agent_unified.service  # Agent service definition
+│   └── bt_hid_ble.service            # BLE daemon service definition
+├── svc_install_bt_gatt_hid.sh        # Installer for Bluetooth GATT HID services
+├── svc_install_all_services.sh       # Convenience installer for all services
+├── svc_install_systemd.sh            # Install main ipr_keyboard service
+├── svc_enable_services.sh            # Enable all Bluetooth GATT HID services
+├── svc_disable_all_services.sh       # Disable all ipr-keyboard services
+├── svc_status_services.sh            # Show status of all services
+├── svc_status_monitor.py             # Service status monitor (Python)
+└── svc_tail_all_logs.sh              # Tail logs from all services
 ```
 
-### Switch Between Backends
-```bash
-# Enable uinput backend
-sudo ./scripts/service/svc_enable_uinput_services.sh
+## Bluetooth GATT HID Services
 
-# Enable BLE backend
-sudo ./scripts/service/svc_enable_ble_services.sh
+The ipr-keyboard system uses Bluetooth Low Energy (BLE) HID over GATT for keyboard emulation. This provides compatibility with modern devices that support BLE.
+
+### Services
+
+Two systemd services work together to provide Bluetooth GATT HID functionality:
+
+1. **bt_hid_agent_unified.service**
+   - Handles Bluetooth pairing requests
+   - Configures the Bluetooth adapter for BLE
+   - Automatically accepts and trusts pairing requests
+   - Executable: `/usr/local/bin/bt_hid_agent_unified.py`
+   - Source: `scripts/service/bin/bt_hid_agent_unified.py`
+
+2. **bt_hid_ble.service**
+   - Implements BLE HID over GATT keyboard
+   - Reads text from FIFO and sends as HID input reports
+   - Advertises as a BLE keyboard peripheral
+   - Executable: `/usr/local/bin/bt_hid_ble_daemon.py`
+   - Source: `scripts/service/bin/bt_hid_ble_daemon.py`
+
+### Installation
+
+To install Bluetooth GATT HID services:
+
+```bash
+sudo ./scripts/service/svc_install_bt_gatt_hid.sh
 ```
 
-### Check Service Status
+This script:
+- Copies executables from `bin/` to `/usr/local/bin/`
+- Copies service definitions from `svc/` to `/etc/systemd/system/`
+- Configures Bluetooth daemon with minimal plugins
+- Sets up environment file at `/opt/ipr_common.env`
+- Enables and starts the services
+
+### Configuration
+
+The services are configured via `/opt/ipr_common.env`. See the installer script for details.
+
+### Service Management
+
 ```bash
-# Quick status check
+# Enable all services
+sudo ./scripts/service/svc_enable_services.sh
+
+# Disable all services
+sudo ./scripts/service/svc_disable_all_services.sh
+
+# Check service status
 sudo ./scripts/service/svc_status_services.sh
 
-# Detailed status with monitoring
-sudo ./scripts/service/svc_status_monitor.py
+# Tail all service logs
+sudo ./scripts/service/svc_tail_all_logs.sh
 ```
-
-### Install All Bluetooth Services
-```bash
-sudo ./scripts/service/svc_install_all_services.sh
-```
-
-## Prerequisites
-
-All service scripts require:
-- Root access (run with `sudo`)
-- Environment variables set (via `../env_set_variables.sh`)
-- Python virtual environment set up (for main application service)
-- Bluetooth packages installed (for BLE services)
-
-## Service Dependencies
-
-The services have the following dependency relationships:
-- `ipr_keyboard.service` requires `bt_hid_agent.service`
-- Backend services (uinput/BLE) should not run simultaneously
-- `ipr_backend_manager.service` manages backend conflicts
 
 ## See Also
 
-- Parent directory README: `../README.md`
-- Backend switching script: `../ble_switch_backend.sh`
-- System setup scripts: `../sys_*.sh`
+- [scripts/README.md](../README.md) - All scripts documentation
+- [SERVICES.md](../../SERVICES.md) - Services reference
+- [README.md](../../README.md) - Project overview
