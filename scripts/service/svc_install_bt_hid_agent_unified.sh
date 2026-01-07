@@ -2,7 +2,7 @@
 #
 # svc_install_bt_hid_agent_unified.sh
 #
-# VERSION: 2026/01/04 20:40:48
+# VERSION: 2026/01/05 21:54:01
 # 
 # Installs:
 #   - Unified BlueZ Agent service for pairing (bt_hid_agent_unified.service)
@@ -784,15 +784,18 @@ class Advertisement(dbus.service.Object):
         return dbus.ObjectPath(self.path)
 
     def get_properties(self):
+        # Keep the packet simple so "LocalName" stays in the primary ADV data
+        # (not only in scan response), improving visibility in Windows/phone UIs.
         return {
             ADVERTISEMENT_IFACE: {
                 "Type": self.ad_type,
                 "ServiceUUIDs": dbus.Array(self.service_uuids, signature="s"),
-                "Flags": dbus.Array([dbus.Byte(0x02), dbus.Byte(0x04)], signature="y"),  # general + BR/EDR not supported
                 "LocalName": self.local_name,
-                "Appearance": dbus.UInt16(self.appearance),
+                "Flags": dbus.Array([dbus.Byte(0x02), dbus.Byte(0x04)], signature="y"),
+                # Intentionally omit Appearance to free bytes and avoid BlueZ pushing name to scan response
             }
         }
+
 
     @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
     def GetAll(self, interface):
