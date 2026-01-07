@@ -14,11 +14,11 @@
 - **Utilities**: `src/ipr_keyboard/utils/helpers.py` provides project root and config path resolution, and JSON file helpers.
 
 ## Developer Workflows
-- **Setup**: Use numbered scripts in `scripts/` for system setup, Bluetooth config, venv creation (with `uv`), and service install. See `scripts/README.md` for order and details.
-- **Development Run**: Use `./scripts/run_dev.sh` to run app in foreground with logs to console. Requires venv and env vars from `00_set_env.sh`.
+- **Setup**: Use provisioning scripts in `provision/` for automated setup, or individual scripts in `scripts/` for system setup, Bluetooth config, venv creation (with `uv`), and service install. See `scripts/README.md` and `provision/README.md` for details.
+- **Development Run**: Use `./scripts/dev_run_app.sh` to run app in foreground with logs to console. Requires venv and environment variables.
 - **Testing**: Run `pytest` or `pytest --cov=ipr_keyboard` (see `tests/README.md`). Tests mirror source structure and use pytest conventions.
-- **Service Mode**: Installed as a systemd service via `05_install_service.sh`. Service runs as non-root user, working dir is project root, entry is `python -m ipr_keyboard.main`.
-- **Diagnostics**: Use `./scripts/10_diagnose_failure.sh` for comprehensive troubleshooting (checks config, venv, logs, service, Bluetooth helper, etc).
+- **Service Mode**: Installed as a systemd service via provisioning scripts. Service runs as non-root user, working dir is project root, entry is `python -m ipr_keyboard.main`.
+- **Diagnostics**: Use `./scripts/diag_troubleshoot.sh` for comprehensive troubleshooting (checks config, venv, logs, service, Bluetooth helper, etc). For Bluetooth-specific issues, see scripts in `scripts/ble/` and `scripts/rpi-debug/`.
 
 ## Project-Specific Conventions
 - **Config**: Always use `ConfigManager.instance()` for config access. Updates are persisted and thread-safe.
@@ -29,9 +29,9 @@
 - **Testing**: Place tests in `tests/` mirroring source structure. Use fixtures and avoid test interdependence.
 
 ## Integration Points & External Dependencies
-- **Bluetooth Helper**: `/usr/local/bin/bt_kb_send` (installed by `03_install_bt_helper.sh`).
-- **Python venv**: Created with `uv` (see `04_setup_venv.sh`).
-- **Systemd**: Service installed by `05_install_service.sh`.
+- **Bluetooth Helper**: `/usr/local/bin/bt_kb_send` (installed by `scripts/ble/ble_install_helper.sh`).
+- **Python venv**: Created with `uv` (see provisioning scripts).
+- **Systemd**: Services installed by provisioning scripts.
 - **IrisPen Mount**: USB or MTP mount at `/mnt/irispen` (configurable).
 
 ## Examples
@@ -52,10 +52,13 @@
   ```
 
 ## References
-- [README.md](../README.md) — Project overview
-- [scripts/README.md](../scripts/README.md) — Setup and workflow scripts
-- [src/ipr_keyboard/README.md](../src/ipr_keyboard/README.md) — Code structure
-- [tests/README.md](../tests/README.md) — Test suite
+- <a>README.md</a> — Project overview
+- <a>scripts/README.md</a> — Setup and workflow scripts
+- <a>provision/README.md</a> — Automated provisioning system
+- <a>scripts/ble/README.md</a> — Bluetooth-specific scripts
+- <a>scripts/rpi-debug/README.md</a> — Remote diagnostic scripts
+- <a>src/ipr_keyboard/README.md</a> — Code structure
+- <a>tests/README.md</a> — Test suite
 
 ---
 

@@ -475,7 +475,7 @@ sudo ./scripts/service/svc_status_services.sh
 ./scripts/diag_status.sh
 
 # BLE diagnostics
-sudo ./scripts/diag_ble.sh
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
 ```
 
 ---

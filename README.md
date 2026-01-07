@@ -136,7 +136,7 @@ The ipr-keyboard system consists of multiple layers working together to bridge I
 │  │                       Common Supporting Services                           │           │
 │  │                                                                             │           │
 │  │  ┌────────────────────────────────────────┐  ┌──────────────────────────┐  │           │
-│  │  │ bt_hid_agent.service                   │  │ ipr_backend_manager.     │  │           │
+│  │  │ bt_hid_agent_unified.service           │  │ ipr_backend_manager.     │  │           │
 │  │  │ (Bluetooth Pairing & Auth Agent)       │  │ service                  │  │           │
 │  │  │                                        │  │ (Backend Switcher)       │  │           │
 │  │  │ • Registers as BlueZ Agent1            │  │                          │  │           │
@@ -152,16 +152,16 @@ The ipr-keyboard system consists of multiple layers working together to bridge I
 │            ┌────────────────────────────────────────────────────────┐                      │
 │            │              Diagnostic & Management Tools             │                      │
 │            │                                                        │                      │
-│            │  Wrapper Scripts (in scripts/):                        │                      │
-│            │  • diag_ble.sh → /usr/local/bin/ipr_ble_diagnostics.sh│                      │
-│            │  • diag_ble_analyzer.sh → ipr_ble_hid_analyzer.py     │                      │
-│            │  • ble_backend_manager.sh → ipr_backend_manager.sh    │                      │
+│            │  Scripts in scripts/:                                  │                      │
+│            │  • ble/diag_pairing.sh (BT pairing diagnostics)       │                      │
+│            │  • ble/diag_bt_visibility.sh (BT visibility check)    │                      │
+│            │  • ble/test_bluetooth.sh (end-to-end BT test)         │                      │
+│            │  • ble/test_pairing.sh (interactive pairing test)     │                      │
 │            │  • diag_status.sh (system status overview)            │                      │
 │            │  • diag_troubleshoot.sh (comprehensive diagnostics)   │                      │
-│            │  • svc_status_monitor.py (interactive TUI)            │                      │
-│            │  • ble_switch_backend.sh (backend switching helper)   │                      │
+│            │  • rpi-debug/* (remote diagnostic scripts)            │                      │
 │            │                                                        │                      │
-│            │  Tools installed by ble_setup_extras.sh:              │                      │
+│            │  Tools installed by ble/ble_setup_extras.sh:          │                      │
 │            │  • /usr/local/bin/ipr_ble_diagnostics.sh              │                      │
 │            │  • /usr/local/bin/ipr_ble_hid_analyzer.py             │                      │
 │            │  • /usr/local/bin/ipr_backend_manager.sh              │                      │

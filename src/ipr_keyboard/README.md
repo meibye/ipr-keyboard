@@ -138,10 +138,10 @@ After running `scripts/ble_setup_extras.sh`, additional tools are available:
 **Wrapper Scripts** (in `scripts/`):
 ```bash
 # Run BLE diagnostics
-sudo ./scripts/diag_ble.sh
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
 
 # Analyze HID reports
-sudo ./scripts/diag_ble_analyzer.sh
+sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 
 # Manually trigger backend manager
 sudo ./scripts/ble_backend_manager.sh

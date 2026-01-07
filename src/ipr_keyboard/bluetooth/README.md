@@ -53,9 +53,9 @@ Both backends read from the same FIFO pipe (`/run/ipr_bt_keyboard_fifo`) written
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/ble_install_helper.sh` | Installs bt_kb_send, backends, and agent |
-| `scripts/ble_setup_extras.sh` | Installs diagnostics and backend manager |
-| `scripts/ble_switch_backend.sh` | Switch between uinput and BLE backends |
+| `scripts/ble/ble_install_helper.sh` | Installs bt_kb_send, backends, and agent |
+| `scripts/ble/ble_setup_extras.sh` | Installs diagnostics and backend manager |
+| `scripts/ble/ble_switch_backend.sh` | Switch between uinput and BLE backends (if exists) |
 
 ### Systemd Services
 
@@ -63,7 +63,7 @@ Both backends read from the same FIFO pipe (`/run/ipr_bt_keyboard_fifo`) written
 |---------|-------------|
 | `bt_hid_uinput.service` | UInput backend daemon |
 | `bt_hid_ble.service` | BLE backend daemon |
-| `bt_hid_agent.service` | Bluetooth pairing & authorization agent |
+| `bt_hid_agent_unified.service` | Bluetooth pairing & authorization agent |
 | `ipr_backend_manager.service` | Backend selection service |
 
 See [SERVICES.md](../../../SERVICES.md) for detailed service descriptions.
@@ -72,8 +72,8 @@ See [SERVICES.md](../../../SERVICES.md) for detailed service descriptions.
 
 | Tool | Purpose | Usage |
 |------|---------|-------|
-| `diag_ble.sh` | BLE health check | `sudo ./scripts/diag_ble.sh` |
-| `diag_ble_analyzer.sh` | HID report analyzer | `sudo ./scripts/diag_ble_analyzer.sh` |
+| `ipr_ble_diagnostics.sh` | BLE health check | `sudo /usr/local/bin/ipr_ble_diagnostics.sh` |
+| `ipr_ble_hid_analyzer.py` | HID report analyzer | `sudo /usr/local/bin/ipr_ble_hid_analyzer.py` |
 | Web pairing wizard | Browser-based pairing | Visit `/pairing` endpoint |
 
 ## BluetoothKeyboard Class
@@ -112,7 +112,7 @@ The module relies on an external helper script (`bt_kb_send`) installed at `/usr
 
 The helper is installed by the setup scripts:
 ```bash
-sudo ./scripts/ble_install_helper.sh
+sudo ./scripts/ble/ble_install_helper.sh
 ```
 
 ### Helper Requirements
@@ -142,7 +142,7 @@ The system uses one of two backends (configured in `/etc/ipr-keyboard/backend` o
 
 Switch backends using:
 ```bash
-sudo ./scripts/ble_switch_backend.sh
+sudo ./scripts/ble/ble_switch_backend.sh  # if script exists
 ```
 
 ## Usage Example
@@ -219,12 +219,12 @@ If Bluetooth keyboard is not working:
    ```bash
    systemctl status bt_hid_uinput.service
    systemctl status bt_hid_ble.service
-   systemctl status bt_hid_agent.service
+   systemctl status bt_hid_agent_unified.service
    ```
 
 3. **Run diagnostics**:
    ```bash
-   sudo ./scripts/diag_ble.sh
+   sudo /usr/local/bin/ipr_ble_diagnostics.sh
    ./scripts/diag_status.sh
    ```
 
@@ -232,7 +232,7 @@ If Bluetooth keyboard is not working:
    ```bash
    journalctl -u bt_hid_uinput.service -n 50
    journalctl -u bt_hid_ble.service -n 50
-   journalctl -u bt_hid_agent.service -n 50
+   journalctl -u bt_hid_agent_unified.service -n 50
    ```
 
 5. **Test helper directly**:

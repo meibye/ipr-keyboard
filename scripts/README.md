@@ -62,20 +62,20 @@ The backend selection is kept in sync between `config.json` and `/etc/ipr-keyboa
 These wrapper scripts call tools installed by `ble_setup_extras.sh`:
 
 ```bash
-# Run BLE diagnostics (wrapper for /usr/local/bin/ipr_ble_diagnostics.sh)
-sudo ./scripts/diag_ble.sh
+# Run BLE diagnostics (installed by ble_setup_extras.sh)
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
 
-# Start BLE HID analyzer (wrapper for /usr/local/bin/ipr_ble_hid_analyzer.py)
-sudo ./scripts/diag_ble_analyzer.sh
+# Start BLE HID analyzer (installed by ble_setup_extras.sh)
+sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 
-# Manually trigger backend manager (wrapper for /usr/local/bin/ipr_backend_manager.sh)
-sudo ./scripts/ble_backend_manager.sh
+# Manually trigger backend manager (if installed)
+sudo /usr/local/bin/ipr_backend_manager.sh
 
 # Start pairing wizard (web)
 curl http://localhost:8080/pairing/start
 
-# Switch backend (recommended - updates both config files and activates services)
-./scripts/ble_switch_backend.sh ble
+# Switch backend (if script exists - updates both config files and activates services)
+./scripts/ble/ble_switch_backend.sh ble
 ```
 
 ## Script Organization

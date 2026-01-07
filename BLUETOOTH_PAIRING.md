@@ -165,7 +165,7 @@ sudo ./scripts/test_pairing.sh [uinput|ble]
 ### 4. BLE-Specific Diagnostics
 
 ```bash
-sudo ./scripts/diag_ble.sh
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
 ```
 
 **Features**:
@@ -313,7 +313,7 @@ sudo bluetoothctl show | grep -i 00001812
 sudo journalctl -u bt_hid_ble.service -n 50
 
 # Run BLE diagnostics
-sudo ./scripts/diag_ble.sh
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
 ```
 
 ## Monitoring Pairing in Real-Time

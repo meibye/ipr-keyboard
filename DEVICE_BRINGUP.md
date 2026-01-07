@@ -472,7 +472,7 @@ sudo systemctl restart bluetooth
 cat /etc/bluetooth/main.conf | grep -E "(Experimental|Name)"
 
 # Run diagnostics
-sudo ./scripts/diag_ble.sh
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
 ```
 
 ### Devices at Different Levels
