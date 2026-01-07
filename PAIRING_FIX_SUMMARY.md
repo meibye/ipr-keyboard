@@ -1,6 +1,18 @@
-# Bluetooth Pairing Issue - Investigation Summary
+# Bluetooth Pairing Issue - Historical Investigation Summary
 
-## Problem Statement
+> **⚠️ OBSOLETE DOCUMENT ⚠️**
+> 
+> This document describes a historical pairing issue with an **old agent implementation** that used "KeyboardOnly" capability with hardcoded passkeys. 
+>
+> **The current agent (bt_hid_agent_unified.py) uses "NoInputNoOutput" capability** for "Just Works" pairing and does NOT have this issue.
+>
+> This document is kept for historical reference only. For current pairing information, see:
+> - **[BLUETOOTH_PAIRING.md](BLUETOOTH_PAIRING.md)** - Current pairing guide
+> - **[README.md](README.md)** - Project overview
+
+---
+
+## Problem Statement (Historical - 2025-12-10)
 
 A defect was detected in the Bluetooth pairing for the uinput type. The agent service returns 000000 as pairing code even though the PC where the pairing was initiated very briefly showed another key.
 
@@ -255,12 +267,30 @@ The agent supports multiple pairing methods:
 
 ## References
 
-- [BLUETOOTH_PAIRING.md](BLUETOOTH_PAIRING.md) - Complete troubleshooting guide
+- [BLUETOOTH_PAIRING.md](BLUETOOTH_PAIRING.md) - **Current pairing guide (USE THIS)**
 - [SERVICES.md](SERVICES.md) - Service documentation
 - [scripts/README.md](scripts/README.md) - Script reference
 
 ---
 
-**Investigation Date**: 2025-12-10
-**Status**: RESOLVED
-**Fix Applied**: Yes (pending deployment to Raspberry Pi)
+**Investigation Date**: 2025-12-10  
+**Status**: RESOLVED (with old agent implementation)  
+**Current Status (2026-01-07)**: OBSOLETE - Replaced with "Just Works" pairing
+
+## Current Implementation (2026-01-07)
+
+The issues described in this document **do not apply to the current agent**. The current implementation uses:
+
+- **Agent**: `bt_hid_agent_unified.py`
+- **Service**: `bt_hid_agent_unified.service`
+- **Capability**: `NoInputNoOutput` ("Just Works" pairing)
+- **Pairing Method**: `RequestConfirmation` (auto-accept, no passkey display/entry)
+
+This approach:
+- ✅ No hardcoded passkeys
+- ✅ No user passkey entry required
+- ✅ Seamless Windows 11 compatibility
+- ✅ Automatic pairing and reconnection
+- ✅ No passkey confusion or mismatches
+
+For current pairing documentation, see **[BLUETOOTH_PAIRING.md](BLUETOOTH_PAIRING.md)**.

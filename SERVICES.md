@@ -79,12 +79,12 @@ This is an optional advanced HID daemon service installed by `scripts/ble_instal
 
 ---
 
-### bt_hid_agent.service
+### bt_hid_agent_unified.service
 
-**Purpose**: Bluetooth pairing and service authorization agent.
+**Purpose**: Bluetooth pairing and service authorization agent with "Just Works" pairing.
 
 **Description**:
-This service runs the BlueZ Agent (`bt_hid_agent.py`) which handles Bluetooth pairing requests and service authorizations. It registers with BlueZ as a "KeyboardOnly" agent and automatically accepts pairing requests, passkey confirmations, and service authorizations. The agent also ensures the Bluetooth adapter is powered on, discoverable, and pairable.
+This service runs the unified BlueZ Agent (`bt_hid_agent_unified.py`) which handles Bluetooth pairing requests and service authorizations. It registers with BlueZ as a "NoInputNoOutput" agent and implements "Just Works" pairing - automatically accepting pairing requests via RequestConfirmation and service authorizations. The agent also ensures the Bluetooth adapter is powered on, discoverable (for BLE), and pairable.
 
 **When to use**: This service should always be running when using either BLE or uinput backends, as it handles pairing with host devices.
 
@@ -93,15 +93,18 @@ This service runs the BlueZ Agent (`bt_hid_agent.py`) which handles Bluetooth pa
 - Python 3 with `python3-dbus` and GLib
 - BlueZ
 
-**Location**: `/etc/systemd/system/bt_hid_agent.service`
+**Location**: `/etc/systemd/system/bt_hid_agent_unified.service`
 
-**Installed by**: `scripts/ble_install_helper.sh`
+**Installed by**: `scripts/ble_install_helper.sh` (via `scripts/service/svc_install_bt_hid_agent_unified.sh`)
 
 **Key features**:
-- Auto-accepts pairing requests
+- NoInputNoOutput capability for "Just Works" pairing
+- Auto-accepts pairing via RequestConfirmation (no passkey display/entry)
 - Auto-accepts service authorizations (critical for HID profile)
-- Sets adapter to powered/discoverable/pairable on startup
+- Sets adapter to powered/pairable, discoverable for BLE
+- Configures adapter for BLE-only mode (le on, bredr off)
 - Logs all pairing events to systemd journal
+- Optimal for Windows 11 and modern devices
 
 **Related scripts**:
 - All backend switching scripts ensure this service is running
@@ -127,7 +130,7 @@ This systemd oneshot service runs the backend manager script (`ipr_backend_manag
 
 **Backend logic**:
 - If backend is `uinput`: Enables `bt_hid_uinput.service` (preferred) and disables BLE services. `bt_hid_daemon.service` is legacy/optional.
-- If backend is `ble`: Enables `bt_hid_ble.service` and `bt_hid_agent.service`, disables uinput services
+- If backend is `ble`: Enables `bt_hid_ble.service` and `bt_hid_agent_unified.service`, disables uinput services
 
 **Configuration file**: `/etc/ipr-keyboard/backend` (contains either "ble" or "uinput")
 
@@ -315,9 +318,9 @@ sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- `ipr_keyboard.service` depends on `bt_hid_agent.service` (and optionally the active backend).
+- `ipr_keyboard.service` depends on `bt_hid_agent_unified.service` (and optionally the active backend).
 - `ipr_backend_manager.service` reads `/etc/ipr-keyboard/backend` and enables/disables the correct backend daemon.
-- `bt_hid_agent.service` is always enabled for pairing/authorization.
+- `bt_hid_agent_unified.service` is always enabled for pairing/authorization.
 - Only one backend daemon (`bt_hid_uinput.service` or `bt_hid_ble.service`) is enabled at a time. For uinput, use `bt_hid_uinput.service`.
 
 ## Diagnostic and Utility Tools
@@ -380,7 +383,7 @@ sudo systemctl restart ipr_backend_manager.service
 | Service | Depends On | Required By |
 |---------|------------|-------------|
 | `bluetooth.target` | System | All BT services |
-| `bt_hid_agent.service` | `bluetooth.target` | Both backends |
+| `bt_hid_agent_unified.service` | `bluetooth.target` | Both backends |
 | `bt_hid_uinput.service` | `bluetooth.target` | UInput backend |
 | `bt_hid_ble.service` | `bluetooth.target` | BLE backend |
 | `bt_hid_daemon.service` | `bluetooth.target` | Legacy/advanced (not default for uinput) |
@@ -391,12 +394,12 @@ sudo systemctl restart ipr_backend_manager.service
 ```bash
 systemctl status bt_hid_uinput.service
 systemctl status bt_hid_ble.service
-systemctl status bt_hid_agent.service
+systemctl status bt_hid_agent_unified.service
 systemctl status ipr_backend_manager.service
 
 journalctl -u bt_hid_uinput.service -n 50
 journalctl -u bt_hid_ble.service -n 50
-journalctl -u bt_hid_agent.service -n 50
+journalctl -u bt_hid_agent_unified.service -n 50
 
 sudo /usr/local/bin/ipr_ble_diagnostics.sh
 ./scripts/diag_status.sh
