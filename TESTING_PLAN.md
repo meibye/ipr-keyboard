@@ -323,11 +323,11 @@ Before performing manual tests, ensure the following prerequisites are met:
           bluetoothctl
           [bluetoothctl]> discoverable on
           [bluetoothctl]> pairable on
-          [bluetoothctl]> agent KeyboardOnly
+          [bluetoothctl]> agent NoInputNoOutput
           [bluetoothctl]> default-agent
           ```
-      2. On the target device, search for new Bluetooth devices. The Pi should appear as a keyboard (e.g., "Raspberry Pi Keyboard").
-      3. Initiate pairing from the target device. If prompted for a PIN, enter it on the target device and then type the same PIN on the Pi (using a connected keyboard) followed by Enter.
+      2. On the target device, search for new Bluetooth devices. The Pi should appear as a keyboard (e.g., "IPR Keyboard" or "Raspberry Pi Keyboard").
+      3. Initiate pairing from the target device. With "NoInputNoOutput" agent, pairing happens automatically using "Just Works" - no PIN or passkey entry required.
       4. After successful pairing, ensure the device is connected as a keyboard (check in `bluetoothctl` with `info <device-mac>` or via the desktop Bluetooth UI).
       5. If using a headless Pi, you may need to SSH in and use `bluetoothctl` exclusively.
     - Only one device can typically be paired as a keyboard at a time.
