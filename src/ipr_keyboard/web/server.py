@@ -62,9 +62,9 @@ def create_app() -> Flask:
 
         Returns JSON with:
           - environment (IPR_USER, IPR_PROJECT_ROOT)
-          - config file info and chosen KeyboardBackend
+          - config file info
           - log file presence
-          - systemd status for bt_hid_* services
+          - systemd status for BLE HID service
           - Bluetooth adapter + paired device info
         """
         env = {
@@ -76,11 +76,7 @@ def create_app() -> Flask:
         config_file = project_root / "ipr-keyboard" / "config.json"
         log_file = project_root / "ipr-keyboard" / "logs" / "ipr_keyboard.log"
 
-        cfg = ConfigManager.instance().get()
-        backend = getattr(cfg, "KeyboardBackend", None)
-
         services = {
-            "bt_hid_uinput.service": _service_status("bt_hid_uinput.service"),
             "bt_hid_ble.service": _service_status("bt_hid_ble.service"),
             "bt_hid_agent_unified.service": _service_status("bt_hid_agent_unified.service"),
         }
@@ -109,7 +105,6 @@ def create_app() -> Flask:
                 "config": {
                     "file": str(config_file),
                     "exists": config_file.exists(),
-                    "keyboard_backend": backend,
                 },
                 "log": {
                     "file": str(log_file),
