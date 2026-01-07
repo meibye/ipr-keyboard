@@ -2,9 +2,7 @@
 #
 # BLE Setup Extras Script
 #
-# Set up all extra RPi-side components for ipr-keyboard:
-#   - Backend manager (prevents uinput + BLE running at same time)
-#   - /etc/ipr-keyboard/backend selector
+# Set up all extra RPi-side components for ipr-keyboard Bluetooth GATT HID:
 #   - BLE diagnostics script
 #   - BLE HID analyzer
 #   - Pairing wizard HTML template
@@ -15,7 +13,7 @@
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)
-#   - BLE services must be installed
+#   - Bluetooth GATT HID services must be installed
 #
 # category: Bluetooth
 # purpose: Set up BLE extras including diagnostics and pairing wizard
@@ -39,42 +37,6 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "Script dir:    $SCRIPT_DIR"
 echo "Project root:  $PROJECT_ROOT"
-
-# ---------------------------------------------------------------------------
-# 1. Backend selector file: /etc/ipr-keyboard/backend
-# ---------------------------------------------------------------------------
-echo "=== [ble_setup_extras] Configuring backend selector ==="
-BACKEND_DIR="/etc/ipr-keyboard"
-BACKEND_FILE="$BACKEND_DIR/backend"
-CONFIG_FILE="$PROJECT_ROOT/config.json"
-
-mkdir -p "$BACKEND_DIR"
-
-if [[ ! -f "$BACKEND_FILE" ]]; then
-  # Try to read backend from config.json if it exists
-  BACKEND_VALUE="ble"  # default
-  if [[ -f "$CONFIG_FILE" ]] && command -v jq >/dev/null 2>&1; then
-    CONFIG_BACKEND=$(jq -r '.KeyboardBackend // "ble"' "$CONFIG_FILE")
-    if [[ "$CONFIG_BACKEND" == "uinput" || "$CONFIG_BACKEND" == "ble" ]]; then
-      BACKEND_VALUE="$CONFIG_BACKEND"
-      echo "  Using backend from config.json: $BACKEND_VALUE"
-    fi
-  fi
-  echo "$BACKEND_VALUE" > "$BACKEND_FILE"
-  echo "  Created $BACKEND_FILE with backend '$BACKEND_VALUE'"
-else
-  echo "  $BACKEND_FILE already exists (content: '$(cat "$BACKEND_FILE")')"
-fi
-
-# ---------------------------------------------------------------------------
-# 2. Install backend manager service
-# ---------------------------------------------------------------------------
-echo "=== [ble_setup_extras] Installing backend manager service ==="
-"$SCRIPT_DIR/service/svc_install_ipr_backend_manager.sh"
-
-systemctl enable ipr_backend_manager.service
-systemctl start ipr_backend_manager.service
-echo "  Enabled and started ipr_backend_manager.service"
 
 # ---------------------------------------------------------------------------
 # 3. BLE diagnostics script
@@ -151,9 +113,6 @@ echo "You can now use:"
 echo "  - ipr_ble_diagnostics.sh          (BLE health check)"
 echo "  - ipr_ble_hid_analyzer.py         (HID report analyzer)"
 echo "  - /pairing                        (web pairing wizard)"
-echo "  - /etc/ipr-keyboard/backend       (backend selector: 'ble' or 'uinput')"
-
-echo "  - ipr_backend_manager.service     (ensures only one backend is active)"
 
 # ---------------------------------------------------------------------------
 # Final check: Ensure bt_hid_agent_unified.service is active

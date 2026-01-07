@@ -1,0 +1,18 @@
+[Unit]
+Description=IPR Keyboard BLE HID Daemon
+After=bt_hid_agent_unified.service bluetooth.service
+Requires=bt_hid_agent_unified.service bluetooth.service
+BindsTo=bluetooth.service
+
+[Service]
+Type=simple
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bt_hid_ble
+EnvironmentFile=-/opt/ipr_common.env
+ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_ble_daemon.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target bluetooth.service
