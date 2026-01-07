@@ -277,6 +277,21 @@ sudo ./scripts/diag_ble_analyzer.sh
 
 See [BLUETOOTH_PAIRING.md](../BLUETOOTH_PAIRING.md) for detailed pairing troubleshooting guide.
 
+### Remote Diagnostic Scripts
+
+For **remote troubleshooting via GitHub Copilot Chat** using MCP SSH server, see the dedicated diagnostic scripts:
+
+📖 **[diag/README.md](diag/README.md)** - Remote diagnostic scripts documentation
+
+**Quick overview:**
+- `diag/dbg_deploy.sh` - Deploy latest code and restart service
+- `diag/dbg_diag_bundle.sh` - Collect comprehensive diagnostics
+- `diag/dbg_pairing_capture.sh` - Capture bounded pairing attempts with btmon
+- `diag/dbg_bt_restart.sh` - Safe Bluetooth service restart
+- `diag/dbg_bt_soft_reset.sh` - Conservative Bluetooth reset
+
+These scripts are designed for installation in `/usr/local/bin/` and use with GitHub Copilot's diagnostic agent mode. See the [diag/README.md](diag/README.md) for complete setup and usage instructions.
+
 ## Environment Configuration
 
 All scripts source `env_set_variables.sh` to ensure consistent environment variables. Edit this file to set:

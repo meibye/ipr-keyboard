@@ -254,6 +254,7 @@ For day-to-day development procedures:
 - **Testing**: `pytest` or `pytest --cov=ipr_keyboard` (see `tests/README.md`)
 - **Service Mode**: Installed as systemd service via `svc_install_systemd.sh` and backend services via `ble_install_helper.sh`
 - **Diagnostics**: `./scripts/diag_troubleshoot.sh` for troubleshooting
+- **Remote Diagnostics**: GitHub Copilot integration via MCP SSH - see `scripts/diag/README.md`
 - **Headless Access**: Wi-Fi hotspot provisioning + USB OTG (Pi Zero) - see `scripts/headless/`
 
 
