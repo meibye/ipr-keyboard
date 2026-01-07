@@ -124,9 +124,9 @@ The Bluetooth functionality relies on systemd services installed by setup script
 
 | Service | Purpose | Installed By |
 |---------|---------|--------------|
-| `bt_hid_uinput.service` | UInput backend daemon | `scripts/ble_install_helper.sh` |
-| `bt_hid_ble.service` | BLE backend daemon | `scripts/ble_install_helper.sh` |
-| `bt_hid_agent.service` | Pairing/auth agent | `scripts/ble_install_helper.sh` |
+| `bt_hid_uinput.service` | UInput backend daemon | `scripts/ble/ble_install_helper.sh` |
+| `bt_hid_ble.service` | BLE backend daemon | `scripts/ble/ble_install_helper.sh` |
+| `bt_hid_agent.service` | Pairing/auth agent | `scripts/ble/ble_install_helper.sh` |
 | `ipr_backend_manager.service` | Backend switcher | `scripts/ble_setup_extras.sh` |
 
 See [SERVICES.md](../../SERVICES.md) for detailed service documentation.

@@ -20,7 +20,7 @@
 #   - Enabling/disabling the corresponding systemd units
 #
 # Usage:
-#   sudo ./scripts/ble_install_helper.sh
+#   sudo ./scripts/ble/ble_install_helper.sh
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)

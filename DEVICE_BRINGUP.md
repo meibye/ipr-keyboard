@@ -451,7 +451,7 @@ python -m ipr_keyboard.main  # Run in foreground
 
 # Reinstall services
 sudo ./scripts/service/svc_install_systemd.sh
-sudo ./scripts/ble_install_helper.sh
+sudo ./scripts/ble/ble_install_helper.sh
 sudo ./scripts/service/svc_enable_ble_services.sh
 ```
 

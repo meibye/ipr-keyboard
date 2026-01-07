@@ -9,7 +9,7 @@
 #   - Pairing routes in src/ipr_keyboard/web/server.py
 #
 # Usage:
-#   sudo ./scripts/ble_setup_extras.sh
+#   sudo ./scripts/ble/ble_setup_extras.sh
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)
@@ -23,7 +23,7 @@
 set -eo pipefail
 
 if [[ "$EUID" -ne 0 ]]; then
-  echo "Please run this script as root (sudo ./scripts/ble_setup_extras.sh)."
+  echo "Please run this script as root (sudo ./scripts/ble/ble_setup_extras.sh)."
   exit 1
 fi
 

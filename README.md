@@ -212,7 +212,7 @@ For detailed service descriptions, see [SERVICES.md](SERVICES.md).
 |-----------|------|-------------|
 | Entry Point | `src/ipr_keyboard/main.py` | Starts web server and USB/Bluetooth monitor threads |
 | Bluetooth | `src/ipr_keyboard/bluetooth/keyboard.py` | Wraps system helper for keyboard emulation |
-| Backend Services | Installed by `scripts/ble_install_helper.sh`:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend)<br> &nbsp; - `bt_hid_agent.service` (pairing agent) |
+| Backend Services | Installed by `scripts/ble/ble_install_helper.sh`:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend)<br> &nbsp; - `bt_hid_agent.service` (pairing agent) |
 | USB Handling | `src/ipr_keyboard/usb/` | File detection, reading, deletion |
 | Config | `src/ipr_keyboard/config/manager.py` | Thread-safe singleton, JSON-backed |
 | Logging | `src/ipr_keyboard/logging/logger.py` | Rotating file + console logging |

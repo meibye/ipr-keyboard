@@ -197,7 +197,7 @@ sudo /usr/local/bin/ipr_ble_diagnostics.sh
 **Solution**: 
 1. Reinstall the agent with the fixed code:
    ```bash
-   sudo ./scripts/ble_install_helper.sh
+   sudo ./scripts/ble/ble_install_helper.sh
    ```
 2. Restart the agent service:
    ```bash
@@ -357,7 +357,7 @@ After fixing the agent or making configuration changes:
 
 1. **Reinstall agent** (if code changed):
    ```bash
-   sudo ./scripts/ble_install_helper.sh
+   sudo ./scripts/ble/ble_install_helper.sh
    ```
 
 2. **Restart services**:

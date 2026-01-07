@@ -324,7 +324,7 @@ sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 
 ### Installed by ble_setup_extras.sh
 
-These tools are created by running `sudo ./scripts/ble_setup_extras.sh`:
+These tools are created by running `sudo ./scripts/ble/ble_setup_extras.sh`:
 
 | Tool | Type | Purpose |
 |------|------|---------|
