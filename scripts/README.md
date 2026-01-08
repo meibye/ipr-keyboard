@@ -45,7 +45,7 @@ The provisioning scripts leverage the existing scripts in this directory for the
 
 - **BLE/uinput backend install & management**: See `ble_install_helper.sh`.
 - **BLE extras (diagnostics, pairing wizard, backend manager)**: See `ble_setup_extras.sh`.
-- **Agent service**: `bt_hid_agent.service` (handles pairing/authorization).
+- **Agent service**: `bt_hid_agent_unified.service` (handles "Just Works" pairing/authorization).
 - **Web pairing wizard**: `/pairing` endpoint (see web server docs).
 - **BLE diagnostics**: Available via wrapper scripts in this directory.
 - **Backend synchronization**: `config.json` and `/etc/ipr-keyboard/backend` are automatically synchronized.
@@ -145,8 +145,10 @@ sudo ./provision/05_verify.sh
 
 | Script | Description | Run as |
 |--------|-------------|--------|
-| `bt_configure_system.sh` | Configures /etc/bluetooth/main.conf for HID keyboard profile | root |
-| `ble_install_helper.sh` | **CRITICAL** - Installs bt_kb_send helper, backend daemons, and systemd services:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend)<br> &nbsp; - `bt_hid_agent_unified.service` (pairing agent) | root |
+| `ble_configure_system.sh` | Configures /etc/bluetooth/main.conf for HID keyboard profile | root |
+| `ble_install_helper.sh` | **CRITICAL** - Installs bt_kb_send helper, backend daemons, and systemd services:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend)<br> &nbsp; - `bt_hid_agent_unified.service` (pairing agent with "Just Works") | root |
+| `ble_install_daemon.sh` | Optional advanced HID daemon installation | root |
+| `ble_switch_backend.sh` | Switch between uinput and BLE keyboard backends. Updates both `/etc/ipr-keyboard/backend` and `config.json`, then enables/disables appropriate systemd services. Can read backend from config.json if no argument provided. | root |
 | `ble_setup_extras.sh` | Advanced RPi extras (backend manager, pairing wizard, diagnostics). Initializes `/etc/ipr-keyboard/backend` from `config.json` if available. | root |
 | `ble_show_bt_mac_for_windows.sh` | Show the Raspberry Pi Bluetooth MAC address in Windows format | user |
 | `test_bluetooth.sh` | Test Bluetooth keyboard emulation end-to-end | user |
@@ -281,11 +283,11 @@ sudo /usr/local/bin/ipr_ble_diagnostics.sh
 sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 ```
 
-**Pairing Diagnostics Features:**
-- Analyzes agent pairing method implementations (RequestPasskey, DisplayPasskey, RequestConfirmation)
-- Detects hardcoded vs. random passkey generation
-- Shows recent pairing events with passkey values
-- Provides step-by-step pairing guidance
+**NEW Pairing Diagnostics Features:**
+- Analyzes agent pairing method implementations (RequestConfirmation, AuthorizeService)
+- Detects "Just Works" (NoInputNoOutput) vs. interactive pairing capabilities
+- Shows recent pairing events with auto-accept confirmations
+- Provides step-by-step pairing guidance for Windows 11
 - Tests keyboard input after pairing
 - Saves full logs for later analysis
 
@@ -362,8 +364,8 @@ export IPR_PROJECT_ROOT="/your/dev/path"
 │                                         │  │ (BLE daemon, BLE only)      │      │  ││
 │                                         │  └─────────────────────────────┘      │  ││
 │                                         │  ┌─────────────────────────────┐      │  ││
-│                                         │  │ bt_hid_agent.service        │◄──┐  │  ││
-│                                         │  │ (Pairing agent, BLE only)   │  │  │  ││
+│                                         │  │ bt_hid_agent_unified.service│◄──┐  │  ││
+│                                         │  │ (Pairing agent, both)       │  │  │  ││
 │                                         │  └─────────────────────────────┘  │  │  ││
 │                                         │  ┌─────────────────────────────┐  │  │  ││
 │                                         │  │ ipr_backend_manager.service │◄─┘  │  ││

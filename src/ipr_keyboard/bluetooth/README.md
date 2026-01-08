@@ -63,7 +63,7 @@ Both backends read from the same FIFO pipe (`/run/ipr_bt_keyboard_fifo`) written
 |---------|-------------|
 | `bt_hid_uinput.service` | UInput backend daemon |
 | `bt_hid_ble.service` | BLE backend daemon |
-| `bt_hid_agent_unified.service` | Bluetooth pairing & authorization agent |
+| `bt_hid_agent_unified.service` | Bluetooth pairing & authorization agent ("Just Works") |
 | `ipr_backend_manager.service` | Backend selection service |
 
 See [SERVICES.md](../../../SERVICES.md) for detailed service descriptions.
@@ -202,7 +202,7 @@ Tests are located in `tests/bluetooth/test_keyboard.py`:
 - Linux system with Bluetooth capability
 - Bluetooth HID helper script installed (`bt_kb_send`)
 - One of the backend daemons running (`bt_hid_uinput.service` or `bt_hid_ble.service`)
-- `bt_hid_agent.service` running for pairing support
+- `bt_hid_agent_unified.service` running for "Just Works" pairing support
 - Paired Bluetooth device (typically done from the target device)
 - Appropriate permissions to execute helper script
 
