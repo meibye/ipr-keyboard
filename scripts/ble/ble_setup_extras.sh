@@ -9,7 +9,7 @@
 #   - Pairing routes in src/ipr_keyboard/web/server.py
 #
 # Usage:
-#   sudo ./scripts/ble_setup_extras.sh
+#   sudo ./scripts/ble/ble_setup_extras.sh
 #
 # Prerequisites:
 #   - Must be run as root (uses sudo)
@@ -23,17 +23,17 @@
 set -eo pipefail
 
 if [[ "$EUID" -ne 0 ]]; then
-  echo "Please run this script as root (sudo ./scripts/ble_setup_extras.sh)."
+  echo "Please run this script as root (sudo ./scripts/ble/ble_setup_extras.sh)."
   exit 1
 fi
 
 echo "=== [ble_setup_extras] Setting up ipr-keyboard RPi extras ==="
 
 # ---------------------------------------------------------------------------
-# Locate project root (assume scripts/ is at $PROJECT_ROOT/scripts)
+# Locate project root (assume scripts/ble/ is at $PROJECT_ROOT/scripts/ble)
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 echo "Script dir:    $SCRIPT_DIR"
 echo "Project root:  $PROJECT_ROOT"
@@ -44,12 +44,12 @@ echo "Project root:  $PROJECT_ROOT"
 echo "=== [ble_setup_extras] Installing BLE diagnostics script ==="
 BLE_DIAG="/usr/local/bin/ipr_ble_diagnostics.sh"
 
-if [[ -f "$SCRIPT_DIR/extras/ipr_ble_diagnostics.sh" ]]; then
-  cp "$SCRIPT_DIR/extras/ipr_ble_diagnostics.sh" "$BLE_DIAG"
+if [[ -f "$SCRIPT_DIR/../extras/ipr_ble_diagnostics.sh" ]]; then
+  cp "$SCRIPT_DIR/../extras/ipr_ble_diagnostics.sh" "$BLE_DIAG"
   chmod +x "$BLE_DIAG"
   echo "  Installed $BLE_DIAG from extras/ipr_ble_diagnostics.sh"
 else
-  echo "  ERROR: $SCRIPT_DIR/extras/ipr_ble_diagnostics.sh not found"
+  echo "  ERROR: $SCRIPT_DIR/../extras/ipr_ble_diagnostics.sh not found"
   exit 1
 fi
 
@@ -59,12 +59,12 @@ fi
 echo "=== [ble_setup_extras] Installing BLE HID analyzer ==="
 BLE_ANALYZER="/usr/local/bin/ipr_ble_hid_analyzer.py"
 
-if [[ -f "$SCRIPT_DIR/extras/ipr_ble_hid_analyzer.py" ]]; then
-  cp "$SCRIPT_DIR/extras/ipr_ble_hid_analyzer.py" "$BLE_ANALYZER"
+if [[ -f "$SCRIPT_DIR/../extras/ipr_ble_hid_analyzer.py" ]]; then
+  cp "$SCRIPT_DIR/../extras/ipr_ble_hid_analyzer.py" "$BLE_ANALYZER"
   chmod +x "$BLE_ANALYZER"
   echo "  Installed $BLE_ANALYZER from extras/ipr_ble_hid_analyzer.py"
 else
-  echo "  ERROR: $SCRIPT_DIR/extras/ipr_ble_hid_analyzer.py not found"
+  echo "  ERROR: $SCRIPT_DIR/../extras/ipr_ble_hid_analyzer.py not found"
   exit 1
 fi
 

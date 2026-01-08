@@ -35,11 +35,20 @@ sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 
 These scripts are automatically installed by running:
 ```bash
-sudo ./scripts/ble_setup_extras.sh
+sudo ./scripts/ble/ble_setup_extras.sh
 ```
 
 The setup script copies these files to `/usr/local/bin/` and makes them executable system-wide.
 
-## See Also
-- `diag_ble.sh` - Wrapper script in the scripts directory
-- `diag_ble_analyzer.sh` - Wrapper script in the scripts directory
+## Direct Access
+
+After installation, you can run these tools directly:
+```bash
+# BLE diagnostics
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
+
+# BLE HID analyzer
+sudo /usr/local/bin/ipr_ble_hid_analyzer.py
+```
+
+**Note**: The wrapper scripts `diag_ble.sh` and `diag_ble_analyzer.sh` have been removed. Use the direct paths above instead.

@@ -13,7 +13,7 @@
 |--------|--------|----------------|
 | env_set_variables.sh | ✅ KEEP | Required by all other scripts |
 | sys_install_packages.sh | ✅ KEEP | Essential for system installation |
-| ble_configure_system.sh | ✅ KEEP | Required for Bluetooth HID setup |
+| bt_configure_system.sh | ✅ KEEP | Required for Bluetooth HID setup |
 | ble_install_helper.sh | ✅ KEEP | Installs critical Bluetooth helper |
 | sys_setup_venv.sh | ✅ KEEP | Required for Python environment |
 | svc_install_systemd.sh | ✅ KEEP | Required for systemd service |
@@ -75,7 +75,7 @@
 
 ---
 
-### ble_configure_system.sh
+### bt_configure_system.sh
 **Status:** ✅ **KEEP**
 
 **Purpose:** Configures /etc/bluetooth/main.conf for HID keyboard profile
@@ -407,7 +407,7 @@
 All of these are actively used by the implementation or are essential utilities:
 1. ✅ env_set_variables.sh - Required by all
 2. ✅ sys_install_packages.sh - System installation
-3. ✅ ble_configure_system.sh - BT configuration
+3. ✅ bt_configure_system.sh - BT configuration
 4. ✅ ble_install_helper.sh - **CRITICAL** - Creates bt_kb_send used by code
 5. ✅ sys_setup_venv.sh - Python environment
 6. ✅ svc_install_systemd.sh - Systemd service

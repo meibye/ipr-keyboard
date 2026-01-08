@@ -20,7 +20,7 @@ This service runs the uinput-based Bluetooth keyboard daemon (`bt_hid_uinput_dae
 
 **Location**: `/etc/systemd/system/bt_hid_uinput.service`
 
-**Installed by**: `scripts/ble_install_helper.sh`
+**Installed by**: `scripts/ble/ble_install_helper.sh`
 
 **Related scripts**: 
 - `ble_switch_backend.sh` — Switch to/from uinput backend
@@ -47,7 +47,7 @@ This service runs the BLE-based Bluetooth keyboard daemon (`bt_hid_ble_daemon.py
 
 **Location**: `/etc/systemd/system/bt_hid_ble.service`
 
-**Installed by**: `scripts/ble_install_helper.sh`
+**Installed by**: `scripts/ble/ble_install_helper.sh`
 
 **Related scripts**:
 - `ble_switch_backend.sh` — Switch to/from BLE backend
@@ -156,7 +156,7 @@ This is the main interface for sending text to the Bluetooth keyboard backend. I
 
 **Location**: `/usr/local/bin/bt_kb_send`
 
-**Installed by**: `scripts/ble_install_helper.sh`
+**Installed by**: `scripts/ble/ble_install_helper.sh`
 
 **Usage**:
 ```bash
@@ -327,7 +327,7 @@ sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 
 ### Installed by ble_setup_extras.sh
 
-These tools are created by running `sudo ./scripts/ble_setup_extras.sh`:
+These tools are created by running `sudo ./scripts/ble/ble_setup_extras.sh`:
 
 | Tool | Type | Purpose |
 |------|------|---------|
@@ -342,8 +342,8 @@ The following wrapper scripts are provided in the `scripts/` folder for convenie
 
 | Script | Calls | Purpose |
 |--------|-------|---------|
-| `diag_ble.sh` | `ipr_ble_diagnostics.sh` | Run BLE diagnostics |
-| `diag_ble_analyzer.sh` | `ipr_ble_hid_analyzer.py` | Start HID report analyzer |
+| `ipr_ble_diagnostics.sh` (direct) | `ipr_ble_diagnostics.sh` | Run BLE diagnostics |
+| `ipr_ble_hid_analyzer.py` (direct) | `ipr_ble_hid_analyzer.py` | Start HID report analyzer |
 | `ble_backend_manager.sh` | `ipr_backend_manager.sh` | Manually trigger backend manager |
 
 ## Backend Selection Workflow

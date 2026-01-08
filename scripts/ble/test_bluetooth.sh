@@ -46,7 +46,7 @@ fi
 echo "--- Checking Bluetooth HID helper ---"
 if [[ ! -x "$BT_HELPER" ]]; then
   echo "[test_bluetooth] ERROR: Bluetooth helper $BT_HELPER not found or not executable." >&2
-  echo "     Install it with: sudo ./scripts/ble_install_helper.sh" >&2
+  echo "     Install it with: sudo ./scripts/ble/ble_install_helper.sh" >&2
   exit 1
 fi
 

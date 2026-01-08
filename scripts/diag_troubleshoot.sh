@@ -208,7 +208,7 @@ for SVC in "$SERVICE" "$AGENT_SERVICE"; do
     systemctl status "$SVC" --no-pager -l -n 0 2>&1 || true
   else
     echo "⚠ $SVC is NOT installed"
-    echo "  Run: sudo ./scripts/ble_install_helper.sh"
+    echo "  Run: sudo ./scripts/ble/ble_install_helper.sh"
   fi
 done
 
@@ -221,7 +221,7 @@ if kb.is_available():
 else:
     print('⚠ Bluetooth helper is NOT available')
     print('  Expected at: /usr/local/bin/bt_kb_send')
-    print('  Run: sudo ./scripts/ble_install_helper.sh')
+    print('  Run: sudo ./scripts/ble/ble_install_helper.sh')
 "
 echo
 

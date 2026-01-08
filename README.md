@@ -25,7 +25,7 @@ This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID
 
 ## Bluetooth Backend Management & Extras
 
-- **BLE and uinput backends** are installed and managed by `scripts/ble_install_helper.sh`, which creates and enables the following systemd services:
+- **BLE and uinput backends** are installed and managed by `scripts/ble/ble_install_helper.sh`, which creates and enables the following systemd services:
   - `bt_hid_uinput.service` — UInput backend daemon
   - `bt_hid_ble.service` — BLE HID backend daemon (recommended for Windows 11)
   - `bt_hid_agent_unified.service` — Unified pairing/authorization agent with "Just Works" pairing
@@ -49,13 +49,13 @@ You can switch backends using the provided script:
 
 ```bash
 # Switch to BLE backend (updates both config.json and /etc/ipr-keyboard/backend)
-./scripts/ble_switch_backend.sh ble
+./scripts/ble/ble_switch_backend.sh ble
 
 # Switch to uinput backend
-./scripts/ble_switch_backend.sh uinput
+./scripts/ble/ble_switch_backend.sh uinput
 
 # Or read from config.json automatically
-./scripts/ble_switch_backend.sh
+./scripts/ble/ble_switch_backend.sh
 ```
 
 
@@ -254,7 +254,7 @@ For day-to-day development procedures:
 - **Testing**: `pytest` or `pytest --cov=ipr_keyboard` (see `tests/README.md`)
 - **Service Mode**: Installed as systemd service via `svc_install_systemd.sh` and backend services via `ble_install_helper.sh`
 - **Diagnostics**: `./scripts/diag_troubleshoot.sh` for troubleshooting
-- **Remote Diagnostics**: GitHub Copilot integration via MCP SSH - see `scripts/diag/README.md`
+- **Remote Diagnostics**: GitHub Copilot integration via MCP SSH - see `scripts/rpi-debug/README.md`
 - **Headless Access**: Wi-Fi hotspot provisioning + USB OTG (Pi Zero) - see `scripts/headless/`
 
 
