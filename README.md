@@ -74,46 +74,46 @@ You can switch backends using the provided script:
 The ipr-keyboard system consists of multiple layers working together to bridge IrisPen scanner input to Bluetooth keyboard output.
 
 ```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                           ipr-keyboard System                                  │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                │
-│  ┌──────────────┐     ┌──────────────────┐     ┌──────────────────────────┐   │
-│  │   IrisPen    │────>│   USB/MTP Mount  │────>│  File Detection Loop     │   │
-│  │   Scanner    │     │   /mnt/irispen   │     │  (usb/detector.py)       │   │
-│  └──────────────┘     └──────────────────┘     └───────────┬──────────────┘   │
-│                                                             │                  │
-│  Setup Scripts:                                             ▼                  │
-│  • usb_setup_mount.sh                      ┌────────────────────────────────┐  │
-│  • usb_mount_mtp.sh                        │   ipr_keyboard Application     │  │
-│  • usb_sync_cache.sh                       │   (ipr_keyboard.service)       │  │
-│                                            │                                │  │
-│                                            │  • main.py (entry point)       │  │
-│                                            │  • config/manager.py           │  │
-│                                            │  • usb/reader.py, deleter.py   │  │
-│                                            │  • logging/logger.py           │  │
-│                                            │  • web/server.py (Flask:8080)  │  │
-│                                            └─────────┬──────────────────────┘  │
-│                                                      │                         │
-│  Setup Scripts:                                      ▼                         │
-│  • sys_install_packages.sh          ┌───────────────────────────────────────┐  │
-│  • sys_setup_venv.sh                │  bluetooth/keyboard.py                │  │
-│  • svc_install_systemd.sh           │  (BluetoothKeyboard class)            │  │
-│                                     └──────────┬────────────────────────────┘  │
-│                                                │                               │
-│  Setup Scripts:                                ▼                               │
-│  • ble_configure_system.sh      ┌──────────────────────────────────────────┐   │
-│  • ble_install_helper.sh        │         bt_kb_send                       │   │
-│                                 │   /usr/local/bin/bt_kb_send              │   │
-│                                 │   (writes to FIFO)                       │   │
-│                                 └──────────┬───────────────────────────────┘   │
-│                                            │                                   │
-│                                            ▼                                   │
-│                       ┌────────────────────────────────────────────────┐       │
-│                       │     /run/ipr_bt_keyboard_fifo (Named Pipe)    │       │
-│                       └─────────────┬──────────────────┬───────────────┘       │
-│                                     │                  │                       │
-│                   ┌─────────────────┴──┐           ┌───┴────────────────┐      │
+┌───────────────────────────────────────────────────────────────────────────────────────────┐
+│                           ipr-keyboard System                                             │
+├───────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                           │
+│  ┌──────────────┐     ┌──────────────────┐     ┌──────────────────────────┐               │
+│  │   IrisPen    │────>│   USB/MTP Mount  │────>│  File Detection Loop     │               │
+│  │   Scanner    │     │   /mnt/irispen   │     │  (usb/detector.py)       │               │
+│  └──────────────┘     └──────────────────┘     └───────────┬──────────────┘               │
+│                                                            │                              │
+│  Setup Scripts:                                            ▼                              │
+│  • usb_setup_mount.sh                      ┌────────────────────────────────┐             │
+│  • usb_mount_mtp.sh                        │   ipr_keyboard Application     │             │
+│  • usb_sync_cache.sh                       │   (ipr_keyboard.service)       │             │
+│                                            │                                │             │
+│                                            │  • main.py (entry point)       │             │
+│                                            │  • config/manager.py           │             │
+│                                            │  • usb/reader.py, deleter.py   │             │
+│                                            │  • logging/logger.py           │             │
+│                                            │  • web/server.py (Flask:8080)  │             │
+│                                            └─────────┬──────────────────────┘             │
+│                                                      │                                    │
+│  Setup Scripts:                                      ▼                                    │
+│  • sys_install_packages.sh          ┌───────────────────────────────────────┐             │
+│  • sys_setup_venv.sh                │  bluetooth/keyboard.py                │             │
+│  • svc_install_systemd.sh           │  (BluetoothKeyboard class)            │             │
+│                                     └──────────┬────────────────────────────┘             │
+│                                                │                                          │
+│  Setup Scripts:                                ▼                                          │
+│  • ble_configure_system.sh      ┌──────────────────────────────────────────┐              │
+│  • ble_install_helper.sh        │         bt_kb_send                       │              │
+│                                 │   /usr/local/bin/bt_kb_send              │              │
+│                                 │   (writes to FIFO)                       │              │
+│                                 └──────────┬───────────────────────────────┘              │
+│                                            │                                              │
+│                                            ▼                                              │
+│                       ┌────────────────────────────────────────────────┐                  │
+│                       │     /run/ipr_bt_keyboard_fifo (Named Pipe)     │                  │
+│                       └─────────────┬──────────────────┬───────────────┘                  │
+│                                     │                  │                                  │
+│                   ┌─────────────────┴──┐           ┌───┴─────────────────┐                │
 │  ┌────────────────▼────────────────┐   │           │  ┌──────────────────▼───────────────┐│
 │  │ bt_hid_uinput.service           │   │           │  │ bt_hid_ble.service               ││
 │  │ (UInput Backend Daemon)         │   │           │  │ (BLE HID Backend Daemon)         ││
@@ -131,10 +131,10 @@ The ipr-keyboard system consists of multiple layers working together to bridge I
 │  │ (Advanced HID Daemon)           │               │                                      │
 │  │ • Optional, installed separately│               │                                      │
 │  └─────────────────────────────────┘               │                                      │
-│                                                     │                                      │
-│  ┌──────────────────────────────────────────────────┴─────────────────────────┐           │
+│                                                    │                                      │
+│  ┌─────────────────────────────────────────────────┴──────────────────────────┐           │
 │  │                       Common Supporting Services                           │           │
-│  │                                                                             │           │
+│  │                                                                            │           │
 │  │  ┌────────────────────────────────────────┐  ┌──────────────────────────┐  │           │
 │  │  │ bt_hid_agent_unified.service           │  │ ipr_backend_manager.     │  │           │
 │  │  │ (Bluetooth Pairing & Auth Agent)       │  │ service                  │  │           │
@@ -146,36 +146,36 @@ The ipr-keyboard system consists of multiple layers working together to bridge I
 │  │  │ • Sets adapter powered/discoverable    │  │ • Disables conflicting   │  │           │
 │  │  │ • Required for both backends           │  │   services               │  │           │
 │  │  └────────────────────────────────────────┘  └──────────────────────────┘  │           │
-│  └─────────────────────────────────────────────────────────────────────────────┘           │
-│                                        │                                                   │
-│                                        ▼                                                   │
-│            ┌────────────────────────────────────────────────────────┐                      │
-│            │              Diagnostic & Management Tools             │                      │
-│            │                                                        │                      │
-│            │  Wrapper Scripts (in scripts/):                        │                      │
-│            │  • diag_ble.sh → /usr/local/bin/ipr_ble_diagnostics.sh│                      │
-│            │  • diag_ble_analyzer.sh → ipr_ble_hid_analyzer.py     │                      │
-│            │  • ble_backend_manager.sh → ipr_backend_manager.sh    │                      │
-│            │  • diag_status.sh (system status overview)            │                      │
-│            │  • diag_troubleshoot.sh (comprehensive diagnostics)   │                      │
-│            │  • svc_status_monitor.py (interactive TUI)            │                      │
-│            │  • ble_switch_backend.sh (backend switching helper)   │                      │
-│            │                                                        │                      │
-│            │  Tools installed by ble_setup_extras.sh:              │                      │
-│            │  • /usr/local/bin/ipr_ble_diagnostics.sh              │                      │
-│            │  • /usr/local/bin/ipr_ble_hid_analyzer.py             │                      │
-│            │  • /usr/local/bin/ipr_backend_manager.sh              │                      │
-│            │  • Web pairing wizard at /pairing endpoint            │                      │
-│            └────────────────────────────────────────────────────────┘                      │
-│                                        │                                                   │
-│                                        ▼                                                   │
-│                            ┌────────────────────────┐                                      │
-│                            │     Paired Device      │                                      │
-│                            │     (PC / Tablet)      │                                      │
-│                            │  Receives text as      │                                      │
-│                            │  keyboard input        │                                      │
-│                            └────────────────────────┘                                      │
-└────────────────────────────────────────────────────────────────────────────────────────────┘
+│  └────────────────────────────────────────────────────────────────────────────┘           │
+│                                        │                                                  │
+│                                        ▼                                                  │
+│            ┌────────────────────────────────────────────────────────┐                     │
+│            │              Diagnostic & Management Tools             │                     │
+│            │                                                        │                     │
+│            │  Wrapper Scripts (in scripts/):                        │                     │
+│            │  • diag_ble.sh → /usr/local/bin/ipr_ble_diagnostics.sh │                     │
+│            │  • diag_ble_analyzer.sh → ipr_ble_hid_analyzer.py      │                     │
+│            │  • ble_backend_manager.sh → ipr_backend_manager.sh     │                     │
+│            │  • diag_status.sh (system status overview)             │                     │
+│            │  • diag_troubleshoot.sh (comprehensive diagnostics)    │                     │
+│            │  • svc_status_monitor.py (interactive TUI)             │                     │
+│            │  • ble_switch_backend.sh (backend switching helper)    │                     │
+│            │                                                        │                     │
+│            │  Tools installed by ble_setup_extras.sh:               │                     │
+│            │  • /usr/local/bin/ipr_ble_diagnostics.sh               │                     │
+│            │  • /usr/local/bin/ipr_ble_hid_analyzer.py              │                     │
+│            │  • /usr/local/bin/ipr_backend_manager.sh               │                     │
+│            │  • Web pairing wizard at /pairing endpoint             │                     │
+│            └────────────────────────────────────────────────────────┘                     │
+│                                        │                                                  │
+│                                        ▼                                                  │
+│                            ┌────────────────────────┐                                     │
+│                            │     Paired Device      │                                     │
+│                            │     (PC / Tablet)      │                                     │
+│                            │  Receives text as      │                                     │
+│                            │  keyboard input        │                                     │
+│                            └────────────────────────┘                                     │
+└───────────────────────────────────────────────────────────────────────────────────────────┘
 
 Backend Selection:  uinput ◄──┬──► ble
                               │

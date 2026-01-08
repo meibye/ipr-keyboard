@@ -6,22 +6,22 @@ This directory contains the core implementation of the ipr-keyboard application,
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                          ipr_keyboard Package                            │
+│                          ipr_keyboard Package                           │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                        main.py                                    │    │
-│  │                    (Entry Point)                                 │    │
-│  │                                                                   │    │
-│  │   - Initializes all components                                   │    │
-│  │   - Starts web server thread                                     │    │
-│  │   - Starts USB/BT monitor thread                                 │    │
-│  │   - Handles graceful shutdown                                    │    │
-│  └────────────────────────────┬──────────────────────────────────────┘    │
-│                               │                                          │
-│         ┌─────────────────────┼─────────────────────┐                    │
-│         │                     │                     │                    │
-│         ▼                     ▼                     ▼                    │
+│                                                                         │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │                        main.py                                    │  │
+│  │                    (Entry Point)                                  │  │
+│  │                                                                   │  │
+│  │   - Initializes all components                                    │  │
+│  │   - Starts web server thread                                      │  │
+│  │   - Starts USB/BT monitor thread                                  │  │
+│  │   - Handles graceful shutdown                                     │  │
+│  └────────────────────────────┬──────────────────────────────────────┘  │
+│                               │                                         │
+│         ┌─────────────────────┼─────────────────────┐                   │
+│         │                     │                     │                   │
+│         ▼                     ▼                     ▼                   │
 │  ┌─────────────┐      ┌─────────────┐      ┌─────────────────┐          │
 │  │   config/   │      │  logging/   │      │      web/       │          │
 │  ├─────────────┤      ├─────────────┤      ├─────────────────┤          │
@@ -33,41 +33,41 @@ This directory contains the core implementation of the ipr-keyboard application,
 │  │ (Blueprint) │      │ (Blueprint) │      │ /logs/          │          │
 │  └──────┬──────┘      └──────┬──────┘      │ /health         │          │
 │         │                    │             └────────┬────────┘          │
-│         │                    │                      │                    │
-│         └─────────────┬──────┴──────────────────────┘                    │
-│                       │                                                  │
-│                       ▼                                                  │
-│              ┌─────────────┐                                             │
-│              │   utils/    │                                             │
-│              ├─────────────┤                                             │
-│              │ helpers.py  │                                             │
-│              │             │                                             │
-│              │ project_root()                                            │
-│              │ config_path()                                             │
-│              │ load_json()  │                                            │
-│              │ save_json()  │                                            │
-│              └──────┬──────┘                                             │
-│                     │                                                    │
-│         ┌───────────┴───────────┐                                        │
-│         │                       │                                        │
-│         ▼                       ▼                                        │
-│  ┌─────────────┐       ┌─────────────────┐                               │
-│  │    usb/     │       │   bluetooth/    │                               │
-│  ├─────────────┤       ├─────────────────┤                               │
-│  │ detector.py │       │ keyboard.py     │                               │
-│  │ reader.py   │       │ BluetoothKeyboard                               │
-│  │ deleter.py  │──────>│ send_text()     │                               │
-│  │ mtp_sync.py │       │ is_available()  │                               │
-│  └─────────────┘       └────────┬────────┘                               │
-│                                 │                                        │
-│                                 │ subprocess.run()                       │
-│                                 ▼                                        │
-│                        ┌────────────────────┐                            │
-│                        │ /usr/local/bin/    │                            │
-│                        │ bt_kb_send         │                            │
-│                        │ (System helper)    │                            │
-│                        └────────────────────┘                            │
-│                                                                          │
+│         │                    │                      │                   │
+│         └─────────────┬──────┴──────────────────────┘                   │
+│                       │                                                 │
+│                       ▼                                                 │
+│              ┌────────────────┐                                         │
+│              │   utils/       │                                         │
+│              ├────────────────┤                                         │
+│              │ helpers.py     │                                         │
+│              │                │                                         │
+│              │ project_root() │                                         │
+│              │ config_path()  │                                         │
+│              │ load_json()    │                                         │
+│              │ save_json()    │                                         │
+│              └──────┬─────────┘                                         │
+│                     │                                                   │
+│         ┌───────────┴───────────┐                                       │
+│         │                       │                                       │
+│         ▼                       ▼                                       │
+│  ┌─────────────┐       ┌───────────────────┐                            │
+│  │    usb/     │       │   bluetooth/      │                            │
+│  ├─────────────┤       ├───────────────────┤                            │
+│  │ detector.py │       │ keyboard.py       │                            │
+│  │ reader.py   │       │ BluetoothKeyboard │                            │
+│  │ deleter.py  │──────>│ send_text()       │                            │
+│  │ mtp_sync.py │       │ is_available()    │                            │
+│  └─────────────┘       └────────┬──────────┘                            │
+│                                 │                                       │
+│                                 │ subprocess.run()                      │
+│                                 ▼                                       │
+│                        ┌────────────────────┐                           │
+│                        │ /usr/local/bin/    │                           │
+│                        │ bt_kb_send         │                           │
+│                        │ (System helper)    │                           │
+│                        └────────────────────┘                           │
+│                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 
 Legend:
