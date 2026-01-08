@@ -129,7 +129,7 @@ pytest tests/usb/ -v  # Verbose output
 - Bluetooth unavailable handling
 
 #### Backend Service Integration
-- Integration/E2E tests may require enabling/disabling backend services (`bt_hid_uinput.service`, `bt_hid_ble.service`) via systemctl or scripts. See `scripts/ble_switch_backend.sh` and `scripts/ble_install_helper.sh` for backend management.
+- Integration/E2E tests may require enabling/disabling backend services (`bt_hid_uinput.service`, `bt_hid_ble.service`) via systemctl or scripts. See `scripts/ble_switch_backend.sh` and `scripts/ble/ble_install_helper.sh` for backend management.
 - Log entries after operations
 - Error handling
 

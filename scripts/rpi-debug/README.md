@@ -194,7 +194,7 @@ Use the provided installation script (recommended):
 
 ```bash
 cd /home/runner/work/ipr-keyboard/ipr-keyboard
-sudo cp scripts/diag/*.sh /usr/local/bin/
+sudo cp scripts/rpi-debug/*.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/dbg_*.sh
 ```
 
@@ -202,11 +202,11 @@ sudo chmod +x /usr/local/bin/dbg_*.sh
 
 ```bash
 # Copy each script
-sudo cp scripts/diag/dbg_deploy.sh /usr/local/bin/
-sudo cp scripts/diag/dbg_diag_bundle.sh /usr/local/bin/
-sudo cp scripts/diag/dbg_pairing_capture.sh /usr/local/bin/
-sudo cp scripts/diag/dbg_bt_restart.sh /usr/local/bin/
-sudo cp scripts/diag/dbg_bt_soft_reset.sh /usr/local/bin/
+sudo cp scripts/rpi-debug/dbg_deploy.sh /usr/local/bin/
+sudo cp scripts/rpi-debug/dbg_diag_bundle.sh /usr/local/bin/
+sudo cp scripts/rpi-debug/dbg_pairing_capture.sh /usr/local/bin/
+sudo cp scripts/rpi-debug/dbg_bt_restart.sh /usr/local/bin/
+sudo cp scripts/rpi-debug/dbg_bt_soft_reset.sh /usr/local/bin/
 
 # Make executable
 sudo chmod +x /usr/local/bin/dbg_*.sh

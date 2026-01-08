@@ -51,8 +51,8 @@ cd "$REPO_DIR"
 required_scripts=(
   "scripts/service/svc_install_bt_hid_agent_unified.sh"
   "scripts/service/svc_install_systemd.sh"
-  "scripts/ble_setup_extras.sh"
-  "scripts/ble_install_helper.sh"
+  "scripts/ble/ble_setup_extras.sh"
+  "scripts/ble/ble_install_helper.sh"
   "scripts/service/svc_enable_ble_services.sh"
 )
 
@@ -67,13 +67,13 @@ log "Installing Bluetooth HID Agent (unified)..."
 bash scripts/service/svc_install_bt_hid_agent_unified.sh
 
 log "Installing BLE helper and backend services..."
-bash scripts/ble_install_helper.sh
+bash scripts/ble/ble_install_helper.sh
 
 log "Installing core ipr_keyboard.service..."
 bash scripts/service/svc_install_systemd.sh
 
 log "Installing BLE extras (backend manager, diagnostics, etc.)..."
-bash scripts/ble_setup_extras.sh
+bash scripts/ble/ble_setup_extras.sh
 
 log "Ensuring backend is set to BLE in config.json..."
 if [[ -f "config.json" ]]; then

@@ -20,7 +20,7 @@ A defect was detected in the Bluetooth pairing for the uinput type. The agent se
 
 ### Issue Identified
 
-The agent's `RequestPasskey` method in `scripts/ble_install_helper.sh` (line 873-876) was hardcoded to return `0`:
+The agent's `RequestPasskey` method in `scripts/ble/ble_install_helper.sh` (line 873-876) was hardcoded to return `0`:
 
 ```python
 @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="u")
@@ -72,7 +72,7 @@ All pairing methods now have improved logging:
 
 ### Modified Files
 
-1. **scripts/ble_install_helper.sh**
+1. **scripts/ble/ble_install_helper.sh**
    - Fixed RequestPasskey to generate random passkey
    - Enhanced logging for all agent methods
    - Added passkey state tracking
@@ -117,7 +117,7 @@ All pairing methods now have improved logging:
 
 ```bash
 cd /home/runner/work/ipr-keyboard/ipr-keyboard
-sudo ./scripts/ble_install_helper.sh
+sudo ./scripts/ble/ble_install_helper.sh
 ```
 
 This will recreate `/usr/local/bin/bt_hid_agent.py` with the fixed code.
@@ -189,7 +189,7 @@ To test on an actual Raspberry Pi:
 1. **Update agent code**:
    ```bash
    cd /path/to/ipr-keyboard
-   sudo ./scripts/ble_install_helper.sh
+   sudo ./scripts/ble/ble_install_helper.sh
    ```
 
 2. **Run diagnostics**:

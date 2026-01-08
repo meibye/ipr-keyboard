@@ -4,7 +4,7 @@
 # Installs system packages, configures Bluetooth, and records baseline versions
 #
 # Purpose:
-#   - Runs existing sys_install_packages.sh and ble_configure_system.sh
+#   - Runs existing sys_install_packages.sh and bt_configure_system.sh
 #   - Records OS/package versions for verification
 #   - Ensures both devices have identical OS baseline
 #
@@ -68,8 +68,8 @@ bash scripts/sys_install_packages.sh --system-only
 log "Running sys_install_packages.sh for user venv setup as $APP_USER..."
 sudo -u "$APP_USER" bash scripts/sys_install_packages.sh --user-venv-setup
 
-log "Running ble_configure_system.sh..."
-bash scripts/ble_configure_system.sh
+log "Running bt_configure_system.sh..."
+bash scripts/ble/bt_configure_system.sh
 
 log "Ensuring Bluetooth is not soft-blocked..."
 rfkill unblock bluetooth || true

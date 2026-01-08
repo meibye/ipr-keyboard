@@ -62,38 +62,39 @@ The backend selection is kept in sync between `config.json` and `/etc/ipr-keyboa
 These wrapper scripts call tools installed by `ble_setup_extras.sh`:
 
 ```bash
-# Run BLE diagnostics (wrapper for /usr/local/bin/ipr_ble_diagnostics.sh)
-sudo ./scripts/diag_ble.sh
+# Run BLE diagnostics (installed by ble_setup_extras.sh)
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
 
-# Start BLE HID analyzer (wrapper for /usr/local/bin/ipr_ble_hid_analyzer.py)
-sudo ./scripts/diag_ble_analyzer.sh
+# Start BLE HID analyzer (installed by ble_setup_extras.sh)
+sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 
-# Manually trigger backend manager (wrapper for /usr/local/bin/ipr_backend_manager.sh)
-sudo ./scripts/ble_backend_manager.sh
+# Manually trigger backend manager (if installed)
+sudo /usr/local/bin/ipr_backend_manager.sh
 
 # Start pairing wizard (web)
 curl http://localhost:8080/pairing/start
 
-# Switch backend (recommended - updates both config files and activates services)
-./scripts/ble_switch_backend.sh ble
+# Switch backend (if script exists - updates both config files and activates services)
+./scripts/ble/ble_switch_backend.sh ble
 ```
 
 ## Script Organization
 
-Scripts are organized by domain with descriptive prefixes:
+Scripts are organized by domain with descriptive prefixes and subdirectories:
 
-| Prefix | Domain | Description |
+| Prefix/Directory | Domain | Description |
 |--------|--------|-------------|
 | `env_` | Environment | Environment variable configuration |
 | `sys_` | System | System-level setup (packages, venv) |
-| `ble_` | Bluetooth | Bluetooth HID configuration and backends |
+| `ble/` | Bluetooth | Bluetooth HID configuration and backends (in ble/ subdirectory) |
 | `usb_` | USB/MTP | IrisPen mount and sync operations |
 | `headless/` | Headless | Wi-Fi provisioning (auto-hotspot service), USB OTG, factory reset (in headless/ subdirectory) |
 | `service/` | Service | Systemd service installation (in service/ subdirectory) |
-| `test_` | Testing | Smoke tests, E2E tests, Bluetooth tests |
+| `test_` | Testing | Smoke tests, E2E tests |
 | `dev_` | Development | Development helpers |
 | `diag_` | Diagnostics | Troubleshooting and status tools |
 | `extras/` | Extras | BLE diagnostics and tools (in extras/ subdirectory) |
+| `rpi-debug/` | Remote Debug | Remote diagnostic scripts for GitHub Copilot integration (in rpi-debug/ subdirectory) |
 
 
 ## Fresh Installation Order
@@ -138,6 +139,10 @@ sudo ./provision/05_verify.sh
 
 ### Bluetooth / HID
 
+📖 **[ble/README.md](ble/README.md)** - Complete Bluetooth scripts documentation
+
+**Key scripts** (all located in `ble/` subdirectory):
+
 | Script | Description | Run as |
 |--------|-------------|--------|
 | `ble_configure_system.sh` | Configures /etc/bluetooth/main.conf for HID keyboard profile | root |
@@ -145,6 +150,11 @@ sudo ./provision/05_verify.sh
 | `ble_install_daemon.sh` | Optional advanced HID daemon installation | root |
 | `ble_switch_backend.sh` | Switch between uinput and BLE keyboard backends. Updates both `/etc/ipr-keyboard/backend` and `config.json`, then enables/disables appropriate systemd services. Can read backend from config.json if no argument provided. | root |
 | `ble_setup_extras.sh` | Advanced RPi extras (backend manager, pairing wizard, diagnostics). Initializes `/etc/ipr-keyboard/backend` from `config.json` if available. | root |
+| `ble_show_bt_mac_for_windows.sh` | Show the Raspberry Pi Bluetooth MAC address in Windows format | user |
+| `test_bluetooth.sh` | Test Bluetooth keyboard emulation end-to-end | user |
+| `test_pairing.sh` | Interactive pairing test with real-time monitoring | root |
+| `diag_bt_visibility.sh` | Diagnose BLE visibility issues (with optional --fix) | root |
+| `diag_pairing.sh` | Comprehensive Bluetooth pairing diagnostics | root |
 
 ### USB / IrisPen
 
@@ -238,21 +248,24 @@ The following scripts help diagnose and troubleshoot Bluetooth pairing and syste
 
 | Script                        | Description                                                      | Run as    |
 |-------------------------------|------------------------------------------------------------------|-----------|
-| `diag_pairing.sh`             | **Comprehensive Bluetooth pairing diagnostics**. Checks adapter status, agent/backend services, paired devices, recent pairing events, and provides recommendations. Supports "Just Works" pairing. | root      |
-| `test_pairing.sh`             | **Interactive pairing test script**. Guides through pairing process with real-time agent event monitoring, auto-accept confirmation, and connection verification. | root      |
+| `ble/diag_pairing.sh`         | Comprehensive Bluetooth pairing diagnostics. Checks adapter status, agent/backend services, paired devices, recent pairing events, and provides recommendations. | root      |
+| `ble/test_pairing.sh`         | Interactive pairing test script. Guides through pairing process with real-time agent event monitoring, passkey display, and connection verification. | root      |
 | `diag_troubleshoot.sh`        | General system diagnostics. Checks venv, config, services, logs, and Bluetooth helper availability. | user/root |
 | `diag_status.sh`              | System status overview. Shows backend config, service status, paired devices, and adapter info. | user      |
-| `diag_ble.sh`                 | BLE-specific diagnostics (wrapper for `/usr/local/bin/ipr_ble_diagnostics.sh`). Checks HID UUID exposure, daemon status, and adapter state. | root      |
-| `diag_ble_analyzer.sh`        | BLE HID analyzer (wrapper for `/usr/local/bin/ipr_ble_hid_analyzer.py`). Monitors GATT characteristic changes in real-time. | root      |
+| `ble/diag_bt_visibility.sh`   | Diagnose BLE visibility issues with optional --fix flag. | root      |
+
+**Note**: The wrapper scripts `diag_ble.sh` and `diag_ble_analyzer.sh` have been removed. The underlying tools are installed by `ble/ble_setup_extras.sh` and can be run directly:
+- `/usr/local/bin/ipr_ble_diagnostics.sh` - BLE-specific diagnostics
+- `/usr/local/bin/ipr_ble_hid_analyzer.py` - BLE HID report analyzer
 
 Usage examples:
 
 ```bash
 # Comprehensive Bluetooth pairing diagnostics
-sudo ./scripts/diag_pairing.sh
+sudo ./scripts/ble/diag_pairing.sh
 
 # Interactive pairing test with real-time monitoring
-sudo ./scripts/test_pairing.sh ble
+sudo ./scripts/ble/test_pairing.sh ble
 
 # General system troubleshooting
 ./scripts/diag_troubleshoot.sh
@@ -260,11 +273,14 @@ sudo ./scripts/test_pairing.sh ble
 # Quick status overview
 ./scripts/diag_status.sh
 
-# BLE-specific diagnostics
-sudo ./scripts/diag_ble.sh
+# BLE visibility diagnostics
+sudo ./scripts/ble/diag_bt_visibility.sh
 
-# Monitor BLE HID reports in real-time
-sudo ./scripts/diag_ble_analyzer.sh
+# BLE-specific diagnostics (direct tool access)
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
+
+# Monitor BLE HID reports in real-time (direct tool access)
+sudo /usr/local/bin/ipr_ble_hid_analyzer.py
 ```
 
 **NEW Pairing Diagnostics Features:**
@@ -281,16 +297,16 @@ See [BLUETOOTH_PAIRING.md](../BLUETOOTH_PAIRING.md) for detailed pairing trouble
 
 For **remote troubleshooting via GitHub Copilot Chat** using MCP SSH server, see the dedicated diagnostic scripts:
 
-📖 **[diag/README.md](diag/README.md)** - Remote diagnostic scripts documentation
+📖 **[rpi-debug/README.md](rpi-debug/README.md)** - Remote diagnostic scripts documentation
 
 **Quick overview:**
-- `diag/dbg_deploy.sh` - Deploy latest code and restart service
-- `diag/dbg_diag_bundle.sh` - Collect comprehensive diagnostics
-- `diag/dbg_pairing_capture.sh` - Capture bounded pairing attempts with btmon
-- `diag/dbg_bt_restart.sh` - Safe Bluetooth service restart
-- `diag/dbg_bt_soft_reset.sh` - Conservative Bluetooth reset
+- `rpi-debug/dbg_deploy.sh` - Deploy latest code and restart service
+- `rpi-debug/dbg_diag_bundle.sh` - Collect comprehensive diagnostics
+- `rpi-debug/dbg_pairing_capture.sh` - Capture bounded pairing attempts with btmon
+- `rpi-debug/dbg_bt_restart.sh` - Safe Bluetooth service restart
+- `rpi-debug/dbg_bt_soft_reset.sh` - Conservative Bluetooth reset
 
-These scripts are designed for installation in `/usr/local/bin/` and use with GitHub Copilot's diagnostic agent mode. See the [diag/README.md](diag/README.md) for complete setup and usage instructions.
+These scripts are designed for installation in `/usr/local/bin/` and use with GitHub Copilot's diagnostic agent mode. See the [rpi-debug/README.md](rpi-debug/README.md) for complete setup and usage instructions.
 
 ## Environment Configuration
 
@@ -336,9 +352,9 @@ export IPR_PROJECT_ROOT="/your/dev/path"
 │                              └─────────────┘    └────────┬────────┘  │
 │                                                          │           │
 │  Scripts:                                                ▼           │
-│  - ble_configure_system.sh              ┌────────────────────────────┐│
-│  - ble_install_helper.sh                │  Bluetooth Backend Services││
-│  - ble_switch_backend.sh                │                            ││
+│  - ble/bt_configure_system.sh           ┌────────────────────────────┐│
+│  - ble/ble_install_helper.sh            │  Bluetooth Backend Services││
+│  - ble/ble_switch_backend.sh            │                            ││
 │                                         │  ┌─────────────────────────────┐│
 │                                         │  │ bt_hid_uinput.service       │◄────────┐│
 │                                         │  │ (uinput daemon, uinput only)│         ││

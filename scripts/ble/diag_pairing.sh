@@ -152,7 +152,7 @@ if systemctl list-unit-files | awk '{print $1}' | grep -qx "$AGENT_SERVICE"; the
   fi
 else
   err "$AGENT_SERVICE not installed"
-  echo "   Install with: sudo ./scripts/ble_install_helper.sh"
+  echo "   Install with: sudo ./scripts/ble/ble_install_helper.sh"
 fi
 
 # ---------------------------------------------------------------------------

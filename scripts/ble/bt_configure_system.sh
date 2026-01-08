@@ -19,7 +19,7 @@
 #     and rerun this script.
 #
 # Usage:
-#   sudo ./scripts/ble_configure_system.sh
+#   sudo ./scripts/ble/bt_configure_system.sh
 #
 set -euo pipefail
 

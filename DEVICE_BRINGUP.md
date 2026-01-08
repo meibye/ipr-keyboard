@@ -451,7 +451,7 @@ python -m ipr_keyboard.main  # Run in foreground
 
 # Reinstall services
 sudo ./scripts/service/svc_install_systemd.sh
-sudo ./scripts/ble_install_helper.sh
+sudo ./scripts/ble/ble_install_helper.sh
 sudo ./scripts/service/svc_enable_ble_services.sh
 ```
 
@@ -472,7 +472,7 @@ sudo systemctl restart bluetooth
 cat /etc/bluetooth/main.conf | grep -E "(Experimental|Name)"
 
 # Run diagnostics
-sudo ./scripts/diag_ble.sh
+sudo /usr/local/bin/ipr_ble_diagnostics.sh
 ```
 
 ### Devices at Different Levels
