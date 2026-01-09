@@ -53,15 +53,15 @@
   curl http://localhost:8080/logs/tail?lines=50
   ```
 
+
 ## Key References
-- [README.md](../../README.md) — Project overview
-- [src/ipr_keyboard/README.md](../../src/ipr_keyboard/README.md) — Code structure
-- [scripts/README.md](../../scripts/README.md) — Setup and workflow scripts
-- [provision/README.md](../../provision/README.md) — Automated provisioning system
-- [tests/README.md](../../tests/README.md) — Test suite
-- [scripts/ble/README.md](../../scripts/ble/README.md) — Bluetooth-specific scripts
-- [scripts/rpi-debug/README.md](../../scripts/rpi-debug/README.md) — Remote diagnostic scripts
-- <a>tests/README.md</a> — Test suite
+- [README.md](../README.md) — Project overview
+- [src/ipr_keyboard/README.md](../src/ipr_keyboard/README.md) — Code structure
+- [scripts/README.md](../scripts/README.md) — Setup and workflow scripts
+- [provision/README.md](../provision/README.md) — Automated provisioning system
+- [tests/README.md](../tests/README.md) — Test suite
+- [scripts/ble/README.md](../scripts/ble/README.md) — Bluetooth-specific scripts
+- [scripts/rpi-debug/README.md](../scripts/rpi-debug/README.md) — Remote diagnostic scripts
 
 ---
 
