@@ -12,10 +12,10 @@ These scripts provide bounded, safe diagnostic operations that can be executed r
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Windows 11 Development PC                    │
 │                                                                 │
-│  ┌──────────────┐         ┌─────────────────────────────────┐  │
-│  │   VS Code    │────────>│  GitHub Copilot Chat Agent      │  │
-│  │              │         │  (uses MCP SSH server)          │  │
-│  └──────────────┘         └──────────────┬──────────────────┘  │
+│  ┌──────────────┐         ┌─────────────────────────────────┐   │
+│  │   VS Code    │────────>│  GitHub Copilot Chat Agent      │   │
+│  │              │         │  (uses MCP SSH server)          │   │
+│  └──────────────┘         └──────────────┬──────────────────┘   │
 │                                          │                      │
 └──────────────────────────────────────────┼──────────────────────┘
                                            │ SSH over MCP
@@ -23,29 +23,29 @@ These scripts provide bounded, safe diagnostic operations that can be executed r
 ┌──────────────────────────────────────────▼──────────────────────┐
 │                    Raspberry Pi 4 Target                        │
 │                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Diagnostic Scripts (/usr/local/bin/)                   │   │
-│  │                                                          │   │
-│  │  • dbg_deploy.sh          - Deploy & restart service    │   │
-│  │  • dbg_diag_bundle.sh     - System diagnostics          │   │
-│  │  • dbg_pairing_capture.sh - Capture pairing attempts    │   │
-│  │  • dbg_bt_restart.sh      - Safe service restart        │   │
-│  │  • dbg_bt_soft_reset.sh   - Conservative BT reset       │   │
-│  └─────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  Diagnostic Scripts (/usr/local/bin/)                   │    │
+│  │                                                         │    │
+│  │  • dbg_deploy.sh          - Deploy & restart service    │    │
+│  │  • dbg_diag_bundle.sh     - System diagnostics          │    │
+│  │  • dbg_pairing_capture.sh - Capture pairing attempts    │    │
+│  │  • dbg_bt_restart.sh      - Safe service restart        │    │
+│  │  • dbg_bt_soft_reset.sh   - Conservative BT reset       │    │
+│  └─────────────────────────────────────────────────────────┘    │
 │                            │                                    │
 │                            ▼                                    │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Diagnostic Output (/var/log/ipr/)                      │   │
-│  │                                                          │   │
-│  │  • pairing_TIMESTAMP/ - Captured pairing sessions       │   │
-│  │    - btmon.txt                                           │   │
-│  │    - journal_bluetooth.txt                               │   │
-│  │    - journal_service.txt                                 │   │
-│  │    - snapshot_before.txt                                 │   │
-│  │    - snapshot_after.txt                                  │   │
-│  │    - highlights.txt                                      │   │
-│  │  • latest -> (symlink to most recent capture)           │   │
-│  └─────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  Diagnostic Output (/var/log/ipr/)                      │    │
+│  │                                                         │    │
+│  │  • pairing_TIMESTAMP/ - Captured pairing sessions       │    │
+│  │    - btmon.txt                                          │    │
+│  │    - journal_bluetooth.txt                              │    │
+│  │    - journal_service.txt                                │    │
+│  │    - snapshot_before.txt                                │    │
+│  │    - snapshot_after.txt                                 │    │
+│  │    - highlights.txt                                     │    │
+│  │  • latest -> (symlink to most recent capture)           │    │
+│  └─────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
