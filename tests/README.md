@@ -1,10 +1,13 @@
 # Tests
 
-This directory contains the comprehensive test suite for the ipr-keyboard project using pytest.
+
+This directory contains the comprehensive test suite for the ipr-keyboard project using pytest. The tests mirror the source structure and follow project conventions for isolation, fixtures, and coverage. End-to-end and systemd tests are provided in the scripts directory.
+
 
 ## Test Coverage
 
 Current test coverage: **94%** (137 tests)
+
 
 ## Testing Levels
 
@@ -16,9 +19,10 @@ The testing strategy follows three levels:
 | **Component Tests** | Test modules with mocked external dependencies | pytest, fixtures | `tests/integration/` |
 | **End-to-End Tests** | Test full system on real hardware | Shell scripts | `scripts/test_*.sh` |
 
+
 ## Test Structure
 
-Tests are organized to mirror the source code structure:
+Tests are organized to mirror the source code structure and use pytest conventions:
 
 ```
 tests/
@@ -45,6 +49,7 @@ tests/
     ├── test_web_integration.py  # Web API integration tests (6 tests)
     └── test_main.py         # Main module integration tests (5 tests)
 ```
+
 
 ## Running Tests
 
@@ -111,32 +116,14 @@ pytest tests/usb/ -v  # Verbose output
 - `test_config_api.py` - Configuration REST API
 - `test_logs_api.py` - Log viewing API
 
+
 ### Integration Tests
 
-#### USB Flow (`integration/test_usb_flow.py`)
-- Complete file detection → read → delete workflow
-- Multiple file processing
-- UTF-8 content handling
+- **USB Flow (`integration/test_usb_flow.py`)**: Complete file detection → read → delete workflow, multiple file processing, UTF-8 content handling
+- **Web Integration (`integration/test_web_integration.py`)**: Config round-trip operations, log entries after operations, error handling
+- **Main Module (`integration/test_main.py`)**: Application startup, USB/BT loop with mocks, Bluetooth unavailable handling
+- **Backend Service Integration**: E2E/systemd tests in `scripts/` may require enabling/disabling backend services (`bt_hid_uinput.service`, `bt_hid_ble.service`) via systemctl or scripts. See `scripts/ble/ble_switch_backend.sh` and `scripts/ble/ble_install_helper.sh` for backend management.
 
-#### Web Integration (`integration/test_web_integration.py`)
-- Config round-trip operations
-- Log entries after operations
-- Error handling
-
-#### Main Module (`integration/test_main.py`)
-- Application startup
-- USB/BT loop with mocks
-- Bluetooth unavailable handling
-
-#### Backend Service Integration
-- Integration/E2E tests may require enabling/disabling backend services (`bt_hid_uinput.service`, `bt_hid_ble.service`) via systemctl or scripts. See `scripts/ble_switch_backend.sh` and `scripts/ble/ble_install_helper.sh` for backend management.
-- Log entries after operations
-- Error handling
-
-#### Main Module (`integration/test_main.py`)
-- Application startup
-- USB/BT loop with mocks
-- Bluetooth unavailable handling
 
 ## Fixtures (conftest.py)
 
@@ -169,9 +156,10 @@ Common fixtures for all tests:
   curl http://localhost:8080/config/
   ```
 
+
 ## End-to-End Testing (Scripts)
 
-For full system testing on a Raspberry Pi, use the provided scripts:
+For full system and systemd testing on a Raspberry Pi, use the provided scripts:
 
 ```bash
 # Smoke test (component checks)
@@ -186,6 +174,7 @@ sudo ./scripts/test_e2e_systemd.sh
 # Manual Bluetooth keyboard test
 ./scripts/test_bluetooth.sh "Test string æøå"
 ```
+
 
 ## Writing Tests
 
@@ -215,6 +204,7 @@ def test_example(temp_config, usb_folder):
     assert result == expected
 ```
 
+
 ## Dependencies
 
 Test dependencies are defined in `pyproject.toml` under `[project.optional-dependencies]`:
@@ -225,6 +215,7 @@ Install with:
 ```bash
 pip install -e ".[dev]"
 ```
+
 
 ## See Also
 

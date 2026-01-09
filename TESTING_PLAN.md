@@ -1,3 +1,38 @@
+# ipr-keyboard Testing Plan
+
+This document describes the testing strategy, coverage, and workflow for the ipr-keyboard project. The goal is to ensure robust, reliable, and maintainable code through comprehensive automated and manual testing at all levels. The test suite mirrors the source structure and follows project conventions for isolation, fixtures, and coverage.
+## Testing Levels
+
+The testing strategy follows three levels:
+## Test Coverage
+
+Current test coverage: **94%** (137 tests)
+## Test Structure
+
+Tests are organized to mirror the source code structure and use pytest conventions:
+## Running Tests
+
+Run all tests:
+## End-to-End and Systemd Testing
+
+End-to-end and systemd tests are provided as shell scripts in the `scripts/` directory. These tests validate the full system on real hardware, including service startup, backend switching, and Bluetooth keyboard output.
+## Test Categories
+
+- **Unit Tests**: Test individual functions/classes in isolation (pytest, mocks)
+- **Component Tests**: Test modules with mocked external dependencies (pytest, fixtures)
+- **Integration Tests**: Test full module interactions (pytest, integration/)
+- **End-to-End Tests**: Test full system on real hardware (shell scripts in scripts/)
+## Fixtures and Isolation
+
+Common fixtures are defined in `tests/conftest.py` and provide isolation for config, logs, USB folders, and mocks. All tests are independent and do not rely on global state.
+## Manual Testing
+
+Manual testing is performed for:
+## See Also
+
+- [tests/README.md](tests/README.md) - Test suite structure
+- [scripts/README.md](scripts/README.md) - Script documentation
+- [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md) - Device setup
 # IPR-Keyboard Testing Plan
 
 This document provides a detailed stepwise plan for testing each component of the ipr-keyboard project, including unit tests and component tests for external interfaces.

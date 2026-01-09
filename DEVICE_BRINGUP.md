@@ -4,18 +4,13 @@ This document provides exact step-by-step instructions to bring both Raspberry P
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Device Naming Convention](#device-naming-convention)
 - [Prerequisites](#prerequisites)
 - [Phase 1: SD Card Preparation (Windows 11)](#phase-1-sd-card-preparation-windows-11)
-- [Phase 2: First Boot and Basic Configuration](#phase-2-first-boot-and-basic-configuration)
-- [Phase 3: Headless Provisioning Setup (Optional)](#phase-3-headless-provisioning-setup-optional)
-- [Phase 4: Automated Provisioning](#phase-4-automated-provisioning)
-- [Phase 5: Verification](#phase-5-verification)
-- [Troubleshooting](#troubleshooting)
-
 ---
 
+# Device Bring-Up Procedure
+
+This document describes the step-by-step procedure for bringing up a new Raspberry Pi device for the ipr-keyboard project. It covers SD card flashing, provisioning, configuration, and verification. The process is fully automated using the provisioning scripts in the repository. Both RPi 4 and Pi Zero 2 W are supported and configured identically except for device-specific settings.
 ## Overview
 
 **Goal**: Configure both RPis identically except for device-specific settings (hostname, Bluetooth name).
@@ -25,15 +20,40 @@ This document provides exact step-by-step instructions to bring both Raspberry P
 - RPi Zero 2 W: ~60 minutes (slower hardware)
 
 **Result**: Both devices will have:
-- Same OS version (Raspberry Pi OS Lite 64-bit Bookworm)
-- Same system packages
-- Same Python environment
-- Same application code (pinned to same Git commit)
-- Same systemd services (BLE HID over GATT enabled)
-- Device-specific hostnames and Bluetooth names
 
----
+## Quick Start
 
+1. Flash SD card with Raspberry Pi OS Lite (64-bit) Bookworm
+2. Boot Pi and connect via SSH
+3. Transfer and run the provisioning wizard (`provision/00_provision_wizard.sh`)
+4. Follow prompts to configure device and run all provisioning scripts
+5. Reboot as instructed
+6. Verify device with `provision/05_verify.sh` and compare reports
+
+## Provisioning Workflow
+
+The provisioning system in `provision/` automates all setup steps:
+
+## Device Verification
+
+After provisioning, run the verification script and compare reports between devices:
+
+## Troubleshooting
+
+If provisioning fails:
+
+## Troubleshooting
+
+If provisioning fails:
+- Check `/opt/ipr_state/` for logs and reports
+- Ensure network connectivity
+- Re-run failed script or start over with the wizard
+
+## See Also
+
+- [provision/README.md](provision/README.md) - Provisioning system
+- [README.md](README.md) - Project overview
+- [scripts/README.md](scripts/README.md) - Script documentation
 ## Device Naming Convention
 
 ### RPi 4 (Development Device)

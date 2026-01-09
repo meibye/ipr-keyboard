@@ -1,8 +1,9 @@
 # ipr-keyboard
 
-**IrisPen to Bluetooth keyboard bridge for Raspberry Pi**
 
-This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID keyboard emulation. It monitors a USB or MTP mount for new text files created by the IrisPen, reads their content, and sends the text to a paired computer as keyboard input. All actions are logged, and configuration/logs are accessible via a web API.
+**IrisPen to Bluetooth Keyboard Bridge for Raspberry Pi**
+
+This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID keyboard emulation. It monitors a USB or MTP mount for new text files created by the IrisPen, reads their content, and sends the text to a paired computer as keyboard input using a system helper and backend daemons. All actions are logged, and configuration/logs are accessible via a web API. The implementation is modular, with clear separation between USB file handling, Bluetooth keyboard emulation, configuration, logging, and a Flask-based web API. The system is designed for robust, headless operation on Raspberry Pi hardware, with automated provisioning and diagnostics.
 
 ## Target Hardware & Device Names
 
@@ -23,29 +24,28 @@ This project bridges an IrisPen USB scanner to a paired device via Bluetooth HID
 **Repository**: https://github.com/meibye/ipr-keyboard
 
 
+
 ## Bluetooth Backend Management & Extras
 
-- **BLE and uinput backends** are installed and managed by `scripts/ble/ble_install_helper.sh`, which creates and enables the following systemd services:
+- **BLE and uinput backends** are installed and managed by `scripts/ble/ble_install_helper.sh`, which creates and enables:
   - `bt_hid_uinput.service` — UInput backend daemon
   - `bt_hid_ble.service` — BLE HID backend daemon (recommended for Windows 11)
   - `bt_hid_agent_unified.service` — Unified pairing/authorization agent with "Just Works" pairing
-- **Pairing wizard, diagnostics, and backend manager** are provided by `scripts/ble_setup_extras.sh` (creates `ipr_backend_manager.service`).
-- **BLE diagnostics**: `ipr_ble_diagnostics.sh` (health check), `ipr_ble_hid_analyzer.py` (HID report analyzer).
-- **Web pairing wizard**: `/pairing` endpoint (see web server docs).
-- **Backend selection**: Automatically synchronized between `config.json` `KeyboardBackend` and `/etc/ipr-keyboard/backend`.
-- **Agent service**: `bt_hid_agent_unified.service` ensures seamless "Just Works" pairing with NoInputNoOutput capability - no passkey entry required, optimal for Windows 11.
+- **Pairing wizard, diagnostics, and backend manager** are provided by `scripts/ble/ble_setup_extras.sh` (creates `ipr_backend_manager.service`).
+- **BLE diagnostics**: `scripts/extras/ipr_ble_diagnostics.sh` (health check), `scripts/extras/ipr_ble_hid_analyzer.py` (HID report analyzer).
+- **Web pairing wizard**: `/pairing` endpoint (if extras installed).
+- **Backend selection**: Synchronized between `config.json` (`KeyboardBackend`) and `/etc/ipr-keyboard/backend`.
+- **Agent service**: `bt_hid_agent_unified.service` ensures seamless "Just Works" pairing (NoInputNoOutput) for Windows 11.
 
 ### Backend Synchronization
 
-The backend selection is automatically synchronized between `config.json` and `/etc/ipr-keyboard/backend`:
-- On application startup, if `/etc/ipr-keyboard/backend` exists, it takes precedence
-- When updating `KeyboardBackend` in config.json (via web API or ConfigManager), the backend file is automatically updated
-- The `ble_switch_backend.sh` script updates both files simultaneously
-- The `ipr_backend_manager.service` reads `/etc/ipr-keyboard/backend` to manage systemd services
+Backend selection is always kept in sync between `config.json` and `/etc/ipr-keyboard/backend`:
+- On startup, `/etc/ipr-keyboard/backend` takes precedence if present
+- Updates to `KeyboardBackend` in config.json (via web API or ConfigManager) update the backend file
+- The `ble_switch_backend.sh` script updates both files and manages systemd services
+- The `ipr_backend_manager.service` reads `/etc/ipr-keyboard/backend` to manage backend daemons
 
-### Example Backend Switching
-
-You can switch backends using the provided script:
+#### Example Backend Switching
 
 ```bash
 # Switch to BLE backend (updates both config.json and /etc/ipr-keyboard/backend)
@@ -60,18 +60,20 @@ You can switch backends using the provided script:
 
 
 
+
 ## Main Features
-- **USB File Monitoring**: Detects new text files from IrisPen (configurable folder)
-- **Bluetooth Keyboard Emulation**: Sends scanned text to paired device using a system helper (`/usr/local/bin/bt_kb_send`)
+- **USB File Monitoring**: Detects new text files from IrisPen (configurable folder, USB or MTP mount)
+- **Bluetooth Keyboard Emulation**: Sends scanned text to paired device using `/usr/local/bin/bt_kb_send` and backend daemons
 - **Backend Services**: UInput and BLE HID backends managed by systemd (`bt_hid_uinput.service`, `bt_hid_ble.service`)
 - **Web API**: View/update config and logs at `/config/`, `/logs/`, `/health` (Flask-based)
 - **Logging**: Rotating file logger (`logs/ipr_keyboard.log`) and console output
-- **Automatic File Cleanup**: Optionally deletes processed files
-- **Thread-safe Configuration**: Live updates via web or file
+- **Automatic File Cleanup**: Optionally deletes processed files after sending
+- **Thread-safe Configuration**: Live updates via web or file, always persisted
+
 
 ## System Architecture
 
-The ipr-keyboard system consists of multiple layers working together to bridge IrisPen scanner input to Bluetooth keyboard output.
+The ipr-keyboard system consists of modular components working together to bridge IrisPen scanner input to Bluetooth keyboard output. The architecture is designed for reliability, testability, and headless operation on Raspberry Pi.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────────────┐
@@ -206,18 +208,20 @@ For detailed service descriptions, see [SERVICES.md](SERVICES.md).
 ```
 
 
+
 ## Component Overview
 
 | Component | Path | Description |
 |-----------|------|-------------|
-| Entry Point | `src/ipr_keyboard/main.py` | Starts web server and USB/Bluetooth monitor threads |
-| Bluetooth | `src/ipr_keyboard/bluetooth/keyboard.py` | Wraps system helper for keyboard emulation |
-| Backend Services | Installed by `scripts/ble_install_helper.sh`:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend - recommended for Windows 11)<br> &nbsp; - `bt_hid_agent_unified.service` (pairing agent with "Just Works") |
-| USB Handling | `src/ipr_keyboard/usb/` | File detection, reading, deletion |
-| Config | `src/ipr_keyboard/config/manager.py` | Thread-safe singleton, JSON-backed |
+| Entry Point | `src/ipr_keyboard/main.py` | Orchestrates all modules, starts web server and USB/Bluetooth monitor threads |
+| Bluetooth | `src/ipr_keyboard/bluetooth/keyboard.py` | Wraps `/usr/local/bin/bt_kb_send` for keyboard emulation; supports BLE and uinput backends |
+| Backend Services | Installed by `scripts/ble/ble_install_helper.sh`:<br> &nbsp; - `bt_hid_uinput.service` (uinput backend)<br> &nbsp; - `bt_hid_ble.service` (BLE backend, recommended for Windows 11)<br> &nbsp; - `bt_hid_agent_unified.service` (pairing agent, "Just Works") |
+| USB Handling | `src/ipr_keyboard/usb/` | File detection, reading, deletion, MTP sync |
+| Config | `src/ipr_keyboard/config/manager.py` | Thread-safe singleton, JSON-backed, auto-syncs backend |
 | Logging | `src/ipr_keyboard/logging/logger.py` | Rotating file + console logging |
 | Web API | `src/ipr_keyboard/web/server.py` | Flask with blueprints for config/logs |
-| Utilities | `src/ipr_keyboard/utils/helpers.py` | Project root, config path, JSON helpers |
+| Utilities | `src/ipr_keyboard/utils/helpers.py` | Project root, config path, JSON helpers, backend sync |
+
 
 
 ## Getting Started
@@ -226,9 +230,9 @@ For detailed service descriptions, see [SERVICES.md](SERVICES.md).
 
 For detailed step-by-step instructions to set up both RPis from scratch:
 
-📖 **[DEVICE_BRINGUP.md](DEVICE_BRINGUP.md)** - Complete bring-up procedure (45-60 minutes)
+📖 **[DEVICE_BRINGUP.md](DEVICE_BRINGUP.md)** — Complete bring-up procedure (automated provisioning)
 
-**Summary**:
+**Summary:**
 1. Flash SD cards with Raspberry Pi OS Lite (64-bit) Bookworm
 2. Configure device-specific settings via `provision/common.env`
 3. Run automated provisioning scripts (`provision/00_bootstrap.sh` through `05_verify.sh`)
@@ -238,13 +242,14 @@ For detailed step-by-step instructions to set up both RPis from scratch:
 
 For day-to-day development procedures:
 
-📖 **[DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md)** - Daily development workflow
+📖 **[DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md)** — Daily development workflow
 
-**Summary**:
+**Summary:**
 - Develop on RPi 4 via VS Code Remote-SSH
 - Test features locally with `pytest`
 - Validate on Pi Zero 2 W iteratively
 - Keep devices in sync using Git tags
+
 
 ## Developer Workflows
 
@@ -252,14 +257,15 @@ For day-to-day development procedures:
 - **Manual Setup**: Use scripts in `scripts/` (see `scripts/README.md` for order)
 - **Run in Dev Mode**: `./scripts/dev_run_app.sh` (foreground, logs to console)
 - **Testing**: `pytest` or `pytest --cov=ipr_keyboard` (see `tests/README.md`)
-- **Service Mode**: Installed as systemd service via `svc_install_systemd.sh` and backend services via `ble_install_helper.sh`
+- **Service Mode**: Installed as systemd service via `svc_install_systemd.sh` and backend services via `ble/ble_install_helper.sh`
 - **Diagnostics**: `./scripts/diag_troubleshoot.sh` for troubleshooting
 - **Remote Diagnostics**: GitHub Copilot integration via MCP SSH - see `scripts/rpi-debug/README.md`
 - **Headless Access**: Wi-Fi hotspot provisioning + USB OTG (Pi Zero) - see `scripts/headless/`
 
 
+
 ## Configuration
-Edit `config.json` in the project root or use the web API:
+Edit `config.json` in the project root or use the web API. All config changes are persisted and thread-safe. Backend selection is always kept in sync with `/etc/ipr-keyboard/backend`.
 
 ```json
 {
@@ -274,16 +280,17 @@ Edit `config.json` in the project root or use the web API:
 
 
 
+
 ## Usage Examples
 
-- **Send text via Bluetooth**:
+- **Send text via Bluetooth:**
   ```python
   from ipr_keyboard.bluetooth.keyboard import BluetoothKeyboard
   kb = BluetoothKeyboard()
   if kb.is_available():
       kb.send_text("Hello world!")
   ```
-- **Service management scripts**:
+- **Service management scripts:**
   ```bash
   # Disable all ipr-keyboard services
   sudo ./scripts/service/svc_disable_all_services.sh
@@ -297,18 +304,19 @@ Edit `config.json` in the project root or use the web API:
   # Show status of all managed services
   sudo ./scripts/service/svc_status_services.sh
   ```
-- **Update config via web API**:
+- **Update config via web API:**
   ```bash
   curl -X POST http://localhost:8080/config/ -H "Content-Type: application/json" -d '{"DeleteFiles": false}'
   ```
-- **View logs via web API**:
+- **View logs via web API:**
   ```bash
   curl http://localhost:8080/logs/tail?lines=50
   ```
 
+
 ## References
 - [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md) — Complete device setup from fresh OS install
-- [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md) — Daily development procedures  
+- [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md) — Daily development procedures
 - [BLUETOOTH_PAIRING.md](BLUETOOTH_PAIRING.md) — Bluetooth pairing troubleshooting guide
 - [SERVICES.md](SERVICES.md) — Detailed service and script documentation
 - [provision/README.md](provision/README.md) — Automated provisioning system

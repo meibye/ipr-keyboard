@@ -1,10 +1,12 @@
+
 # Diagnostic Scripts for Remote Bluetooth Troubleshooting
 
-This directory contains diagnostic scripts designed to enable remote troubleshooting of Bluetooth pairing issues on Raspberry Pi via GitHub Copilot Chat using an MCP (Model Context Protocol) SSH server.
+This directory contains diagnostic scripts designed to enable remote troubleshooting of Bluetooth pairing issues on Raspberry Pi via GitHub Copilot Chat using an MCP (Model Context Protocol) SSH server. These scripts provide bounded, safe diagnostic operations that can be executed remotely to investigate Bluetooth HID pairing failures between Windows 11 and Raspberry Pi BLE HID devices. They are designed to work with GitHub Copilot's diagnostic agent mode.
 
 ## Overview
 
 These scripts provide bounded, safe diagnostic operations that can be executed remotely to investigate Bluetooth HID pairing failures between Windows 11 and Raspberry Pi BLE HID devices. They are designed to work with GitHub Copilot's diagnostic agent mode.
+
 
 ## Architecture
 
@@ -49,6 +51,7 @@ These scripts provide bounded, safe diagnostic operations that can be executed r
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+
 ## Scripts
 
 ### `dbg_deploy.sh`
@@ -74,6 +77,7 @@ Edit these variables at the top of the script:
 
 ---
 
+
 ### `dbg_diag_bundle.sh`
 **Purpose:** Collect comprehensive system diagnostics for initial troubleshooting.
 
@@ -94,6 +98,7 @@ sudo /usr/local/bin/dbg_diag_bundle.sh
 **Output:** Prints to stdout (redirect or pipe as needed)
 
 ---
+
 
 ### `dbg_pairing_capture.sh`
 **Purpose:** Capture a bounded pairing window with btmon and journal logs.
@@ -138,6 +143,7 @@ sudo /usr/local/bin/dbg_pairing_capture.sh 90
 
 ---
 
+
 ### `dbg_bt_restart.sh`
 **Purpose:** Safe restart of Bluetooth services without reset or bond wipe.
 
@@ -157,6 +163,7 @@ sudo /usr/local/bin/dbg_bt_restart.sh
 - As first recovery step before more invasive resets
 
 ---
+
 
 ### `dbg_bt_soft_reset.sh`
 **Purpose:** Conservative Bluetooth reset without destroying bond information.
@@ -184,9 +191,11 @@ sudo /usr/local/bin/dbg_bt_soft_reset.sh
 
 ---
 
+
 ## Installation
 
 These scripts are designed to be installed in `/usr/local/bin/` on the Raspberry Pi and made executable.
+
 
 ### Automated Installation
 
@@ -197,6 +206,7 @@ cd /home/runner/work/ipr-keyboard/ipr-keyboard
 sudo cp scripts/rpi-debug/*.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/dbg_*.sh
 ```
+
 
 ### Manual Installation
 
@@ -212,6 +222,7 @@ sudo cp scripts/rpi-debug/dbg_bt_soft_reset.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/dbg_*.sh
 ```
 
+
 ### Create Log Directory
 
 ```bash
@@ -222,9 +233,11 @@ sudo chmod 2775 /var/log/ipr
 
 ---
 
+
 ## Sudoers Configuration
 
 For secure remote execution, create a dedicated user with limited sudo privileges.
+
 
 ### Create Diagnostic User
 
@@ -233,6 +246,7 @@ For secure remote execution, create a dedicated user with limited sudo privilege
 sudo adduser copilotdiag
 sudo usermod -aG bluetooth,adm copilotdiag
 ```
+
 
 ### Configure SSH Key (on Windows PC)
 
@@ -243,6 +257,7 @@ ssh-keygen -t ed25519 -f $env:USERPROFILE\.ssh\copilotdiag_rpi -C "copilotdiag@r
 # Copy public key to Pi
 type $env:USERPROFILE\.ssh\copilotdiag_rpi.pub | ssh pi@ipr-dev-pi4 "sudo -u copilotdiag mkdir -p ~/.ssh && sudo -u copilotdiag tee -a ~/.ssh/authorized_keys"
 ```
+
 
 ### Create Sudoers Whitelist
 
@@ -270,6 +285,7 @@ sudo visudo -cf /etc/sudoers.d/copilotdiag-ipr
 ```
 
 ---
+
 
 ## GitHub Copilot Integration
 
@@ -299,6 +315,7 @@ Create `.vscode/mcp.json` in your workspace (adjust paths as needed):
   }
 }
 ```
+
 
 ### Using Copilot for Diagnostics
 
@@ -345,6 +362,7 @@ Diagnose Windows↔RPi BLE HID pairing failure using the repo playbooks. Plan-fi
 
 ---
 
+
 ## Troubleshooting
 
 ### Scripts not found
@@ -383,6 +401,7 @@ sudo /usr/local/bin/dbg_pairing_capture.sh 30
 
 ---
 
+
 ## Safety Considerations
 
 ### What these scripts DO:
@@ -403,6 +422,7 @@ sudo /usr/local/bin/dbg_pairing_capture.sh 30
 For operations like bond removal, manual approval is required. These are NOT included in the automated scripts.
 
 ---
+
 
 ## See Also
 

@@ -142,15 +142,16 @@ sudo ./provision/05_verify.sh
 ---
 
 
+
 ### 01_os_base.sh
 
 **Purpose**: Configure OS baseline and install system packages
 
 **What it does**:
 - Runs full system upgrade (`apt full-upgrade`)
-- Executes `sys_install_packages.sh --system-only` as root (installs bluez, python3-dbus, uv, etc.)
-- Executes `sys_install_packages.sh --user-venv-setup` as APP_USER (creates Python venv and installs project dependencies)
-- Executes `bt_configure_system.sh` (configures Bluetooth for HID)
+- Executes `scripts/sys_install_packages.sh --system-only` as root (installs bluez, python3-dbus, uv, etc.)
+- Executes `scripts/sys_install_packages.sh --user-venv-setup` as APP_USER (creates Python venv and installs project dependencies)
+- Executes `scripts/ble/bt_configure_system.sh` (configures Bluetooth for HID)
 - Enables essential services (dbus, bluetooth)
 - Records baseline versions to `/opt/ipr_state/baseline_versions.txt`
 
@@ -210,15 +211,16 @@ sudo ./provision/05_verify.sh
 
 ---
 
+
 ### 04_enable_services.sh
 
 **Purpose**: Install and enable systemd services
 
 **What it does**:
-- Executes `service/svc_install_systemd.sh` (installs ipr_keyboard.service)
-- Executes `ble_setup_extras.sh` (installs backend manager, diagnostics)
-- Executes `ble_install_helper.sh` (installs BLE/uinput services and agent)
-- Executes `service/svc_enable_ble_services.sh` (enables BLE backend)
+- Executes `scripts/service/svc_install_systemd.sh` (installs ipr_keyboard.service)
+- Executes `scripts/ble/ble_setup_extras.sh` (installs backend manager, diagnostics)
+- Executes `scripts/ble/ble_install_helper.sh` (installs BLE/uinput services and agent)
+- Executes `scripts/service/svc_enable_ble_services.sh` (enables BLE backend)
 - Updates `config.json` to set backend to "ble"
 - Records enabled services to `/opt/ipr_state/service_status.txt`
 
@@ -229,7 +231,6 @@ sudo ./provision/05_verify.sh
 **Reboot required**: No (services start automatically)
 
 **Execution time**: ~2-5 minutes
-
 
 **Services enabled**:
 - `ipr_keyboard.service` - Main application

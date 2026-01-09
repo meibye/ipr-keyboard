@@ -1,3 +1,42 @@
+# Development Workflow
+
+This document describes the recommended daily development workflow for the ipr-keyboard project. It covers code editing, testing, deployment, and device synchronization. The workflow is optimized for development on Raspberry Pi hardware using VS Code Remote-SSH. All development, testing, and deployment steps are automated and mirror the actual implementation in the codebase.
+## Daily Workflow
+
+1. Edit code in VS Code (Remote-SSH to RPi 4)
+2. Run tests locally with `pytest` or `pytest --cov=ipr_keyboard`
+3. Validate features on Pi Zero 2 W as needed
+4. Use provisioning scripts to keep devices in sync
+5. Use Git tags to track releases
+## Testing
+
+Run all tests:
+```bash
+pytest
+```
+
+Run with coverage:
+```bash
+pytest --cov=ipr_keyboard
+```
+## Deployment
+
+Deploy to both devices using provisioning scripts:
+```bash
+# On each device
+cd ~/dev/ipr-keyboard
+git fetch --all --tags
+git checkout <tag-or-branch>
+sudo ./provision/03_app_install.sh
+sudo ./provision/04_enable_services.sh
+sudo ./provision/05_verify.sh
+```
+## See Also
+
+- [README.md](README.md) - Project overview
+- [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md) - Device setup
+- [TESTING_PLAN.md](TESTING_PLAN.md) - Testing strategy
+- [scripts/README.md](scripts/README.md) - Script documentation
 # IPR Keyboard - Development Workflow
 
 This document describes the day-to-day development workflow for the ipr-keyboard project using the two-device setup (RPi 4 for development, Pi Zero 2 W for validation).

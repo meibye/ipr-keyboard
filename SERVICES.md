@@ -1,3 +1,106 @@
+# ipr-keyboard Systemd Services
+
+This document describes the systemd services and daemons that make up the ipr-keyboard system on Raspberry Pi. It covers the main application, Bluetooth backends, pairing agent, backend manager, and supporting services. All services are installed and managed by the provisioning and setup scripts in the repository. The architecture is modular, with clear separation between the main app, Bluetooth backends, agent, and diagnostics.
+## Service Overview
+
+| Service | Description | Installed By | Required For |
+|---------|-------------|--------------|--------------|
+| `ipr_keyboard.service` | Main application (USB→Bluetooth bridge, web API) | `svc_install_systemd.sh` | Always |
+| `bt_hid_uinput.service` | UInput backend daemon (classic BT HID) | `ble/ble_install_helper.sh` | uinput backend |
+| `bt_hid_ble.service` | BLE backend daemon (BLE HID over GATT) | `ble/ble_install_helper.sh` | BLE backend |
+| `bt_hid_agent_unified.service` | Pairing/auth agent (Just Works, NoInputNoOutput) | `ble/ble_install_helper.sh` | Both backends |
+| `ipr_backend_manager.service` | Backend switcher (enables correct backend) | `ble_setup_extras.sh` | Both backends |
+| `ipr-provision.service` | Wi-Fi provisioning hotspot (headless setup) | provisioning scripts | Headless setup |
+## Service Relationships
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│ ipr-keyboard System                                                        │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────────┐   │
+│  │   IrisPen    │───>│ USB/MTP Mount│───>│ ipr_keyboard.service         │   │
+│  │   Scanner    │    │ /mnt/irispen │    │ (main app, web API)          │   │
+│  └──────────────┘    └──────────────┘    └─────────────┬────────────────┘   │
+│                                                        │                    │
+│                                                        ▼                    │
+│                                         ┌──────────────────────────────┐     │
+│                                         │ /usr/local/bin/bt_kb_send    │     │
+│                                         └─────────────┬────────────────┘     │
+│                                                       │                      │
+│  ┌──────────────────────────────┐    ┌────────────────┴──────────────┐       │
+│  │ bt_hid_uinput.service        │    │ bt_hid_ble.service            │       │
+│  │ (uinput backend daemon)      │    │ (BLE backend daemon)          │       │
+│  └──────────────────────────────┘    └───────────────────────────────┘       │
+│           │                                      │                          │
+│           ▼                                      ▼                          │
+│   Paired device (PC/tablet)             Paired device (PC/tablet)           │
+│   (classic BT HID)                      (BLE HID over GATT)                 │
+│                                                                            │
+│  ┌──────────────────────────────┐                                          │
+│  │ bt_hid_agent_unified.service │                                          │
+│  │ (pairing/authorization)      │                                          │
+│  └──────────────────────────────┘                                          │
+│                                                                            │
+│  ┌──────────────────────────────┐                                          │
+│  │ ipr_backend_manager.service  │                                          │
+│  │ (backend switcher)           │                                          │
+│  └──────────────────────────────┘                                          │
+│                                                                            │
+│  ┌──────────────────────────────┐                                          │
+│  │ ipr-provision.service        │                                          │
+│  │ (Wi-Fi provisioning)         │                                          │
+│  └──────────────────────────────┘                                          │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+## Service Details
+
+### ipr_keyboard.service
+
+- **Purpose**: Main application. Monitors USB/MTP mount, reads files, sends text via Bluetooth, exposes web API, logs all actions.
+- **ExecStart**: `python -m ipr_keyboard.main`
+- **User**: Non-root (configured by provisioning)
+- **WorkingDirectory**: Project root
+- **Dependencies**: `bt_hid_uinput.service` or `bt_hid_ble.service` (backend), `bt_hid_agent_unified.service` (pairing agent)
+- **Logs**: `logs/ipr_keyboard.log`, systemd journal
+### bt_hid_uinput.service
+
+- **Purpose**: UInput backend daemon. Reads from FIFO, creates uinput device, types via evdev. Classic Bluetooth HID.
+- **ExecStart**: `/usr/local/bin/bt_hid_uinput`
+- **User**: root (required for uinput)
+- **Dependencies**: `ipr_keyboard.service`, `bt_hid_agent_unified.service`
+### bt_hid_ble.service
+
+- **Purpose**: BLE backend daemon. Reads from FIFO, registers BLE GATT HID service, sends HID notifications. BLE HID over GATT.
+- **ExecStart**: `/usr/local/bin/bt_hid_ble`
+- **User**: root
+- **Dependencies**: `ipr_keyboard.service`, `bt_hid_agent_unified.service`
+### bt_hid_agent_unified.service
+
+- **Purpose**: Pairing and authorization agent. Registers as BlueZ Agent1, handles pairing/authorization, supports Just Works (NoInputNoOutput).
+- **ExecStart**: `/usr/local/bin/bt_hid_agent_unified`
+- **User**: root
+- **Dependencies**: bluetoothd, backend daemon
+### ipr_backend_manager.service
+
+- **Purpose**: Backend switcher. Reads `/etc/ipr-keyboard/backend`, enables correct backend, disables conflicting services.
+- **ExecStart**: `/usr/local/bin/ipr_backend_manager.sh`
+- **User**: root
+- **Dependencies**: backend daemons, config.json
+### ipr-provision.service
+
+- **Purpose**: Wi-Fi provisioning hotspot for headless setup. Starts auto-hotspot and web interface if no Wi-Fi is configured.
+- **ExecStart**: `/usr/local/sbin/ipr-provision.sh`
+- **User**: root
+## Service Management
+
+Services are installed and enabled by the provisioning and setup scripts. Use the provided scripts in `scripts/service/` and `scripts/ble/` to enable, disable, or check status:
+## See Also
+
+- [README.md](README.md) - Project overview
+- [scripts/README.md](scripts/README.md) - Script documentation
+- [provision/README.md](provision/README.md) - Provisioning system
+- [src/ipr_keyboard/README.md](src/ipr_keyboard/README.md) - Code structure
 # ipr-keyboard Services and Scripts Reference
 
 This document provides detailed descriptions of all systemd services, helper scripts, and tools used in the ipr-keyboard system.

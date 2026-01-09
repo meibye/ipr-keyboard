@@ -39,10 +39,6 @@ The ipr-keyboard agent is registered with **"NoInputNoOutput"** capability, whic
 ### Method Details
 
 #### RequestConfirmation (Auto-Accept - "Just Works" Pairing)
-
-```python
-def RequestConfirmation(self, device, passkey: int) -> None:
-    # BlueZ asks us to confirm a passkey - we auto-accept for "Just Works"
     self.log(f"[agent] RequestConfirmation({d}) passkey={int(passkey):06d} -> accepting + trusting")
     trust_device(self.bus, device, verbose=self.verbose)
     return  # No exception = "yes"
@@ -101,15 +97,9 @@ This is the recommended approach for BLE HID keyboards because:
 The agent service (`bt_hid_agent_unified.service`) is configured with:
 
 ```bash
-ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_agent_unified.py \
-  --mode nowinpasskey \
-  --capability NoInputNoOutput \
   --adapter ${BT_HCI:-hci0}
 ```
 
-### BLE-Only Mode
-
-The service also configures the adapter for BLE-only operation:
 
 ```bash
 ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" le on'
