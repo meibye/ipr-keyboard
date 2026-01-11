@@ -1,6 +1,19 @@
 # IPR Keyboard - Provisioning System
 
+
 This directory contains automated provisioning scripts for setting up Raspberry Pi devices for the ipr-keyboard project. These scripts ensure both devices (RPi 4 and Pi Zero 2 W) are configured identically except for device-specific settings.
+
+**Included scripts:**
+
+- 00_bootstrap.sh — Repository and base tool setup
+- 01_os_base.sh — OS and system package configuration
+- 02_device_identity.sh — Hostname and Bluetooth name setup
+- 03_app_install.sh — Python environment and dependencies
+- 04_enable_services.sh — Systemd service installation and backend enablement
+- 05_copilot_debug_tools.sh — Installs Copilot remote diagnostic/debug tools
+- 06_verify.sh — Generates a comprehensive verification report
+- provision_wizard.sh — Interactive provisioning wizard (recommended entrypoint)
+- common.env.example — Device/environment configuration template
 
 ## Overview
 
@@ -10,7 +23,7 @@ The provisioning system provides:
 - **Version tracking** of OS, packages, and application code
 - **Device-specific customization** (hostnames, Bluetooth names)
 - **Verification reports** for comparing device configurations
-
+sudo ./provision/06_verify.sh
 
 ## Quick Start
 
@@ -23,23 +36,13 @@ The provisioning system provides:
 ### Essential First Step: Transfer and Run the Provisioning Wizard
 
 The recommended workflow is to use the interactive provisioning wizard script, which guides you through all steps, handles reboots, and resumes automatically:
-
-#### 1. Transfer the Wizard Script
-
-Before cloning the repository, copy provision/00_provision_wizard.sh from your local machine to the target device (e.g. via scp):
-
-```bash
 # On your local machine (from the repo folder):
-scp provision/00_provision_wizard.sh meibye@ipr-target-zero2:/home/meibye/00_provision_wizard.sh
-scp provision/00_provision_wizard.sh meibye@ipr-dev-pi4:/home/meibye/00_provision_wizard.sh
-```
-
+scp provision/provision_wizard.sh meibye@ipr-target-zero2:/home/meibye/provision_wizard.sh
 #### 2. Run the Wizard
-
 SSH into the device and run:
 
 ```bash
-sudo bash /home/meibye/00_provision_wizard.sh
+sudo bash /home/meibye/provision_wizard.sh
 ```
 
 The wizard will:
@@ -68,7 +71,7 @@ cd /home/meibye/dev
 git clone https://github.com/meibye/ipr-keyboard.git
 cd ipr-keyboard
 
-# 3. Create device configuration
+sudo ./provision/06_verify.sh
 cp provision/common.env.example provision/common.env
 nano provision/common.env  # Edit device-specific values
 sudo cp provision/common.env /opt/ipr_common.env
@@ -98,13 +101,13 @@ sudo ./provision/05_verify.sh
 ```
 ### Wizard Script Reference
 
-#### provision/00_provision_wizard.sh
+#### provision/provision_wizard.sh
 
 **Purpose**: Interactive, stepwise provisioning for ipr-keyboard. Guides the user through all required steps, including package install, repo clone, config creation, SSH key setup, and all provisioning scripts. Handles required reboots and resumes automatically. Color-codes each step and prompts to continue or quit. Optionally allows starting over from the beginning.
 
 **Usage**:
 1. Transfer the script to the device before cloning the repo (see above).
-2. Run with `sudo bash /home/pi/00_provision_wizard.sh`.
+2. Run with `sudo bash /home/pi/provision_wizard.sh`.
 3. Follow the prompts and guidance.
 
 **Features**:
@@ -241,7 +244,26 @@ sudo ./provision/05_verify.sh
 
 ---
 
-### 05_verify.sh
+
+### 05_copilot_debug_tools.sh
+
+**Purpose**: Install and configure Copilot remote diagnostic/debug tools
+
+**What it does**:
+- Installs and configures scripts and dependencies for GitHub Copilot remote diagnostics
+- Sets up sudoers and log directories for safe remote troubleshooting
+- Optionally configures SSH keys and user for Copilot agent
+
+**Requires**:
+- `04_enable_services.sh` completed
+
+**Reboot required**: No
+
+**Execution time**: ~2-3 minutes
+
+---
+
+### 06_verify.sh
 
 **Purpose**: Verify configuration and generate comparison report
 
@@ -299,7 +321,7 @@ Provisioning progress and system state is tracked in `/opt/ipr_state/`:
 | `baseline_versions.txt` | OS, kernel, packages, Python versions | `01_os_base.sh` |
 | `python_packages.txt` | Installed Python packages | `03_app_install.sh` |
 | `service_status.txt` | Enabled services and status | `04_enable_services.sh` |
-| `verification_report.txt` | Comprehensive system report | `05_verify.sh` |
+| `verification_report.txt` | Comprehensive system report | `06_verify.sh` |
 
 ### Viewing State
 

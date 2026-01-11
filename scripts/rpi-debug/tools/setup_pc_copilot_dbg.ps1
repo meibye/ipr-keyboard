@@ -1,17 +1,7 @@
-param(
-  [string]$RepoRoot = (Get-Location).Path,
-  [string]$RpiHost = "ipr-dev-pi4",
-  [string]$RpiUser = "copilotdiag",
-  [string]$RpiKeyPath = "$env:USERPROFILE\.ssh\copilotdiag_rpi",
-  [string]$ServiceName = "bt_hid_ble.service",
-  [string]$Hci = "hci0",
-  [string]$RepoDirOnPi = "/home/meibye/dev/ipr_keyboard",
 
-  # Path to your SSH MCP server entry point. Update after installing the MCP server.
-  # Example for a Node-based MCP server build output:
-  [string]$SshMcpCommand = "node",
-  [string]$SshMcpArgs = "D:\mcp\ssh-mcp\dist\index.js"
-)
+# Import common environment
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+. "$ScriptDir\dbg_common.ps1"
 
 $ErrorActionPreference = "Stop"
 

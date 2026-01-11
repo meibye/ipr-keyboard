@@ -5,7 +5,7 @@
 # Guides the user through all provisioning steps, handles reboots, and resumes automatically.
 #
 # Usage:
-#   sudo ./provision/00_provision_wizard.sh
+#   sudo ./provision/provision_wizard.sh
 #
 # category: Provisioning
 # purpose: Interactive, stepwise provisioning with color-coded feedback and reboot resume

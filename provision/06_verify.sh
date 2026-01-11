@@ -10,7 +10,7 @@
 #   - Produces a comprehensive report for comparison between devices
 #
 # Usage:
-#   sudo ./provision/05_verify.sh
+#   sudo ./provision/06_verify.sh
 #
 # Prerequisites:
 #   - All provisioning scripts completed (00-04)
