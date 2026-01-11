@@ -15,6 +15,9 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 . "$ScriptDir\dbg_common.ps1"
 
+# Determine RepoRoot based on ScriptDir
+$RepoPath = Resolve-Path (Join-Path $ScriptDir "..\..") | Select-Object -ExpandProperty Path
+
 # MCP server package (installed locally in $McpHome)
 $McpNpmPackage = "ssh-mcp"
 
@@ -106,7 +109,7 @@ if(!(Test-Path -LiteralPath "$KeyPath.pub")){
 # -----------------------------
 # Install the MCP server locally (D:\mcp\ssh-mcp\node_modules\...)
 # -----------------------------
-if(!(Have-Cmd "npm")){
+if(!(Test-Cmd "npm")){
   throw "npm is required but was not found. Install Node.js LTS and re-run."
 }
 

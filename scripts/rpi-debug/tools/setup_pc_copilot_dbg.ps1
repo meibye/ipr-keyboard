@@ -6,9 +6,17 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ErrorActionPreference = "Stop"
 
 function New-DirectoryIfMissing($path) {
-  if (-not (Test-Path $path)) { New-Item -ItemType Directory -Path $path | Out-Null }
+  if (-not (Test-Path $path)) {
+    New-Item -ItemType Directory -Path $path | Out-Null
+    Write-Host "Created directory: $path"
+  } else {
+    Write-Host "Directory already exists: $path"
+  }
 }
 
+
+# Determine RepoRoot based on ScriptDir
+$RepoRoot = Resolve-Path (Join-Path $ScriptDir "..\..") | Select-Object -ExpandProperty Path
 $docsDir = Join-Path $RepoRoot "docs\copilot"
 $vscodeDir = Join-Path $RepoRoot ".vscode"
 
