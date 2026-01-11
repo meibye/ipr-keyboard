@@ -37,8 +37,13 @@ sudo ./provision/06_verify.sh
 
 The recommended workflow is to use the interactive provisioning wizard script, which guides you through all steps, handles reboots, and resumes automatically:
 # On your local machine (from the repo folder):
-scp provision/provision_wizard.sh meibye@ipr-target-zero2:/home/meibye/provision_wizard.sh
-#### 2. Run the Wizard
+
+<div style="border:2px solid #0078D4; border-radius:6px; background:#f3f6fa; padding:12px; margin:10px 0; font-family:monospace; font-size:1.05em;">
+<strong>scp provision/provision_wizard.sh meibye@ipr-target-zero2:/home/meibye/provision_wizard.sh</strong> or<BR>
+<strong>scp provision/provision_wizard.sh meibye@ipr-dev-pi4:/home/meibye/provision_wizard.sh</strong>
+</div>
+
+#### Run the Wizard
 SSH into the device and run:
 
 ```bash
