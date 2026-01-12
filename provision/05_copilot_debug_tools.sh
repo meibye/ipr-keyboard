@@ -166,5 +166,7 @@ echo
 log "Next recommended step:"
 log "  sudo dbg_stack_status.sh"
 
-echo
-log "Provisioning step 05 complete"
+echo ""
+log "Next steps:"
+log "  1. sudo $REPO_ROOT/provision/06_verify.sh"
+echo ""

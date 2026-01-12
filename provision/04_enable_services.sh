@@ -49,11 +49,11 @@ cd "$REPO_DIR"
 
 # Verify required scripts exist
 required_scripts=(
-  "scripts/service/svc_install_bt_hid_agent_unified.sh"
+  "scripts/service/svc_install_bt_gatt_hid.sh"
   "scripts/service/svc_install_systemd.sh"
   "scripts/ble/ble_setup_extras.sh"
   "scripts/ble/ble_install_helper.sh"
-  "scripts/service/svc_enable_ble_services.sh"
+  "scripts/service/svc_enable_services.sh"
 )
 
 for script in "${required_scripts[@]}"; do
@@ -63,8 +63,8 @@ for script in "${required_scripts[@]}"; do
   fi
 done
 
-log "Installing Bluetooth HID Agent (unified)..."
-bash scripts/service/svc_install_bt_hid_agent_unified.sh
+log "Installing Bluetooth GATT HID services (agent and BLE daemon)..."
+bash scripts/service/svc_install_bt_gatt_hid.sh
 
 log "Installing BLE helper and backend services..."
 bash scripts/ble/ble_install_helper.sh
@@ -89,7 +89,7 @@ if [[ -f "config.json" ]]; then
 fi
 
 log "Enabling BLE service set..."
-bash scripts/service/svc_enable_ble_services.sh
+bash scripts/service/svc_enable_services.sh
 
 # Install and enable headless Wi-Fi provisioning service
 log "Installing headless Wi-Fi provisioning service (ipr-provision) ..."
@@ -174,5 +174,5 @@ log "Active services:"
 systemctl --no-pager list-units "ipr*" "bt_hid*" --all
 echo ""
 log "Next steps:"
-log "  1. sudo $REPO_DIR/provision/05_verify.sh"
+log "  1. sudo $REPO_DIR/provision/05_copilot_debug_tools.sh"
 echo ""

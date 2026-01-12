@@ -16,7 +16,7 @@ service/
 ├── svc_install_all_services.sh       # Convenience installer for all services
 ├── svc_install_systemd.sh            # Install main ipr_keyboard service
 ├── svc_enable_services.sh            # Enable all Bluetooth GATT HID services
-├── svc_disable_all_services.sh       # Disable all ipr-keyboard services
+├── svc_disable_services.sh           # Disable all ipr-keyboard services
 ├── svc_status_services.sh            # Show status of all services
 ├── svc_status_monitor.py             # Service status monitor (Python)
 └── svc_tail_all_logs.sh              # Tail logs from all services
@@ -70,7 +70,7 @@ The services are configured via `/opt/ipr_common.env`. See the installer script 
 sudo ./scripts/service/svc_enable_services.sh
 
 # Disable all services
-sudo ./scripts/service/svc_disable_all_services.sh
+sudo ./scripts/service/svc_disable_services.sh
 
 # Check service status
 sudo ./scripts/service/svc_status_services.sh

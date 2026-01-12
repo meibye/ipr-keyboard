@@ -47,6 +47,8 @@ The recommended workflow is to use the interactive provisioning wizard script, w
 SSH into the device and run:
 
 ```bash
+chmod +x /home/meibye/provision_wizard.sh
+dos2unix /home/meibye/provision_wizard.sh
 sudo bash /home/meibye/provision_wizard.sh
 ```
 

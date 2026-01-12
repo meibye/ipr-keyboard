@@ -20,6 +20,7 @@ source "${SCRIPT_DIR}/../lib/bt_agent_unified_env.sh"
 
 bt_agent_unified_require_root
 
+
 # Unified agent: default profile is the one that avoids Windows passkeys.
 bt_agent_unified_set_profile_nowinpasskey
 bt_agent_unified_disable_legacy_service

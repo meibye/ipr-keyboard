@@ -2,7 +2,7 @@
 #
 # svc_install_bt_gatt_hid.sh
 #
-# VERSION: 2026/01/07 18:40:00
+# VERSION: 2026/01/12 19:32:23
 # 
 # Installs:
 #   - Unified BlueZ Agent service for pairing (bt_hid_agent_unified.service)
@@ -184,8 +184,6 @@ cp "$AGENT_UNIT_SRC" "$AGENT_UNIT"
 cp "$BLE_UNIT_SRC" "$BLE_UNIT"
 
 systemctl daemon-reload
-systemctl enable "${AGENT_SERVICE_NAME}.service" >/dev/null 2>&1 || true
-systemctl enable "${BLE_SERVICE_NAME}.service" >/dev/null 2>&1 || true
 
 echo "=== [svc_install_bt_gatt_hid] Done ==="
 echo ""

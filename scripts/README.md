@@ -219,7 +219,7 @@ The following scripts manage ipr-keyboard systemd services:
 
 | Script                        | Description                                                      | Run as    |
 |-------------------------------|------------------------------------------------------------------|-----------|
-| `svc_disable_all_services.sh` | Disables and stops all ipr-keyboard related services             | root      |
+| `svc_disable_services.sh` | Disables and stops all ipr-keyboard related services             | root      |
 | `svc_enable_uinput_services.sh` | Enables uinput backend services, disables BLE backend           | root      |
 | `svc_enable_ble_services.sh`  | Enables BLE backend services, disables uinput backend            | root      |
 | `svc_status_services.sh`      | Shows status of all managed services                            | user/root |
@@ -228,7 +228,7 @@ Usage examples:
 
 ```bash
 # Disable all ipr-keyboard services
-sudo ./scripts/svc_disable_all_services.sh
+sudo ./scripts/svc_disable_services.sh
 
 # Enable uinput backend services
 sudo ./scripts/svc_enable_uinput_services.sh
