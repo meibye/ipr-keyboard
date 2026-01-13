@@ -21,9 +21,14 @@
 #
 
 set -eo pipefail
+# Color output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
 if [[ "$EUID" -ne 0 ]]; then
-  echo "Please run this script as root (sudo ./scripts/ble/ble_setup_extras.sh)."
+  echo -e "${RED}Please run this script as root (sudo ./scripts/ble/ble_setup_extras.sh).${NC}"
   exit 1
 fi
 
@@ -49,7 +54,7 @@ if [[ -f "$SCRIPT_DIR/../extras/ipr_ble_diagnostics.sh" ]]; then
   chmod +x "$BLE_DIAG"
   echo "  Installed $BLE_DIAG from extras/ipr_ble_diagnostics.sh"
 else
-  echo "  ERROR: $SCRIPT_DIR/../extras/ipr_ble_diagnostics.sh not found"
+  echo -e "  ${RED}ERROR:${NC} $SCRIPT_DIR/../extras/ipr_ble_diagnostics.sh not found"
   exit 1
 fi
 
@@ -64,7 +69,7 @@ if [[ -f "$SCRIPT_DIR/../extras/ipr_ble_hid_analyzer.py" ]]; then
   chmod +x "$BLE_ANALYZER"
   echo "  Installed $BLE_ANALYZER from extras/ipr_ble_hid_analyzer.py"
 else
-  echo "  ERROR: $SCRIPT_DIR/../extras/ipr_ble_hid_analyzer.py not found"
+  echo -e "  ${RED}ERROR:${NC} $SCRIPT_DIR/../extras/ipr_ble_hid_analyzer.py not found"
   exit 1
 fi
 
@@ -78,7 +83,7 @@ PAIRING_TEMPLATE="$TEMPLATES_DIR/pairing_wizard.html"
 if [[ -f "$PAIRING_TEMPLATE" ]]; then
   echo "  Pairing wizard template exists at $PAIRING_TEMPLATE"
 else
-  echo "  WARNING: $PAIRING_TEMPLATE not found in source tree"
+  echo -e "  ${YELLOW}WARNING:${NC} $PAIRING_TEMPLATE not found in source tree"
   echo "  The template should be part of the source code repository"
 fi
 
@@ -90,19 +95,19 @@ SERVER_PY="$PROJECT_ROOT/src/ipr_keyboard/web/server.py"
 PAIRING_ROUTES_PY="$PROJECT_ROOT/src/ipr_keyboard/web/pairing_routes.py"
 
 if [[ ! -f "$SERVER_PY" ]]; then
-  echo "ERROR: $SERVER_PY not found; cannot register pairing routes."
+  echo -e "  ${RED}ERROR:${NC} $SERVER_PY not found; cannot register pairing routes."
   exit 1
 fi
 
 if [[ ! -f "$PAIRING_ROUTES_PY" ]]; then
-  echo "ERROR: $PAIRING_ROUTES_PY not found; pairing routes module missing."
+  echo -e "  ${RED}ERROR:${NC} $PAIRING_ROUTES_PY not found; pairing routes module missing."
   exit 1
 fi
 
 if grep -q "pairing_routes" "$SERVER_PY" || grep -q "pairing_bp" "$SERVER_PY"; then
   echo "  Pairing routes already registered in server.py"
 else
-  echo "  WARNING: Pairing routes not registered in server.py"
+  echo -e "  ${YELLOW}WARNING:${NC} Pairing routes not registered in server.py"
   echo "  Please add the following to server.py create_app() function:"
   echo "    from .pairing_routes import pairing_bp"
   echo "    app.register_blueprint(pairing_bp)"
@@ -112,15 +117,4 @@ echo "=== [ble_setup_extras] Setup complete ==="
 echo "You can now use:"
 echo "  - ipr_ble_diagnostics.sh          (BLE health check)"
 echo "  - ipr_ble_hid_analyzer.py         (HID report analyzer)"
-echo "  - /pairing                        (web pairing wizard)"
-
-# ---------------------------------------------------------------------------
-# Final check: Ensure bt_hid_agent_unified.service is active
-# ---------------------------------------------------------------------------
-echo "=== [ble_setup_extras] Checking bt_hid_agent_unified.service status ==="
-if systemctl is-active --quiet bt_hid_agent_unified.service; then
-  echo "[OK] bt_hid_agent_unified.service is active."
-else
-  echo "[ERROR] bt_hid_agent_unified.service is NOT active!"
-  echo "Run: sudo systemctl start bt_hid_agent_unified.service"
-fi
+echo "  - http://localhost:8080/pairing   (web pairing wizard)"

@@ -75,19 +75,6 @@ bash scripts/service/svc_install_systemd.sh
 log "Installing BLE extras (backend manager, diagnostics, etc.)..."
 bash scripts/ble/ble_setup_extras.sh
 
-log "Ensuring backend is set to BLE in config.json..."
-if [[ -f "config.json" ]]; then
-  # Update backend to BLE if not already set
-  if command -v jq &> /dev/null; then
-    jq '.KeyboardBackend = "ble"' config.json > config.json.tmp
-    mv config.json.tmp config.json
-    log "Set KeyboardBackend to 'ble' in config.json"
-  else
-    warn "jq not available, skipping automatic config.json update"
-    warn "Please manually ensure 'KeyboardBackend': 'ble' in config.json"
-  fi
-fi
-
 log "Enabling BLE service set..."
 bash scripts/service/svc_enable_services.sh
 
@@ -124,7 +111,6 @@ log "Verifying service status..."
 systemctl --no-pager status ipr_keyboard.service || true
 systemctl --no-pager status bt_hid_ble.service || true
 systemctl --no-pager status bt_hid_agent_unified.service || true
-systemctl --no-pager status ipr_backend_manager.service || true
 systemctl --no-pager status ipr-provision.service || true
 
 # Update state
@@ -137,7 +123,6 @@ Services:
   - ipr_keyboard.service
   - bt_hid_ble.service
   - bt_hid_agent_unified.service
-  - ipr_backend_manager.service
   - ipr-provision.service
 EOF
 
@@ -157,9 +142,6 @@ EOF
   echo ""
   echo "=== bt_hid_agent_unified.service ==="
   systemctl status bt_hid_agent_unified.service --no-pager || echo "Not running"
-  echo ""
-  echo "=== ipr_backend_manager.service ==="
-  systemctl status ipr_backend_manager.service --no-pager || echo "Not running"
   echo ""
   echo "=== ipr-provision.service ==="
   systemctl status ipr-provision.service --no-pager || echo "Not running"
