@@ -342,16 +342,16 @@ if [[ "$wizard_step" -le 10 ]]; then
     run_step "./provision/04_enable_services.sh" "[Step 10/12] Enable Services: Systemd and BLE backends" 11
 fi
 
-# Step 11: Run 05_enable_services.sh
-if [[ "$wizard_step" -le 10 ]]; then
+# Step 11: Run 05_copilot_debug_tools.sh
+if [[ "$wizard_step" -le 11 ]]; then
     ensure_project_dir
-    run_step "./provision/05_copilot_debug_tools.sh" "[Step 10/12] Copilot: debug tools" 12
+    run_step "./provision/05_copilot_debug_tools.sh" "[Step 11/12] Copilot: debug tools" 12
 fi
 
 # Step 12: Run 06_verify.sh
-if [[ "$wizard_step" -le 11 ]]; then
+if [[ "$wizard_step" -le 12 ]]; then
     ensure_project_dir
-    run_step "./provision/06_verify.sh" "[Step 11/12] Verify: System and service check" 13
+    run_step "./provision/06_verify.sh" "[Step 12/12] Verify: System and service check" 13
 fi
 
 rm -f "$STATE_FILE"
