@@ -29,6 +29,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+
 log() { echo -e "${GREEN}[bootstrap]${NC} $*"; }
 warn() { echo -e "${YELLOW}[bootstrap]${NC} $*"; }
 error() { echo -e "${RED}[bootstrap ERROR]${NC} $*"; }
@@ -116,26 +117,28 @@ chown -R "${APP_USER}:${APP_GROUP}" "$(dirname "$REPO_DIR")"
 if [[ ! -d "$REPO_DIR/.git" ]]; then
   log "Cloning repository from $REPO_URL..."
   sudo -u "$APP_USER" git clone "$REPO_URL" "$REPO_DIR"
-  # Set git user config for this environment
-  if [[ -n "${GIT_USER_EMAIL:-}" ]]; then
-    git -C "$REPO_DIR" config --global user.email "$GIT_USER_EMAIL"
-    log_git_config_action "Set user.email to $GIT_USER_EMAIL"
-  else
-    log_git_config_action "No GIT_USER_EMAIL provided, not set."
-  fi
-  if [[ -n "${GIT_USER_NAME:-}" ]]; then
-    git -C "$REPO_DIR" config --global user.name "$GIT_USER_NAME"
-    log_git_config_action "Set user.name to $GIT_USER_NAME"
-  else
-    log_git_config_action "No GIT_USER_NAME provided, not set."
-  fi
 else
   log "Repository already exists at $REPO_DIR"
-  # Log current git config
-  CURRENT_EMAIL=$(git -C "$REPO_DIR" config --global user.email || echo "unset")
-  CURRENT_NAME=$(git -C "$REPO_DIR" config --global user.name || echo "unset")
-  log_git_config_action "Existing user.email: $CURRENT_EMAIL"
-  log_git_config_action "Existing user.name: $CURRENT_NAME"
+fi
+
+# Set git user config for this environment
+if [[ -n "${GIT_USER_EMAIL:-}" ]]; then
+  git -C "$REPO_DIR" config --global user.email "$GIT_USER_EMAIL"
+  log_git_config_action "Set user.email to $GIT_USER_EMAIL"
+else
+  log_git_config_action "No GIT_USER_EMAIL provided, not set."
+fi
+if [[ -n "${GIT_USER_NAME:-}" ]]; then
+  git -C "$REPO_DIR" config --global user.name "$GIT_USER_NAME"
+  log_git_config_action "Set user.name to $GIT_USER_NAME"
+else
+  log_git_config_action "No GIT_USER_NAME provided, not set."
+fi
+if [[ -n "${GIT_REBASE:-}" ]]; then
+  git -C "$REPO_DIR" config --global pull.rebase "$GIT_REBASE"
+  log_git_config_action "Set pull.rebase to $GIT_REBASE"
+else
+  log_git_config_action "No GIT_REBASE provided, not set."
 fi
 
 # --- SSH Key Generation and GitHub Setup ---
