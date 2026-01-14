@@ -224,7 +224,7 @@ CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 log "✓ Repository: $CURRENT_BRANCH @ ${CURRENT_COMMIT:0:8}"
 
 # Services
-for service in ipr_keyboard.service bt_hid_ble.service bt_hid_agent_unified.service ipr_backend_manager.service; do
+for service in ipr_keyboard.service bt_hid_ble.service bt_hid_agent_unified.service; do
   if systemctl is-active "$service" &>/dev/null; then
     log "✓ Service active: $service"
   else

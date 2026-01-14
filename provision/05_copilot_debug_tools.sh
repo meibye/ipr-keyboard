@@ -92,8 +92,8 @@ apt-get install -y bluez bluez-tools
 # Ensure Copilot user exists
 # -----------------------------------------------------------------------------
 if ! id "$COPILOT_USER" >/dev/null 2>&1; then
-  log "Creating user: $COPILOT_USER"
-  adduser "$COPILOT_USER"
+  log "Creating user: $COPILOT_USER (non-interactive)"
+  adduser --disabled-password --gecos "copilotdiag,,," "$COPILOT_USER"
 else
   log "User already exists: $COPILOT_USER"
 fi
