@@ -56,7 +56,7 @@ source "$ENV_FILE"
 : "${DBG_BLE_SERVICE_UNIT:?Missing DBG_BLE_SERVICE_UNIT}"
 : "${DBG_AGENT_SERVICE_UNIT:?Missing DBG_AGENT_SERVICE_UNIT}"
 
-: "${HCI_DEV:?Missing HCI_DEV}"
+: "${BT_HCI:?Missing BT_HCI}"
 
 # -----------------------------------------------------------------------------
 # Derived paths
@@ -78,7 +78,7 @@ log "  COPILOT_GIT_REF       = $COPILOT_GIT_REF"
 log "  DBG_LOG_ROOT          = $DBG_LOG_ROOT"
 log "  DBG_AGENT_SERVICE     = $DBG_AGENT_SERVICE_UNIT"
 log "  DBG_BLE_SERVICE       = $DBG_BLE_SERVICE_UNIT"
-log "  HCI_DEV               = $HCI_DEV"
+log "  BT_HCI                = $BT_HCI"
 echo
 
 # -----------------------------------------------------------------------------
@@ -143,7 +143,7 @@ log "Installing dbg_* tools via installer"
 bash "$INSTALLER" \
   --ble-service "$DBG_BLE_SERVICE_UNIT" \
   --agent-service "$DBG_AGENT_SERVICE_UNIT" \
-  --hci "$HCI_DEV" \
+  --hci "$BT_HCI" \
   --log-root "$DBG_LOG_ROOT" \
   --copilot-user "$COPILOT_USER" \
   --copilot-repo "$COPILOT_REPO_DIR"
