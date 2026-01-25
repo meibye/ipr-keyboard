@@ -148,6 +148,34 @@ bash "$INSTALLER" \
   --copilot-user "$COPILOT_USER" \
   --copilot-repo "$COPILOT_REPO_DIR"
 
+# ---------------------------------------------------------------------------
+# Ensure .ssh folder and authorized_keys for COPILOT_USER
+# ---------------------------------------------------------------------------
+log "Ensuring .ssh folder and authorized_keys for $COPILOT_USER"
+sudo -u "$COPILOT_USER" mkdir -p "$COPILOT_REPO_DIR/../.ssh"
+sudo -u "$COPILOT_USER" chmod 700 "$COPILOT_REPO_DIR/../.ssh"
+SSH_DIR="$(eval echo ~$COPILOT_USER)/.ssh"
+sudo -u "$COPILOT_USER" mkdir -p "$SSH_DIR"
+sudo -u "$COPILOT_USER" chmod 700 "$SSH_DIR"
+AUTH_KEYS="$SSH_DIR/authorized_keys"
+if [[ ! -f "$AUTH_KEYS" ]]; then
+  sudo -u "$COPILOT_USER" touch "$AUTH_KEYS"
+  sudo -u "$COPILOT_USER" chmod 600 "$AUTH_KEYS"
+  log "Please paste the public SSH key for Copilot/MCP access into:"
+  log "  $AUTH_KEYS"
+  log "Then press Enter to continue."
+  read -r
+else
+  log "authorized_keys already exists for $COPILOT_USER"
+fi
+
+echo
+log "To test SSH connectivity from your PC, run:"
+echo "  ssh -i \$HOME/.ssh/copilotdiag_rpi $COPILOT_USER@$(hostname -s | awk '{print $1}')"
+# PowerShell equivalent for testing SSH connectivity:
+log "To test SSH connectivity from your PC (PowerShell):"
+echo '  ssh -i $HOME\.ssh\copilotdiag_rpi {0}@{1}' -f $env:COPILOT_USER, (hostname)
+
 # -----------------------------------------------------------------------------
 # Final summary
 # -----------------------------------------------------------------------------

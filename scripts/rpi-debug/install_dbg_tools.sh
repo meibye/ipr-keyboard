@@ -82,6 +82,7 @@ fi
 # Basic validation
 # -----------------------------
 required_files=(
+  "$SCRIPT_DIR/dbg_common.env"
   "$SCRIPT_DIR/dbg_deploy.sh"
   "$SCRIPT_DIR/dbg_diag_bundle.sh"
   "$SCRIPT_DIR/dbg_pairing_capture.sh"
@@ -112,6 +113,7 @@ chmod 2775 "$LOG_ROOT" || true
 # -----------------------------
 # Install scripts to /usr/local/bin
 # -----------------------------
+install -m 0755 "$SCRIPT_DIR/dbg_common.env"         /usr/local/bin/dbg_common.env
 install -m 0755 "$SCRIPT_DIR/dbg_deploy.sh"          /usr/local/bin/dbg_deploy.sh
 install -m 0755 "$SCRIPT_DIR/dbg_diag_bundle.sh"     /usr/local/bin/dbg_diag_bundle.sh
 install -m 0755 "$SCRIPT_DIR/dbg_pairing_capture.sh" /usr/local/bin/dbg_pairing_capture.sh
@@ -167,6 +169,7 @@ visudo -cf "$SUDOERS_FILE"
 # Output summary
 # -----------------------------
 echo "Installed dbg tools to /usr/local/bin:"
+echo "  dbg_common.env"
 echo "  dbg_deploy.sh"
 echo "  dbg_diag_bundle.sh"
 echo "  dbg_pairing_capture.sh"

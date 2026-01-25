@@ -119,12 +119,12 @@ Push-Location $McpHome
 try{
   if(!(Test-Path -LiteralPath ".\package.json")){
     Info "Initializing local npm project in $McpHome"
-    & npm init -y | Out-Null
+    & npm.cmd init -y | Out-Null
   }
 
   # Install with exact version pin to avoid surprise upgrades once installed
   # (You can update intentionally later with npm update + commit package-lock.json.)
-  & npm install --save-exact $McpNpmPackage | Out-Null
+  & npm.cmd install --save-exact $McpNpmPackage | Out-Null
 
   if(!(Test-Path -LiteralPath ".\node_modules\$McpNpmPackage")){
     throw "MCP server package did not install as expected: node_modules\$McpNpmPackage"
@@ -155,6 +155,7 @@ Ok "Wrote MCP config: $configPath"
 # -----------------------------
 # MCP launcher: runs LOCAL install (no network) via npx from local project
 # -----------------------------
+
 $launcherPath = Join-Path $McpHome "run_ssh_mcp.ps1"
 @'
 param(
@@ -163,25 +164,49 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# Helper to get env var or fallback
+function Get-EnvOrDefault($envName, $default) {
+  if (${env:$envName}) {
+    return ${env:$envName}
+  } else {
+    return $default 
+  }
+}
+
 if(!(Test-Path -LiteralPath $ConfigPath)){ throw "Missing config file: $ConfigPath" }
 
 $cfg = Get-Content -Raw -LiteralPath $ConfigPath | ConvertFrom-Json
 
+# Use env vars if set, else config file values
+$targetHost = Get-EnvOrDefault 'RPI_HOST' $cfg.host
+$user = Get-EnvOrDefault 'RPI_USER' $cfg.user
+$key  = Get-EnvOrDefault 'RPI_KEY'  $cfg.key
+$port = Get-EnvOrDefault 'RPI_PORT' $cfg.port
+$timeout = $cfg.timeout
+$maxChars = $cfg.maxChars
+$disableSudo = $cfg.disableSudo
+
 Push-Location "D:\mcp\ssh-mcp"
 try {
-  # Uses the locally installed package in node_modules via npx resolution
-  $args = @(
+  $sshArgs = @(
     "ssh-mcp","--",
-    "--host=$($cfg.host)",
-    "--port=$($cfg.port)",
-    "--user=$($cfg.user)",
-    "--key=$($cfg.key)",
-    "--timeout=$($cfg.timeout)",
-    "--maxChars=$($cfg.maxChars)"
+    "--host=$targetHost",
+    "--port=$port",
+    "--user=$user",
+    "--key=$key",
+    "--timeout=$timeout",
+    "--maxChars=$maxChars"
   )
-  if($cfg.disableSudo -eq $true){ $args += "--disableSudo" }
+  if($disableSudo -eq $true){ $sshArgs += "--disableSudo" }
 
-  & npx @args
+  # Log for debugging
+  $now = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+  "-------- $now --------" | Out-File -FilePath "D:\mcp\ssh-mcp\debug.log" -Append
+  "Running with arguments:" | Out-File -FilePath "D:\mcp\ssh-mcp\debug.log" -Append
+  $sshArgs | Out-File -FilePath "D:\mcp\ssh-mcp\debug.log" -Append
+
+  & "npx.cmd" @sshArgs
 } finally {
   Pop-Location
 }
