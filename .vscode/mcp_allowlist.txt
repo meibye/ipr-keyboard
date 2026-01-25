@@ -1,0 +1,15 @@
+# Allowlisted commands for MCP SSH forced-command guard (glob patterns allowed)
+# Keep this tight: prefer dbg_* wrappers over raw system/journal commands.
+
+# Diagnostics
+/usr/local/bin/dbg_stack_status.sh
+/usr/local/bin/dbg_diag_bundle.sh
+/usr/local/bin/dbg_pairing_capture.sh *
+/usr/local/bin/dbg_deploy.sh
+
+# Recovery (conservative)
+/usr/local/bin/dbg_bt_restart.sh
+/usr/local/bin/dbg_bt_soft_reset.sh
+
+# Destructive (requires explicit user approval in Copilot workflow)
+/usr/local/bin/dbg_bt_bond_wipe.sh *

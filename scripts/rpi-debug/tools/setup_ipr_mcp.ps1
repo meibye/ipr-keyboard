@@ -1,6 +1,6 @@
 # IPR Keyboard – MCP Setup (SSH, maintained MCP server)
 # MCP server: @fangjunjie/ssh-mcp-server
-# VERSION: 2026/01/25 18:33:41
+# VERSION: 2026/01/25 19:31:14
 #
 # This script:
 #  - Installs the maintained SSH-based MCP server locally
@@ -180,7 +180,8 @@ $mcpJson = Join-Path $vscodeDir "mcp.json"
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
-        "-Profile", "dev"
+        "-Profile", "dev",
+        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*"
       ]
     },
     "ipr-rpi-prod-ssh": {
@@ -189,7 +190,8 @@ $mcpJson = Join-Path $vscodeDir "mcp.json"
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
-        "-Profile", "prod"
+        "-Profile", "prod",
+        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*"
       ]
     }
   }

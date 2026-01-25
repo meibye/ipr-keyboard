@@ -176,9 +176,16 @@ bash "$INSTALLER" \
 log "Installing MCP SSH guard (/usr/local/bin/ipr_mcp_guard.sh)"
 install -m 0755 "$MCP_GUARD_SRC" /usr/local/bin/ipr_mcp_guard.sh
 
+
 ALLOWLIST="/etc/ipr_mcp_allowlist.conf"
+VS_ALLOWLIST="$REPO_ROOT/.vscode/mcp_allowlist.txt"
 log "Writing MCP allowlist: $ALLOWLIST"
-cat > "$ALLOWLIST" <<'EOF'
+if [[ -f "$VS_ALLOWLIST" ]]; then
+  log "Using project allowlist from $VS_ALLOWLIST"
+  cp "$VS_ALLOWLIST" "$ALLOWLIST"
+else
+  warn "No .vscode/mcp_allowlist.txt found, using static default allowlist."
+  cat > "$ALLOWLIST" <<'EOF'
 # Allowlisted commands for MCP SSH forced-command guard (glob patterns allowed)
 # Keep this tight: prefer dbg_* wrappers over raw system/journal commands.
 
@@ -195,6 +202,7 @@ cat > "$ALLOWLIST" <<'EOF'
 # Destructive (requires explicit user approval in Copilot workflow)
 /usr/local/bin/dbg_bt_bond_wipe.sh *
 EOF
+fi
 chmod 0644 "$ALLOWLIST"
 
 # Guard log file (optional; guard will still function if log can't be written)
