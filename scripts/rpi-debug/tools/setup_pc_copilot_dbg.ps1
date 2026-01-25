@@ -30,6 +30,19 @@ $diagAgentPrompt = @"
 ## Mission
 Diagnose and resolve Bluetooth pairing failures between Windows 11 host and Raspberry Pi BLE HID device.
 
+## MCP execution environment (important)
+Remote commands are executed through an **SSH-based MCP server**:
+
+- MCP server package: `@fangjunjie/ssh-mcp-server`
+- Windows runner: `D:\mcp\ssh-mcp\run_ssh_mcp.ps1`
+- Profile selection: `dev` (ipr-dev-pi4) or `prod` (ipr-prod-zero2)
+
+On the Raspberry Pi, the SSH key is installed with a **forced-command guard** (`ipr_mcp_guard.sh`) and an allowlist.
+This means:
+- You **cannot** run arbitrary shell pipelines, `&&`, `|`, redirects, or multi-command scripts.
+- You **must** use the approved `dbg_*` scripts listed under “Capabilities”.
+- If you need a new command, you must ask explicitly and describe exactly what to add to the allowlist + sudoers.
+
 ## Hard constraints (must follow)
 1. Plan-first: Always produce a stepwise plan before executing anything.
 2. Tooling: Prefer running the pre-approved scripts listed under "Capabilities".
@@ -39,11 +52,15 @@ Diagnose and resolve Bluetooth pairing failures between Windows 11 host and Rasp
 
 ## Capabilities (allowed actions on the RPi)
 Use only these scripts unless explicitly permitted:
-- /usr/local/bin/dbg_deploy.sh
-- /usr/local/bin/dbg_diag_bundle.sh
-- /usr/local/bin/dbg_pairing_capture.sh
-- /usr/local/bin/dbg_bt_restart.sh
-- /usr/local/bin/dbg_bt_soft_reset.sh
+- `/usr/local/bin/dbg_stack_status.sh`
+- `/usr/local/bin/dbg_diag_bundle.sh`
+- `/usr/local/bin/dbg_pairing_capture.sh <seconds>`
+- `/usr/local/bin/dbg_bt_restart.sh`
+- `/usr/local/bin/dbg_bt_soft_reset.sh`
+- `/usr/local/bin/dbg_deploy.sh`
+
+Potentially-destructive (requires explicit approval):
+- `/usr/local/bin/dbg_bt_bond_wipe.sh <MAC>`
 
 ## Required structure for plans
 For each step include:
@@ -55,17 +72,21 @@ For each step include:
 ## Workflow
 1. Produce Plan v1 only.
 2. Ask for approval.
-3. Execute Plan v1 using MCP SSH tool.
+3. Execute Plan v1 using the MCP SSH tool (via `@fangjunjie/ssh-mcp-server`).
 4. Analyze results and classify failure mode using the playbook.
 5. Produce Plan v2 (if needed), ask approval, execute.
 6. Stop at max 3 iterations; provide conclusion + next code changes and/or config changes.
 
 ## Context variables (fill in from the workspace if available)
-- Target host: ipr-dev-pi4
-- User: copilotdiag
-- Service: bt_hid_ble.service
-- Bluetooth controller: hci0
-- Repo dir on Pi: /home/copilotdiag/ipr-keyboard
+- Target profiles:
+  - `dev`: `ipr-dev-pi4` (default)
+  - `prod`: `ipr-prod-zero2`
+- Diagnostics SSH user: `copilotdiag`
+- Services:
+  - BLE: `bt_hid_ble.service`
+  - Agent: `bt_hid_agent_unified.service`
+- Bluetooth controller: `hci0`
+- Repo dir on Pi (automation clone): `/home/copilotdiag/ipr-keyboard`
 
 ## Start instruction
 Begin by generating Diagnostic Plan v1 ONLY.
@@ -206,28 +227,35 @@ $toggleDir = Join-Path $RepoRoot "tools"
 New-DirectoryIfMissing $toggleDir
 
 $disableMcp = @"
-param([string]`$RepoRoot = (Get-Location).Path)
-`$mcp = Join-Path `$RepoRoot ".vscode\mcp.json"
-`$off = Join-Path `$RepoRoot ".vscode\mcp.json.disabled"
-if (Test-Path `$mcp) {
-  Rename-Item `$mcp `$off -Force
-  Write-Host "MCP disabled (renamed to mcp.json.disabled)"
-} else {
-  Write-Host "No .vscode\mcp.json found (already disabled?)"
-}
+# Disable MCP server
+# VERSION: 2026/01/25 14:03:24
+
+Write-Host "[INFO] MCP runs as a foreground process."
+Write-Host "[INFO] Close the terminal running it, or stop it from VS Code."
+Write-Host "[ OK ] MCP disabled"
 "@
 Set-Content -Path (Join-Path $toggleDir "mcp_disable.ps1") -Value $disableMcp -Encoding UTF8
 
 $enableMcp = @"
-param([string]`$RepoRoot = (Get-Location).Path)
-`$mcp = Join-Path `$RepoRoot ".vscode\mcp.json"
-`$off = Join-Path `$RepoRoot ".vscode\mcp.json.disabled"
-if (Test-Path `$off) {
-  Rename-Item `$off `$mcp -Force
-  Write-Host "MCP enabled (restored mcp.json)"
-} else {
-  Write-Host "No .vscode\mcp.json.disabled found (already enabled?)"
+# Enable SSH MCP server (manual run)
+# VERSION: 2026/01/25 14:03:07
+
+param(
+  [Parameter(Mandatory=`$false)]
+  [ValidateSet("dev","prod")]
+  [string]`$Profile = "dev"
+)
+
+`$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+
+`$Runner = "D:\mcp\ssh-mcp\run_ssh_mcp.ps1"
+if(!(Test-Path -LiteralPath `$Runner)){
+  throw "Missing runner: `$Runner (run scripts\rpi-debug\tools\setup_ipr_mcp.ps1 first)"
 }
+
+Write-Host "[INFO] Starting SSH MCP runner (Profile=`$Profile)..." -ForegroundColor Cyan
+& powershell -NoProfile -ExecutionPolicy Bypass -File `$Runner -Profile `$Profile
 "@
 Set-Content -Path (Join-Path $toggleDir "mcp_enable.ps1") -Value $enableMcp -Encoding UTF8
 

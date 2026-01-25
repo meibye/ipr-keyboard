@@ -12,7 +12,6 @@ This directory contains automated provisioning scripts for setting up Raspberry 
 - 04_enable_services.sh — Systemd service installation and backend enablement
 - 05_copilot_debug_tools.sh — Installs Copilot remote diagnostic/debug tools
 - 06_verify.sh — Generates a comprehensive verification report
-- provision_wizard.sh — Interactive provisioning wizard (recommended entrypoint)
 - common.env.example — Device/environment configuration template
 
 ## Overview
@@ -104,7 +103,8 @@ sudo reboot  # Required after identity
 cd /home/meibye/dev/ipr-keyboard
 sudo ./provision/03_app_install.sh  # (Python venv setup will run as APP_USER automatically)
 sudo ./provision/04_enable_services.sh
-sudo ./provision/05_verify.sh
+sudo ./provision/05_copilot_debug_tools.sh  # Optional
+sudo ./provision/06_verify.sh
 ```
 ### Wizard Script Reference
 

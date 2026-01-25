@@ -1,6 +1,7 @@
 # ipr-keyboard Systemd Services
 
 This document describes the systemd services and daemons that make up the ipr-keyboard system on Raspberry Pi. It covers the main application, Bluetooth backends, pairing agent, backend manager, and supporting services. All services are installed and managed by the provisioning and setup scripts in the repository. The architecture is modular, with clear separation between the main app, Bluetooth backends, agent, and diagnostics.
+
 ## Service Overview
 
 | Service | Description | Installed By | Required For |
@@ -514,36 +515,10 @@ cat config.json | jq .KeyboardBackend
 echo "test" | bt_kb_send "$(cat -)"
 ```
 
-## Service Management Scripts
-
-
-The following scripts in the `scripts/` folder provide convenient management of all ipr-keyboard systemd services:
-
-- `svc_disable_all_services.sh`: Disables and stops all ipr-keyboard related services (main app, backends, agent, backend manager).
-- `svc_enable_uinput_services.sh`: Enables and starts all required services for the uinput backend, disables BLE backend.
-- `svc_enable_ble_services.sh`: Enables and starts all required services for the BLE backend, disables uinput backend.
-- `svc_status_services.sh`: Shows the status of all handled services in a compact format.
-
-### Usage Examples
-
-```bash
-# Disable all ipr-keyboard services
-sudo ./scripts/service/svc_disable_all_services.sh
-
-# Enable uinput backend services
-sudo ./scripts/service/svc_enable_uinput_services.sh
-
-# Enable BLE backend services
-sudo ./scripts/service/svc_enable_ble_services.sh
-
-# Show status of all managed services
-sudo ./scripts/service/svc_status_services.sh
-```
-
-These scripts ensure that only the correct backend is active and all dependencies are handled automatically. See each script for details.
-
 ## See Also
 
-- [README.md](README.md) — Project overview
-- [scripts/README.md](scripts/README.md) — Setup scripts
-- [TESTING_PLAN.md](TESTING_PLAN.md) — Testing strategy
+- [README.md](README.md) - Project overview
+- [scripts/README.md](scripts/README.md) - Script documentation
+- [provision/README.md](provision/README.md) - Provisioning system
+- [src/ipr_keyboard/README.md](src/ipr_keyboard/README.md) - Code structure
+- [TESTING_PLAN.md](TESTING_PLAN.md) - Testing strategy

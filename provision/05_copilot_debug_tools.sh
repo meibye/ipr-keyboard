@@ -233,9 +233,13 @@ if [[ -n "$COPILOT_PUBKEY_FILE" ]]; then
   else
     die "COPILOT_PUBKEY_FILE is set but file not found: $COPILOT_PUBKEY_FILE"
   fi
+elif [[ -f "/tmp/copilot_pubkey.txt" ]]; then
+  log "Detected transferred public key at /tmp/copilot_pubkey.txt"
+  append_guarded_key "$(cat /tmp/copilot_pubkey.txt)"
+  log "Public key from /tmp/copilot_pubkey.txt installed."
 else
   echo
-  warn "No COPILOT_PUBKEY_FILE provided."
+  warn "No COPILOT_PUBKEY_FILE provided and no /tmp/copilot_pubkey.txt found."
   warn "Paste ONE public key line now (starting with 'ssh-ed25519' or similar). It will be stored with a forced-command guard."
   echo -n "> "
   read -r PUBKEY_LINE

@@ -1,6 +1,6 @@
 # MCP SSH runner – maintained MCP server
 # Uses: @fangjunjie/ssh-mcp-server
-# VERSION: 2026/01/25 14:19:21
+# VERSION: 2026/01/25 15:03:22
 #
 # This script is copied verbatim by setup_ipr_mcp.ps1 into:
 #   D:\mcp\ssh-mcp\run_ssh_mcp.ps1
@@ -9,7 +9,7 @@
 
 param(
   [ValidateSet("dev","prod")]
-  [string]$Profile = "dev"
+  [string]$RpiProfile = "dev"
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,7 +17,7 @@ Set-StrictMode -Version Latest
 
 # Allow environment override (useful for VS Code MCP)
 if($env:RPI_PROFILE){
-  $Profile = $env:RPI_PROFILE
+  $RpiProfile = $env:RPI_PROFILE
 }
 
 # ---- Static targets (authoritative) ----
@@ -34,11 +34,11 @@ $Targets = @{
   }
 }
 
-if(-not $Targets.ContainsKey($Profile)){
-  throw "Unknown RPI profile: $Profile"
+if(-not $Targets.ContainsKey($RpiProfile)){
+  throw "Unknown RPI profile: $RpiProfile"
 }
 
-$t = $Targets[$Profile]
+$t = $Targets[$RpiProfile]
 
 # ---- Launch MCP server ----
 Push-Location "D:\mcp\ssh-mcp"

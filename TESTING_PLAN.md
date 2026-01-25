@@ -1,38 +1,3 @@
-# ipr-keyboard Testing Plan
-
-This document describes the testing strategy, coverage, and workflow for the ipr-keyboard project. The goal is to ensure robust, reliable, and maintainable code through comprehensive automated and manual testing at all levels. The test suite mirrors the source structure and follows project conventions for isolation, fixtures, and coverage.
-## Testing Levels
-
-The testing strategy follows three levels:
-## Test Coverage
-
-Current test coverage: **94%** (137 tests)
-## Test Structure
-
-Tests are organized to mirror the source code structure and use pytest conventions:
-## Running Tests
-
-Run all tests:
-## End-to-End and Systemd Testing
-
-End-to-end and systemd tests are provided as shell scripts in the `scripts/` directory. These tests validate the full system on real hardware, including service startup, backend switching, and Bluetooth keyboard output.
-## Test Categories
-
-- **Unit Tests**: Test individual functions/classes in isolation (pytest, mocks)
-- **Component Tests**: Test modules with mocked external dependencies (pytest, fixtures)
-- **Integration Tests**: Test full module interactions (pytest, integration/)
-- **End-to-End Tests**: Test full system on real hardware (shell scripts in scripts/)
-## Fixtures and Isolation
-
-Common fixtures are defined in `tests/conftest.py` and provide isolation for config, logs, USB folders, and mocks. All tests are independent and do not rely on global state.
-## Manual Testing
-
-Manual testing is performed for:
-## See Also
-
-- [tests/README.md](tests/README.md) - Test suite structure
-- [scripts/README.md](scripts/README.md) - Script documentation
-- [DEVICE_BRINGUP.md](DEVICE_BRINGUP.md) - Device setup
 # IPR-Keyboard Testing Plan
 
 This document provides a detailed stepwise plan for testing each component of the ipr-keyboard project, including unit tests and component tests for external interfaces.
@@ -510,21 +475,16 @@ pytest -v
 
 ## Coverage Goals
 
-| Module | Current | Target |
-|--------|---------|--------|
-| bluetooth/keyboard.py | 65% | 95% |
-| config/manager.py | 91% | 98% |
-| config/web.py | 88% | 95% |
-| logging/logger.py | 100% | 100% |
-| logging/web.py | 32% | 95% |
-| usb/detector.py | 48% | 95% |
-| usb/reader.py | 53% | 95% |
-| usb/deleter.py | 50% | 95% |
-| usb/mtp_sync.py | 0% | 90% |
-| web/server.py | 93% | 98% |
-| utils/helpers.py | 94% | 100% |
-| main.py | 0% | 70% |
-| **TOTAL** | 49% | **85%+** |
+| Module | Target |
+|--------|--------|
+| bluetooth/keyboard.py | 95% |
+| config/manager.py | 98% |
+| logging/logger.py | 100% |
+| usb/*.py | 95% |
+| web/server.py | 98% |
+| utils/helpers.py | 100% |
+| main.py | 70% |
+| **TOTAL** | **85%+** |
 
 ---
 

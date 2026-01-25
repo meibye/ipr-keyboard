@@ -1,16 +1,7 @@
 # IPR Keyboard - Device Bring-Up Procedure
 
-This document provides exact step-by-step instructions to bring both Raspberry Pis (RPi 4 and Zero 2 W) from fresh OS installation to fully operational state, with both devices at the "same level" for development.
-
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [Phase 1: SD Card Preparation (Windows 11)](#phase-1-sd-card-preparation-windows-11)
----
-
-# Device Bring-Up Procedure
-
 This document describes the step-by-step procedure for bringing up a new Raspberry Pi device for the ipr-keyboard project. It covers SD card flashing, provisioning, configuration, and verification. The process is fully automated using the provisioning scripts in the repository. Both RPi 4 and Pi Zero 2 W are supported and configured identically except for device-specific settings.
+
 ## Overview
 
 **Goal**: Configure both RPis identically except for device-specific settings (hostname, Bluetooth name).
@@ -20,6 +11,12 @@ This document describes the step-by-step procedure for bringing up a new Raspber
 - RPi Zero 2 W: ~60 minutes (slower hardware)
 
 **Result**: Both devices will have:
+- Raspberry Pi OS Lite (64-bit) Bookworm
+- All system packages and dependencies installed
+- Python environment configured with uv
+- ipr-keyboard application installed and running
+- Bluetooth HID backend services configured
+- Device-specific hostname and Bluetooth name
 
 ## Quick Start
 
@@ -54,30 +51,7 @@ If provisioning fails:
 - [provision/README.md](provision/README.md) - Provisioning system
 - [README.md](README.md) - Project overview
 - [scripts/README.md](scripts/README.md) - Script documentation
-## Device Naming Convention
 
-### RPi 4 (Development Device)
-
-| Property | Value |
-|----------|-------|
-| **Hostname** | `ipr-dev-pi4` |
-| **Bluetooth Name** | `IPR Keyboard (Dev)` |
-| **mDNS (wired)** | `ipr-dev-pi4.local` |
-| **mDNS (Wi-Fi)** | `ipr-dev-pi4-wifi.local` (if configured) |
-| **Device Type** | `dev` |
-| **Purpose** | Main development and testing |
-
-### RPi Zero 2 W (Target Device)
-
-| Property | Value |
-|----------|-------|
-| **Hostname** | `ipr-target-zero2` |
-| **Bluetooth Name** | `IPR Keyboard` |
-| **mDNS** | `ipr-target-zero2.local` |
-| **Device Type** | `target` |
-| **Purpose** | Target hardware validation |
-
----
 
 ## Prerequisites
 

@@ -1,6 +1,6 @@
 # IPR Keyboard – MCP Setup (SSH, maintained MCP server)
 # MCP server: @fangjunjie/ssh-mcp-server
-# VERSION: 2026-01-25
+# VERSION: 2026/01/25 17:50:21
 #
 # This script:
 #  - Installs the maintained SSH-based MCP server locally
@@ -60,14 +60,14 @@ Write-Host ""
 Write-Info "Checking prerequisites (Node.js, npm, OpenSSH)..."
 
 if(!(Test-Cmd node) -or !(Test-Cmd npm)){
-  Write-Warn "Node.js or npm not found – installing Node.js LTS"
+  Write-Warn "Node.js or npm not found - installing Node.js LTS"
   winget install --id OpenJS.NodeJS.LTS -e `
     --accept-package-agreements `
     --accept-source-agreements | Out-Null
 }
 
 if(!(Test-Cmd ssh)){
-  Write-Warn "OpenSSH client not found – enabling Windows capability"
+  Write-Warn "OpenSSH client not found - enabling Windows capability"
   $cap = Get-WindowsCapability -Online |
     Where-Object Name -like "OpenSSH.Client*"
   if($cap.State -ne "Installed"){
@@ -93,6 +93,23 @@ if(!(Test-Path $Global:KeyPath)){
   Write-Ok "SSH key already present"
 }
 
+Write-Host ""
+
+# ------------------------------------------------------------------
+# Transfer public key to RPI for Copilot diagnostics
+# ------------------------------------------------------------------
+$PubKeyPath = "$($Global:KeyPath).pub"
+$TempPubKey = "$env:TEMP\copilot_pubkey.txt"
+Copy-Item -Force $PubKeyPath $TempPubKey
+Write-Info "Transferring public key to RPI for Copilot diagnostics..."
+$scpCmd = "scp -i $($Global:KeyPath) $TempPubKey $($Global:RpiUser)@$($Global:RpiHost):/tmp/copilot_pubkey.txt"
+Invoke-Expression $scpCmd
+Write-Ok "Public key transferred to /tmp/copilot_pubkey.txt on RPI"
+Write-Host ""
+Write-Host "On the RPI, run:"
+Write-Host "  export COPILOT_PUBKEY_FILE=/tmp/copilot_pubkey.txt" -ForegroundColor Yellow
+Write-Host "  sudo ./provision/05_copilot_debug_tools.sh" -ForegroundColor Yellow
+Write-Host "This will install the Copilot diagnostics SSH key automatically."
 Write-Host ""
 
 # ------------------------------------------------------------------
