@@ -6,7 +6,8 @@
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
-        "-Profile", "dev"
+        "-Profile", "dev",
+        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*"
       ]
     },
     "ipr-rpi-prod-ssh": {
@@ -15,7 +16,8 @@
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
-        "-Profile", "prod"
+        "-Profile", "prod",
+        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*"
       ]
     }
   }
