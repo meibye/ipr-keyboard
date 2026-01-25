@@ -1,254 +1,201 @@
-# IPR Keyboard – Windows MCP Setup Script
-# Installs prerequisites + installs the SSH MCP server locally under D:\mcp\ssh-mcp
-# Preconfigured for:
-#   Repo: D:\Dev\ipr_keyboard
-#   RPi : ipr-dev-pi4
-#   User: copilotdiag
+# IPR Keyboard – MCP Setup (SSH, maintained MCP server)
+# MCP server: @fangjunjie/ssh-mcp-server
+# VERSION: 2026-01-25
+#
+# This script:
+#  - Installs the maintained SSH-based MCP server locally
+#  - Prepares SSH access to Raspberry Pi targets
+#  - Copies a canonical MCP runner script
+#  - Creates .vscode/mcp.json for VS Code integration
 
 $ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
 
-# -----------------------------
-# Fixed defaults (per your request)
-# -----------------------------
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host " IPR Keyboard - MCP Setup (SSH)" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host ""
 
-# Import common environment
+# ------------------------------------------------------------------
+# Import shared environment
+# ------------------------------------------------------------------
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 . "$ScriptDir\dbg_common.ps1"
 
-# Determine RepoRoot based on ScriptDir
-$RepoPath = Resolve-Path (Join-Path $ScriptDir "..\..") | Select-Object -ExpandProperty Path
-
-# MCP server package (installed locally in $McpHome)
-$McpNpmPackage = "ssh-mcp"
-
-function Info($m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
-function Ok($m){   Write-Host "[ OK ] $m" -ForegroundColor Green }
-function Warn($m){ Write-Host "[WARN] $m" -ForegroundColor Yellow }
-
-function New-Dir($p){
-  if(!(Test-Path -LiteralPath $p)){
-    New-Item -ItemType Directory -Path $p | Out-Null
-  }
-}
-
-function Test-Cmd($name){
-  return [bool](Get-Command $name -ErrorAction SilentlyContinue)
-}
-
-function Install-WingetPackage($id){
-  if(!(Test-Cmd "winget")){
-    Warn "winget not found. Please install '$id' manually."
-    return
-  }
-  Info "Installing: $id"
-  winget install --id $id -e --accept-package-agreements --accept-source-agreements | Out-Null
-}
-
-# -----------------------------
-# Validate repo path
-# -----------------------------
-if(!(Test-Path -LiteralPath $RepoPath)){
-  throw "RepoPath does not exist: $RepoPath"
-}
-
-# -----------------------------
-# Ensure folders
-# -----------------------------
-Info "Ensuring MCP folder layout..."
-New-Dir $McpRoot
-New-Dir $McpHome
-Ok "Folders ready: $McpHome"
-
-# -----------------------------
-# Install prerequisites
-# -----------------------------
-Info "Ensuring prerequisites..."
-
-# Node.js LTS (provides node + npm)
-if(!(Test-Cmd "node") -or !(Test-Cmd "npm")){
-  Install-WingetPackage "OpenJS.NodeJS.LTS"
-}
-if(Test-Cmd "node"){ Ok ("Node: " + (& node -v)) } else { Warn "node not found after install attempt." }
-if(Test-Cmd "npm"){  Ok ("npm : " + (& npm -v)) }  else { Warn "npm not found after install attempt." }
-
-# Git (optional but useful)
-if(!(Test-Cmd "git")){
-  Install-WingetPackage "Git.Git"
-}
-if(Test-Cmd "git"){ Ok (& git --version) } else { Warn "git not found after install attempt." }
-
-# OpenSSH Client capability (Windows)
-try{
-  $cap = Get-WindowsCapability -Online | Where-Object Name -like "OpenSSH.Client*"
-  if($cap -and $cap.State -ne "Installed"){
-    Info "Installing OpenSSH Client capability..."
-    Add-WindowsCapability -Online -Name $cap.Name | Out-Null
-  }
-  if(Test-Cmd "ssh"){ Ok "OpenSSH Client available (ssh found)." } else { Warn "ssh not found in PATH." }
-}catch{
-  Warn "Could not verify/install OpenSSH Client automatically. Ensure 'ssh' works."
-}
-
-# -----------------------------
-# Generate SSH key if missing
-# -----------------------------
-Info "Ensuring SSH key exists..."
-New-Dir (Split-Path -Parent $KeyPath)
-
-if(!(Test-Path -LiteralPath $KeyPath)){
-  & ssh-keygen -t ed25519 -f $KeyPath -N "" | Out-Null
-  Ok "Generated SSH key: $KeyPath"
-}else{
-  Ok "SSH key already exists: $KeyPath"
-}
-
-if(!(Test-Path -LiteralPath "$KeyPath.pub")){
-  throw "Missing public key: $KeyPath.pub"
-}
-
-# -----------------------------
-# Install the MCP server locally (D:\mcp\ssh-mcp\node_modules\...)
-# -----------------------------
-if(!(Test-Cmd "npm")){
-  throw "npm is required but was not found. Install Node.js LTS and re-run."
-}
-
-Info "Installing MCP server package locally: $McpNpmPackage"
-
-Push-Location $McpHome
-try{
-  if(!(Test-Path -LiteralPath ".\package.json")){
-    Info "Initializing local npm project in $McpHome"
-    & npm.cmd init -y | Out-Null
-  }
-
-  # Install with exact version pin to avoid surprise upgrades once installed
-  # (You can update intentionally later with npm update + commit package-lock.json.)
-  & npm.cmd install --save-exact $McpNpmPackage | Out-Null
-
-  if(!(Test-Path -LiteralPath ".\node_modules\$McpNpmPackage")){
-    throw "MCP server package did not install as expected: node_modules\$McpNpmPackage"
-  }
-
-  Ok "Installed MCP server locally under: $McpHome\node_modules"
-}finally{
-  Pop-Location
-}
-
-# -----------------------------
-# Create MCP runtime config (no secrets beyond host/user/key path)
-# -----------------------------
-$configPath = Join-Path $McpHome "ssh-mcp.config.json"
-$configObj = @{
-  host        = $RpiHost
-  port        = $RpiPort
-  user        = $RpiUser
-  key         = $KeyPath
-  timeout     = 60000
-  maxChars    = "none"
-  disableSudo = $true  # prefer running only dbg_* via sudoers on the Pi
-}
-
-($configObj | ConvertTo-Json -Depth 5) | Out-File -Encoding utf8 -Force $configPath
-Ok "Wrote MCP config: $configPath"
-
-# -----------------------------
-# MCP launcher: runs LOCAL install (no network) via npx from local project
-# -----------------------------
-
-$launcherPath = Join-Path $McpHome "run_ssh_mcp.ps1"
-@'
 param(
-  [Parameter(Mandatory=$false)]
-  [string]$ConfigPath = "D:\mcp\ssh-mcp\ssh-mcp.config.json"
+  [ValidateSet("dev","prod")]
+  [string]$Profile = "dev"
 )
 
-$ErrorActionPreference = "Stop"
+Set-RpiProfile -ProfileName $Profile
 
-# Helper to get env var or fallback
-function Get-EnvOrDefault($envName, $default) {
-  if (${env:$envName}) {
-    return ${env:$envName}
-  } else {
-    return $default 
+Write-Info "Selected RPI profile : $Profile"
+Write-Info "Target host          : $($Global:RpiHost)"
+Write-Info "Target user          : $($Global:RpiUser)"
+Write-Info "SSH key              : $($Global:KeyPath)"
+Write-Host ""
+
+$RepoRoot = Resolve-Path (Join-Path $ScriptDir "..\..") |
+  Select-Object -ExpandProperty Path
+
+$McpPackage = "@fangjunjie/ssh-mcp-server"
+
+# ------------------------------------------------------------------
+# Ensure MCP directories
+# ------------------------------------------------------------------
+Write-Info "Preparing MCP directory layout..."
+Write-Info "  MCP root : $($Global:McpRoot)"
+Write-Info "  MCP home : $($Global:McpHome)"
+
+New-Dir $Global:McpRoot
+New-Dir $Global:McpHome
+
+Write-Ok "MCP directories ready"
+Write-Host ""
+
+# ------------------------------------------------------------------
+# Prerequisites
+# ------------------------------------------------------------------
+Write-Info "Checking prerequisites (Node.js, npm, OpenSSH)..."
+
+if(!(Test-Cmd node) -or !(Test-Cmd npm)){
+  Write-Warn "Node.js or npm not found – installing Node.js LTS"
+  winget install --id OpenJS.NodeJS.LTS -e `
+    --accept-package-agreements `
+    --accept-source-agreements | Out-Null
+}
+
+if(!(Test-Cmd ssh)){
+  Write-Warn "OpenSSH client not found – enabling Windows capability"
+  $cap = Get-WindowsCapability -Online |
+    Where-Object Name -like "OpenSSH.Client*"
+  if($cap.State -ne "Installed"){
+    Add-WindowsCapability -Online -Name $cap.Name | Out-Null
   }
 }
 
-if(!(Test-Path -LiteralPath $ConfigPath)){ throw "Missing config file: $ConfigPath" }
+Write-Ok "Prerequisites satisfied"
+Write-Host ""
 
-$cfg = Get-Content -Raw -LiteralPath $ConfigPath | ConvertFrom-Json
+# ------------------------------------------------------------------
+# SSH key
+# ------------------------------------------------------------------
+Write-Info "Ensuring SSH key exists..."
 
-# Use env vars if set, else config file values
-$targetHost = Get-EnvOrDefault 'RPI_HOST' $cfg.host
-$user = Get-EnvOrDefault 'RPI_USER' $cfg.user
-$key  = Get-EnvOrDefault 'RPI_KEY'  $cfg.key
-$port = Get-EnvOrDefault 'RPI_PORT' $cfg.port
-$timeout = $cfg.timeout
-$maxChars = $cfg.maxChars
-$disableSudo = $cfg.disableSudo
+New-Dir (Split-Path $Global:KeyPath)
 
-Push-Location "D:\mcp\ssh-mcp"
-try {
-  $sshArgs = @(
-    "ssh-mcp","--",
-    "--host=$targetHost",
-    "--port=$port",
-    "--user=$user",
-    "--key=$key",
-    "--timeout=$timeout",
-    "--maxChars=$maxChars"
-  )
-  if($disableSudo -eq $true){ $sshArgs += "--disableSudo" }
-
-  # Log for debugging
-  $now = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-  "-------- $now --------" | Out-File -FilePath "D:\mcp\ssh-mcp\debug.log" -Append
-  "Running with arguments:" | Out-File -FilePath "D:\mcp\ssh-mcp\debug.log" -Append
-  $sshArgs | Out-File -FilePath "D:\mcp\ssh-mcp\debug.log" -Append
-
-  & "npx.cmd" @sshArgs
-} finally {
-  Pop-Location
+if(!(Test-Path $Global:KeyPath)){
+  Write-Info "Generating new SSH key (ed25519)"
+  ssh-keygen -t ed25519 -f $Global:KeyPath -N "" | Out-Null
+  Write-Ok "SSH key generated"
+}else{
+  Write-Ok "SSH key already present"
 }
-'@ | Out-File -Encoding utf8 -Force $launcherPath
-Ok "Wrote MCP launcher: $launcherPath"
 
-# -----------------------------
-# Write VS Code workspace MCP config
-# -----------------------------
-$vscodeDir = Join-Path $RepoPath ".vscode"
+Write-Host ""
+
+# ------------------------------------------------------------------
+# Install MCP server locally
+# ------------------------------------------------------------------
+Write-Info "Installing MCP server package"
+Write-Info "  npm package : $McpPackage"
+Write-Info "  install dir : $($Global:McpHome)"
+
+Push-Location $Global:McpHome
+
+if(!(Test-Path "package.json")){
+  Write-Info "Initializing local npm project"
+  npm init -y | Out-Null
+}
+
+npm install --save-exact $McpPackage | Out-Null
+
+if(!(Test-Path "node_modules\@fangjunjie\ssh-mcp-server")){
+  throw "MCP server installation failed"
+}
+
+Pop-Location
+
+Write-Ok "MCP server installed successfully"
+Write-Host ""
+
+# ------------------------------------------------------------------
+# Copy MCP runner (external canonical file)
+# ------------------------------------------------------------------
+Write-Info "Deploying MCP runner script..."
+
+$SourceRunner = Join-Path $ScriptDir "run_ssh_mcp.ps1"
+$TargetRunner = Join-Path $Global:McpHome "run_ssh_mcp.ps1"
+
+Write-Info "  Source : $SourceRunner"
+Write-Info "  Target : $TargetRunner"
+
+if(!(Test-Path $SourceRunner)){
+  throw "Missing MCP runner template: $SourceRunner"
+}
+
+Copy-Item -Force $SourceRunner $TargetRunner
+
+Write-Ok "MCP runner deployed"
+Write-Host ""
+
+# ------------------------------------------------------------------
+# VS Code MCP configuration
+# ------------------------------------------------------------------
+Write-Info "Creating VS Code MCP configuration..."
+
+$vscodeDir = Join-Path $RepoRoot ".vscode"
 New-Dir $vscodeDir
 
-$mcpJsonPath = Join-Path $vscodeDir "mcp.json"
+$mcpJson = Join-Path $vscodeDir "mcp.json"
+
 @"
 {
   "servers": {
-    "ipr-rpi-ssh": {
+    "ipr-rpi-dev-ssh": {
       "command": "powershell",
       "args": [
         "-NoProfile",
-        "-ExecutionPolicy","Bypass",
-        "-File","D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1"
+        "-ExecutionPolicy", "Bypass",
+        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
+        "-Profile", "dev"
+      ]
+    },
+    "ipr-rpi-prod-ssh": {
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
+        "-Profile", "prod"
       ]
     }
   }
 }
-"@ | Out-File -Encoding utf8 -Force $mcpJsonPath
-Ok "Wrote workspace MCP config: $mcpJsonPath"
+"@ | Out-File -Encoding utf8 -Force $mcpJson
 
-# -----------------------------
-# Final instructions
-# -----------------------------
+Write-Ok "VS Code MCP configuration written"
 Write-Host ""
-Ok "PC MCP setup complete."
+
+# ------------------------------------------------------------------
+# Connectivity test
+# ------------------------------------------------------------------
+Write-Info "Performing SSH connectivity test..."
+ssh -i $Global:KeyPath "$($Global:RpiUser)@$($Global:RpiHost)" "echo MCP_OK" | Out-Null
+Write-Ok "SSH connectivity verified"
 Write-Host ""
-Write-Host "NEXT (manual step on RPi):" -ForegroundColor Yellow
-Write-Host "Add this public key to /home/$RpiUser/.ssh/authorized_keys:"
+
+# ------------------------------------------------------------------
+# Final operator guidance
+# ------------------------------------------------------------------
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host " MCP setup completed successfully" -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
-Get-Content -LiteralPath "$KeyPath.pub"
+Write-Host "Next steps:" -ForegroundColor Yellow
+Write-Host "  1. Ensure the SSH public key is installed on the Pi"
+Write-Host "  2. Open this repo in VS Code"
+Write-Host "  3. Run 'MCP: Restart Servers' from the Command Palette"
+Write-Host "  4. Use Copilot Chat / Agent with MCP-enabled diagnostics"
 Write-Host ""
-Write-Host "Then test from PC:"
-Write-Host "  ssh -i `"$KeyPath`" $RpiUser@$RpiHost -p $RpiPort"
-Write-Host ""
-Write-Host "Then open VS Code in: $RepoPath"
-Write-Host "Copilot Chat (Agent mode) should be able to use MCP server: ipr-rpi-ssh"

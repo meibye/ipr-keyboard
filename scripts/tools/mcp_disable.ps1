@@ -1,9 +1,6 @@
-param([string]$RepoRoot = (Get-Location).Path)
-$mcp = Join-Path $RepoRoot ".vscode\mcp.json"
-$off = Join-Path $RepoRoot ".vscode\mcp.json.disabled"
-if (Test-Path $mcp) {
-  Rename-Item $mcp $off -Force
-  Write-Host "MCP disabled (renamed to mcp.json.disabled)"
-} else {
-  Write-Host "No .vscode\mcp.json found (already disabled?)"
-}
+# Disable MCP server
+# VERSION: 2026/01/25 14:03:24
+
+Write-Host "[INFO] MCP runs as a foreground process."
+Write-Host "[INFO] Close the terminal running it, or stop it from VS Code."
+Write-Host "[ OK ] MCP disabled"
