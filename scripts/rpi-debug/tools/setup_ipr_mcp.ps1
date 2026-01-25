@@ -1,12 +1,17 @@
 # IPR Keyboard – MCP Setup (SSH, maintained MCP server)
 # MCP server: @fangjunjie/ssh-mcp-server
-# VERSION: 2026/01/25 17:50:21
+# VERSION: 2026/01/25 17:58:37
 #
 # This script:
 #  - Installs the maintained SSH-based MCP server locally
 #  - Prepares SSH access to Raspberry Pi targets
 #  - Copies a canonical MCP runner script
 #  - Creates .vscode/mcp.json for VS Code integration
+
+param(
+  [ValidateSet("dev","prod")]
+  [string]$Profile = "dev"
+)
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -22,11 +27,6 @@ Write-Host ""
 # ------------------------------------------------------------------
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 . "$ScriptDir\dbg_common.ps1"
-
-param(
-  [ValidateSet("dev","prod")]
-  [string]$Profile = "dev"
-)
 
 Set-RpiProfile -ProfileName $Profile
 

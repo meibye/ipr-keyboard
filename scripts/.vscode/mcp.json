@@ -1,0 +1,22 @@
+{
+  "servers": {
+    "ipr-rpi-dev-ssh": {
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
+        "-Profile", "dev"
+      ]
+    },
+    "ipr-rpi-prod-ssh": {
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
+        "-Profile", "prod"
+      ]
+    }
+  }
+}

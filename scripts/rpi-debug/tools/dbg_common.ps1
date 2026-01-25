@@ -1,6 +1,6 @@
 # Common environment for Copilot diagnostic PowerShell scripts
 # Import this file in all scripts in scripts/rpi-debug/tools/
-# VERSION: 2026/01/25 14:39:40
+# VERSION: 2026/01/25 18:08:05
 
 Set-StrictMode -Version Latest
 

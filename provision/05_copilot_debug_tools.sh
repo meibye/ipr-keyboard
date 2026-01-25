@@ -268,7 +268,11 @@ log "  dbg_deploy.sh"
 echo
 
 log "Quick test from Windows (OpenSSH):"
+log "SSH command prompt for Copilot diagnostics user (Windows OpenSSH):"
 echo "  ssh -i %USERPROFILE%\\.ssh\\copilotdiag_rpi $COPILOT_USER@$(hostname -s)"
+echo
+log "PowerShell equivalent:"
+echo "  ssh -i $env:USERPROFILE\.ssh\copilotdiag_rpi $env:COPILOT_USER@$(hostname -s)"
 echo
 
 log "Next recommended step on the Pi:"
