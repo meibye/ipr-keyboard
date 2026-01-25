@@ -9,6 +9,7 @@
 #   - Separate automation clone (safe git reset --hard)
 #   - dbg_* tooling installed into /usr/local/bin
 #   - sudoers whitelist for controlled diagnostics
+#   - SSH forced-command guard + allowlist (ipr_mcp_guard.sh)
 #
 # Must be run as root.
 #
@@ -18,7 +19,7 @@
 # category: Provisioning
 # purpose: Install Copilot debug tools
 # sudo: yes
-
+#
 set -euo pipefail
 
 # -----------------------------------------------------------------------------
@@ -32,6 +33,10 @@ NC='\033[0m'
 log()  { echo -e "${GREEN}[copilot]${NC} $*"; }
 warn() { echo -e "${YELLOW}[copilot]${NC} $*"; }
 die()  { echo -e "${RED}[copilot ERROR]${NC} $*"; exit 1; }
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
+}
 
 # -----------------------------------------------------------------------------
 # Load common environment
@@ -58,14 +63,24 @@ source "$ENV_FILE"
 
 : "${BT_HCI:?Missing BT_HCI}"
 
+# Optional (non-interactive key install)
+# If set, must point to a file containing a single public key line (ssh-ed25519 ...).
+COPILOT_PUBKEY_FILE="${COPILOT_PUBKEY_FILE:-}"
+
 # -----------------------------------------------------------------------------
 # Derived paths
 # -----------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 INSTALLER="$REPO_ROOT/scripts/rpi-debug/install_dbg_tools.sh"
+MCP_GUARD_SRC="$REPO_ROOT/provision/ipr_mcp_guard.sh"
+
+require_cmd git
+require_cmd apt-get
+require_cmd visudo
 
 [[ -x "$INSTALLER" ]] || die "Missing or non-executable: $INSTALLER"
+[[ -f "$MCP_GUARD_SRC" ]] || die "Missing: $MCP_GUARD_SRC"
 
 log "Starting Copilot debug tooling setup"
 log "Using repo root: $REPO_ROOT"
@@ -99,18 +114,18 @@ else
 fi
 
 # Groups needed for diagnostics
-usermod -aG bluetooth,adm "$COPILOT_USER"
+usermod -aG bluetooth,adm "$COPILOT_USER" || true
 
 # -----------------------------------------------------------------------------
 # Ensure log root
 # -----------------------------------------------------------------------------
 log "Ensuring debug log root exists: $DBG_LOG_ROOT"
 mkdir -p "$DBG_LOG_ROOT"
-chown root:adm "$DBG_LOG_ROOT"
-chmod 2775 "$DBG_LOG_ROOT"
+chown root:adm "$DBG_LOG_ROOT" || true
+chmod 2775 "$DBG_LOG_ROOT" || true
 
 # -----------------------------------------------------------------------------
-# Ensure automation clone exists
+# Ensure automation clone exists (owned by COPILOT_USER)
 # -----------------------------------------------------------------------------
 log "Ensuring automation clone exists"
 
@@ -136,7 +151,7 @@ sudo -u "$COPILOT_USER" bash -lc "
 "
 
 # -----------------------------------------------------------------------------
-# Install dbg_* tools
+# Install dbg_* tools (writes /etc/ipr_dbg.env and sudoers)
 # -----------------------------------------------------------------------------
 log "Installing dbg_* tools via installer"
 
@@ -148,38 +163,94 @@ bash "$INSTALLER" \
   --copilot-user "$COPILOT_USER" \
   --copilot-repo "$COPILOT_REPO_DIR"
 
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Install MCP forced-command guard + allowlist
+# -----------------------------------------------------------------------------
+log "Installing MCP SSH guard (/usr/local/bin/ipr_mcp_guard.sh)"
+install -m 0755 "$MCP_GUARD_SRC" /usr/local/bin/ipr_mcp_guard.sh
+
+ALLOWLIST="/etc/ipr_mcp_allowlist.conf"
+log "Writing MCP allowlist: $ALLOWLIST"
+cat > "$ALLOWLIST" <<'EOF'
+# Allowlisted commands for MCP SSH forced-command guard (glob patterns allowed)
+# Keep this tight: prefer dbg_* wrappers over raw system/journal commands.
+
+# Diagnostics
+/usr/local/bin/dbg_stack_status.sh
+/usr/local/bin/dbg_diag_bundle.sh
+/usr/local/bin/dbg_pairing_capture.sh *
+/usr/local/bin/dbg_deploy.sh
+
+# Recovery (conservative)
+/usr/local/bin/dbg_bt_restart.sh
+/usr/local/bin/dbg_bt_soft_reset.sh
+
+# Destructive (requires explicit user approval in Copilot workflow)
+/usr/local/bin/dbg_bt_bond_wipe.sh *
+EOF
+chmod 0644 "$ALLOWLIST"
+
+# Guard log file (optional; guard will still function if log can't be written)
+GUARD_LOG="/var/log/ipr_mcp_guard.log"
+touch "$GUARD_LOG" || true
+chown root:adm "$GUARD_LOG" || true
+chmod 0664 "$GUARD_LOG" || true
+
+# -----------------------------------------------------------------------------
 # Ensure .ssh folder and authorized_keys for COPILOT_USER
-# ---------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 log "Ensuring .ssh folder and authorized_keys for $COPILOT_USER"
-sudo -u "$COPILOT_USER" mkdir -p "$COPILOT_REPO_DIR/../.ssh"
-sudo -u "$COPILOT_USER" chmod 700 "$COPILOT_REPO_DIR/../.ssh"
-SSH_DIR="$(eval echo ~$COPILOT_USER)/.ssh"
-sudo -u "$COPILOT_USER" mkdir -p "$SSH_DIR"
-sudo -u "$COPILOT_USER" chmod 700 "$SSH_DIR"
+SSH_DIR="$(eval echo ~"$COPILOT_USER")/.ssh"
+install -d -m 0700 -o "$COPILOT_USER" -g "$COPILOT_USER" "$SSH_DIR"
+
 AUTH_KEYS="$SSH_DIR/authorized_keys"
 if [[ ! -f "$AUTH_KEYS" ]]; then
-  sudo -u "$COPILOT_USER" touch "$AUTH_KEYS"
-  sudo -u "$COPILOT_USER" chmod 600 "$AUTH_KEYS"
-  log "Please paste the public SSH key for Copilot/MCP access into:"
-  log "  $AUTH_KEYS"
-  log "Then press Enter to continue."
-  read -r
+  install -m 0600 -o "$COPILOT_USER" -g "$COPILOT_USER" /dev/null "$AUTH_KEYS"
+fi
+
+append_guarded_key() {
+  local pubkey_line="$1"
+
+  pubkey_line="$(echo "$pubkey_line" | tr -d '\r' | sed -e 's/^ *//' -e 's/ *$//')"
+  [[ -n "$pubkey_line" ]] || die "Empty public key line"
+
+  if grep -Fq "$pubkey_line" "$AUTH_KEYS"; then
+    warn "Public key already present in $AUTH_KEYS"
+    return 0
+  fi
+
+  local prefix='command="/usr/local/bin/ipr_mcp_guard.sh",no-pty,no-port-forwarding,no-agent-forwarding '
+  echo "${prefix}${pubkey_line}" >> "$AUTH_KEYS"
+  chown "$COPILOT_USER:$COPILOT_USER" "$AUTH_KEYS"
+  chmod 0600 "$AUTH_KEYS"
+  log "Added guarded key entry to $AUTH_KEYS"
+}
+
+if [[ -n "$COPILOT_PUBKEY_FILE" ]]; then
+  if [[ -f "$COPILOT_PUBKEY_FILE" ]]; then
+    log "Installing public key from COPILOT_PUBKEY_FILE=$COPILOT_PUBKEY_FILE"
+    append_guarded_key "$(cat "$COPILOT_PUBKEY_FILE")"
+  else
+    die "COPILOT_PUBKEY_FILE is set but file not found: $COPILOT_PUBKEY_FILE"
+  fi
 else
-  log "authorized_keys already exists for $COPILOT_USER"
+  echo
+  warn "No COPILOT_PUBKEY_FILE provided."
+  warn "Paste ONE public key line now (starting with 'ssh-ed25519' or similar). It will be stored with a forced-command guard."
+  echo -n "> "
+  read -r PUBKEY_LINE
+  append_guarded_key "$PUBKEY_LINE"
 fi
 
 echo
-log "To test SSH connectivity from your PC, run:"
-echo "  ssh -i \$HOME/.ssh/copilotdiag_rpi $COPILOT_USER@$(hostname -s | awk '{print $1}')"
-# PowerShell equivalent for testing SSH connectivity:
-log "To test SSH connectivity from your PC (PowerShell):"
-echo '  ssh -i $HOME\.ssh\copilotdiag_rpi {0}@{1}' -f $env:COPILOT_USER, (hostname)
+log "Copilot/MCP SSH access is guarded by: /usr/local/bin/ipr_mcp_guard.sh"
+log "Allowlist: $ALLOWLIST"
+log "Guard log: $GUARD_LOG"
+echo
 
 # -----------------------------------------------------------------------------
 # Final summary
 # -----------------------------------------------------------------------------
-echo
 log "Copilot debug tooling installed successfully"
 
 log "Installed commands (available system-wide):"
@@ -189,12 +260,16 @@ log "  dbg_pairing_capture.sh <seconds>"
 log "  dbg_bt_restart.sh"
 log "  dbg_bt_soft_reset.sh"
 log "  dbg_bt_bond_wipe.sh <MAC>"
-
+log "  dbg_deploy.sh"
 echo
-log "Next recommended step:"
-log "  sudo dbg_stack_status.sh"
 
-echo ""
+log "Quick test from Windows (OpenSSH):"
+echo "  ssh -i %USERPROFILE%\\.ssh\\copilotdiag_rpi $COPILOT_USER@$(hostname -s)"
+echo
+
+log "Next recommended step on the Pi:"
+log "  sudo dbg_stack_status.sh"
+echo
+
 log "Next steps:"
 log "  1. sudo $REPO_ROOT/provision/06_verify.sh"
-echo ""
