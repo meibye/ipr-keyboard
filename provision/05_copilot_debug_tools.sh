@@ -221,9 +221,17 @@ append_guarded_key() {
   pubkey_line="$(echo "$pubkey_line" | tr -d '\r' | sed -e 's/^ *//' -e 's/ *$//')"
   [[ -n "$pubkey_line" ]] || die "Empty public key line"
 
+  # Check if the key is already present (guarded or unguarded)
   if grep -Fq "$pubkey_line" "$AUTH_KEYS"; then
-    warn "Public key already present in $AUTH_KEYS"
-    return 0
+    if grep -Fq "command=\"/usr/local/bin/ipr_mcp_guard.sh\"" "$AUTH_KEYS" | grep -Fq "$pubkey_line"; then
+      warn "Public key already present and guarded in $AUTH_KEYS"
+      return 0
+    else
+      warn "Public key present but not guarded in $AUTH_KEYS, updating to guarded"
+      # Remove unguarded line(s)
+      sed -i "\|$pubkey_line|d" "$AUTH_KEYS"
+      # Continue to add guarded entry below
+    fi
   fi
 
   local prefix='command="/usr/local/bin/ipr_mcp_guard.sh",no-pty,no-port-forwarding,no-agent-forwarding '
