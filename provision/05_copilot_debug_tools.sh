@@ -148,6 +148,13 @@ sudo -u "$COPILOT_USER" bash -lc "
   git checkout '$COPILOT_GIT_REF'
   git reset --hard 'origin/$COPILOT_GIT_REF'
   echo 'Automation clone commit:' \$(git rev-parse --short HEAD)
+  LOCAL=\$(git rev-parse HEAD)
+  REMOTE=\$(git rev-parse origin/$COPILOT_GIT_REF)
+  if [ "$LOCAL" = "$REMOTE" ]; then
+    echo 'Automation clone is up to date with origin.'
+  else
+    echo 'Warning: Automation clone is NOT up to date with origin.'
+  fi
 "
 
 # -----------------------------------------------------------------------------
