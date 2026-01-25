@@ -240,7 +240,7 @@ elif [[ -f "/tmp/copilot_pubkey.txt" ]]; then
 else
   echo
   warn "No COPILOT_PUBKEY_FILE provided and no /tmp/copilot_pubkey.txt found."
-  warn "Paste ONE public key line now (starting with 'ssh-ed25519' or similar). It will be stored with a forced-command guard."
+  warn "Paste ONE public key line now (starting with 'copilotdiag' or similar). It will be stored with a forced-command guard."
   echo -n "> "
   read -r PUBKEY_LINE
   append_guarded_key "$PUBKEY_LINE"
