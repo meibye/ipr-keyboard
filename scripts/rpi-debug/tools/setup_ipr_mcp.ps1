@@ -1,6 +1,6 @@
 # IPR Keyboard – MCP Setup (SSH, maintained MCP server)
 # MCP server: @fangjunjie/ssh-mcp-server
-# VERSION: 2026/01/25 17:58:37
+# VERSION: 2026/01/25 18:33:41
 #
 # This script:
 #  - Installs the maintained SSH-based MCP server locally
@@ -36,8 +36,12 @@ Write-Info "Target user          : $($Global:RpiUser)"
 Write-Info "SSH key              : $($Global:KeyPath)"
 Write-Host ""
 
-$RepoRoot = Resolve-Path (Join-Path $ScriptDir "..\..") |
-  Select-Object -ExpandProperty Path
+# Use git to find the actual repo root
+$RepoRoot = git -C $ScriptDir rev-parse --show-toplevel 2>$null
+if (-not $RepoRoot) {
+  throw "Could not determine repository root. Ensure this script is inside a git repository."
+}
+$RepoRoot = $RepoRoot.Trim()
 
 $McpPackage = "@fangjunjie/ssh-mcp-server"
 
