@@ -31,11 +31,13 @@ $diagAgentPrompt = @"
 Diagnose and resolve Bluetooth pairing failures between Windows 11 host and Raspberry Pi BLE HID device.
 
 ## MCP execution environment (important)
+
 Remote commands are executed through an **SSH-based MCP server**:
 
 - MCP server package: `@fangjunjie/ssh-mcp-server`
-- Windows runner: `D:\mcp\ssh-mcp\run_ssh_mcp.ps1`
+- VS Code integration via `.vscode/mcp.json` (uses `npx` or `node` to launch the MCP server)
 - Profile selection: `dev` (ipr-dev-pi4) or `prod` (ipr-prod-zero2)
+
 
 On the Raspberry Pi, the SSH key is installed with a **forced-command guard** (`ipr_mcp_guard.sh`) and an allowlist.
 This means:
@@ -51,6 +53,7 @@ This means:
 5. Iterations: Maximum 3 diagnostic iterations. After that, summarize root cause + next fixes.
 
 ## Capabilities (allowed actions on the RPi)
+
 Use only these scripts unless explicitly permitted:
 - `/usr/local/bin/dbg_stack_status.sh`
 - `/usr/local/bin/dbg_diag_bundle.sh`
@@ -77,11 +80,13 @@ For each step include:
 5. Produce Plan v2 (if needed), ask approval, execute.
 6. Stop at max 3 iterations; provide conclusion + next code changes and/or config changes.
 
+
 ## Context variables (fill in from the workspace if available)
-- Target profiles:
+- Target profiles (from `.vscode/mcp.json`):
   - `dev`: `ipr-dev-pi4` (default)
   - `prod`: `ipr-prod-zero2`
 - Diagnostics SSH user: `copilotdiag`
+- MCP server launch: via `npx @fangjunjie/ssh-mcp-server` or `node` (see `.vscode/mcp.json`)
 - Services:
   - BLE: `bt_hid_ble.service`
   - Agent: `bt_hid_agent_unified.service`
@@ -192,14 +197,14 @@ $localOnly = @"
 ## Local-only Copilot Mode
 
 Constraints:
-- Do not use MCP
+- Do not use MCP (as defined in `.vscode/mcp.json`, which launches via `npx` or `node`)
 - Do not execute commands
 - Do not propose SSH or remote actions
+- Do not use or reference any remote diagnostic scripts or profiles
 - Base all reasoning on repository files and chat context only
 
- 
 **Usage Instruction Update:**
-This prompt should always be used in local-only Copilot mode; the mode does not change based on the prompt. Actions involving the Raspberry Pi (RPI) through the MCP are only executed when it is explicitly stated in the prompt that actions should be conducted on the RPI. Otherwise, all actions are performed locally and not on the RPI.
+This prompt should always be used in local-only Copilot mode; the mode does not change based on the prompt. Actions involving the Raspberry Pi (RPI) through the MCP (as configured in `.vscode/mcp.json`) or any remote scripts are only executed when it is explicitly stated in the prompt that actions should be conducted on the RPI. Otherwise, all actions are performed locally and not on the RPI.
 "@
 Set-Content -Path (Join-Path $docsDir "LOCAL_ONLY_PROMPT.md") -Value $localOnly -Encoding UTF8
 
@@ -208,60 +213,24 @@ Set-Content -Path (Join-Path $docsDir "LOCAL_ONLY_PROMPT.md") -Value $localOnly 
 $mcpJson = @"
 {
   "servers": {
-    "rpi-ssh": {
-      "command": "$SshMcpCommand",
-      "args": ["$SshMcpArgs"],
-      "env": {
-        "RPI_HOST": "$RpiHost",
-        "RPI_USER": "$RpiUser",
-        "RPI_KEY": "$RpiKeyPath"
-      }
+    "ipr-rpi-dev-ssh": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host", "ipr-dev-pi4",
+        "--port", "22",
+        "--username", "copilotdiag",
+        "--privateKey", "~/.ssh/copilotdiag_rpi",
+        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
+      ]
     }
-  }
 }
 "@
 Set-Content -Path (Join-Path $vscodeDir "mcp.json") -Value $mcpJson -Encoding UTF8
-
-# --- Helper toggles for MCP ---
-$toggleDir = Join-Path $RepoRoot "tools"
-New-DirectoryIfMissing $toggleDir
-
-$disableMcp = @"
-# Disable MCP server
-# VERSION: 2026/01/25 14:03:24
-
-Write-Host "[INFO] MCP runs as a foreground process."
-Write-Host "[INFO] Close the terminal running it, or stop it from VS Code."
-Write-Host "[ OK ] MCP disabled"
-"@
-Set-Content -Path (Join-Path $toggleDir "mcp_disable.ps1") -Value $disableMcp -Encoding UTF8
-
-$enableMcp = @"
-# Enable SSH MCP server (manual run)
-# VERSION: 2026/01/25 14:03:07
-
-param(
-  [Parameter(Mandatory=`$false)]
-  [ValidateSet("dev","prod")]
-  [string]`$Profile = "dev"
-)
-
-`$ErrorActionPreference = "Stop"
-Set-StrictMode -Version Latest
-
-`$Runner = "D:\mcp\ssh-mcp\run_ssh_mcp.ps1"
-if(!(Test-Path -LiteralPath `$Runner)){
-  throw "Missing runner: `$Runner (run scripts\rpi-debug\tools\setup_ipr_mcp.ps1 first)"
-}
-
-Write-Host "[INFO] Starting SSH MCP runner (Profile=`$Profile)..." -ForegroundColor Cyan
-& powershell -NoProfile -ExecutionPolicy Bypass -File `$Runner -Profile `$Profile
-"@
-Set-Content -Path (Join-Path $toggleDir "mcp_enable.ps1") -Value $enableMcp -Encoding UTF8
 
 Write-Host "Generated:"
 Write-Host " - docs/copilot/DIAG_AGENT_PROMPT.md"
 Write-Host " - docs/copilot/BT_PAIRING_PLAYBOOK.md"
 Write-Host " - docs/copilot/LOCAL_ONLY_PROMPT.md"
 Write-Host " - .vscode/mcp.json (template)"
-Write-Host " - tools/mcp_disable.ps1, tools/mcp_enable.ps1"

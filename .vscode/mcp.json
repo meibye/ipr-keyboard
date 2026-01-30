@@ -1,25 +1,55 @@
+// -----------------------------------------------------------------------------
+// mcp.json - MCP Remote Server Profile Configuration
+//
+// This file defines remote server profiles for the Model Context Protocol (MCP)
+// integration in VS Code. It specifies SSH connection details, command arguments,
+// and command blacklists for safe remote execution (e.g., for Copilot diagnostics).
+//
+// - Each profile includes host, port, username, and private key.
+// - The blacklist prevents dangerous commands (rm, shutdown, reboot, etc).
+// - Debug profiles may include extra arguments for troubleshooting.
+//
+// Edit with care. See project docs for details.
+// -----------------------------------------------------------------------------
+
 {
   "servers": {
     "ipr-rpi-dev-ssh": {
-      "command": "powershell",
+      "command": "npx",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
-        "-Profile", "dev",
-        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*",
-        "-Whitelist", "^ls( .*)?,^cat .*,^df.*"
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host", "ipr-dev-pi4",
+        "--port", "22",
+        "--username", "copilotdiag",
+        "--privateKey", "~/.ssh/copilotdiag_rpi",
+        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
       ]
     },
-    "ipr-rpi-prod-ssh": {
-      "command": "powershell",
+    "ipr-rpi-dev-ssh-debug": {
+      "command": "node",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
-        "-Profile", "prod",
-        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*",
-        "-Whitelist", "^ls( .*)?,^cat .*,^df.*"
+        "D:\\mcp\\ssh-mcp\\node_modules\\@fangjunjie\\ssh-mcp-server\\build\\index.js",
+        "--host", "ipr-dev-pi4",
+        "--port", "22",
+        "--username", "copilotdiag",
+        "--privateKey", "~/.ssh/copilotdiag_rpi",
+        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
+      ],
+      "dev": {
+        "debug": { "type": "node" }
+      }
+    },
+     "ipr-rpi-prod-ssh": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host", "ipr-prod-zero2",
+        "--port", "22",
+        "--username", "copilotdiag",
+        "--privateKey", "~/.ssh/copilotdiag_rpi",
+        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
       ]
     }
   }

@@ -1,11 +1,10 @@
 # IPR Keyboard – MCP Setup (SSH, maintained MCP server)
 # MCP server: @fangjunjie/ssh-mcp-server
-# VERSION: 2026/01/25 19:31:14
+# VERSION: 2026/01/30 19:30:17
 #
 # This script:
 #  - Installs the maintained SSH-based MCP server locally
 #  - Prepares SSH access to Raspberry Pi targets
-#  - Copies a canonical MCP runner script
 #  - Creates .vscode/mcp.json for VS Code integration
 
 param(
@@ -142,26 +141,6 @@ Write-Ok "MCP server installed successfully"
 Write-Host ""
 
 # ------------------------------------------------------------------
-# Copy MCP runner (external canonical file)
-# ------------------------------------------------------------------
-Write-Info "Deploying MCP runner script..."
-
-$SourceRunner = Join-Path $ScriptDir "run_ssh_mcp.ps1"
-$TargetRunner = Join-Path $Global:McpHome "run_ssh_mcp.ps1"
-
-Write-Info "  Source : $SourceRunner"
-Write-Info "  Target : $TargetRunner"
-
-if(!(Test-Path $SourceRunner)){
-  throw "Missing MCP runner template: $SourceRunner"
-}
-
-Copy-Item -Force $SourceRunner $TargetRunner
-
-Write-Ok "MCP runner deployed"
-Write-Host ""
-
-# ------------------------------------------------------------------
 # VS Code MCP configuration
 # ------------------------------------------------------------------
 Write-Info "Creating VS Code MCP configuration..."
@@ -172,34 +151,103 @@ New-Dir $vscodeDir
 $mcpJson = Join-Path $vscodeDir "mcp.json"
 
 @"
+// -----------------------------------------------------------------------------
+// mcp.json - MCP Remote Server Profile Configuration
+//
+// This file defines remote server profiles for the Model Context Protocol (MCP)
+// integration in VS Code. It specifies SSH connection details, command arguments,
+// and command blacklists for safe remote execution (e.g., for Copilot diagnostics).
+//
+// - Each profile includes host, port, username, and private key.
+// - The blacklist prevents dangerous commands (rm, shutdown, reboot, etc).
+// - Debug profiles may include extra arguments for troubleshooting.
+//
+// Edit with care. See project docs for details.
+// -----------------------------------------------------------------------------
+
 {
   "servers": {
     "ipr-rpi-dev-ssh": {
-      "command": "powershell",
+      "command": "npx",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
-        "-Profile", "dev",
-        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*"
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host", "ipr-dev-pi4",
+        "--port", "22",
+        "--username", "copilotdiag",
+        "--privateKey", "~/.ssh/copilotdiag_rpi",
+        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
       ]
     },
-    "ipr-rpi-prod-ssh": {
-      "command": "powershell",
+    "ipr-rpi-dev-ssh-debug": {
+      "command": "node",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
-        "-Profile", "prod",
-        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*"
+        "D:\\mcp\\ssh-mcp\\node_modules\\@fangjunjie\\ssh-mcp-server\\build\\index.js",
+        "--host", "ipr-dev-pi4",
+        "--port", "22",
+        "--username", "copilotdiag",
+        "--privateKey", "~/.ssh/copilotdiag_rpi",
+        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
+      ],
+      "dev": {
+        "debug": { "type": "node" }
+      }
+    },
+     "ipr-rpi-prod-ssh": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host", "ipr-prod-zero2",
+        "--port", "22",
+        "--username", "copilotdiag",
+        "--privateKey", "~/.ssh/copilotdiag_rpi",
+        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
       ]
     }
   }
 }
 "@ | Out-File -Encoding utf8 -Force $mcpJson
 
+
 Write-Ok "VS Code MCP configuration written"
 Write-Host ""
+
+# ------------------------------------------------------------------
+# Update MCP config with whitelist for allowed scripts
+# ------------------------------------------------------------------
+Write-Info "Updating MCP config with whitelist for allowed scripts..."
+$Whitelist = & (Join-Path $ScriptDir 'gen_mcp_whitelist.ps1')
+Write-Info "Generated whitelist: $Whitelist"
+
+if (Test-Path $mcpJson) {
+  $mcpObj = Get-Content $mcpJson -Raw | ConvertFrom-Json
+  $servers = $mcpObj.servers
+  foreach ($srv in $servers.PSObject.Properties) {
+    $args = $srv.Value.args
+    if ($args -is [System.Collections.IList]) {
+      $isFangjunjie = $args -contains "@fangjunjie/ssh-mcp-server" -or ($args | Where-Object { $_ -like "*ssh-mcp-server*" })
+      if ($isFangjunjie) {
+        $hasWhitelist = $false
+        for ($i=0; $i -lt $args.Count; $i++) {
+          if ($args[$i] -eq "--whitelist") {
+            $args[$i+1] = $Whitelist
+            $hasWhitelist = $true
+            break
+          }
+        }
+        if (-not $hasWhitelist) {
+          $args += "--whitelist"
+          $args += $Whitelist
+        }
+        $srv.Value.args = $args
+      }
+    }
+  }
+  $mcpObj | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $mcpJson
+  Write-Ok "MCP config updated with whitelist."
+  Write-Host ""
+}
 
 # ------------------------------------------------------------------
 # Connectivity test

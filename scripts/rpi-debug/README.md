@@ -16,7 +16,35 @@ EOF
 
 # IPR Keyboard – Remote Diagnostic & Recovery SOP (scripts/rpi-debug)
 
+
 This directory contains the **diagnostic and recovery scripts** for safe, auditable troubleshooting of Bluetooth HID pairing and stack issues on Raspberry Pi. These tools are designed for both manual and **remote execution via GitHub Copilot (MCP agent mode)**, enabling bounded, repeatable diagnostics and recovery with minimal risk.
+
+## Script Overview
+
+### Top-level diagnostic scripts (installed to /usr/local/bin on the Pi):
+
+- **dbg_stack_status.sh** — Fast health check of the full Bluetooth stack
+- **dbg_diag_bundle.sh** — Collects a full system/service/log snapshot for diagnostics
+- **dbg_pairing_capture.sh <seconds>** — Captures a bounded pairing session (btmon + journals)
+- **dbg_bt_restart.sh** — Safely restarts the Bluetooth stack and related services
+- **dbg_bt_soft_reset.sh** — Performs a conservative Bluetooth adapter reset
+- **dbg_bt_bond_wipe.sh <MAC>** — (Destructive) Removes a specific Bluetooth bond (explicit confirmation required)
+- **dbg_deploy.sh** — Updates the automation clone and restarts services
+
+All these scripts are designed to be called directly or via the MCP server for remote diagnostics. Only these are allowed in the Copilot sudoers whitelist.
+
+### Tools subfolder (scripts/rpi-debug/tools)
+
+This folder contains PowerShell scripts for Windows-side setup, configuration, and integration with the Copilot/MCP remote diagnostic workflow:
+
+- **dbg_common.ps1** — Shared environment/configuration for all PowerShell scripts in this folder
+- **setup_ipr_mcp.ps1** — Installs prerequisites, prepares SSH access, generates SSH keys, writes `.vscode/mcp.json`, and calls `gen_mcp_whitelist.ps1` to update the whitelist for allowed scripts
+- **setup_pc_copilot_dbg.ps1** — Prepares the Windows PC for Copilot diagnostics (directories, config, docs)
+- **gen_mcp_whitelist.ps1** — Scans the `scripts/rpi-debug` folder for all allowed diagnostic scripts and generates a comma-separated whitelist string for use as the `--whitelist` argument in MCP server configuration
+
+All PowerShell scripts import `dbg_common.ps1` for shared values (hostnames, repo paths, service names, etc.).
+
+---
 
 ---
 
@@ -46,33 +74,33 @@ All diagnostics and restarts operate on the full stack, not individual services.
 └──────────────────────────────────────────┼──────────────────────┘
                                            │ SSH over MCP
                                            │
-┌──────────────────────────────────────────▼──────────────────────┐
-│                    Raspberry Pi 4 Target                        │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  Diagnostic Scripts (/usr/local/bin/)                   │    │
-│  │                                                         │    │
-│  │  • dbg_deploy.sh          - Deploy & restart service    │    │
-│  │  • dbg_diag_bundle.sh     - System diagnostics          │    │
-│  │  • dbg_pairing_capture.sh - Capture pairing sessions    │    │
-│  │  • dbg_bt_restart.sh      - Safe Bluetooth service restart        │    │
-│  │  • dbg_bt_soft_reset.sh   - Conservative BT reset       │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                            │                                    │
-│                            ▼                                    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │  Diagnostic Output (/var/log/ipr/)                      │    │
-│  │                                                         │    │
-│  │  • pairing_TIMESTAMP/ - Captured pairing sessions       │    │
-│  │    - btmon.txt                                          │    │
-│  │    - journal_bluetooth.txt                              │    │
-│  │    - journal_service.txt                                │    │
-│  │    - snapshot_before.txt                                │    │
-│  │    - snapshot_after.txt                                 │    │
-│  │    - highlights.txt                                     │    │
-│  │  • latest -> (symlink to most recent capture)           │    │
-│  └─────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────▼──────────────────────────┐
+│                    Raspberry Pi 4 Target                            │
+│                                                                     │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │  Diagnostic Scripts (/usr/local/bin/)                      │     │
+│  │                                                            │     │
+│  │  • dbg_deploy.sh          - Deploy & restart service       │     │
+│  │  • dbg_diag_bundle.sh     - System diagnostics             │     │
+│  │  • dbg_pairing_capture.sh - Capture pairing sessions       │     │
+│  │  • dbg_bt_restart.sh      - Safe Bluetooth service restart │     │
+│  │  • dbg_bt_soft_reset.sh   - Conservative BT reset          │     │
+│  └────────────────────────────────────────────────────────────┘     │
+│                            │                                        │
+│                            ▼                                        │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │  Diagnostic Output (/var/log/ipr/)                         │     │
+│  │                                                            │     │
+│  │  • pairing_TIMESTAMP/ - Captured pairing sessions          │     │
+│  │    - btmon.txt                                             │     │
+│  │    - journal_bluetooth.txt                                 │     │
+│  │    - journal_service.txt                                   │     │
+│  │    - snapshot_before.txt                                   │     │
+│  │    - snapshot_after.txt                                    │     │
+│  │    - highlights.txt                                        │     │
+│  │  • latest -> (symlink to most recent capture)              │     │
+│  └────────────────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 2. Prerequisites
@@ -194,17 +222,18 @@ Requires explicit MAC, double confirmation, and logs to `/var/log/ipr/latest_bon
 
 ---
 
-## 10. Updating or Adding dbg_* Scripts
+
+## 10. Updating or Adding Diagnostic Scripts
 
 **To update:**
-1. Edit `scripts/rpi-debug/dbg_<name>.sh`
-2. Ensure `/etc/ipr_dbg.env` is sourced and output is bounded
+1. Edit `scripts/rpi-debug/dbg_<name>.sh` (for Pi-side diagnostics) or `scripts/rpi-debug/tools/*.ps1` (for Windows-side setup)
+2. Ensure `/etc/ipr_dbg.env` is sourced and output is bounded (for Pi-side scripts)
 3. Commit and push
 4. On RPi: `sudo scripts/rpi-debug/install_dbg_tools.sh`
 
 **To add:**
-1. Create new script under `scripts/rpi-debug/`
-2. Update `install_dbg_tools.sh` (install + sudoers)
+1. Create new script under `scripts/rpi-debug/` (for Pi) or `scripts/rpi-debug/tools/` (for Windows)
+2. For Pi-side scripts, update `install_dbg_tools.sh` (install + sudoers)
 3. Commit and push
 4. Re-run installer on RPi
 

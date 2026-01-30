@@ -1,0 +1,41 @@
+// This configuration file defines remote server profiles for use with a custom command processor.
+// Each server entry specifies the command to run (here, PowerShell) and its arguments.
+// Arguments include script path, profile type (dev/prod), command blacklist (to prevent dangerous operations), and optional debug mode.
+// The blacklist uses regular expressions to block commands like 'rm', 'shutdown', and 'reboot' for safety.
+// "-DebugMode" argument is included for the development profile to enable debugging of the MCP node process.
+{
+  "servers": {
+    "ipr-rpi-dev-ssh-old": {
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
+        "-ServerName", "ipr-rpi-dev-ssh",
+        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*"
+      ]
+    },
+    "ipr-rpi-dev-ssh-new": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host", "ipr-dev-pi4",
+        "--port", "22",
+        "--username", "copilotdiag",
+        "--privateKey", "~/.ssh/copilotdiag_rpi",
+        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
+      ]
+    },
+    "ipr-rpi-prod-ssh": {
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "D:\\\\mcp\\\\ssh-mcp\\\\run_ssh_mcp.ps1",
+        "-ServerName", "ipr-rpi-prod-ssh",
+        "-Blacklist", "^rm .*,^shutdown.*,^reboot.*"
+      ]
+    }
+  }
+}

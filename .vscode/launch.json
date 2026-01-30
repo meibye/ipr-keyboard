@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "PowerShell: Launch with Args",
+      "type": "PowerShell",
+      "request": "launch",
+      "script": "${workspaceFolder}/your_script.ps1",
+      "args": ["param1", "param2"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "PowerShell: Attach",
+      "type": "PowerShell",
+      "request": "attach"
+    },
+    {
+      "name": "Node.js: Launch MCP JS",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/your_js_entry.js",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Node.js: Attach",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true
+    }
+  ]
+}
