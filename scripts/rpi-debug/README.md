@@ -1,19 +1,3 @@
-
-copilotdiag ALL=(root) NOPASSWD: \
-  /usr/local/bin/dbg_deploy.sh, \
-  /usr/local/bin/dbg_diag_bundle.sh, \
-  /usr/local/bin/dbg_pairing_capture.sh *, \
-  /usr/local/bin/dbg_bt_restart.sh, \
-  /usr/local/bin/dbg_bt_soft_reset.sh, \
-  /usr/bin/systemctl restart bluetooth, \
-  /usr/bin/systemctl restart bt_hid_ble.service, \
-  /usr/bin/systemctl stop bt_hid_ble.service, \
-  /usr/bin/systemctl start bt_hid_ble.service, \
-  /usr/bin/journalctl -u bluetooth *, \
-  /usr/bin/journalctl -u bt_hid_ble.service *, \
-  /usr/bin/btmgmt *
-EOF
-
 # IPR Keyboard – Remote Diagnostic & Recovery SOP (scripts/rpi-debug)
 
 

@@ -139,30 +139,29 @@ chmod 0644 "$DBG_ENV"
 # -----------------------------
 # Configure sudoers whitelist
 # -----------------------------
-cat > "$SUDOERS_FILE" <<EOF
-${COPILOT_USER} ALL=(root) NOPASSWD: \
-  /usr/local/bin/dbg_deploy.sh, \
-  /usr/local/bin/dbg_diag_bundle.sh, \
-  /usr/local/bin/dbg_pairing_capture.sh *, \
-  /usr/local/bin/dbg_bt_restart.sh, \
-  /usr/local/bin/dbg_bt_soft_reset.sh, \
-  /usr/local/bin/dbg_bt_bond_wipe.sh *, \
-  /usr/local/bin/dbg_stack_status.sh, \
-  /usr/bin/systemctl restart bluetooth, \
-  /usr/bin/systemctl start bluetooth, \
-  /usr/bin/systemctl stop bluetooth, \
-  /usr/bin/systemctl restart ${AGENT_SERVICE}, \
-  /usr/bin/systemctl start ${AGENT_SERVICE}, \
-  /usr/bin/systemctl stop ${AGENT_SERVICE}, \
-  /usr/bin/systemctl restart ${BLE_SERVICE}, \
-  /usr/bin/systemctl start ${BLE_SERVICE}, \
-  /usr/bin/systemctl stop ${BLE_SERVICE}, \
-  /usr/bin/journalctl -u bluetooth *, \
-  /usr/bin/journalctl -u ${AGENT_SERVICE} *, \
-  /usr/bin/journalctl -u ${BLE_SERVICE} *, \
-  /usr/bin/btmgmt *
-EOF
+# Configure sudoers whitelist from external list for maintainability
+# -----------------------------
+SUDOERS_LIST_FILE="$SCRIPT_DIR/dbg_sudoers_list.txt"
+if [[ ! -f "$SUDOERS_LIST_FILE" ]]; then
+  echo "ERROR: Missing sudoers list file: $SUDOERS_LIST_FILE" >&2
+  exit 1
+fi
 
+# Read, expand variables, and join with commas
+SUDOERS_CMDS=()
+while IFS= read -r line; do
+  [[ -z "$line" || "$line" =~ ^# ]] && continue
+  # Expand variables in each line
+  eval "expanded=\"$line\""
+  SUDOERS_CMDS+=("$expanded")
+done < "$SUDOERS_LIST_FILE"
+
+{
+  echo -n "${COPILOT_USER} ALL=(root) NOPASSWD: \\
+
+  printf '%s, \\n  ' "${SUDOERS_CMDS[@]}" | sed 's/, \\n  $//'
+  echo
+} > "$SUDOERS_FILE"
 visudo -cf "$SUDOERS_FILE"
 
 # -----------------------------

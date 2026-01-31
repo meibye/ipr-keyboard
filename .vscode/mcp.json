@@ -16,7 +16,7 @@
         "--blacklist",
         "^rm .*,^shutdown.*,^reboot.*",
         "--whitelist",
-        "/usr/local/bin/dbg_bt_bond_wipe.sh,/usr/local/bin/dbg_bt_restart.sh,/usr/local/bin/dbg_bt_soft_reset.sh,/usr/local/bin/dbg_deploy.sh,/usr/local/bin/dbg_diag_bundle.sh,/usr/local/bin/dbg_pairing_capture.sh,/usr/local/bin/dbg_stack_status.sh,/usr/local/bin/install_dbg_tools.sh"
+        ".*dbg_(dbg_bt_bond_wipe|dbg_bt_bond_wipe|dbg_bt_restart|dbg_bt_soft_reset|dbg_deploy|dbg_diag_bundle|dbg_pairing_capture|dbg_pairing_capture|dbg_stack_status),systemctl restart bluetooth,systemctl start bluetooth,systemctl stop bluetooth,systemctl restart ${AGENT_SERVICE},systemctl start ${AGENT_SERVICE},systemctl stop ${AGENT_SERVICE},systemctl restart ${BLE_SERVICE},systemctl start ${BLE_SERVICE},systemctl stop ${BLE_SERVICE},journalctl -u bluetooth *,journalctl -u ${AGENT_SERVICE} *,journalctl -u ${BLE_SERVICE} *,btmgmt *"
       ]
     },
     "ipr-rpi-dev-ssh-debug": {
@@ -34,7 +34,7 @@
         "--blacklist",
         "^rm .*,^shutdown.*,^reboot.*",
         "--whitelist",
-        "/usr/local/bin/dbg_bt_bond_wipe.sh,/usr/local/bin/dbg_bt_restart.sh,/usr/local/bin/dbg_bt_soft_reset.sh,/usr/local/bin/dbg_deploy.sh,/usr/local/bin/dbg_diag_bundle.sh,/usr/local/bin/dbg_pairing_capture.sh,/usr/local/bin/dbg_stack_status.sh,/usr/local/bin/install_dbg_tools.sh"
+        ".*dbg_(dbg_bt_bond_wipe|dbg_bt_bond_wipe|dbg_bt_restart|dbg_bt_soft_reset|dbg_deploy|dbg_diag_bundle|dbg_pairing_capture|dbg_pairing_capture|dbg_stack_status),systemctl restart bluetooth,systemctl start bluetooth,systemctl stop bluetooth,systemctl restart ${AGENT_SERVICE},systemctl start ${AGENT_SERVICE},systemctl stop ${AGENT_SERVICE},systemctl restart ${BLE_SERVICE},systemctl start ${BLE_SERVICE},systemctl stop ${BLE_SERVICE},journalctl -u bluetooth *,journalctl -u ${AGENT_SERVICE} *,journalctl -u ${BLE_SERVICE} *,btmgmt *"
       ],
       "dev": {
         "debug": {
@@ -58,7 +58,7 @@
         "--blacklist",
         "^rm .*,^shutdown.*,^reboot.*",
         "--whitelist",
-        "/usr/local/bin/dbg_bt_bond_wipe.sh,/usr/local/bin/dbg_bt_restart.sh,/usr/local/bin/dbg_bt_soft_reset.sh,/usr/local/bin/dbg_deploy.sh,/usr/local/bin/dbg_diag_bundle.sh,/usr/local/bin/dbg_pairing_capture.sh,/usr/local/bin/dbg_stack_status.sh,/usr/local/bin/install_dbg_tools.sh"
+        ".*dbg_(dbg_bt_bond_wipe|dbg_bt_bond_wipe|dbg_bt_restart|dbg_bt_soft_reset|dbg_deploy|dbg_diag_bundle|dbg_pairing_capture|dbg_pairing_capture|dbg_stack_status),systemctl restart bluetooth,systemctl start bluetooth,systemctl stop bluetooth,systemctl restart ${AGENT_SERVICE},systemctl start ${AGENT_SERVICE},systemctl stop ${AGENT_SERVICE},systemctl restart ${BLE_SERVICE},systemctl start ${BLE_SERVICE},systemctl stop ${BLE_SERVICE},journalctl -u bluetooth *,journalctl -u ${AGENT_SERVICE} *,journalctl -u ${BLE_SERVICE} *,btmgmt *"
       ]
     }
   }

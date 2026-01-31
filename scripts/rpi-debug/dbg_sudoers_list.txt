@@ -1,0 +1,22 @@
+# List of allowed sudoers commands for Copilot/MCP diagnostics
+# Use shell variable expansion for AGENT_SERVICE and BLE_SERVICE as needed
+/usr/local/bin/dbg_deploy.sh
+/usr/local/bin/dbg_diag_bundle.sh
+/usr/local/bin/dbg_pairing_capture.sh *
+/usr/local/bin/dbg_bt_restart.sh
+/usr/local/bin/dbg_bt_soft_reset.sh
+/usr/local/bin/dbg_bt_bond_wipe.sh *
+/usr/local/bin/dbg_stack_status.sh
+/usr/bin/systemctl restart bluetooth
+/usr/bin/systemctl start bluetooth
+/usr/bin/systemctl stop bluetooth
+/usr/bin/systemctl restart ${AGENT_SERVICE}
+/usr/bin/systemctl start ${AGENT_SERVICE}
+/usr/bin/systemctl stop ${AGENT_SERVICE}
+/usr/bin/systemctl restart ${BLE_SERVICE}
+/usr/bin/systemctl start ${BLE_SERVICE}
+/usr/bin/systemctl stop ${BLE_SERVICE}
+/usr/bin/journalctl -u bluetooth *
+/usr/bin/journalctl -u ${AGENT_SERVICE} *
+/usr/bin/journalctl -u ${BLE_SERVICE} *
+/usr/bin/btmgmt *
