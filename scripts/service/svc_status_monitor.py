@@ -28,11 +28,7 @@ import time
 # (unit, description)
 SERVICES = [
     ("ipr_keyboard.service", "Main app: USB→BT bridge, web API, config, logs"),
-    ("bt_hid_uinput.service", "Classic BT HID backend (uinput, Linux only)"),
-    ("bt_hid_agent.service", "Classic agent (legacy, not default)"),
-    ("bt_hid_daemon.service", "Legacy/alt HID daemon (rarely used)"),
     ("bt_hid_ble.service", "BLE HID backend (GATT, modern devices)"),
-    ("bt_hid_agent_unified.service", "Pairing/authorization agent (all backends)"),
     ("ipr_backend_manager.service", "Switches/monitors backend daemons"),
     # Standard Bluetooth stack services
     ("bluetooth.service", "BlueZ Bluetooth stack daemon"),
