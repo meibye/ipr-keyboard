@@ -114,48 +114,36 @@ fi
 usermod -aG bluetooth,adm "$COPILOT_USER" || true
 
 # -----------------------------------------------------------------------------
-
-# (MCP server now enforces allowed scripts via its own whitelist. SSH forced-command guard and allowlist are no longer used.)
-
-  install -m 0600 -o "$COPILOT_USER" -g "$COPILOT_USER" /dev/null "$AUTH_KEYS"
-fi
-
-append_guarded_key() {
+# Run the dbg_tools installer script
+# -----------------------------------------------------------------------------
+append_key() {
   local pubkey_line="$1"
 
   pubkey_line="$(echo "$pubkey_line" | tr -d '\r' | sed -e 's/^ *//' -e 's/ *$//')"
   [[ -n "$pubkey_line" ]] || die "Empty public key line"
 
-  # Check if the key is already present (guarded or unguarded)
+  # Check if the key is already present
   if grep -Fq "$pubkey_line" "$AUTH_KEYS"; then
-    if grep -Fq "command=\"/usr/local/bin/ipr_mcp_guard.sh\"" "$AUTH_KEYS" | grep -Fq "$pubkey_line"; then
-      warn "Public key already present and guarded in $AUTH_KEYS"
-      return 0
-    else
-      warn "Public key present but not guarded in $AUTH_KEYS, updating to guarded"
-      # Remove unguarded line(s)
-      sed -i "\|$pubkey_line|d" "$AUTH_KEYS"
-      # Continue to add guarded entry below
-    fi
+    warn "Public key already present in $AUTH_KEYS"
+    return 0
   fi
 
-  local prefix='command="/usr/local/bin/ipr_mcp_guard.sh",no-pty,no-port-forwarding,no-agent-forwarding '
-  echo "${prefix}${pubkey_line}" >> "$AUTH_KEYS"
+  echo "$pubkey_line" >> "$AUTH_KEYS"
   chown "$COPILOT_USER:$COPILOT_USER" "$AUTH_KEYS"
   chmod 0600 "$AUTH_KEYS"
-  log "Added guarded key entry to $AUTH_KEYS"
+  log "Added key entry to $AUTH_KEYS"
 }
 
 if [[ -n "$COPILOT_PUBKEY_FILE" ]]; then
   if [[ -f "$COPILOT_PUBKEY_FILE" ]]; then
     log "Installing public key from COPILOT_PUBKEY_FILE=$COPILOT_PUBKEY_FILE"
-    append_guarded_key "$(cat "$COPILOT_PUBKEY_FILE")"
+    append_key "$(cat "$COPILOT_PUBKEY_FILE")"
   else
     die "COPILOT_PUBKEY_FILE is set but file not found: $COPILOT_PUBKEY_FILE"
   fi
 elif [[ -f "/tmp/copilot_pubkey.txt" ]]; then
   log "Detected transferred public key at /tmp/copilot_pubkey.txt"
-  append_guarded_key "$(cat /tmp/copilot_pubkey.txt)"
+  append_key "$(cat /tmp/copilot_pubkey.txt)"
   log "Public key from /tmp/copilot_pubkey.txt installed."
 else
   echo
@@ -163,7 +151,7 @@ else
   warn "Paste ONE public key line now (starting with 'copilotdiag' or similar). It will be stored with a forced-command guard."
   echo -n "> "
   read -r PUBKEY_LINE
-  append_guarded_key "$PUBKEY_LINE"
+  append_key "$PUBKEY_LINE"
 fi
 
 echo
