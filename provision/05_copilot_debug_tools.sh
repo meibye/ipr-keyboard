@@ -168,12 +168,6 @@ else
   append_key "$PUBKEY_LINE"
 fi
 
-echo
-log "Copilot/MCP SSH access is guarded by: /usr/local/bin/ipr_mcp_guard.sh"
-log "Allowlist: $ALLOWLIST"
-log "Guard log: $GUARD_LOG"
-echo
-
 # -----------------------------------------------------------------------------
 # Final summary
 # -----------------------------------------------------------------------------
