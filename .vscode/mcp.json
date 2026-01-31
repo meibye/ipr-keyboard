@@ -1,17 +1,3 @@
-// -----------------------------------------------------------------------------
-// mcp.json - MCP Remote Server Profile Configuration
-//
-// This file defines remote server profiles for the Model Context Protocol (MCP)
-// integration in VS Code. It specifies SSH connection details, command arguments,
-// and command blacklists for safe remote execution (e.g., for Copilot diagnostics).
-//
-// - Each profile includes host, port, username, and private key.
-// - The blacklist prevents dangerous commands (rm, shutdown, reboot, etc).
-// - Debug profiles may include extra arguments for troubleshooting.
-//
-// Edit with care. See project docs for details.
-// -----------------------------------------------------------------------------
-
 {
   "servers": {
     "ipr-rpi-dev-ssh": {
@@ -19,37 +5,60 @@
       "args": [
         "-y",
         "@fangjunjie/ssh-mcp-server",
-        "--host", "ipr-dev-pi4",
-        "--port", "22",
-        "--username", "copilotdiag",
-        "--privateKey", "~/.ssh/copilotdiag_rpi",
-        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
+        "--host",
+        "ipr-dev-pi4",
+        "--port",
+        "22",
+        "--username",
+        "copilotdiag",
+        "--privateKey",
+        "~/.ssh/copilotdiag_rpi",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*",
+        "--whitelist",
+        "/usr/local/bin/dbg_bt_bond_wipe.sh,/usr/local/bin/dbg_bt_restart.sh,/usr/local/bin/dbg_bt_soft_reset.sh,/usr/local/bin/dbg_deploy.sh,/usr/local/bin/dbg_diag_bundle.sh,/usr/local/bin/dbg_pairing_capture.sh,/usr/local/bin/dbg_stack_status.sh,/usr/local/bin/install_dbg_tools.sh"
       ]
     },
     "ipr-rpi-dev-ssh-debug": {
       "command": "node",
       "args": [
         "D:\\mcp\\ssh-mcp\\node_modules\\@fangjunjie\\ssh-mcp-server\\build\\index.js",
-        "--host", "ipr-dev-pi4",
-        "--port", "22",
-        "--username", "copilotdiag",
-        "--privateKey", "~/.ssh/copilotdiag_rpi",
-        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
+        "--host",
+        "ipr-dev-pi4",
+        "--port",
+        "22",
+        "--username",
+        "copilotdiag",
+        "--privateKey",
+        "~/.ssh/copilotdiag_rpi",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*",
+        "--whitelist",
+        "/usr/local/bin/dbg_bt_bond_wipe.sh,/usr/local/bin/dbg_bt_restart.sh,/usr/local/bin/dbg_bt_soft_reset.sh,/usr/local/bin/dbg_deploy.sh,/usr/local/bin/dbg_diag_bundle.sh,/usr/local/bin/dbg_pairing_capture.sh,/usr/local/bin/dbg_stack_status.sh,/usr/local/bin/install_dbg_tools.sh"
       ],
       "dev": {
-        "debug": { "type": "node" }
+        "debug": {
+          "type": "node"
+        }
       }
     },
-     "ipr-rpi-prod-ssh": {
+    "ipr-rpi-prod-ssh": {
       "command": "npx",
       "args": [
         "-y",
         "@fangjunjie/ssh-mcp-server",
-        "--host", "ipr-prod-zero2",
-        "--port", "22",
-        "--username", "copilotdiag",
-        "--privateKey", "~/.ssh/copilotdiag_rpi",
-        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
+        "--host",
+        "ipr-prod-zero2",
+        "--port",
+        "22",
+        "--username",
+        "copilotdiag",
+        "--privateKey",
+        "~/.ssh/copilotdiag_rpi",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*",
+        "--whitelist",
+        "/usr/local/bin/dbg_bt_bond_wipe.sh,/usr/local/bin/dbg_bt_restart.sh,/usr/local/bin/dbg_bt_soft_reset.sh,/usr/local/bin/dbg_deploy.sh,/usr/local/bin/dbg_diag_bundle.sh,/usr/local/bin/dbg_pairing_capture.sh,/usr/local/bin/dbg_stack_status.sh,/usr/local/bin/install_dbg_tools.sh"
       ]
     }
   }
