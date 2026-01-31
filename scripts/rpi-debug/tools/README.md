@@ -22,7 +22,7 @@ This folder contains PowerShell scripts for Windows-side diagnostics, setup, and
   - Installs prerequisites and sets up the SSH MCP server locally under `D:\mcp\ssh-mcp`.
   - Preconfigured for repo path, RPi hostname, and diagnostics user.
   - Generates SSH keys and writes MCP config files for Copilot integration.
-  - Calls `gen_mcp_whitelist.ps1` to generate a whitelist of allowed scripts and updates `.vscode/mcp.json` accordingly.
+  - Calls `gen_mcp_whitelist.ps1` to generate a whitelist of allowed scripts for the MCP server and updates `.vscode/mcp.json` accordingly. The whitelist is enforced by the MCP server, replacing any previous allowlist or guard script approach.
 
 - **setup_pc_copilot_dbg.ps1**
   - Prepares the Windows PC for Copilot diagnostics.

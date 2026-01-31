@@ -39,11 +39,12 @@ Remote commands are executed through an **SSH-based MCP server**:
 - Profile selection: `dev` (ipr-dev-pi4) or `prod` (ipr-prod-zero2)
 
 
-On the Raspberry Pi, the SSH key is installed with a **forced-command guard** (`ipr_mcp_guard.sh`) and an allowlist.
+
+On the Raspberry Pi, remote commands are executed via the **MCP server** with a strict **whitelist** of allowed scripts.
 This means:
 - You **cannot** run arbitrary shell pipelines, `&&`, `|`, redirects, or multi-command scripts.
-- You **must** use the approved `dbg_*` scripts listed under “Capabilities”.
-- If you need a new command, you must ask explicitly and describe exactly what to add to the allowlist + sudoers.
+- You **must** use only the scripts explicitly whitelisted in the MCP server configuration (see “Capabilities”).
+- If you need a new command, you must ask explicitly and describe exactly what to add to the MCP whitelist and sudoers.
 
 ## Hard constraints (must follow)
 1. Plan-first: Always produce a stepwise plan before executing anything.

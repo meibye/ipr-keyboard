@@ -8,8 +8,7 @@
 #   - Dedicated Copilot/MCP diagnostics user
 #   - Separate automation clone (safe git reset --hard)
 #   - dbg_* tooling installed into /usr/local/bin
-#   - sudoers whitelist for controlled diagnostics
-#   - SSH forced-command guard + allowlist (ipr_mcp_guard.sh)
+#   - sudoers whitelist for controlled diagnostics (MCP server whitelist)
 #
 # Must be run as root.
 #
@@ -73,14 +72,12 @@ COPILOT_PUBKEY_FILE="${COPILOT_PUBKEY_FILE:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 INSTALLER="$REPO_ROOT/scripts/rpi-debug/install_dbg_tools.sh"
-MCP_GUARD_SRC="$REPO_ROOT/provision/ipr_mcp_guard.sh"
 
 require_cmd git
 require_cmd apt-get
 require_cmd visudo
 
 [[ -x "$INSTALLER" ]] || die "Missing or non-executable: $INSTALLER"
-[[ -f "$MCP_GUARD_SRC" ]] || die "Missing: $MCP_GUARD_SRC"
 
 log "Starting Copilot debug tooling setup"
 log "Using repo root: $REPO_ROOT"
@@ -117,109 +114,9 @@ fi
 usermod -aG bluetooth,adm "$COPILOT_USER" || true
 
 # -----------------------------------------------------------------------------
-# Ensure log root
-# -----------------------------------------------------------------------------
-log "Ensuring debug log root exists: $DBG_LOG_ROOT"
-mkdir -p "$DBG_LOG_ROOT"
-chown root:adm "$DBG_LOG_ROOT" || true
-chmod 2775 "$DBG_LOG_ROOT" || true
 
-# -----------------------------------------------------------------------------
-# Ensure automation clone exists (owned by COPILOT_USER)
-# -----------------------------------------------------------------------------
-log "Ensuring automation clone exists"
+# (MCP server now enforces allowed scripts via its own whitelist. SSH forced-command guard and allowlist are no longer used.)
 
-CLONE_PARENT="$(dirname "$COPILOT_REPO_DIR")"
-mkdir -p "$CLONE_PARENT"
-chown -R "$COPILOT_USER:$COPILOT_USER" "$CLONE_PARENT"
-
-if [[ ! -d "$COPILOT_REPO_DIR/.git" ]]; then
-  log "Cloning repo into $COPILOT_REPO_DIR"
-  sudo -u "$COPILOT_USER" git clone "$REPO_URL" "$COPILOT_REPO_DIR"
-else
-  log "Automation clone already exists"
-fi
-
-log "Checking out ref in automation clone"
-sudo -u "$COPILOT_USER" bash -lc "
-  set -euo pipefail
-  cd '$COPILOT_REPO_DIR'
-  git fetch --all --prune
-  git checkout '$COPILOT_GIT_REF'
-  git reset --hard 'origin/$COPILOT_GIT_REF'
-  echo 'Automation clone commit:' \$(git rev-parse --short HEAD)
-  LOCAL=\$(git rev-parse HEAD)
-  REMOTE=\$(git rev-parse origin/$COPILOT_GIT_REF)
-  if [ "\$LOCAL" = "\$REMOTE" ]; then
-    echo 'Automation clone is up to date with origin.'
-  else
-    echo 'Warning: Automation clone is NOT up to date with origin.'
-  fi
-"
-
-# -----------------------------------------------------------------------------
-# Install dbg_* tools (writes /etc/ipr_dbg.env and sudoers)
-# -----------------------------------------------------------------------------
-log "Installing dbg_* tools via installer"
-
-bash "$INSTALLER" \
-  --ble-service "$DBG_BLE_SERVICE_UNIT" \
-  --agent-service "$DBG_AGENT_SERVICE_UNIT" \
-  --hci "$BT_HCI" \
-  --log-root "$DBG_LOG_ROOT" \
-  --copilot-user "$COPILOT_USER" \
-  --copilot-repo "$COPILOT_REPO_DIR"
-
-# -----------------------------------------------------------------------------
-# Install MCP forced-command guard + allowlist
-# -----------------------------------------------------------------------------
-log "Installing MCP SSH guard (/usr/local/bin/ipr_mcp_guard.sh)"
-install -m 0755 "$MCP_GUARD_SRC" /usr/local/bin/ipr_mcp_guard.sh
-
-
-ALLOWLIST="/etc/ipr_mcp_allowlist.conf"
-VS_ALLOWLIST="$REPO_ROOT/.vscode/mcp_allowlist.txt"
-log "Writing MCP allowlist: $ALLOWLIST"
-if [[ -f "$VS_ALLOWLIST" ]]; then
-  log "Using project allowlist from $VS_ALLOWLIST"
-  cp "$VS_ALLOWLIST" "$ALLOWLIST"
-else
-  warn "No .vscode/mcp_allowlist.txt found, using static default allowlist."
-  cat > "$ALLOWLIST" <<'EOF'
-# Allowlisted commands for MCP SSH forced-command guard (glob patterns allowed)
-# Keep this tight: prefer dbg_* wrappers over raw system/journal commands.
-
-# Diagnostics
-/usr/local/bin/dbg_stack_status.sh
-/usr/local/bin/dbg_diag_bundle.sh
-/usr/local/bin/dbg_pairing_capture.sh *
-/usr/local/bin/dbg_deploy.sh
-
-# Recovery (conservative)
-/usr/local/bin/dbg_bt_restart.sh
-/usr/local/bin/dbg_bt_soft_reset.sh
-
-# Destructive (requires explicit user approval in Copilot workflow)
-/usr/local/bin/dbg_bt_bond_wipe.sh *
-EOF
-fi
-chmod 0644 "$ALLOWLIST"
-
-# Guard log file (optional; guard will still function if log can't be written)
-GUARD_LOG="/var/log/ipr_mcp_guard.log"
-touch "$GUARD_LOG" || true
-chown root:adm "$GUARD_LOG" || true
-chmod 0664 "$GUARD_LOG" || true
-
-# -----------------------------------------------------------------------------
-# Ensure .ssh folder and authorized_keys for COPILOT_USER
-# -----------------------------------------------------------------------------
-log "Ensuring .ssh folder and authorized_keys for $COPILOT_USER"
-SSH_DIR="$(eval echo ~"$COPILOT_USER")/.ssh"
-install -d -m 0700 -o "$COPILOT_USER" -g "$COPILOT_USER" "$SSH_DIR"
-
-AUTH_KEYS="$SSH_DIR/authorized_keys"
-if [[ ! -f "$AUTH_KEYS" ]]; then
   install -m 0600 -o "$COPILOT_USER" -g "$COPILOT_USER" /dev/null "$AUTH_KEYS"
 fi
 

@@ -31,14 +31,14 @@ This directory contains the **diagnostic and recovery scripts** for safe, audita
 - **dbg_bt_bond_wipe.sh <MAC>** — (Destructive) Removes a specific Bluetooth bond (explicit confirmation required)
 - **dbg_deploy.sh** — Updates the automation clone and restarts services
 
-All these scripts are designed to be called directly or via the MCP server for remote diagnostics. Only these are allowed in the Copilot sudoers whitelist.
+All these scripts are designed to be called directly or via the MCP server for remote diagnostics. Only these are allowed in the Copilot MCP server whitelist.
 
 ### Tools subfolder (scripts/rpi-debug/tools)
 
 This folder contains PowerShell scripts for Windows-side setup, configuration, and integration with the Copilot/MCP remote diagnostic workflow:
 
 - **dbg_common.ps1** — Shared environment/configuration for all PowerShell scripts in this folder
-- **setup_ipr_mcp.ps1** — Installs prerequisites, prepares SSH access, generates SSH keys, writes `.vscode/mcp.json`, and calls `gen_mcp_whitelist.ps1` to update the whitelist for allowed scripts
+  - **setup_ipr_mcp.ps1** — Installs prerequisites, prepares SSH access, generates SSH keys, writes `.vscode/mcp.json`, and calls `gen_mcp_whitelist.ps1` to update the MCP server whitelist for allowed scripts
 - **setup_pc_copilot_dbg.ps1** — Prepares the Windows PC for Copilot diagnostics (directories, config, docs)
 - **gen_mcp_whitelist.ps1** — Scans the `scripts/rpi-debug` folder for all allowed diagnostic scripts and generates a comma-separated whitelist string for use as the `--whitelist` argument in MCP server configuration
 
