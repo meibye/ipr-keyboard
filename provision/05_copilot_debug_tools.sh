@@ -114,6 +114,20 @@ fi
 usermod -aG bluetooth,adm "$COPILOT_USER" || true
 
 # -----------------------------------------------------------------------------
+# Ensure .ssh folder and authorized_keys for $COPILOT_USER
+# -----------------------------------------------------------------------------
+log "Ensuring .ssh folder and authorized_keys for $COPILOT_USER"
+SSH_DIR="/home/$COPILOT_USER/.ssh"
+AUTH_KEYS="/home/$COPILOT_USER/.ssh/authorized_keys"
+install -d -m 0700 -o "$COPILOT_USER" -g "$COPILOT_USER" "$SSH_DIR"
+if [[ ! -f "$AUTH_KEYS" ]]; then
+  install -m 0600 -o "$COPILOT_USER" -g "$COPILOT_USER" /dev/null "$AUTH_KEYS"
+else
+  chown "$COPILOT_USER:$COPILOT_USER" "$AUTH_KEYS"
+  chmod 0600 "$AUTH_KEYS"
+fi
+
+# -----------------------------------------------------------------------------
 # Run the dbg_tools installer script
 # -----------------------------------------------------------------------------
 append_key() {
