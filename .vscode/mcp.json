@@ -10,13 +10,11 @@
         "--port",
         "22",
         "--username",
-        "copilotdiag",
+        "meibye",
         "--privateKey",
-        "~/.ssh/copilotdiag_rpi",
+        "~/.ssh/id_ed25519_ipr_kb",
         "--blacklist",
-        "^rm .*,^shutdown.*,^reboot.*",
-        "--whitelist",
-        ".*dbg_(dbg_bt_bond_wipe|dbg_bt_bond_wipe|dbg_bt_restart|dbg_bt_soft_reset|dbg_deploy|dbg_diag_bundle|dbg_pairing_capture|dbg_pairing_capture|dbg_stack_status),systemctl restart bluetooth,systemctl start bluetooth,systemctl stop bluetooth,systemctl restart ${AGENT_SERVICE},systemctl start ${AGENT_SERVICE},systemctl stop ${AGENT_SERVICE},systemctl restart ${BLE_SERVICE},systemctl start ${BLE_SERVICE},systemctl stop ${BLE_SERVICE},journalctl -u bluetooth *,journalctl -u ${AGENT_SERVICE} *,journalctl -u ${BLE_SERVICE} *,btmgmt *"
+        "^rm .*,^shutdown.*,^reboot.*"
       ]
     },
     "ipr-rpi-dev-ssh-debug": {
@@ -34,7 +32,7 @@
         "--blacklist",
         "^rm .*,^shutdown.*,^reboot.*",
         "--whitelist",
-        ".*dbg_(dbg_bt_bond_wipe|dbg_bt_bond_wipe|dbg_bt_restart|dbg_bt_soft_reset|dbg_deploy|dbg_diag_bundle|dbg_pairing_capture|dbg_pairing_capture|dbg_stack_status),systemctl restart bluetooth,systemctl start bluetooth,systemctl stop bluetooth,systemctl restart ${AGENT_SERVICE},systemctl start ${AGENT_SERVICE},systemctl stop ${AGENT_SERVICE},systemctl restart ${BLE_SERVICE},systemctl start ${BLE_SERVICE},systemctl stop ${BLE_SERVICE},journalctl -u bluetooth *,journalctl -u ${AGENT_SERVICE} *,journalctl -u ${BLE_SERVICE} *,btmgmt *"
+        "(?:/usr/local/bin/)?dbg_deploy\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_diag_bundle\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_pairing_capture\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_bt_restart\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_soft_reset\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_bond_wipe\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_stack_status\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?journalctl\\ -u\\ bluetooth(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_ble\\.service\"(\\s+.*)?$,(?:/usr/bin/)?btmgmt(\\s+.*)?$"
       ],
       "dev": {
         "debug": {
@@ -58,7 +56,7 @@
         "--blacklist",
         "^rm .*,^shutdown.*,^reboot.*",
         "--whitelist",
-        ".*dbg_(dbg_bt_bond_wipe|dbg_bt_bond_wipe|dbg_bt_restart|dbg_bt_soft_reset|dbg_deploy|dbg_diag_bundle|dbg_pairing_capture|dbg_pairing_capture|dbg_stack_status),systemctl restart bluetooth,systemctl start bluetooth,systemctl stop bluetooth,systemctl restart ${AGENT_SERVICE},systemctl start ${AGENT_SERVICE},systemctl stop ${AGENT_SERVICE},systemctl restart ${BLE_SERVICE},systemctl start ${BLE_SERVICE},systemctl stop ${BLE_SERVICE},journalctl -u bluetooth *,journalctl -u ${AGENT_SERVICE} *,journalctl -u ${BLE_SERVICE} *,btmgmt *"
+        "(?:/usr/local/bin/)?dbg_deploy\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_diag_bundle\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_pairing_capture\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_bt_restart\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_soft_reset\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_bond_wipe\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_stack_status\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?journalctl\\ -u\\ bluetooth(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_ble\\.service\"(\\s+.*)?$,(?:/usr/bin/)?btmgmt(\\s+.*)?$"
       ]
     }
   }

@@ -28,8 +28,8 @@ import time
 # (unit, description)
 SERVICES = [
     ("ipr_keyboard.service", "Main app: USB→BT bridge, web API, config, logs"),
-    ("bt_hid_ble.service", "BLE HID backend (GATT, modern devices)"),
-    ("ipr_backend_manager.service", "Switches/monitors backend daemons"),
+    ("bt_hid_ble.service", "IPR Keyboard BLE HID Daemon"),
+    ("bt_hid_agent_unified.service", "IPR Keyboard Bluetooth Agent"),
     # Standard Bluetooth stack services
     ("bluetooth.service", "BlueZ Bluetooth stack daemon"),
     ("dbus.service", "D-Bus system message bus"),

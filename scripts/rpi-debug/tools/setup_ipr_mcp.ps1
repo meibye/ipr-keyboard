@@ -1,6 +1,6 @@
 # IPR Keyboard – MCP Setup (SSH, maintained MCP server)
 # MCP server: @fangjunjie/ssh-mcp-server
-# VERSION: 2026/01/30 19:30:17
+# VERSION: 2026/02/04 19:23:20
 #
 # This script:
 #  - Installs the maintained SSH-based MCP server locally
@@ -9,8 +9,10 @@
 
 param(
   [ValidateSet("dev","prod")]
-  [string]$Profile = "dev"
+  [string]$RpiProfile = "dev"
+  [switch]$GenerateWhitelist = $false
 )
+
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -27,9 +29,9 @@ Write-Host ""
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 . "$ScriptDir\dbg_common.ps1"
 
-Set-RpiProfile -ProfileName $Profile
+Set-RpiProfile -ProfileName $RpiProfile
 
-Write-Info "Selected RPI profile : $Profile"
+Write-Info "Selected RPI profile : $RpiProfile"
 Write-Info "Target host          : $($Global:RpiHost)"
 Write-Info "Target user          : $($Global:RpiUser)"
 Write-Info "SSH key              : $($Global:KeyPath)"
@@ -216,37 +218,43 @@ Write-Host ""
 # ------------------------------------------------------------------
 # Update MCP config with whitelist for allowed scripts
 # ------------------------------------------------------------------
-Write-Info "Updating MCP config with whitelist for allowed scripts..."
-$Whitelist = & (Join-Path $ScriptDir 'gen_mcp_whitelist.ps1')
-Write-Info "Generated whitelist: $Whitelist"
+Write-Info "Whitelist generation enabled: $($GenerateWhitelist.IsPresent)"
 
-if (Test-Path $mcpJson) {
-  $mcpObj = Get-Content $mcpJson -Raw | ConvertFrom-Json
-  $servers = $mcpObj.servers
-  foreach ($srv in $servers.PSObject.Properties) {
-    $args = $srv.Value.args
-    if ($args -is [System.Collections.IList]) {
-      $isFangjunjie = $args -contains "@fangjunjie/ssh-mcp-server" -or ($args | Where-Object { $_ -like "*ssh-mcp-server*" })
-      if ($isFangjunjie) {
-        $hasWhitelist = $false
-        for ($i=0; $i -lt $args.Count; $i++) {
-          if ($args[$i] -eq "--whitelist") {
-            $args[$i+1] = $Whitelist
-            $hasWhitelist = $true
-            break
+if ($GenerateWhitelist) {
+  Write-Info "Updating MCP config with whitelist for allowed scripts..."
+  $Whitelist = & (Join-Path $ScriptDir 'gen_mcp_whitelist.ps1')
+  Write-Info "Generated whitelist: $Whitelist"
+
+  if (Test-Path $mcpJson) {
+    $mcpObj = Get-Content $mcpJson -Raw | ConvertFrom-Json
+    $servers = $mcpObj.servers
+    foreach ($srv in $servers.PSObject.Properties) {
+      $args = $srv.Value.args
+      if ($args -is [System.Collections.IList]) {
+        $isFangjunjie = $args -contains "@fangjunjie/ssh-mcp-server" -or ($args | Where-Object { $_ -like "*ssh-mcp-server*" })
+        if ($isFangjunjie) {
+          $hasWhitelist = $false
+          for ($i=0; $i -lt $args.Count; $i++) {
+            if ($args[$i] -eq "--whitelist") {
+              $args[$i+1] = $Whitelist
+              $hasWhitelist = $true
+              break
+            }
           }
+          if (-not $hasWhitelist) {
+            $args += "--whitelist"
+            $args += $Whitelist
+          }
+          $srv.Value.args = $args
         }
-        if (-not $hasWhitelist) {
-          $args += "--whitelist"
-          $args += $Whitelist
-        }
-        $srv.Value.args = $args
       }
     }
+    $mcpObj | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $mcpJson
+    Write-Ok "MCP config updated with whitelist."
+    Write-Host ""
   }
-  $mcpObj | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 $mcpJson
-  Write-Ok "MCP config updated with whitelist."
-  Write-Host ""
+} else {
+  Write-Info "Whitelist generation skipped (default)."
 }
 
 # ------------------------------------------------------------------

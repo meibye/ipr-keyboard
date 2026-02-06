@@ -31,6 +31,7 @@ RED="\033[0;31m"
 GREEN="\033[0;32m"
 YELLOW="\033[1;33m"
 BLUE="\033[0;34m"
+LIGHTBLUE="\033[1;36m"
 RESET="\033[0m"
 
 function section() {
@@ -50,12 +51,12 @@ function err() {
 }
 
 function info() {
-  echo -e "${BLUE}ℹ $1${RESET}"
+  echo -e "${LIGHTBLUE}ℹ  $1${RESET}"
 }
 
-echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${RESET}"
-echo -e "${BLUE}║   ipr-keyboard Bluetooth Pairing Diagnostics Tool              ║${RESET}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${RESET}"
+echo -e "${LIGHTBLUE}╔════════════════════════════════════════════════════════════════╗${RESET}"
+echo -e "${LIGHTBLUE}║   ipr-keyboard Bluetooth Pairing Diagnostics Tool              ║${RESET}"
+echo -e "${LIGHTBLUE}╚════════════════════════════════════════════════════════════════╝${RESET}"
 
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
@@ -359,6 +360,6 @@ echo "  4. Monitor agent logs: sudo journalctl -u $AGENT_SERVICE -f"
 echo "  5. Watch for DisplayPasskey or RequestConfirmation events"
 
 echo ""
-echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${RESET}"
-echo -e "${BLUE}║   Diagnostics Complete                                         ║${RESET}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${RESET}"
+echo -e "${LIGHTBLUE}╔════════════════════════════════════════════════════════════════╗${RESET}"
+echo -e "${LIGHTBLUE}║   Diagnostics Complete                                         ║${RESET}"
+echo -e "${LIGHTBLUE}╚════════════════════════════════════════════════════════════════╝${RESET}"

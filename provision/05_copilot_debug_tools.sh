@@ -168,6 +168,19 @@ else
   append_key "$PUBKEY_LINE"
 fi
 
+# ----------------------------------------------------------------------
+# Run the dbg_tools installer script
+# ----------------------------------------------------------------------
+log "Running Copilot debug tools installer..."
+sudo "$INSTALLER" \
+  --ble-service-unit "$DBG_BLE_SERVICE_UNIT" \
+  --agent-service-unit "$DBG_AGENT_SERVICE_UNIT" \
+  --hci "$BT_HCI" \
+  --log-root "$DBG_LOG_ROOT" \
+  --copilot-repo "$COPILOT_REPO_DIR" \
+  --copilot-git-ref "$COPILOT_GIT_REF" \
+  --copilot-user "$COPILOT_USER"
+
 # -----------------------------------------------------------------------------
 # Final summary
 # -----------------------------------------------------------------------------

@@ -115,7 +115,7 @@ bind -n M-Down  select-pane -D
 bind -r m resize-pane -Z
 
 # # Don't exit copy mode when dragging with mouse
-# unbind -T copy-mode-vi MouseDragEnd1Pane
+# unbind -T copy-mode-vi MouseDragEnd1Pane|
 
 # --- Copy Mode (Vi Style) ---
 #

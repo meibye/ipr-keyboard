@@ -11,49 +11,106 @@ if (!(Test-Path $SudoersListFile)) {
 # Read and filter lines
 $lines = Get-Content $SudoersListFile | Where-Object { $_ -and ($_ -notmatch '^#') }
 
+function Get-WhitelistRegex {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$Command
+    )
 
-# Group similar scripts for regex minimization, regardless of prefix
-$scriptPattern = '^(.*[\\/])?(dbg_[a-z_]+\.sh)( \*)?$'
-$grouped = @{}
-$otherCmds = @()
+    # 1. Split the command to isolate the binary from arguments
+    $parts = $Command -split ' ', 2
+    $binary = $parts[0]
+    $args = if ($parts.Count -gt 1) { " $($parts[1])" } else { "" }
+
+    # Check for trailing '*' wildcard (meaning: any arguments allowed)
+    $hasWildcard = $Command.TrimEnd().EndsWith(' *')
+    if ($hasWildcard) {
+        # Remove the trailing ' *' for regex construction
+        $Command = $Command.Substring(0, $Command.Length - 2).TrimEnd()
+    }
+
+    # 2. Locate the last directory separator in the binary name
+    $lastSlashIndex = $binary.LastIndexOf('/')
+
+    if ($lastSlashIndex -ge 0) {
+        # Extract the parent path (e.g., /usr/bin/)
+        $pathPart = $binary.Substring(0, $lastSlashIndex + 1)
+        # Extract the rest (binary name + arguments)
+        $restOfCmd = $binary.Substring($lastSlashIndex + 1) + $args
+
+        # Remove trailing '*' from restOfCmd if wildcard is present
+        if ($hasWildcard -and $restOfCmd.EndsWith(' *')) {
+            $restOfCmd = $restOfCmd.Substring(0, $restOfCmd.Length - 2).TrimEnd()
+        }
+
+        # 3. Construct the regex with an optional escaped path
+        $escapedPath = [regex]::Escape($pathPart)
+        $escapedRest = [regex]::Escape($restOfCmd)
+
+        if ($hasWildcard) {
+            # If wildcard, match any trailing arguments (not literal asterisk)
+            return "(?:$escapedPath)?$escapedRest(\s+.*)?$"
+        } else {
+            # Allow for additional parameters and optional piping to another command
+            return "(?:$escapedPath)?$escapedRest(\s+.*)?(\s*\|\s*.+)?$"
+        }
+    } else {
+        # If no path exists, just return the escaped command anchored
+        $escapedCmd = [regex]::Escape($Command)
+        if ($hasWildcard) {
+            return "$escapedCmd(\s+.*)?$"
+        } else {
+            return "$escapedCmd(\s+.*)?(\s*\|\s*.+)?$"
+        }
+    }
+}
+
+# Read dbg_common.env for variable substitution
+$envFile = Join-Path $ScriptDir '..\dbg_common.env'
+if (!(Test-Path $envFile)) {
+    Write-Error "Missing environment file: $envFile"
+    exit 1
+}
+
+# Load env vars into a hashtable
+$envVars = @{}
+foreach ($envLine in Get-Content $envFile) {
+    if ($envLine -match '^\s*([A-Za-z0-9_]+)\s*=\s*(.+?)\s*$') {
+        $envVars[$matches[1]] = $matches[2]
+        # Write-Host "Loaded env var: $($matches[1]) = $($matches[2])"
+    }
+}
+
+# Initialize whitelist array to hold regex patterns for allowed commands
+$whitelist = @()
 foreach ($line in $lines) {
-    if ($line -match $scriptPattern) {
-        $basename = $Matches[2]
-        $star = $Matches[3]
-        $grouped[$basename] = $true
-        if ($star) { $grouped["$basename *"] = $true }
-    } else {
-        $otherCmds += $line
-    }
-}
+    $cmd = $line.Trim()
+    
+    # Replace any ${VAR} in $cmd with value from dbg_common.env
+    if ($cmd -match '\$\{([A-Za-z0-9_]+)\}') {
+        # Write-Host "Substituting variables in: $cmd"
+        
+        $evaluator = {
+            param($match) # Explicitly naming the match object for clarity
+            $varName = $match.Groups[1].Value
+            
+            if ($envVars.ContainsKey($varName)) {
+                # Write-Host "  -> Replacing `${$varName}` with '$($envVars[$varName])'"
+                return $envVars[$varName]
+            } else {
+                # Write-Host "  -> No value for `${$varName}`, leaving as-is"
+                return $match.Value
+            }
+        }
 
-# If all grouped scripts have no path (i.e., in PATH), drop prefix in output
-$allNoPrefix = $true
-foreach ($line in $lines | Where-Object { $_ -match $scriptPattern }) {
-    if ($line -match '^[\\/]') { $allNoPrefix = $false; break }
-}
-
-$groupKeys = $grouped.Keys | Sort-Object
-if ($groupKeys.Count -gt 0) {
-    if ($allNoPrefix) {
-        $regex = 'dbg_(' + ($groupKeys -join '|').Replace('.sh','').Replace(' *','') + ')'
-    } else {
-        $regex = '.*dbg_(' + ($groupKeys -join '|').Replace('.sh','').Replace(' *','') + ')'
+        # Using [regex]::Replace ensures compatibility with PS 5.1 AND PS 7
+        $cmd = [regex]::Replace($cmd, '\$\{([A-Za-z0-9_]+)\}', $evaluator)
+        
+        # Write-Host "  Result after substitution: $cmd"
     }
-    $whitelist = @($regex)
-} else {
-    $whitelist = @()
+    $cmd = Get-WhitelistRegex -Command $cmd
+    $whitelist += $cmd
 }
-
-# Add other commands (strip /usr/bin/ prefix if present, since /usr/bin is in PATH)
-$otherCmdsNoPrefix = $otherCmds | ForEach-Object {
-    if ($_ -like '/usr/bin/*') {
-        $_.Substring(9)  # remove '/usr/bin/'
-    } else {
-        $_
-    }
-}
-$whitelist += $otherCmdsNoPrefix
 
 # Output as comma-separated string for --whitelist argument
 $WhitelistString = $whitelist -join ','

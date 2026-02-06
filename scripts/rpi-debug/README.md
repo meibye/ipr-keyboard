@@ -3,6 +3,9 @@
 
 This directory contains the **diagnostic and recovery scripts** for safe, auditable troubleshooting of Bluetooth HID pairing and stack issues on Raspberry Pi. These tools are designed for both manual and **remote execution via GitHub Copilot (MCP agent mode)**, enabling bounded, repeatable diagnostics and recovery with minimal risk.
 
+**IMPORTANT:** When executing these scripts via the MCP server, use the names as installed in `/usr/local/bin/` (e.g., `dbg_stack_status.sh`, `dbg_bt_restart.sh`). Do **not** use the `scripts/rpi-debug/` path. The MCP server only allows execution of whitelisted scripts by their installed names.
+
+
 ## Script Overview
 
 ### Top-level diagnostic scripts (installed to /usr/local/bin on the Pi):
@@ -16,6 +19,8 @@ This directory contains the **diagnostic and recovery scripts** for safe, audita
 - **dbg_deploy.sh** — Updates the automation clone and restarts services
 
 All these scripts are designed to be called directly or via the MCP server for remote diagnostics. Only these are allowed in the Copilot MCP server whitelist.
+
+**When using the MCP server, always invoke scripts by their installed name (e.g., `dbg_stack_status.sh`), not by their path in this directory.**
 
 ### Tools subfolder (scripts/rpi-debug/tools)
 
@@ -152,10 +157,17 @@ This ensures all prerequisites, generates SSH keys, and writes `.vscode/mcp.json
 
 ## 7. Recommended Diagnostic Workflow
 
+
 ### Step 1 – Stack health
 
+**Local:**
 ```bash
-sudo dbg_stack_status.sh
+sudo ./dbg_stack_status.sh
+```
+
+**Remote (MCP):**
+```
+dbg_stack_status.sh
 ```
 
 ### Step 2 – Capture pairing attempt

@@ -1,11 +1,10 @@
-## Local-only Copilot Mode
 
-Constraints:
-- Do not use MCP (as defined in `.vscode/mcp.json`, which launches via `npx` or `node`)
-- Do not execute commands
-- Do not propose SSH or remote actions
-- Do not use or reference any remote diagnostic scripts or profiles
-- Base all reasoning on repository files and chat context only
+## Copilot Agent – Use MCP Server for RPI Commands
+
+Instructions:
+- If a question or analysis requires determining status or taking further actions on the Raspberry Pi (RPI), use the MCP server (as defined in `.vscode/mcp.json`) to execute commands remotely on the RPI.
+- Remote command execution, diagnostics, and status checks on the RPI are permitted whenever required for accurate analysis or next steps.
+- Local-only reasoning is allowed when sufficient, but prefer remote execution if the answer depends on RPI state or files.
 
 **Usage Instruction Update:**
-This prompt should always be used in local-only Copilot mode; the mode does not change based on the prompt. Actions involving the Raspberry Pi (RPI) through the MCP (as configured in `.vscode/mcp.json`) or any remote scripts are only executed when it is explicitly stated in the prompt that actions should be conducted on the RPI. Otherwise, all actions are performed locally and not on the RPI.
+This prompt should be used to enable Copilot agent actions via the MCP server for any RPI-related status, diagnostics, or command execution required by the question or analysis. If the MCP server is unavailable or remote actions are explicitly forbidden, revert to local-only reasoning and summarize what would be done.
