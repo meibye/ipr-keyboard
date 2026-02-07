@@ -1,4 +1,22 @@
 # Bluetooth Pairing Playbook (Windows 11 ↔ RPi BLE HID)
+## Remote Device Access via SSH MCP Server
+
+For all Bluetooth pairing diagnostics and troubleshooting on Raspberry Pi, use the SSH MCP server as defined in `.vscode/mcp.json`.
+
+**Example:**
+- To run a diagnostic script remotely:
+	- Use the `ipr-rpi-dev-ssh` profile.
+	- Execute via MCP server (see Copilot agent or VS Code integration).
+
+**Typical usage:**
+```json
+{
+	"cmdString": "/usr/local/bin/dbg_diag_bundle.sh"
+}
+```
+See `.vscode/mcp.json` for server details and allowed commands.
+
+**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency and auditability.
 
 This playbook helps classify pairing failures and choose the next diagnostic action.
 
@@ -7,7 +25,6 @@ This playbook helps classify pairing failures and choose the next diagnostic act
 2) Run `/usr/local/bin/dbg_pairing_capture.sh 60` while user attempts pairing on Windows
 3) Classify failure mode using the sections below
 
----
 
 ## Failure mode A — Pairing rejected / auth failure
 Signals:

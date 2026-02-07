@@ -1,4 +1,24 @@
 # Tests
+## Remote Device Access via SSH MCP Server
+
+For all test execution, diagnostics, and command management on Raspberry Pi or Windows PC, use the SSH MCP server as defined in `.vscode/mcp.json`.
+
+**Example:**
+- To run tests remotely:
+  - Use the `ipr-rpi-dev-ssh` or `ipr-pc-dev-ssh` profile.
+  - Execute via MCP server (see Copilot agent or VS Code integration).
+
+**Typical usage:**
+```json
+{
+  "cmdString": "pytest"
+}
+```
+See `.vscode/mcp.json` for server details and allowed commands.
+
+**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency and auditability.
+
+---
 
 
 This directory contains the comprehensive test suite for the ipr-keyboard project using pytest. The tests mirror the source structure and follow project conventions for isolation, fixtures, and coverage. End-to-end and systemd tests are provided in the scripts directory.

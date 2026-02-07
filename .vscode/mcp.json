@@ -17,6 +17,23 @@
         "^rm .*,^shutdown.*,^reboot.*"
       ]
     },
+    "ipr-pc-dev-ssh": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host",
+        "msi",
+        "--port",
+        "22",
+        "--username",
+        "micha",
+        "--privateKey",
+        "~/.ssh/id_ed25519_ipr_kb",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*,^del .*,^poweroff.*,^logoff.*,^shutdown /.*,^format .*"
+      ]
+    },
     "ipr-rpi-dev-ssh-debug": {
       "command": "node",
       "args": [

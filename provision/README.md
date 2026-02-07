@@ -1,4 +1,24 @@
 # IPR Keyboard - Provisioning System
+## Remote Device Access via SSH MCP Server
+
+For all provisioning, diagnostics, and command execution on Raspberry Pi, use the SSH MCP server as defined in `.vscode/mcp.json`.
+
+**Example:**
+- To run provisioning scripts remotely:
+	- Use the `ipr-rpi-dev-ssh` profile.
+	- Execute via MCP server (see Copilot agent or VS Code integration).
+
+**Typical usage:**
+```json
+{
+	"cmdString": "sudo ./provision/00_bootstrap.sh"
+}
+```
+See `.vscode/mcp.json` for server details and allowed commands.
+
+**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency and auditability.
+
+---
 
 
 This directory contains automated provisioning scripts for setting up Raspberry Pi devices for the ipr-keyboard project. These scripts ensure both devices (RPi 4 and Pi Zero 2 W) are configured identically except for device-specific settings.

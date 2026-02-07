@@ -1,4 +1,24 @@
 # Bluetooth Pairing Troubleshooting Guide
+## Remote Device Access via SSH MCP Server
+
+For all Bluetooth pairing diagnostics and troubleshooting on Raspberry Pi, use the SSH MCP server as defined in `.vscode/mcp.json`.
+
+**Example:**
+- To run a diagnostic script remotely:
+   - Use the `ipr-rpi-dev-ssh` profile.
+   - Execute via MCP server (see Copilot agent or VS Code integration).
+
+**Typical usage:**
+```json
+{
+   "cmdString": "/usr/local/bin/dbg_diag_bundle.sh"
+}
+```
+See `.vscode/mcp.json` for server details and allowed commands.
+
+**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency and auditability.
+
+---
 
 This guide explains the Bluetooth pairing process for ipr-keyboard and how to diagnose and fix pairing issues for both uinput and BLE backends.
 

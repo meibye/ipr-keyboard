@@ -1,4 +1,24 @@
 # ipr-keyboard Systemd Services
+## Remote Device Access via SSH MCP Server
+
+For all service management, diagnostics, and command execution on Raspberry Pi, use the SSH MCP server as defined in `.vscode/mcp.json`.
+
+**Example:**
+- To check service status or restart a service remotely:
+  - Use the `ipr-rpi-dev-ssh` profile.
+  - Execute via MCP server (see Copilot agent or VS Code integration).
+
+**Typical usage:**
+```json
+{
+  "cmdString": "systemctl status ipr_keyboard.service"
+}
+```
+See `.vscode/mcp.json` for server details and allowed commands.
+
+**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency and auditability.
+
+---
 
 This document describes the systemd services and daemons that make up the ipr-keyboard system on Raspberry Pi. It covers the main application, Bluetooth backends, pairing agent, backend manager, and supporting services. All services are installed and managed by the provisioning and setup scripts in the repository. The architecture is modular, with clear separation between the main app, Bluetooth backends, agent, and diagnostics.
 

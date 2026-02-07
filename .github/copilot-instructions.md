@@ -48,12 +48,32 @@
 ## Remote Diagnostics & Copilot Agent Mode
 
 
-- **MCP Server Usage:**
-  - Use MCP servers defined in `mcp.json` for remote diagnostics, automation, and agent workflows when you need to interact with a live Raspberry Pi or other remote device.
-  - Prefer MCP server actions for tasks that require real device state, logs, or hardware access (e.g., running scripts in `scripts/rpi-debug/`, checking Bluetooth stack, deploying updates).
-  - Always use the whitelisted diagnostic scripts (see `scripts/rpi-debug/README.md`) via MCP server commands; do not run arbitrary shell commands.
-  - For agent-driven troubleshooting, follow the plan-first, bounded workflow described in `docs/copilot/DIAG_AGENT_PROMPT.md`.
-  - Use local emulation or simulation only for code that does not require hardware or system-level access.
+## Remote Device Access via SSH MCP Server
+
+For all remote command execution, diagnostics, provisioning, and file transfers to Raspberry Pi or Windows PC, use the SSH MCP server as defined in `.vscode/mcp.json`.
+
+**Usage Guidance:**
+- Use `ipr-rpi-dev-ssh` for Raspberry Pi development and diagnostics.
+- Use `ipr-pc-dev-ssh` for Windows PC development and diagnostics.
+- Execute commands, scripts, and diagnostics via the MCP server (see Copilot agent or VS Code integration).
+- Do not use direct SSH or SCP; all remote actions should be performed via the MCP server for consistency, auditability, and agent-driven workflows.
+
+**Example:**
+To run a command on the Raspberry Pi:
+```json
+{
+  "cmdString": "sudo ./provision/00_bootstrap.sh"
+}
+```
+To run a diagnostic script:
+```json
+{
+  "cmdString": "/usr/local/bin/dbg_stack_status.sh"
+}
+```
+See `.vscode/mcp.json` for server details and allowed commands.
+
+
 
 ## Examples
 

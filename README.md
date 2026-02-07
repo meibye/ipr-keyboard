@@ -1,4 +1,27 @@
 # ipr-keyboard
+## Remote Device Access via SSH MCP Server
+
+For all remote command execution, provisioning, diagnostics, and file transfers to Raspberry Pi or Windows PC, use the SSH MCP server as defined in `.vscode/mcp.json`.
+
+**Example:**
+- To run a command on the Raspberry Pi:
+  - Use the `ipr-rpi-dev-ssh` profile in `.vscode/mcp.json`.
+  - Execute via MCP server (see Copilot agent or VS Code integration).
+- To run a command on the Windows PC:
+  - Use the `ipr-pc-dev-ssh` profile.
+  - Execute via MCP server.
+
+**Typical usage:**
+```json
+{
+  "cmdString": "sudo ./provision/00_bootstrap.sh"
+}
+```
+See `.vscode/mcp.json` for server details and allowed commands.
+
+**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency, auditability, and agent-driven workflows.
+
+---
 
 
 **IrisPen to Bluetooth Keyboard Bridge for Raspberry Pi**

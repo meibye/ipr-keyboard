@@ -1,4 +1,24 @@
 # Diagnostic Agent Prompt — RPi Bluetooth Pairing (BLE HID)
+## Remote Device Access via SSH MCP Server
+
+For all remote diagnostic actions, use the SSH MCP server as defined in `.vscode/mcp.json`.
+
+**Example:**
+- To run a diagnostic script remotely:
+  - Use the `ipr-rpi-dev-ssh` profile.
+  - Execute via MCP server (see Copilot agent or VS Code integration).
+
+**Typical usage:**
+```json
+{
+  "cmdString": "/usr/local/bin/dbg_stack_status.sh"
+}
+```
+See `.vscode/mcp.json` for server details and allowed commands.
+
+**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency and auditability.
+
+---
 
 ## Mission
 Diagnose and resolve Bluetooth pairing failures between Windows 11 host and Raspberry Pi BLE HID device.
