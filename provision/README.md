@@ -1,22 +1,38 @@
 # IPR Keyboard - Provisioning System
 ## Remote Device Access via SSH MCP Server
 
-For all provisioning, diagnostics, and command execution on Raspberry Pi, use the SSH MCP server as defined in `.vscode/mcp.json`.
+Development is performed on a Windows 11 (W11) machine. Test devices include one or more Raspberry Pi (RPI) units and a W11 PC. Remote access to all devices should be performed via the MCP servers as defined in `.vscode/mcp.json`.
 
-**Example:**
-- To run provisioning scripts remotely:
-	- Use the `ipr-rpi-dev-ssh` profile.
-	- Execute via MCP server (see Copilot agent or VS Code integration).
+**Usage Guidance:**
+- Use `ipr-rpi-dev-ssh` for Raspberry Pi development, diagnostics, and running custom scripts.
+- Use `ipr-pc-dev-ssh` for Windows PC development and diagnostics. No custom scripts exist for the W11 PC; use standard Windows commands for diagnostics and management.
+- Execute all remote commands, file transfers, and diagnostics via the MCP server (see Copilot agent or VS Code integration).
+- Do not use direct SSH or SCP; all remote actions should be performed via the MCP server for consistency, auditability, and agent-driven workflows.
 
-**Typical usage:**
-```json
-{
-	"cmdString": "sudo ./provision/00_bootstrap.sh"
-}
-```
+**Examples:**
+- To run provisioning scripts on the Raspberry Pi:
+	```json
+	{
+		"cmdString": "sudo ./provision/00_bootstrap.sh"
+	}
+	```
+- To run a diagnostic script on the Raspberry Pi:
+	```json
+	{
+		"cmdString": "/usr/local/bin/dbg_stack_status.sh"
+	}
+	```
+- To run a command on the Windows 11 PC:
+	```json
+	{
+		"cmdString": "Get-Service bluetooth"
+	}
+	```
+	(or any standard Windows command)
+
 See `.vscode/mcp.json` for server details and allowed commands.
 
-**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency and auditability.
+**Note:** Debugging scripts are provided for the Raspberry Pi (see `scripts/rpi-debug/`), but not for the Windows PC. Use standard Windows commands for PC diagnostics.
 
 ---
 
