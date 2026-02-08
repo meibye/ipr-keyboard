@@ -43,13 +43,32 @@
         "--port",
         "22",
         "--username",
-        "copilotdiag",
+        "meibye",
         "--privateKey",
-        "~/.ssh/copilotdiag_rpi",
+        "~/.ssh/id_ed25519_ipr_kb",
         "--blacklist",
-        "^rm .*,^shutdown.*,^reboot.*",
-        "--whitelist",
-        "(?:/usr/local/bin/)?dbg_deploy\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_diag_bundle\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_pairing_capture\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_bt_restart\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_soft_reset\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_bond_wipe\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_stack_status\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?journalctl\\ -u\\ bluetooth(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_ble\\.service\"(\\s+.*)?$,(?:/usr/bin/)?btmgmt(\\s+.*)?$"
+        "^rm .*,^shutdown.*,^reboot.*"
+      ],
+      "dev": {
+        "debug": {
+          "type": "node"
+        }
+      }
+    },
+    "ipr-pc-dev-ssh-debug": {
+      "command": "node",
+      "args": [
+        "D:\\mcp\\ssh-mcp\\node_modules\\@fangjunjie\\ssh-mcp-server\\build\\index.js",
+        "--host",
+        "msi",
+        "--port",
+        "22",
+        "--username",
+        "micha",
+        "--privateKey",
+        "~/.ssh/id_ed25519_ipr_kb",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*,^del .*,^poweroff.*,^logoff.*,^shutdown /.*,^format .*"
       ],
       "dev": {
         "debug": {
