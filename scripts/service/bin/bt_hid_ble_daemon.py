@@ -10,25 +10,29 @@ Key fixes for your current symptoms:
 
 import os
 import sys
-import time
 import threading
+import time
 from collections import deque
 
 import dbus
-import dbus.service
 import dbus.mainloop.glib
+import dbus.service
 from gi.repository import GLib
 
 try:
     from systemd import journal
 except ImportError:
+
     class DummyJournal:
         LOG_INFO = 6
         LOG_ERR = 3
+
         @staticmethod
         def send(msg, **kwargs):
             print(msg, flush=True)
+
     journal = DummyJournal()
+
 
 def env_str(name: str, default: str = "") -> str:
     v = os.environ.get(name, default)
@@ -41,17 +45,22 @@ def env_str(name: str, default: str = "") -> str:
         v = v.split("\t#", 1)[0].rstrip()
     return v
 
+
 def env_bool(name: str, default: str = "0") -> bool:
     return env_str(name, default).strip() == "1"
 
+
 BLE_DEBUG = env_bool("BT_BLE_DEBUG", "0")
+
 
 def log_info(msg: str, always: bool = False):
     if BLE_DEBUG or always:
         journal.send(msg, PRIORITY=getattr(journal, "LOG_INFO", 6))
 
+
 def log_err(msg: str):
     journal.send(msg, PRIORITY=getattr(journal, "LOG_ERR", 3))
+
 
 BLUEZ = "org.bluez"
 DBUS_OM_IFACE = "org.freedesktop.DBus.ObjectManager"
@@ -85,10 +94,18 @@ UUID_MODEL_NUMBER = "2a24"
 # HID modifier bits
 MOD_LSHIFT = 0x02
 
-LETTER_USAGES = {chr(ord('a') + i): 0x04 + i for i in range(26)}
+LETTER_USAGES = {chr(ord("a") + i): 0x04 + i for i in range(26)}
 DIGIT_USAGES = {
-    "1": 0x1E, "2": 0x1F, "3": 0x20, "4": 0x21, "5": 0x22,
-    "6": 0x23, "7": 0x24, "8": 0x25, "9": 0x26, "0": 0x27,
+    "1": 0x1E,
+    "2": 0x1F,
+    "3": 0x20,
+    "4": 0x21,
+    "5": 0x22,
+    "6": 0x23,
+    "7": 0x24,
+    "8": 0x25,
+    "9": 0x26,
+    "0": 0x27,
 }
 PUNCT = {
     " ": (0x2C, 0),
@@ -99,10 +116,14 @@ PUNCT = {
     "_": (0x2D, MOD_LSHIFT),
 }
 SPECIAL_DK = {
-    "å": (0x2F, 0), "Å": (0x2F, MOD_LSHIFT),
-    "æ": (0x33, 0), "Æ": (0x33, MOD_LSHIFT),
-    "ø": (0x34, 0), "Ø": (0x34, MOD_LSHIFT),
+    "å": (0x2F, 0),
+    "Å": (0x2F, MOD_LSHIFT),
+    "æ": (0x33, 0),
+    "Æ": (0x33, MOD_LSHIFT),
+    "ø": (0x34, 0),
+    "Ø": (0x34, MOD_LSHIFT),
 }
+
 
 def map_char(ch: str):
     if ch in PUNCT:
@@ -117,20 +138,59 @@ def map_char(ch: str):
         return (LETTER_USAGES[ch.lower()], MOD_LSHIFT)
     return (0, 0)
 
+
 def build_kbd_report(mods: int, keycode: int) -> bytes:
     return bytes([mods & 0xFF, 0x00, keycode & 0xFF, 0, 0, 0, 0, 0])
 
-HID_REPORT_MAP = bytes([
-    0x05, 0x01, 0x09, 0x06, 0xA1, 0x01,
-    0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7,
-    0x15, 0x00, 0x25, 0x01, 0x75, 0x01,
-    0x95, 0x08, 0x81, 0x02,
-    0x95, 0x01, 0x75, 0x08, 0x81, 0x01,
-    0x95, 0x06, 0x75, 0x08, 0x15, 0x00,
-    0x25, 0x65, 0x19, 0x00, 0x29, 0x65,
-    0x81, 0x00,
-    0xC0
-])
+
+HID_REPORT_MAP = bytes(
+    [
+        0x05,
+        0x01,
+        0x09,
+        0x06,
+        0xA1,
+        0x01,
+        0x05,
+        0x07,
+        0x19,
+        0xE0,
+        0x29,
+        0xE7,
+        0x15,
+        0x00,
+        0x25,
+        0x01,
+        0x75,
+        0x01,
+        0x95,
+        0x08,
+        0x81,
+        0x02,
+        0x95,
+        0x01,
+        0x75,
+        0x08,
+        0x81,
+        0x01,
+        0x95,
+        0x06,
+        0x75,
+        0x08,
+        0x15,
+        0x00,
+        0x25,
+        0x65,
+        0x19,
+        0x00,
+        0x29,
+        0x65,
+        0x81,
+        0x00,
+        0xC0,
+    ]
+)
+
 
 class Application(dbus.service.Object):
     def __init__(self, bus):
@@ -155,6 +215,7 @@ class Application(dbus.service.Object):
                     response[d.get_path()] = d.get_properties()
         return response
 
+
 class Service(dbus.service.Object):
     def __init__(self, bus, index, uuid, primary=True):
         self.path = f"/org/bluez/ipr/service{index}"
@@ -175,9 +236,12 @@ class Service(dbus.service.Object):
             GATT_SERVICE_IFACE: {
                 "UUID": self.uuid,
                 "Primary": dbus.Boolean(self.primary),
-                "Characteristics": dbus.Array([c.get_path() for c in self.characteristics], signature="o"),
+                "Characteristics": dbus.Array(
+                    [c.get_path() for c in self.characteristics], signature="o"
+                ),
             }
         }
+
 
 class Characteristic(dbus.service.Object):
     def __init__(self, bus, index, uuid, flags, service):
@@ -203,7 +267,9 @@ class Characteristic(dbus.service.Object):
                 "Service": self.service.get_path(),
                 "UUID": self.uuid,
                 "Flags": dbus.Array(self.flags, signature="s"),
-                "Descriptors": dbus.Array([d.get_path() for d in self.descriptors], signature="o"),
+                "Descriptors": dbus.Array(
+                    [d.get_path() for d in self.descriptors], signature="o"
+                ),
                 "Value": dbus.Array(self._value, signature="y"),
             }
         }
@@ -211,7 +277,9 @@ class Characteristic(dbus.service.Object):
     @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
     def GetAll(self, interface):
         if interface != GATT_CHRC_IFACE:
-            raise dbus.exceptions.DBusException("org.freedesktop.DBus.Error.InvalidArgs", "Invalid interface")
+            raise dbus.exceptions.DBusException(
+                "org.freedesktop.DBus.Error.InvalidArgs", "Invalid interface"
+            )
         return self.get_properties()[GATT_CHRC_IFACE]
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="ay")
@@ -243,6 +311,7 @@ class Characteristic(dbus.service.Object):
     def _emit_properties_changed(self, changed_dict):
         self.PropertiesChanged(GATT_CHRC_IFACE, changed_dict, [])
 
+
 class Descriptor(dbus.service.Object):
     def __init__(self, bus, index, uuid, flags, characteristic):
         self.path = characteristic.path + f"/desc{index}"
@@ -269,44 +338,60 @@ class Descriptor(dbus.service.Object):
     @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
     def GetAll(self, interface):
         if interface != GATT_DESC_IFACE:
-            raise dbus.exceptions.DBusException("org.freedesktop.DBus.Error.InvalidArgs", "Invalid interface")
+            raise dbus.exceptions.DBusException(
+                "org.freedesktop.DBus.Error.InvalidArgs", "Invalid interface"
+            )
         return self.get_properties()[GATT_DESC_IFACE]
 
     @dbus.service.method(GATT_DESC_IFACE, in_signature="a{sv}", out_signature="ay")
     def ReadValue(self, options):
         return dbus.Array(self._value, signature="y")
 
+
 class ReportReferenceDescriptor(Descriptor):
     def __init__(self, bus, index, characteristic, report_id: int, report_type: int):
         super().__init__(bus, index, UUID_REPORT_REFERENCE, ["read"], characteristic)
         self._value = bytearray([report_id & 0xFF, report_type & 0xFF])
 
+
 class HidInformationCharacteristic(Characteristic):
     def __init__(self, bus, index, service):
         super().__init__(bus, index, UUID_HID_INFORMATION, ["read"], service)
-        self._value = bytearray([0x11, 0x01, 0x00, 0x02])  # HID 1.11, country=0, flags=0x02
+        self._value = bytearray(
+            [0x11, 0x01, 0x00, 0x02]
+        )  # HID 1.11, country=0, flags=0x02
+
 
 class ReportMapCharacteristic(Characteristic):
     def __init__(self, bus, index, service):
         super().__init__(bus, index, UUID_REPORT_MAP, ["read"], service)
         self._value = bytearray(HID_REPORT_MAP)
 
+
 class ProtocolModeCharacteristic(Characteristic):
     def __init__(self, bus, index, service):
-        super().__init__(bus, index, UUID_PROTOCOL_MODE, ["read", "write-without-response"], service)
+        super().__init__(
+            bus, index, UUID_PROTOCOL_MODE, ["read", "write-without-response"], service
+        )
         self._value = bytearray([0x01])  # Report Protocol
+
 
 class HidControlPointCharacteristic(Characteristic):
     def __init__(self, bus, index, service):
-        super().__init__(bus, index, UUID_HID_CONTROL_POINT, ["write-without-response"], service)
+        super().__init__(
+            bus, index, UUID_HID_CONTROL_POINT, ["write-without-response"], service
+        )
         self._value = bytearray([0x00])
+
 
 class InputReportCharacteristic(Characteristic):
     def __init__(self, bus, index, service, notify_event: threading.Event):
         super().__init__(bus, index, UUID_REPORT, ["read", "notify"], service)
         self._value = bytearray(build_kbd_report(0, 0))
         self.notify_event = notify_event
-        self.add_descriptor(ReportReferenceDescriptor(bus, 0, self, report_id=0, report_type=1))
+        self.add_descriptor(
+            ReportReferenceDescriptor(bus, 0, self, report_id=0, report_type=1)
+        )
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="")
     def StartNotify(self, options):
@@ -318,7 +403,6 @@ class InputReportCharacteristic(Characteristic):
         except Exception:
             pass
         log_info("[ble] InputReport StartNotify (Windows subscribed)", always=True)
-
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
     def StopNotify(self):
@@ -332,13 +416,13 @@ class InputReportCharacteristic(Characteristic):
             pass
         log_info("[ble] InputReport StopNotify (Windows unsubscribed)", always=True)
 
-
     def notify_report(self, report_bytes: bytes):
         if not self.notifying:
             return False
         self._value = bytearray(report_bytes)
         self._emit_properties_changed({"Value": dbus.Array(self._value, signature="y")})
         return True
+
 
 class HidService(Service):
     def __init__(self, bus, index, notify_event: threading.Event):
@@ -355,35 +439,53 @@ class HidService(Service):
         self.add_characteristic(self.control_point)
         self.add_characteristic(self.input_report)
 
+
 class ReadOnlyStringCharacteristic(Characteristic):
     def __init__(self, bus, index, uuid, value_str, service):
         super().__init__(bus, index, uuid, ["read"], service)
         self._value = bytearray(value_str.encode("utf-8"))
 
+
 class PnpIdCharacteristic(Characteristic):
     def __init__(self, bus, index, service):
         super().__init__(bus, index, UUID_PNP_ID, ["read"], service)
-        vid = int(env_str("BT_USB_VID", "0x1D6B"), 0)
-        pid = int(env_str("BT_USB_PID", "0x0246"), 0)
-        ver = int(env_str("BT_USB_VER", "0x0100"), 0)
-        self._value = bytearray([
-            0x02,
-            vid & 0xFF, (vid >> 8) & 0xFF,
-            pid & 0xFF, (pid >> 8) & 0xFF,
-            ver & 0xFF, (ver >> 8) & 0xFF,
-        ])
+        # Default Linux Foundation values for BLE HID compatibility
+        vid = int(env_str("BT_USB_VID", "0x1D6B"), 0)  # Linux Foundation VID
+        pid = int(env_str("BT_USB_PID", "0x0002"), 0)  # Linux Foundation PID for HID
+        ver = int(env_str("BT_USB_VER", "0x0100"), 0)  # Version 1.0.0
+        self._value = bytearray(
+            [
+                0x02,
+                vid & 0xFF,
+                (vid >> 8) & 0xFF,
+                pid & 0xFF,
+                (pid >> 8) & 0xFF,
+                ver & 0xFF,
+                (ver >> 8) & 0xFF,
+            ]
+        )
         if BLE_DEBUG:
             log_info(f"[ble] PnpIdCharacteristic bytes: {list(self._value)}")
+            log_info(
+                f"[ble] PnpIdCharacteristic VID: {vid:#06x}, PID: {pid:#06x}, VER: {ver:#06x}"
+            )
+            log_info(f"[ble] PnpIdCharacteristic raw value: {self._value.hex()}")
+
 
 class DeviceInfoService(Service):
     def __init__(self, bus, index):
         super().__init__(bus, index, UUID_DIS_SERVICE, primary=True)
         self.pnp = PnpIdCharacteristic(bus, 0, self)
-        self.mfg = ReadOnlyStringCharacteristic(bus, 1, UUID_MANUFACTURER, env_str("BT_MANUFACTURER", "IPR"), self)
-        self.model = ReadOnlyStringCharacteristic(bus, 2, UUID_MODEL_NUMBER, env_str("BT_MODEL", "IPR Keyboard"), self)
+        self.mfg = ReadOnlyStringCharacteristic(
+            bus, 1, UUID_MANUFACTURER, env_str("BT_MANUFACTURER", "IPR"), self
+        )
+        self.model = ReadOnlyStringCharacteristic(
+            bus, 2, UUID_MODEL_NUMBER, env_str("BT_MODEL", "IPR Keyboard"), self
+        )
         self.add_characteristic(self.pnp)
         self.add_characteristic(self.mfg)
         self.add_characteristic(self.model)
+
 
 class Advertisement(dbus.service.Object):
     def __init__(self, bus, index, adv_type, service_uuids, local_name, appearance):
@@ -411,11 +513,12 @@ class Advertisement(dbus.service.Object):
             }
         }
 
-
     @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
     def GetAll(self, interface):
         if interface != ADVERTISEMENT_IFACE:
-            raise dbus.exceptions.DBusException("org.freedesktop.DBus.Error.InvalidArgs", "Invalid interface")
+            raise dbus.exceptions.DBusException(
+                "org.freedesktop.DBus.Error.InvalidArgs", "Invalid interface"
+            )
         return self.get_properties()[ADVERTISEMENT_IFACE]
 
     @dbus.service.method(ADVERTISEMENT_IFACE, in_signature="", out_signature="")
@@ -429,6 +532,7 @@ def ensure_fifo():
         os.mkfifo(FIFO_PATH)
         os.chmod(FIFO_PATH, 0o666)
 
+
 def pick_adapter_path(bus, prefer="hci0") -> str:
     om = dbus.Interface(bus.get_object(BLUEZ, "/"), DBUS_OM_IFACE)
     objects = om.GetManagedObjects()
@@ -440,15 +544,20 @@ def pick_adapter_path(bus, prefer="hci0") -> str:
             return path
     raise RuntimeError("No Bluetooth adapter found (org.bluez.Adapter1)")
 
+
 def on_err(tag: str):
     def _h(e):
         log_err(f"[ble][ERROR] {tag}: {e}")
+
     return _h
+
 
 def on_ok(msg: str):
     def _h(*args, **kwargs):
         log_info(msg, always=True)
+
     return _h
+
 
 def fifo_worker(input_report: InputReportCharacteristic, notify_event: threading.Event):
     ensure_fifo()
@@ -467,7 +576,10 @@ def fifo_worker(input_report: InputReportCharacteristic, notify_event: threading
                 q.popleft()
                 now = time.time()
                 if now - last_drop_log > 2.0:
-                    log_info("[ble] FIFO queue full; dropping oldest buffered chars (waiting for StartNotify)", always=True)
+                    log_info(
+                        "[ble] FIFO queue full; dropping oldest buffered chars (waiting for StartNotify)",
+                        always=True,
+                    )
                     last_drop_log = now
             q.append(ch)
 
@@ -507,11 +619,15 @@ def fifo_worker(input_report: InputReportCharacteristic, notify_event: threading
                         flush_queue()
                     else:
                         # Don't spam per-key logs; one line per message is enough.
-                        log_info("[ble] Waiting for InputReport StartNotify; buffered text (not dropped).", always=True)
+                        log_info(
+                            "[ble] Waiting for InputReport StartNotify; buffered text (not dropped).",
+                            always=True,
+                        )
 
         except Exception as ex:
             log_err(f"[ble][ERROR] FIFO worker exception: {ex}")
             time.sleep(1.0)
+
 
 def main():
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
@@ -541,28 +657,47 @@ def main():
     )
 
     log_info("[ble] Starting BLE HID daemon...", always=True)
-    log_info(f"[ble] Advertising LocalName='{env_str('BT_DEVICE_NAME', 'IPR Keyboard')}'", always=True)
+    log_info(
+        f"[ble] Advertising LocalName='{env_str('BT_DEVICE_NAME', 'IPR Keyboard')}'",
+        always=True,
+    )
     log_info(f"[ble] Debug BT_BLE_DEBUG={'1' if BLE_DEBUG else '0'}", always=True)
+
+    if BLE_DEBUG:
+        log_info("[ble] BLE_DEBUG is enabled. Extra debug logs will be shown.")
+        log_info(f"[ble] Adapter path: {adapter_path}")
+        log_info(f"[ble] HID Service UUID: {UUID_HID_SERVICE}")
+        log_info(f"[ble] Device Info Service UUID: {UUID_DIS_SERVICE}")
+        log_info(f"[ble] GATT Manager IFACE: {GATT_MANAGER_IFACE}")
+        log_info(f"[ble] LE Advertising Manager IFACE: {LE_ADV_MGR_IFACE}")
 
     log_info("[ble] Registering GATT application...", always=True)
     gatt_mgr.RegisterApplication(
-        app.get_path(), {},
+        app.get_path(),
+        {},
         reply_handler=on_ok("[ble] GATT application registered"),
         error_handler=on_err("RegisterApplication"),
     )
 
     log_info("[ble] Registering advertisement...", always=True)
     adv_mgr.RegisterAdvertisement(
-        adv.get_path(), {},
+        adv.get_path(),
+        {},
         reply_handler=on_ok("[ble] Advertisement registered"),
         error_handler=on_err("RegisterAdvertisement"),
     )
 
-    t = threading.Thread(target=fifo_worker, args=(hid_service.input_report, notify_event), daemon=True)
+    t = threading.Thread(
+        target=fifo_worker, args=(hid_service.input_report, notify_event), daemon=True
+    )
     t.start()
 
-    log_info("[ble] BLE HID ready. Waiting for Windows connection + StartNotify...", always=True)
+    log_info(
+        "[ble] BLE HID ready. Waiting for Windows connection + StartNotify...",
+        always=True,
+    )
     GLib.MainLoop().run()
+
 
 if __name__ == "__main__":
     try:

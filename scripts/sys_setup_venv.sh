@@ -207,7 +207,7 @@ set -g @dracula-show-left-icon session
 
 # Resurrect
 set -g @resurrect-capture-pane-contents 'on'
-# set -g @continuum-restore 'on'    # Last saved environment is automatically restored when tmux is started.
+set -g @continuum-restore 'on'    # Last saved environment is automatically restored when tmux is started.
 
 # Initialize TMUX plugin manager (keep this line at the very bottom of tmux.conf)
 run '~/.config/tmux/plugins/tpm/tpm'

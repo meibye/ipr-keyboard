@@ -10,15 +10,29 @@ usage() {
   echo "Usage: bt_kb_send [--nowait] [--wait <seconds>] \"text...\""
 }
 
+
 NOWAIT=0
-if [[ "${1:-}" == "--nowait" ]]; then
-  NOWAIT=1
-  shift
-elif [[ "${1:-}" == "--wait" ]]; then
-  shift
-  WAIT_SECS="${1:-}"
-  shift || true
-fi
+DEBUG=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --nowait)
+      NOWAIT=1
+      shift
+      ;;
+    --wait)
+      shift
+      WAIT_SECS="${1:-}"
+      shift || true
+      ;;
+    --debug)
+      DEBUG=1
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
 
 TEXT="${1:-}"
 if [[ -z "$TEXT" ]]; then
@@ -26,8 +40,12 @@ if [[ -z "$TEXT" ]]; then
   exit 2
 fi
 
+
 # Wait for FIFO
 t=0
+if (( DEBUG == 1 )); then
+  echo "[DEBUG] Waiting for FIFO: $FIFO (timeout: $WAIT_SECS s)" >&2
+fi
 until [[ -p "$FIFO" ]]; do
   (( t++ )) || true
   if (( t >= WAIT_SECS )); then
@@ -36,10 +54,17 @@ until [[ -p "$FIFO" ]]; do
   fi
   sleep 1
 done
+if (( DEBUG == 1 )); then
+  echo "[DEBUG] FIFO is ready after $t seconds." >&2
+fi
+
 
 if (( NOWAIT == 0 )); then
   # Wait for HID notify subscription (StartNotify creates the flag file)
   t=0
+  if (( DEBUG == 1 )); then
+    echo "[DEBUG] Waiting for HID notify flag: $NOTIFY_FLAG (timeout: $WAIT_SECS s)" >&2
+  fi
   until [[ -f "$NOTIFY_FLAG" ]]; do
     (( t++ )) || true
     if (( t >= WAIT_SECS )); then
@@ -48,6 +73,15 @@ if (( NOWAIT == 0 )); then
     fi
     sleep 1
   done
+  if (( DEBUG == 1 )); then
+    echo "[DEBUG] HID notify flag is ready after $t seconds." >&2
+  fi
 fi
 
+if (( DEBUG == 1 )); then
+  echo "[DEBUG] Sending text to FIFO: '$TEXT'" >&2
+fi
 printf "%s" "$TEXT" > "$FIFO"
+if (( DEBUG == 1 )); then
+  echo "[DEBUG] Done writing to FIFO." >&2
+fi

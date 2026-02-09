@@ -90,7 +90,7 @@ set_or_add() {
 
 
 # Key:Section mapping
-set_or_add "AutoEnable" "true" "General"
+# set_or_add "AutoEnable" "true" "General"     # AutoEnable not recognized by older bluez
 # set_or_add "PairableTimeout" "0" "General"
 # set_or_add "DiscoverableTimeout" "0" "Policy"
 set_or_add "ControllerMode" "$BT_CONTROLLER_MODE" "General"
