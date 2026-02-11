@@ -52,16 +52,16 @@ def set_adapter_ready(bus, adapter_path: str, verbose: bool = False):
     props.Set(ADAPTER_IFACE, "Discoverable", dbus.Boolean(True))
 
     # STABILITY FIX: Set Class to Keyboard (0x002540)
-    try:
-        props.Set(ADAPTER_IFACE, "Class", dbus.UInt32(0x002540))
-        if verbose:
-            print(
-                f"[agent] Adapter Class set to 0x002540 (Keyboard) for {adapter_path}",
-                flush=True,
-            )
-    except Exception as e:
-        if verbose:
-            print(f"[agent] Warning: Could not set Class: {e}", flush=True)
+    # try:
+    #     props.Set(ADAPTER_IFACE, "Class", dbus.UInt32(0x002540))
+    #     if verbose:
+    #         print(
+    #             f"[agent] Adapter Class set to 0x002540 (Keyboard) for {adapter_path}",
+    #             flush=True,
+    #         )
+    # except Exception as e:
+    #     if verbose:
+    #         print(f"[agent] Warning: Could not set Class: {e}", flush=True)
 
     try:
         props.Set(ADAPTER_IFACE, "PairableTimeout", dbus.UInt32(0))
