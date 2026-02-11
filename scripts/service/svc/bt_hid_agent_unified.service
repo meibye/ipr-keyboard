@@ -1,5 +1,6 @@
 [Unit]
 Description=IPR Keyboard Unified BlueZ Agent
+# Ensure the Bluetooth system service is running first
 After=bluetooth.service
 Requires=bluetooth.service
 BindsTo=bluetooth.service
@@ -9,13 +10,28 @@ Type=simple
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=bt_hid_agent_unified
+
+# Load environment variables for BT_HCI, BT_DEVICE_NAME, etc.
 EnvironmentFile=-/opt/ipr_common.env
-ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" le on'
-ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" bredr off'
-# ext-adv is not supported on all stacks; keep it best-effort to avoid hard failure
+
+# --- HARDWARE INITIALIZATION ---
+# 1. Ensure the interface is UP
+ExecStartPre=/usr/bin/hciconfig ${BT_HCI:-hci0} up
+# 2. Enable Low Energy (LE) support
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} le on
+# 3. Enable Classic (BREDR). Windows often requires this for HID discovery stability.
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} bredr on
+# 4. Set Bondable and Connectable so Windows can initiate the link
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} bondable on
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} connectable on
+# 5. Disable Extended Advertising (ext-adv) to maximize compatibility with older Windows 10/11 builds
 ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" ext-adv off >/dev/null 2>&1 || true'
-ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" advertising on'
-ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_agent_unified.py --mode nowinpasskey --capability NoInputNoOutput --adapter ${BT_HCI:-hci0}
+# 6. Turn on advertising so the PC can find the Pi
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} advertising on
+
+# --- LAUNCH AGENT ---
+ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_agent_unified.py --adapter ${BT_HCI:-hci0}
+
 Restart=always
 RestartSec=2
 

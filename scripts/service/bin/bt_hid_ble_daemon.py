@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""
-bt_hid_ble_daemon.py - BLE HID over GATT keyboard daemon.
-
-Key fixes for your current symptoms:
-  - Buffer FIFO input until Windows subscribes to Input Report notifications
-    (StartNotify). This stops: "InputReport not notifying yet; dropping report".
-  - PropertiesChanged is emitted as a SIGNAL (required for notifications).
-"""
-
 import os
-import sys
 import threading
 import time
 from collections import deque
@@ -41,8 +31,6 @@ def env_str(name: str, default: str = "") -> str:
     v = str(v).strip()
     if " #" in v:
         v = v.split(" #", 1)[0].rstrip()
-    if "\t#" in v:
-        v = v.split("\t#", 1)[0].rstrip()
     return v
 
 
@@ -62,20 +50,18 @@ def log_err(msg: str):
     journal.send(msg, PRIORITY=getattr(journal, "LOG_ERR", 3))
 
 
+# BlueZ Constants
 BLUEZ = "org.bluez"
 DBUS_OM_IFACE = "org.freedesktop.DBus.ObjectManager"
 DBUS_PROP_IFACE = "org.freedesktop.DBus.Properties"
-
 GATT_MANAGER_IFACE = "org.bluez.GattManager1"
 LE_ADV_MGR_IFACE = "org.bluez.LEAdvertisingManager1"
-
 GATT_SERVICE_IFACE = "org.bluez.GattService1"
 GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 GATT_DESC_IFACE = "org.bluez.GattDescriptor1"
 ADVERTISEMENT_IFACE = "org.bluez.LEAdvertisement1"
 
 FIFO_PATH = "/run/ipr_bt_keyboard_fifo"
-NOTIFY_FLAG_PATH = "/run/ipr_bt_keyboard_notifying"
 
 # UUIDs
 UUID_HID_SERVICE = "1812"
@@ -85,27 +71,15 @@ UUID_HID_CONTROL_POINT = "2a4c"
 UUID_REPORT = "2a4d"
 UUID_PROTOCOL_MODE = "2a4e"
 UUID_REPORT_REFERENCE = "2908"
-
 UUID_DIS_SERVICE = "180a"
 UUID_PNP_ID = "2a50"
 UUID_MANUFACTURER = "2a29"
 UUID_MODEL_NUMBER = "2a24"
 
-# HID modifier bits
 MOD_LSHIFT = 0x02
-
 LETTER_USAGES = {chr(ord("a") + i): 0x04 + i for i in range(26)}
 DIGIT_USAGES = {
-    "1": 0x1E,
-    "2": 0x1F,
-    "3": 0x20,
-    "4": 0x21,
-    "5": 0x22,
-    "6": 0x23,
-    "7": 0x24,
-    "8": 0x25,
-    "9": 0x26,
-    "0": 0x27,
+    str(i): 0x1E + (0 if i == 1 else i - 1 if i > 0 else 9) for i in range(10)
 }
 PUNCT = {
     " ": (0x2C, 0),
@@ -198,31 +172,25 @@ class Application(dbus.service.Object):
         self.services = []
         super().__init__(bus, self.path)
 
-    def get_path(self):
-        return dbus.ObjectPath(self.path)
-
     def add_service(self, service):
         self.services.append(service)
 
     @dbus.service.method(DBUS_OM_IFACE, out_signature="a{oa{sa{sv}}}")
     def GetManagedObjects(self):
-        response = {}
+        res = {}
         for s in self.services:
-            response[s.get_path()] = s.get_properties()
+            res[s.get_path()] = s.get_properties()
             for c in s.characteristics:
-                response[c.get_path()] = c.get_properties()
+                res[c.get_path()] = c.get_properties()
                 for d in c.descriptors:
-                    response[d.get_path()] = d.get_properties()
-        return response
+                    res[d.get_path()] = d.get_properties()
+        return res
 
 
 class Service(dbus.service.Object):
     def __init__(self, bus, index, uuid, primary=True):
         self.path = f"/org/bluez/ipr/service{index}"
-        self.bus = bus
-        self.uuid = uuid
-        self.primary = primary
-        self.characteristics = []
+        self.bus, self.uuid, self.primary, self.characteristics = bus, uuid, primary, []
         super().__init__(bus, self.path)
 
     def get_path(self):
@@ -236,9 +204,6 @@ class Service(dbus.service.Object):
             GATT_SERVICE_IFACE: {
                 "UUID": self.uuid,
                 "Primary": dbus.Boolean(self.primary),
-                "Characteristics": dbus.Array(
-                    [c.get_path() for c in self.characteristics], signature="o"
-                ),
             }
         }
 
@@ -246,13 +211,14 @@ class Service(dbus.service.Object):
 class Characteristic(dbus.service.Object):
     def __init__(self, bus, index, uuid, flags, service):
         self.path = service.path + f"/char{index}"
-        self.bus = bus
-        self.uuid = uuid
-        self.flags = flags
-        self.service = service
-        self.descriptors = []
-        self._value = bytearray()
-        self.notifying = False
+        self.bus, self.uuid, self.flags, self.service, self.descriptors = (
+            bus,
+            uuid,
+            flags,
+            service,
+            [],
+        )
+        self._value, self.notifying = bytearray(), False
         super().__init__(bus, self.path)
 
     def get_path(self):
@@ -267,30 +233,13 @@ class Characteristic(dbus.service.Object):
                 "Service": self.service.get_path(),
                 "UUID": self.uuid,
                 "Flags": dbus.Array(self.flags, signature="s"),
-                "Descriptors": dbus.Array(
-                    [d.get_path() for d in self.descriptors], signature="o"
-                ),
                 "Value": dbus.Array(self._value, signature="y"),
             }
         }
 
-    @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
-    def GetAll(self, interface):
-        if interface != GATT_CHRC_IFACE:
-            raise dbus.exceptions.DBusException(
-                "org.freedesktop.DBus.Error.InvalidArgs", "Invalid interface"
-            )
-        return self.get_properties()[GATT_CHRC_IFACE]
-
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="ay")
     def ReadValue(self, options):
-        value = bytes(self._value)
-        offset = int(options.get("offset", 0)) if isinstance(options, dict) else 0
-        if offset > len(value):
-            raise dbus.exceptions.DBusException(
-                "org.bluez.Error.InvalidOffset", "Invalid offset"
-            )
-        return dbus.Array(value[offset:], signature="y")
+        return dbus.Array(self._value, signature="y")
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="aya{sv}", out_signature="")
     def WriteValue(self, value, options):
@@ -308,18 +257,17 @@ class Characteristic(dbus.service.Object):
     def PropertiesChanged(self, interface, changed, invalidated):
         pass
 
-    def _emit_properties_changed(self, changed_dict):
-        self.PropertiesChanged(GATT_CHRC_IFACE, changed_dict, [])
-
 
 class Descriptor(dbus.service.Object):
     def __init__(self, bus, index, uuid, flags, characteristic):
         self.path = characteristic.path + f"/desc{index}"
-        self.bus = bus
-        self.uuid = uuid
-        self.flags = flags
-        self.characteristic = characteristic
-        self._value = bytearray()
+        self.bus, self.uuid, self.flags, self.characteristic, self._value = (
+            bus,
+            uuid,
+            flags,
+            characteristic,
+            bytearray(),
+        )
         super().__init__(bus, self.path)
 
     def get_path(self):
@@ -335,372 +283,168 @@ class Descriptor(dbus.service.Object):
             }
         }
 
-    @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
-    def GetAll(self, interface):
-        if interface != GATT_DESC_IFACE:
-            raise dbus.exceptions.DBusException(
-                "org.freedesktop.DBus.Error.InvalidArgs", "Invalid interface"
-            )
-        return self.get_properties()[GATT_DESC_IFACE]
-
     @dbus.service.method(GATT_DESC_IFACE, in_signature="a{sv}", out_signature="ay")
     def ReadValue(self, options):
         return dbus.Array(self._value, signature="y")
 
 
-class ReportReferenceDescriptor(Descriptor):
-    def __init__(self, bus, index, characteristic, report_id: int, report_type: int):
-        super().__init__(bus, index, UUID_REPORT_REFERENCE, ["read"], characteristic)
-        self._value = bytearray([report_id & 0xFF, report_type & 0xFF])
-
-
-class HidInformationCharacteristic(Characteristic):
+class PnpIdCharacteristic(Characteristic):
     def __init__(self, bus, index, service):
-        super().__init__(bus, index, UUID_HID_INFORMATION, ["read"], service)
-        self._value = bytearray(
-            [0x11, 0x01, 0x00, 0x02]
-        )  # HID 1.11, country=0, flags=0x02
-
-
-class ReportMapCharacteristic(Characteristic):
-    def __init__(self, bus, index, service):
-        super().__init__(bus, index, UUID_REPORT_MAP, ["read"], service)
-        self._value = bytearray(HID_REPORT_MAP)
-
-
-class ProtocolModeCharacteristic(Characteristic):
-    def __init__(self, bus, index, service):
-        super().__init__(
-            bus, index, UUID_PROTOCOL_MODE, ["read", "write-without-response"], service
-        )
-        self._value = bytearray([0x01])  # Report Protocol
-
-
-class HidControlPointCharacteristic(Characteristic):
-    def __init__(self, bus, index, service):
-        super().__init__(
-            bus, index, UUID_HID_CONTROL_POINT, ["write-without-response"], service
-        )
-        self._value = bytearray([0x00])
+        super().__init__(bus, index, UUID_PNP_ID, ["read"], service)
+        # STABILITY FIX: Use Google Vendor ID (0x00E0)
+        self._value = bytearray([0x01, 0xE0, 0x00, 0x01, 0x00, 0x01, 0x00])
 
 
 class InputReportCharacteristic(Characteristic):
     def __init__(self, bus, index, service, notify_event: threading.Event):
         super().__init__(bus, index, UUID_REPORT, ["read", "notify"], service)
-        self._value = bytearray(build_kbd_report(0, 0))
         self.notify_event = notify_event
-        self.add_descriptor(
-            ReportReferenceDescriptor(bus, 0, self, report_id=0, report_type=1)
-        )
+        self.add_descriptor(Descriptor(bus, 0, UUID_REPORT_REFERENCE, ["read"], self))
+        self.descriptors[0]._value = bytearray([0x00, 0x01])
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="a{sv}", out_signature="")
     def StartNotify(self, options):
         self.notifying = True
         self.notify_event.set()
-        try:
-            with open(NOTIFY_FLAG_PATH, "w", encoding="utf-8") as f:
-                f.write("1\n")
-        except Exception:
-            pass
-        log_info("[ble] InputReport StartNotify (Windows subscribed)", always=True)
+        log_info("[ble] StartNotify: Windows subscribed", always=True)
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
     def StopNotify(self):
         self.notifying = False
         self.notify_event.clear()
-        try:
-            os.unlink(NOTIFY_FLAG_PATH)
-        except FileNotFoundError:
-            pass
-        except Exception:
-            pass
-        log_info("[ble] InputReport StopNotify (Windows unsubscribed)", always=True)
+        log_info("[ble] StopNotify: Windows unsubscribed", always=True)
 
     def notify_report(self, report_bytes: bytes):
         if not self.notifying:
             return False
         self._value = bytearray(report_bytes)
-        self._emit_properties_changed({"Value": dbus.Array(self._value, signature="y")})
+        self.PropertiesChanged(
+            GATT_CHRC_IFACE, {"Value": dbus.Array(self._value, signature="y")}, []
+        )
         return True
 
 
 class HidService(Service):
-    def __init__(self, bus, index, notify_event: threading.Event):
-        super().__init__(bus, index, UUID_HID_SERVICE, primary=True)
-        self.hid_info = HidInformationCharacteristic(bus, 0, self)
-        self.report_map = ReportMapCharacteristic(bus, 1, self)
-        self.protocol_mode = ProtocolModeCharacteristic(bus, 2, self)
-        self.control_point = HidControlPointCharacteristic(bus, 3, self)
-        self.input_report = InputReportCharacteristic(bus, 4, self, notify_event)
-
-        self.add_characteristic(self.hid_info)
-        self.add_characteristic(self.report_map)
-        self.add_characteristic(self.protocol_mode)
-        self.add_characteristic(self.control_point)
-        self.add_characteristic(self.input_report)
-
-
-class ReadOnlyStringCharacteristic(Characteristic):
-    def __init__(self, bus, index, uuid, value_str, service):
-        super().__init__(bus, index, uuid, ["read"], service)
-        self._value = bytearray(value_str.encode("utf-8"))
-
-
-class PnpIdCharacteristic(Characteristic):
-    def __init__(self, bus, index, service):
-        super().__init__(bus, index, UUID_PNP_ID, ["read"], service)
-        # Default Linux Foundation values for BLE HID compatibility
-        vid = int(env_str("BT_USB_VID", "0x1D6B"), 0)  # Linux Foundation VID
-        pid = int(env_str("BT_USB_PID", "0x0002"), 0)  # Linux Foundation PID for HID
-        ver = int(env_str("BT_USB_VER", "0x0100"), 0)  # Version 1.0.0
-        self._value = bytearray(
-            [
-                0x02,
-                vid & 0xFF,
-                (vid >> 8) & 0xFF,
-                pid & 0xFF,
-                (pid >> 8) & 0xFF,
-                ver & 0xFF,
-                (ver >> 8) & 0xFF,
-            ]
+    def __init__(self, bus, index, notify_event):
+        super().__init__(bus, index, UUID_HID_SERVICE)
+        self.add_characteristic(
+            Characteristic(bus, 0, UUID_HID_INFORMATION, ["read"], self)
         )
-        if BLE_DEBUG:
-            log_info(f"[ble] PnpIdCharacteristic bytes: {list(self._value)}")
-            log_info(
-                f"[ble] PnpIdCharacteristic VID: {vid:#06x}, PID: {pid:#06x}, VER: {ver:#06x}"
+        self.characteristics[0]._value = bytearray([0x11, 0x01, 0x00, 0x02])
+        self.add_characteristic(Characteristic(bus, 1, UUID_REPORT_MAP, ["read"], self))
+        self.characteristics[1]._value = bytearray(HID_REPORT_MAP)
+        self.add_characteristic(
+            Characteristic(
+                bus, 2, UUID_PROTOCOL_MODE, ["read", "write-without-response"], self
             )
-            log_info(f"[ble] PnpIdCharacteristic raw value: {self._value.hex()}")
+        )
+        self.characteristics[2]._value = bytearray([0x01])
+        self.input_report = InputReportCharacteristic(bus, 3, self, notify_event)
+        self.add_characteristic(self.input_report)
 
 
 class DeviceInfoService(Service):
     def __init__(self, bus, index):
-        super().__init__(bus, index, UUID_DIS_SERVICE, primary=True)
-        self.pnp = PnpIdCharacteristic(bus, 0, self)
-        self.mfg = ReadOnlyStringCharacteristic(
-            bus, 1, UUID_MANUFACTURER, env_str("BT_MANUFACTURER", "IPR"), self
+        super().__init__(bus, index, UUID_DIS_SERVICE)
+        self.add_characteristic(PnpIdCharacteristic(bus, 0, self))
+        self.add_characteristic(
+            Characteristic(bus, 1, UUID_MANUFACTURER, ["read"], self)
         )
-        self.model = ReadOnlyStringCharacteristic(
-            bus, 2, UUID_MODEL_NUMBER, env_str("BT_MODEL", "IPR Keyboard"), self
+        self.characteristics[1]._value = bytearray(
+            env_str("BT_MANUFACTURER", "IPR").encode()
         )
-        self.add_characteristic(self.pnp)
-        self.add_characteristic(self.mfg)
-        self.add_characteristic(self.model)
 
 
 class Advertisement(dbus.service.Object):
-    def __init__(self, bus, index, adv_type, service_uuids, local_name, appearance):
+    def __init__(self, bus, index, service_uuids, local_name):
         self.path = f"/org/bluez/ipr/advertisement{index}"
-        self.bus = bus
-        self.ad_type = adv_type
-        self.service_uuids = service_uuids
-        self.local_name = local_name
-        self.appearance = appearance
+        self.bus, self.service_uuids, self.local_name = bus, service_uuids, local_name
         super().__init__(bus, self.path)
 
     def get_path(self):
         return dbus.ObjectPath(self.path)
 
     def get_properties(self):
-        # Keep the packet simple so "LocalName" stays in the primary ADV data
-        # (not only in scan response), improving visibility in Windows/phone UIs.
         return {
             ADVERTISEMENT_IFACE: {
-                "Type": self.ad_type,
+                "Type": "peripheral",
                 "ServiceUUIDs": dbus.Array(self.service_uuids, signature="s"),
                 "LocalName": self.local_name,
+                "Appearance": dbus.UInt16(0x03C1),  # FIX: Keyboard Icon
                 "Flags": dbus.Array([dbus.Byte(0x02), dbus.Byte(0x04)], signature="y"),
-                # Intentionally omit Appearance to free bytes and avoid BlueZ pushing name to scan response
             }
         }
 
     @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
     def GetAll(self, interface):
-        if interface != ADVERTISEMENT_IFACE:
-            raise dbus.exceptions.DBusException(
-                "org.freedesktop.DBus.Error.InvalidArgs", "Invalid interface"
-            )
         return self.get_properties()[ADVERTISEMENT_IFACE]
 
     @dbus.service.method(ADVERTISEMENT_IFACE, in_signature="", out_signature="")
     def Release(self):
-        log_info("[ble] Advertisement released -> exiting for restart", always=True)
         os._exit(0)
 
 
-def ensure_fifo():
+def fifo_worker(input_report: InputReportCharacteristic, notify_event: threading.Event):
     if not os.path.exists(FIFO_PATH):
         os.mkfifo(FIFO_PATH)
-        os.chmod(FIFO_PATH, 0o666)
-
-
-def pick_adapter_path(bus, prefer="hci0") -> str:
-    om = dbus.Interface(bus.get_object(BLUEZ, "/"), DBUS_OM_IFACE)
-    objects = om.GetManagedObjects()
-    for path, ifaces in objects.items():
-        if "org.bluez.Adapter1" in ifaces and path.endswith(prefer):
-            return path
-    for path, ifaces in objects.items():
-        if "org.bluez.Adapter1" in ifaces:
-            return path
-    raise RuntimeError("No Bluetooth adapter found (org.bluez.Adapter1)")
-
-
-def on_err(tag: str):
-    def _h(e):
-        log_err(f"[ble][ERROR] {tag}: {e}")
-
-    return _h
-
-
-def on_ok(msg: str):
-    def _h(*args, **kwargs):
-        log_info(msg, always=True)
-
-    return _h
-
-
-def fifo_worker(input_report: InputReportCharacteristic, notify_event: threading.Event):
-    ensure_fifo()
-    log_info(f"[ble] FIFO ready at {FIFO_PATH}", always=True)
-
-    # Queue characters received before StartNotify.
+    os.chmod(FIFO_PATH, 0o666)
     q = deque()
-    q_max = 2048
-    last_drop_log = 0.0
-
-    def enqueue_text(s: str):
-        nonlocal last_drop_log
-        for ch in s:
-            if len(q) >= q_max:
-                # Drop oldest to keep "latest" data
-                q.popleft()
-                now = time.time()
-                if now - last_drop_log > 2.0:
-                    log_info(
-                        "[ble] FIFO queue full; dropping oldest buffered chars (waiting for StartNotify)",
-                        always=True,
-                    )
-                    last_drop_log = now
-            q.append(ch)
-
-    def flush_queue():
-        # Drain queue respecting notify state.
-        while q and notify_event.is_set():
-            ch = q.popleft()
-            keycode, mods = map_char(ch)
-            if keycode == 0:
-                continue
-            ok = input_report.notify_report(build_kbd_report(mods, keycode))
-            if ok:
-                time.sleep(0.008)
-                input_report.notify_report(build_kbd_report(0, 0))
-                time.sleep(0.008)
-            else:
-                # Lost notify mid-flight: put char back and stop.
-                q.appendleft(ch)
-                break
-
     while True:
         try:
-            with open(FIFO_PATH, "r", encoding="utf-8") as fifo:
-                for line in fifo:
+            with open(FIFO_PATH, "r") as f:
+                for line in f:
                     text = line.rstrip("\n")
-                    if not text:
-                        continue
-                    log_info(f"[ble] FIFO received: {text!r}", always=True)
-
-                    enqueue_text(text)
-
-                    # Wait briefly for subscription; if not, keep buffering.
-                    if not notify_event.is_set():
-                        notify_event.wait(timeout=1.5)
-
-                    if notify_event.is_set():
-                        flush_queue()
-                    else:
-                        # Don't spam per-key logs; one line per message is enough.
-                        log_info(
-                            "[ble] Waiting for InputReport StartNotify; buffered text (not dropped).",
-                            always=True,
-                        )
-
-        except Exception as ex:
-            log_err(f"[ble][ERROR] FIFO worker exception: {ex}")
-            time.sleep(1.0)
+                    for ch in text:
+                        q.append(ch)
+                    while q and notify_event.is_set():
+                        ch = q.popleft()
+                        code, mods = map_char(ch)
+                        if code:
+                            input_report.notify_report(build_kbd_report(mods, code))
+                            time.sleep(0.01)
+                            input_report.notify_report(build_kbd_report(0, 0))
+                            time.sleep(0.01)
+        except Exception:
+            time.sleep(1)
 
 
 def main():
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
-
-    adapter_path = pick_adapter_path(bus, prefer=env_str("BT_HCI", "hci0"))
+    adapter_path = "/org/bluez/" + env_str("BT_HCI", "hci0")
 
     gatt_mgr = dbus.Interface(bus.get_object(BLUEZ, adapter_path), GATT_MANAGER_IFACE)
     adv_mgr = dbus.Interface(bus.get_object(BLUEZ, adapter_path), LE_ADV_MGR_IFACE)
 
     notify_event = threading.Event()
-
     app = Application(bus)
-    hid_service = HidService(bus, 1, notify_event)
-    dis_service = DeviceInfoService(bus, 2)
-
-    app.add_service(hid_service)
-    app.add_service(dis_service)
+    hid = HidService(bus, 1, notify_event)
+    dis = DeviceInfoService(bus, 2)
+    app.add_service(hid)
+    app.add_service(dis)
 
     adv = Advertisement(
-        bus=bus,
-        index=0,
-        adv_type="peripheral",
-        service_uuids=[UUID_HID_SERVICE],
-        local_name=env_str("BT_DEVICE_NAME", "IPR Keyboard"),
-        appearance=0x03C1,  # Keyboard
+        bus, 0, [UUID_HID_SERVICE], env_str("BT_DEVICE_NAME", "IPR Keyboard")
     )
 
-    log_info("[ble] Starting BLE HID daemon...", always=True)
-    log_info(
-        f"[ble] Advertising LocalName='{env_str('BT_DEVICE_NAME', 'IPR Keyboard')}'",
-        always=True,
-    )
-    log_info(f"[ble] Debug BT_BLE_DEBUG={'1' if BLE_DEBUG else '0'}", always=True)
-
-    if BLE_DEBUG:
-        log_info("[ble] BLE_DEBUG is enabled. Extra debug logs will be shown.")
-        log_info(f"[ble] Adapter path: {adapter_path}")
-        log_info(f"[ble] HID Service UUID: {UUID_HID_SERVICE}")
-        log_info(f"[ble] Device Info Service UUID: {UUID_DIS_SERVICE}")
-        log_info(f"[ble] GATT Manager IFACE: {GATT_MANAGER_IFACE}")
-        log_info(f"[ble] LE Advertising Manager IFACE: {LE_ADV_MGR_IFACE}")
-
-    log_info("[ble] Registering GATT application...", always=True)
     gatt_mgr.RegisterApplication(
         app.get_path(),
         {},
-        reply_handler=on_ok("[ble] GATT application registered"),
-        error_handler=on_err("RegisterApplication"),
+        reply_handler=lambda: log_info("[ble] GATT OK"),
+        error_handler=lambda e: log_err(f"GATT Err: {e}"),
     )
-
-    log_info("[ble] Registering advertisement...", always=True)
     adv_mgr.RegisterAdvertisement(
         adv.get_path(),
         {},
-        reply_handler=on_ok("[ble] Advertisement registered"),
-        error_handler=on_err("RegisterAdvertisement"),
+        reply_handler=lambda: log_info("[ble] ADV OK"),
+        error_handler=lambda e: log_err(f"ADV Err: {e}"),
     )
 
-    t = threading.Thread(
-        target=fifo_worker, args=(hid_service.input_report, notify_event), daemon=True
-    )
-    t.start()
-
-    log_info(
-        "[ble] BLE HID ready. Waiting for Windows connection + StartNotify...",
-        always=True,
-    )
+    threading.Thread(
+        target=fifo_worker, args=(hid.input_report, notify_event), daemon=True
+    ).start()
     GLib.MainLoop().run()
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        sys.exit(0)
+    main()
