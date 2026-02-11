@@ -40,6 +40,12 @@ fi
 
 cd "$REPO_DIR"
 
+# Synchronize the local repository with the remote branch specified by $BRANCH.
+# 1. Display the current working tree status (uncommitted changes, untracked files)
+# 2. Fetch all remote branches and remove stale remote-tracking references
+# 3. Switch to the branch specified by the $BRANCH environment variable
+# 4. Force reset the current branch to match the remote branch exactly (discarding local changes)
+# 5. Display the short SHA-1 hash of the current commit after synchronization
 echo "== Git status before =="
 git status --porcelain=v1 || true
 

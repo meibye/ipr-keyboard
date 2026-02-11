@@ -175,6 +175,9 @@ class Application(dbus.service.Object):
     def add_service(self, service):
         self.services.append(service)
 
+    def get_path(self):
+        return dbus.ObjectPath(self.path)
+
     @dbus.service.method(DBUS_OM_IFACE, out_signature="a{oa{sa{sv}}}")
     def GetManagedObjects(self):
         res = {}
