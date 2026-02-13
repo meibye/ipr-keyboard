@@ -831,28 +831,76 @@ def fifo_worker(hid: HidService, notify_state: NotifyState):
             time.sleep(1)
 
 
-def register_ble_stack(bus, adapter_path, app, adv) -> None:
+def _retryable_dbus_error(exc: dbus.DBusException) -> bool:
+    name = exc.get_dbus_name() or ""
+    msg = str(exc)
+    tokens = ("NotReady", "InProgress", "Failed", "NoReply", "TimedOut")
+    return any(token in name or token in msg for token in tokens)
+
+
+def register_ble_stack_async(main_loop, bus, adapter_path, app, adv) -> None:
     gatt_mgr = dbus.Interface(bus.get_object(BLUEZ, adapter_path), GATT_MANAGER_IFACE)
     adv_mgr = dbus.Interface(bus.get_object(BLUEZ, adapter_path), LE_ADV_MGR_IFACE)
 
-    last_err = None
-    for attempt in range(1, 31):
-        try:
-            gatt_mgr.RegisterApplication(app.get_path(), {})
-            adv_mgr.RegisterAdvertisement(adv.get_path(), {})
-            log_info(f"[ble] Registered GATT+ADV on {adapter_path}", always=True)
-            return
-        except dbus.DBusException as exc:
-            last_err = exc
-            err_name = exc.get_dbus_name() or ""
-            retryable = any(
-                token in err_name for token in ("NotReady", "InProgress", "Failed")
-            )
-            if not retryable or attempt == 30:
-                break
-            time.sleep(1)
+    state = {
+        "attempt": 0,
+        "max_attempts": 60,
+    }
 
-    raise RuntimeError(f"Failed to register BLE GATT/ADV: {last_err}")
+    def fail_and_exit(reason: str) -> bool:
+        log_err(f"[ble] Registration failed: {reason}")
+        main_loop.quit()
+        os._exit(1)
+
+    def schedule_retry(source: str, exc: dbus.DBusException) -> bool:
+        state["attempt"] += 1
+        attempt = state["attempt"]
+
+        if not _retryable_dbus_error(exc):
+            return fail_and_exit(f"{source} non-retryable error: {exc}")
+
+        if attempt >= state["max_attempts"]:
+            return fail_and_exit(
+                f"{source} exceeded retry budget ({state['max_attempts']}): {exc}"
+            )
+
+        log_info(
+            f"[ble] {source} retry {attempt}/{state['max_attempts']} after error: {exc}",
+            always=True,
+        )
+        GLib.timeout_add_seconds(1, do_register_gatt)
+        return False
+
+    def on_adv_ok() -> None:
+        log_info(f"[ble] Registered GATT+ADV on {adapter_path}", always=True)
+
+    def on_adv_err(exc: dbus.DBusException) -> None:
+        schedule_retry("RegisterAdvertisement", exc)
+
+    def on_gatt_ok() -> None:
+        log_info("[ble] GATT application registered", always=True)
+        adv_mgr.RegisterAdvertisement(
+            adv.get_path(),
+            {},
+            reply_handler=on_adv_ok,
+            error_handler=on_adv_err,
+        )
+
+    def on_gatt_err(exc: dbus.DBusException) -> None:
+        schedule_retry("RegisterApplication", exc)
+
+    def do_register_gatt() -> bool:
+        gatt_mgr.RegisterApplication(
+            app.get_path(),
+            {},
+            reply_handler=on_gatt_ok,
+            error_handler=on_gatt_err,
+        )
+        return False
+
+    # Start once the GLib loop is running so BlueZ can call GetManagedObjects
+    # immediately and receive a timely response.
+    GLib.idle_add(do_register_gatt)
 
 
 def main() -> None:
@@ -884,11 +932,11 @@ def main() -> None:
         env_str("BT_DEVICE_NAME", "IPR Keyboard"),
     )
 
-    register_ble_stack(bus, adapter_path, app, adv)
-
     threading.Thread(target=fifo_worker, args=(hid, notify_state), daemon=True).start()
 
-    GLib.MainLoop().run()
+    main_loop = GLib.MainLoop()
+    register_ble_stack_async(main_loop, bus, adapter_path, app, adv)
+    main_loop.run()
 
 
 if __name__ == "__main__":
