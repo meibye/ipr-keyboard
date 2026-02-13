@@ -91,9 +91,13 @@ set_or_add() {
 
 # Key:Section mapping
 # set_or_add "AutoEnable" "true" "General"     # AutoEnable not recognized by older bluez
-# set_or_add "PairableTimeout" "0" "General"
-# set_or_add "DiscoverableTimeout" "0" "Policy"
-set_or_add "ControllerMode" "$BT_CONTROLLER_MODE" "General"
+set_or_add "Experimental" "true" "General"
+set_or_add "PairableTimeout" "0" "General"
+set_or_add "DiscoverableTimeout" "0" "General"
+set_or_add "ControllerMode" "le" "General"
+set_or_add "Privacy" "off" "General"
+set_or_add "JustWorksRepairing" "always" "General"
+set_or_add "AutoEnable" "true" "Policy"
 
 # Create systemd override for bluetooth.service
 echo "[ble_configure_system] Creating systemd override for bluetooth.service (ConfigurationDirectoryMode=0755)"
