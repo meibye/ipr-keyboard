@@ -2,7 +2,7 @@
 #
 # svc_install_bt_gatt_hid.sh
 #
-# VERSION: 2026/01/12 19:32:23
+# VERSION: 2026/02/13 15:23:48
 # 
 # Installs:
 #   - Unified BlueZ Agent service for pairing (bt_hid_agent_unified.service)
@@ -94,8 +94,8 @@ BT_MANUFACTURER="IPR"
 BT_MODEL="IPR Keyboard"
 
 # PnP ID (USB VID/PID/VER). Linux Foundation defaults are fine for testing.
-BT_USB_VID="0x1234"
-BT_USB_PID="0x5678"
+BT_USB_VID="0x1209"
+BT_USB_PID="0x0001"
 BT_USB_VER="0x0100"
 EOF
 fi

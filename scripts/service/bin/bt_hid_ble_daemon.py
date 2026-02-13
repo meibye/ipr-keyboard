@@ -27,6 +27,8 @@ except ImportError:
 
 def env_str(name: str, default: str = "") -> str:
     v = os.environ.get(name, default)
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] env_str({name}) -> {v}")
     if v is None:
         return default
     v = str(v).strip()
@@ -36,16 +38,26 @@ def env_str(name: str, default: str = "") -> str:
 
 
 def env_bool(name: str, default: str = "0") -> bool:
-    return env_str(name, default).strip() == "1"
+    val = env_str(name, default).strip() == "1"
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] env_bool({name}) -> {val}")
+    return val
 
 
 def env_hex_int(name: str, default: int) -> int:
     raw = env_str(name, "")
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] env_hex_int({name}) raw={raw}")
     if not raw:
         return default
     try:
-        return int(raw, 0)
+        val = int(raw, 0)
+        if BLE_DEBUG:
+            journal.send(f"[DEBUG] env_hex_int({name}) -> {val}")
+        return val
     except ValueError:
+        if BLE_DEBUG:
+            journal.send(f"[DEBUG] env_hex_int({name}) ValueError")
         return default
 
 
@@ -121,6 +133,8 @@ SPECIAL_DK = {
 
 
 def map_char(ch: str):
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] map_char({ch})")
     if ch in PUNCT:
         return PUNCT[ch]
     if ch in DIGIT_USAGES:
@@ -135,7 +149,12 @@ def map_char(ch: str):
 
 
 def build_kbd_report(mods: int, keycode: int) -> bytes:
-    return bytes([mods & 0xFF, 0x00, keycode & 0xFF, 0, 0, 0, 0, 0])
+    report = bytes([mods & 0xFF, 0x00, keycode & 0xFF, 0, 0, 0, 0, 0])
+    if BLE_DEBUG:
+        journal.send(
+            f"[DEBUG] build_kbd_report(mods={mods}, keycode={keycode}) -> {report}"
+        )
+    return report
 
 
 # Report protocol descriptor with input + output report (keyboard LEDs).
@@ -764,25 +783,44 @@ def set_adapter_ready(bus: dbus.SystemBus, adapter_path: str) -> None:
 
 
 def ensure_fifo_exists() -> None:
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] ensure_fifo_exists() path={FIFO_PATH}")
     if not os.path.exists(FIFO_PATH):
         os.mkfifo(FIFO_PATH)
+        if BLE_DEBUG:
+            journal.send(f"[DEBUG] FIFO created: {FIFO_PATH}")
     os.chmod(FIFO_PATH, 0o666)
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] FIFO permissions set: {FIFO_PATH}")
 
 
 def send_next_character(
     queue: deque, hid: HidService, notify_state: NotifyState
 ) -> bool:
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] send_next_character() queue={list(queue)}")
     if not queue:
+        if BLE_DEBUG:
+            journal.send("[DEBUG] send_next_character: queue empty")
         return False
 
     if not notify_state.event.is_set():
+        if BLE_DEBUG:
+            journal.send("[DEBUG] send_next_character: notify_state not set")
         return False
 
     ch = queue[0]
     keycode, mods = map_char(ch)
 
+    if BLE_DEBUG:
+        journal.send(
+            f"[DEBUG] send_next_character: ch={ch}, keycode={keycode}, mods={mods}"
+        )
+
     # Drop unsupported characters rather than stalling the queue indefinitely.
     if keycode == 0:
+        if BLE_DEBUG:
+            journal.send(f"[DEBUG] send_next_character: unsupported char {ch}")
         queue.popleft()
         return True
 
@@ -790,6 +828,8 @@ def send_next_character(
     release = build_kbd_report(0, 0)
 
     if not hid.notify_key_report(press):
+        if BLE_DEBUG:
+            journal.send("[DEBUG] send_next_character: notify_key_report(press) failed")
         return False
 
     time.sleep(0.012)
@@ -797,13 +837,23 @@ def send_next_character(
     time.sleep(0.008)
 
     queue.popleft()
+    if BLE_DEBUG:
+        journal.send("[DEBUG] send_next_character: char sent and released")
     return True
 
 
 def drain_queue(queue: deque, hid: HidService, notify_state: NotifyState) -> None:
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] drain_queue() start queue={list(queue)}")
     while queue:
         if not send_next_character(queue, hid, notify_state):
+            if BLE_DEBUG:
+                journal.send(
+                    "[DEBUG] drain_queue: send_next_character returned False, breaking"
+                )
             break
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] drain_queue() end queue={list(queue)}")
 
 
 def fifo_worker(hid: HidService, notify_state: NotifyState):
