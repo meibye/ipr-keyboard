@@ -27,7 +27,7 @@ except ImportError:
 
 def env_str(name: str, default: str = "") -> str:
     v = os.environ.get(name, default)
-    if BLE_DEBUG:
+    if name != "BT_BLE_DEBUG" and BLE_DEBUG:
         journal.send(f"[DEBUG] env_str({name}) -> {v}")
     if v is None:
         return default
@@ -39,7 +39,7 @@ def env_str(name: str, default: str = "") -> str:
 
 def env_bool(name: str, default: str = "0") -> bool:
     val = env_str(name, default).strip() == "1"
-    if BLE_DEBUG:
+    if name != "BT_BLE_DEBUG" and BLE_DEBUG:
         journal.send(f"[DEBUG] env_bool({name}) -> {val}")
     return val
 
