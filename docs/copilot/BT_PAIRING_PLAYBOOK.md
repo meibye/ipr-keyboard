@@ -1,104 +1,57 @@
-# Bluetooth Pairing Playbook (Windows 11 ↔ RPi BLE HID)
-## Remote Device Access via SSH MCP Server
+# Bluetooth Pairing Playbook
 
-For all Bluetooth pairing diagnostics and troubleshooting on Raspberry Pi, use the SSH MCP server as defined in `.vscode/mcp.json`.
+Playbook for classifying BLE HID pairing failures.
 
-**Example:**
-- To run a diagnostic script remotely:
-	- Use the `ipr-rpi-dev-ssh` profile.
-	- Execute via MCP server (see Copilot agent or VS Code integration).
+## Start Here
 
-**Typical usage:**
-```json
-{
-	"cmdString": "/usr/local/bin/dbg_diag_bundle.sh"
-}
-```
-See `.vscode/mcp.json` for server details and allowed commands.
+1. `dbg_diag_bundle.sh`
+2. `dbg_pairing_capture.sh 60`
+3. Classify by failure mode below
 
-**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency and auditability.
+## Mode A: Authentication/Authorization Failure
 
-This playbook helps classify pairing failures and choose the next diagnostic action.
-
-## Always start
-1) Run `/usr/local/bin/dbg_diag_bundle.sh`
-2) Run `/usr/local/bin/dbg_pairing_capture.sh 60` while user attempts pairing on Windows
-3) Classify failure mode using the sections below
-
-
-## Failure mode A — Pairing rejected / auth failure
 Signals:
-- Logs mention: "AuthenticationFailed", "Insufficient authentication", "Insufficient encryption"
-- btmon shows pairing/encryption negotiation fails
+- auth failures in agent or btmon logs
+- pairing fails before stable connection
 
-Next actions:
-1) Verify btmgmt settings: bondable, secure-conn, ssp, privacy
-2) Confirm agent behavior: passkey confirmation / JustWorks mismatch
-3) Ensure GATT characteristic security/permissions match Windows expectations
-4) Re-test with capture
+Actions:
+- validate `bt_hid_agent_unified.service` health
+- inspect recent agent journal for `RequestConfirmation`/`AuthorizeService`
+- rerun bounded pairing capture
 
-Likely fixes:
-- Adjust security flags on characteristics
-- Ensure BlueZ agent handles the pairing method Windows uses
-- Ensure device is bondable + secure connections align with Windows
+## Mode B: Pairing Succeeds then Drops
 
----
-
-## Failure mode B — Pairs, then immediately disconnects
 Signals:
-- Windows shows paired briefly then fails
-- btmon shows disconnect reason shortly after pairing
+- temporary connection then immediate disconnect
+- BLE daemon exceptions or restarts
 
-Next actions:
-1) Confirm service stays up during pairing (systemd restart loops?)
-2) Look for exceptions in bt_hid_ble service logs
-3) Confirm advertising/connection parameters stable
-4) Re-run capture with longer duration (90s)
+Actions:
+- check `bt_hid_ble.service` restart loops
+- inspect BLE daemon journal around disconnect window
+- verify service dependencies and adapter readiness
 
-Likely fixes:
-- Fix crash in GATT callbacks
-- Ensure characteristics exist as expected (Attribute Not Found errors)
-- Ensure CCCD/notify subscription works
+## Mode C: Paired but No Input
 
----
-
-## Failure mode C — Pairing succeeds, but HID input never works
 Signals:
-- Windows says connected/paired
-- No `StartNotify` in service logs
-- Notify works on other devices but not Windows
+- connection exists but no keystrokes delivered
 
-Next actions:
-1) Verify Report Map, Report Reference descriptors, CCCD behavior
-2) Confirm notify property and permissions for Input Report characteristic
-3) Confirm correct HID service UUID and characteristic UUIDs
+Actions:
+- verify notify subscription behavior
+- verify helper path and FIFO producer (`bt_kb_send`)
+- verify BLE daemon is active and consuming FIFO
 
-Likely fixes:
-- Correct characteristic flags (read/notify + security)
-- Ensure CCCD is present and handled correctly
-- Ensure report IDs/types match HID over GATT expectations
+## Mode D: Device Not Discoverable
 
----
-
-## Failure mode D — Windows can't discover / can't see device
 Signals:
-- Not visible in scan
-- Advertising not active, or device name missing
+- host cannot see device during scan
 
-Next actions:
-1) btmgmt advertising status and LE settings
-2) bluetoothd running and not blocked by rfkill
-3) verify adapter powered + discoverable
+Actions:
+- run `scripts/ble/diag_bt_visibility.sh`
+- run with `--fix` if approved
+- verify adapter powered/discoverable and service state
 
-Likely fixes:
-- fix advertising setup, local name, intervals
-- ensure no conflicting services own the adapter
+## Recovery Ladder
 
----
-
-## Safe recovery ladder (increasing impact)
-1) `/usr/local/bin/dbg_bt_restart.sh`
-2) `/usr/local/bin/dbg_bt_soft_reset.sh`
-3) (ONLY with approval) bond wipe on Pi and Windows + re-pair
-
-Stop after 3 iterations: deliver most likely cause + recommended code/config change.
+1. `dbg_bt_restart.sh`
+2. `dbg_bt_soft_reset.sh`
+3. `dbg_bt_bond_wipe.sh <MAC>` and re-pair (approval required)

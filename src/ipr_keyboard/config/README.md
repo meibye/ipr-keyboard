@@ -1,245 +1,34 @@
-# Configuration Module
+# src/ipr_keyboard/config/
 
-This module provides thread-safe configuration management with JSON persistence and web API access.
-
-## Overview
-
-The configuration module manages application settings through a singleton `ConfigManager` that provides:
-- Thread-safe read/write operations
-- JSON file persistence
-- Runtime configuration updates
-- Web API for remote configuration
-- Default configuration values
-- **Automatic synchronization between `config.json` and `/etc/ipr-keyboard/backend`**
-
-## Backend Synchronization
-
-The `KeyboardBackend` setting is automatically synchronized between `config.json` and `/etc/ipr-keyboard/backend`:
-
-- **On startup**: If `/etc/ipr-keyboard/backend` exists, it takes precedence and updates `config.json`
-- **On update**: When `KeyboardBackend` is changed via `ConfigManager.update()`, the backend file is automatically updated
-- **Manual changes**: The `ble_switch_backend.sh` script updates both files simultaneously
-
-This ensures that the application config and system-level service manager always agree on which backend is active.
+Configuration management for the application.
 
 ## Files
 
-- **`manager.py`** - Core ConfigManager class and AppConfig dataclass with backend synchronization
-- **`web.py`** - Flask blueprint for configuration REST API
-- **`__init__.py`** - Module initialization
+- `manager.py`: `AppConfig` + thread-safe singleton `ConfigManager`
+- `web.py`: Flask blueprint (`/config/`)
 
-## Related Scripts
-
-Backend switching can be triggered by updating the `KeyboardBackend` field in the config. The backend selection is managed by:
-- `scripts/ble_switch_backend.sh` — Interactive backend switching (syncs both config.json and /etc/ipr-keyboard/backend)
-- `scripts/ble_backend_manager.sh` — Manual backend manager trigger
-- `ipr_backend_manager.service` — Automatic backend management (reads /etc/ipr-keyboard/backend)
-
-See [SERVICES.md](../../../SERVICES.md) for detailed backend service documentation.
-
-## AppConfig Dataclass
-
-The `AppConfig` dataclass defines all application configuration fields:
+## Current AppConfig Schema
 
 ```python
-@dataclass
-class AppConfig:
-    IrisPenFolder: str = "/mnt/irispen"    # USB mount point
-    DeleteFiles: bool = True                # Delete after processing
-    Logging: bool = True                    # Enable logging
-    MaxFileSize: int = 1024 * 1024         # Max file size (1MB)
-    LogPort: int = 8080                     # Web server port
-    KeyboardBackend: str = "uinput"         # Backend: "uinput" or "ble"
-```
-
-### Methods
-
-- **`from_dict(data: Dict[str, Any]) -> AppConfig`** - Create config from dictionary
-- **`to_dict() -> Dict[str, Any]`** - Convert config to dictionary
-
-## ConfigManager Class
-
-The `ConfigManager` is a thread-safe singleton that manages the application configuration.
-
-### Key Methods
-
-#### `instance() -> ConfigManager`
-Get or create the singleton ConfigManager instance.
-- **Returns**: The global ConfigManager instance
-- **Thread-safe**: Uses class-level lock
-
-#### `get() -> AppConfig`
-Get a copy of the current configuration.
-- **Returns**: AppConfig instance (shallow copy)
-- **Thread-safe**: Uses instance lock
-- **Note**: Returns a copy to prevent accidental mutation
-
-#### `update(**kwargs) -> AppConfig`
-Update configuration fields and persist to JSON.
-- **Parameters**: Keyword arguments matching AppConfig fields
-- **Returns**: Updated AppConfig instance
-- **Thread-safe**: Uses instance lock
-- **Side effects**: Writes to JSON file and synchronizes `/etc/ipr-keyboard/backend` if `KeyboardBackend` is changed
-
-#### `reload() -> AppConfig`
-Reload configuration from JSON file.
-- **Returns**: Updated AppConfig instance
-- **Thread-safe**: Uses instance lock
-- **Use case**: Manual config.json edits
-
-### Constructor
-
-```python
-ConfigManager(path: Optional[Path] = None)
-```
-- **Parameters**: 
-  - `path` - Path to config.json (defaults to project_root/config.json)
-- **Note**: Typically not called directly; use `instance()` instead
-- **Initialization behavior**: 
-  - Synchronizes with `/etc/ipr-keyboard/backend` on startup
-  - Backend file takes precedence if it exists
-  - Creates backend file if it doesn't exist
-
-## Thread Safety
-
-The module uses multiple levels of thread safety:
-
-1. **Class-level lock** (`_lock`): Protects singleton creation
-2. **Instance-level lock** (`_cfg_lock`): Protects configuration access
-3. **RLock**: Allows recursive locking for nested operations
-
-All public methods are thread-safe and can be called from multiple threads concurrently.
-
-## Configuration Persistence
-
-Configuration is stored in `config.json` in the project root:
-
-```json
-{
-  "DeleteFiles": true,
-  "IrisPenFolder": "/mnt/irispen",
-  "LogPort": 8080,
-  "Logging": true,
-  "MaxFileSize": 1048576
-}
-```
-
-- **Auto-save**: Updates are immediately persisted
-- **Pretty-printed**: JSON is indented and sorted for readability
-- **Atomic writes**: File operations use standard Python file I/O
-
-## Web API
-
-The `web.py` module provides a Flask blueprint for HTTP configuration access:
-
-### Endpoints
-
-#### `GET /config/`
-Get current configuration.
-- **Response**: JSON object with all configuration fields
-- **Example**:
-  ```json
-  {
-    "IrisPenFolder": "/mnt/irispen",
-    "DeleteFiles": true,
-    "Logging": true,
-    "MaxFileSize": 1048576,
-    "LogPort": 8080,
-    "KeyboardBackend": "uinput"
-  }
-  ```
-
-#### `GET /config/backends`
-Get keyboard backend information.
-- **Response**: JSON object with current backend and available options
-- **Example**:
-  ```bash
-  curl http://localhost:8080/config/backends
-  ```
-  ```json
-  {
-    "current": "uinput",
-    "available": ["uinput", "ble"]
-  }
-  ```
-
-#### `POST /config/`
-Update configuration fields.
-- **Request Body**: JSON object with fields to update
-- **Response**: Updated configuration
-- **Note**: Updating `KeyboardBackend` automatically synchronizes `/etc/ipr-keyboard/backend`. However, you still need to run `ble_switch_backend.sh` or restart `ipr_backend_manager.service` to activate the new backend services.
-- **Example**:
-  ```bash
-  curl -X POST http://localhost:8080/config/ \
-    -H "Content-Type: application/json" \
-    -d '{"DeleteFiles": false, "MaxFileSize": 2097152}'
-  ```
-
-The blueprint is registered in the main Flask app as `/config/`.
-
-## Usage Example
-
-```python
-from ipr_keyboard.config.manager import ConfigManager
-
-# Get singleton instance
-cfg_mgr = ConfigManager.instance()
-
-# Read configuration
-config = cfg_mgr.get()
-print(f"IrisPen folder: {config.IrisPenFolder}")
-
-# Update configuration
-new_config = cfg_mgr.update(
-    DeleteFiles=False,
-    MaxFileSize=2 * 1024 * 1024
+AppConfig(
+    IrisPenFolder: str = "/mnt/irispen",
+    DeleteFiles: bool = True,
+    Logging: bool = True,
+    MaxFileSize: int = 1024 * 1024,
+    LogPort: int = 8080,
 )
-
-# Reload from file (after manual edit)
-reloaded = cfg_mgr.reload()
 ```
 
-```bash
-# Get full config
-curl http://<pi-ip>:8080/config/
+## API Endpoints
 
-# See backend options
-curl http://<pi-ip>:8080/config/backends
+- `GET /config/`: returns current config
+- `POST /config/`: partial updates for known config keys
 
-# Change backend in config (automatically syncs /etc/ipr-keyboard/backend)
-curl -X POST http://<pi-ip>:8080/config/ \
-  -H "Content-Type: application/json" \
-  -d '{"KeyboardBackend": "ble"}'
-```
+## Threading Model
 
-After updating the config, activate the backend services:
-```bash
-cd /home/meibye/dev/ipr-keyboard
-./scripts/ble_switch_backend.sh   # reads from config's KeyboardBackend and activates services
-# OR manually restart the backend manager:
-sudo systemctl restart ipr_backend_manager.service
-```
+- class-level lock protects singleton initialization
+- instance-level `RLock` protects reads/writes/reload
 
-## Default Values
+## Important Clarification
 
-If `config.json` doesn't exist or is empty, the default values from `AppConfig` are used:
-- IrisPenFolder: `/mnt/irispen`
-- DeleteFiles: `true`
-- Logging: `true`
-- MaxFileSize: `1048576` (1 MB)
-- LogPort: `8080`
-- KeyboardBackend: `uinput`
-
-## Testing
-
-Tests are located in `tests/config/test_manager.py`:
-- Singleton pattern
-- Thread-safe operations
-- JSON persistence
-- Field updates
-- Default values
-
-Web API tests are in `tests/web/test_config_api.py`:
-- GET endpoint
-- POST endpoint
-- Invalid requests
+Current `ConfigManager` does **not** implement backend selection sync fields like `KeyboardBackend`. Any docs/scripts expecting that should be treated as legacy behavior references.

@@ -1,11 +1,18 @@
-## Local-only Copilot Mode
+# Local-Only Analysis Prompt
 
-Constraints:
-- Do not use MCP
-- Do not execute commands
-- Do not propose SSH or remote actions
-- Base all reasoning on repository files and chat context only
+Use this when remote execution is unavailable or intentionally disallowed.
 
- 
-**Usage Instruction Update:**
-This prompt should always be used in local-only Copilot mode; the mode does not change based on the prompt. Actions involving the Raspberry Pi (RPI) through the MCP are only executed when it is explicitly stated in the prompt that actions should be conducted on the RPI. Otherwise, all actions are performed locally and not on the RPI.
+## Instruction
+
+Analyze only repository files and local outputs. Do not assume live Raspberry Pi state.
+
+## Required Output Shape
+
+1. What is known from repository state
+2. What is unknown without runtime access
+3. Exact next remote commands that should be run when access is available
+4. Risk/impact assessment for each recommendation
+
+## Architecture Rule
+
+Always align findings with `ARCHITECTURE.md` and explicitly flag any legacy/deprecated pattern touched by the issue.

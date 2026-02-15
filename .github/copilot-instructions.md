@@ -1,117 +1,32 @@
+# GitHub Copilot Instructions for ipr-keyboard
 
+## Source of Truth
 
-# Copilot Coding Agent Instructions for ipr-keyboard
+Use `ARCHITECTURE.md` as the canonical reference for current system design.
 
-## Project Architecture & Data Flow
+## Current Stack Summary
 
-- **Purpose:** Bridges IrisPen USB scanner output to a paired device via Bluetooth HID keyboard emulation (RPi target).
-- **Main Flow:**
-  1. Monitors USB/MTP mount for new text files (IrisPen output)
-  2. Reads file content, sends via Bluetooth keyboard (using `/usr/local/bin/bt_kb_send`)
-  3. Optionally deletes files, logs all actions
-  4. Exposes Flask web API for config/logs
-- **Major Components:**
-  - `src/ipr_keyboard/main.py`: Entry point, orchestrates modules, starts web server and monitor threads
-  - `src/ipr_keyboard/bluetooth/keyboard.py`: Wraps `bt_kb_send` for keyboard emulation; supports BLE/uinput backends (configurable)
-  - `src/ipr_keyboard/usb/`: File detection (`detector.py`), reading (`reader.py`), deletion (`deleter.py`), MTP sync (`mtp_sync.py`)
-  - `src/ipr_keyboard/config/manager.py`: Thread-safe singleton config manager, JSON-backed, auto-syncs backend
-  - `src/ipr_keyboard/logging/logger.py`: Rotating file logger and console output
-  - `src/ipr_keyboard/web/server.py`: Flask API (`/config/`, `/logs/`, `/health`)
-  - `src/ipr_keyboard/utils/helpers.py`: Path resolution, JSON helpers, backend sync
+- Python package: `src/ipr_keyboard`
+- Entry point: `ipr_keyboard.main:main`
+- BLE service path: `bt_hid_ble.service` + `bt_hid_agent_unified.service`
+- Send helper: `/usr/local/bin/bt_kb_send`
+- Main service: `ipr_keyboard.service`
 
-## Developer Workflows
+## Development Commands
 
-- **Provisioning:** Use scripts in `provision/` for automated setup ([provision/README.md](provision/README.md)).
-- **Manual Setup:** Use scripts in `scripts/` for system setup, Bluetooth config, venv creation (with `uv`), and service install ([scripts/README.md](scripts/README.md)).
-- **Development Run:** `./scripts/dev_run_app.sh` (foreground, logs to console)
-- **Testing:** `pytest` or `pytest --cov=ipr_keyboard` ([tests/README.md](tests/README.md)). Tests mirror source structure, use fixtures, avoid interdependence.
-- **Diagnostics:** `./scripts/diag_troubleshoot.sh` for troubleshooting. Bluetooth-specific: `scripts/ble/`, remote diagnostics: `scripts/rpi-debug/`.
-- **Service Mode:** Installed as a systemd service via provisioning scripts. Runs as non-root, working dir is project root, entry is `python -m ipr_keyboard.main`.
+```bash
+./scripts/sys_setup_venv.sh
+./scripts/dev_run_app.sh
+pytest --cov=ipr_keyboard --cov-report=term-missing
+```
 
-## Project-Specific Conventions
+## Implementation Conventions
 
-- **Config:** Use `ConfigManager.instance()` for config access. Updates are persisted and thread-safe. Backend selection is auto-synced with `/etc/ipr-keyboard/backend`.
-- **Logging:** Use `get_logger()` from logging module. Log file: `logs/ipr_keyboard.log` (rotates at 256KB, 5 backups).
-- **Bluetooth:** Always check `BluetoothKeyboard.is_available()` before sending text. Helper script is a system dependency. Backends: BLE (recommended for Windows 11) and uinput.
-- **File Handling:** Use USB module functions for file detection, reading, deletion. Do not access files directly.
-- **Web API:** Register new endpoints as Flask blueprints. All config/log endpoints are under `/config/` and `/logs/`.
-- **Testing:** Place tests in `tests/` mirroring source structure. Use fixtures, avoid test interdependence. End-to-end/systemd tests in `scripts/`.
+- Use `ConfigManager.instance()` for config reads/updates.
+- Use `get_logger()` from `src/ipr_keyboard/logging/logger.py`.
+- Use USB helper modules (`detector`, `reader`, `deleter`) instead of ad-hoc file logic.
+- Keep web endpoints registered in blueprints/app factory patterns.
 
-## Integration Points & External Dependencies
+## Architectural Alignment Skill
 
-- **Bluetooth Helper:** `/usr/local/bin/bt_kb_send` (installed by `scripts/ble/ble_install_helper.sh`)
-- **Python venv:** Created with `uv` (see provisioning scripts)
-- **Systemd:** Services installed by provisioning scripts
-- **IrisPen Mount:** USB or MTP mount at `/mnt/irispen` (configurable)
-- **Backend Sync:** `config.json` and `/etc/ipr-keyboard/backend` are always kept in sync
-
-## Remote Diagnostics & Copilot Agent Mode
-
-## Development & Device Access
-
-Development is performed on a Windows 11 (W11) machine. Test devices include one or more Raspberry Pi (RPI) units and a W11 PC. Remote access to all devices should be performed via the MCP servers as defined in `.vscode/mcp.json`.
-
-**Usage Guidance:**
-- Use `ipr-rpi-dev-ssh` for Raspberry Pi development, diagnostics, and running custom scripts.
-- Use `ipr-pc-dev-ssh` for Windows PC development and diagnostics. No custom scripts exist for the W11 PC; use standard Windows commands for diagnostics and management.
-- Execute all remote commands, file transfers, and diagnostics via the MCP server (see Copilot agent or VS Code integration).
-- Do not use direct SSH or SCP; all remote actions should be performed via the MCP server for consistency, auditability, and agent-driven workflows.
-
-**Examples:**
-- To run a command on the Raspberry Pi:
-  ```json
-  {
-    "cmdString": "sudo ./provision/00_bootstrap.sh"
-  }
-  ```
-- To run a diagnostic script on the Raspberry Pi:
-  ```json
-  {
-    "cmdString": "/usr/local/bin/dbg_stack_status.sh"
-  }
-  ```
-- To run a command on the Windows 11 PC:
-  ```json
-  {
-    "cmdString": "Get-Service bluetooth"
-  }
-  ```
-  (or any standard Windows command)
-
-See `.vscode/mcp.json` for server details and allowed commands.
-
-**Note:** Debugging scripts are provided for the Raspberry Pi (see `scripts/rpi-debug/`), but not for the Windows PC. Use standard Windows commands for PC diagnostics.
-
-
-
-## Examples
-
-- **Send text via Bluetooth:**
-  ```python
-  from ipr_keyboard.bluetooth.keyboard import BluetoothKeyboard
-  kb = BluetoothKeyboard()
-  if kb.is_available():
-      kb.send_text("Hello world!")
-  ```
-- **Update config via web API:**
-  ```bash
-  curl -X POST http://localhost:8080/config/ -H "Content-Type: application/json" -d '{"DeleteFiles": false}'
-  ```
-- **View logs via web API:**
-  ```bash
-  curl http://localhost:8080/logs/tail?lines=50
-  ```
-
-## Key References
-
-- [README.md](README.md) — Project overview
-- [src/ipr_keyboard/README.md](src/ipr_keyboard/README.md) — Code structure
-- [scripts/README.md](scripts/README.md) — Setup and workflow scripts
-- [provision/README.md](provision/README.md) — Automated provisioning system
-- [tests/README.md](tests/README.md) — Test suite
-- [scripts/ble/README.md](scripts/ble/README.md) — Bluetooth-specific scripts
-- [scripts/rpi-debug/README.md](scripts/rpi-debug/README.md) — Remote diagnostic scripts
-
----
-
-**If you are an AI coding agent, follow these conventions and reference the above files for project-specific details.**
+When asked to "clean" the repo, compare every module against ARCHITECTURE.md. If a module implements a pattern marked as "Deprecated" or "Legacy" in the architecture doc, even if it is still being called, flag it as Architectural Dead Code and propose a refactor or removal.

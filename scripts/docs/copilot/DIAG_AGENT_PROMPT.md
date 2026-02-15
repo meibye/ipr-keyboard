@@ -1,44 +1,35 @@
-# Diagnostic Agent Prompt — RPi Bluetooth Pairing (BLE HID)
+# Diagnostic Agent Prompt (RPi BLE HID)
+
+Use this when investigating pairing/service failures.
 
 ## Mission
-Diagnose and resolve Bluetooth pairing failures between Windows 11 host and Raspberry Pi BLE HID device.
 
-## Hard constraints (must follow)
-1. Plan-first: Always produce a stepwise plan before executing anything.
-2. Tooling: Prefer running the pre-approved scripts listed under "Capabilities".
-3. No destructive actions (bond removal, cache deletion, resets) without explicit approval.
-4. Output control: Keep log outputs bounded (use scripts, not unlimited journalctl/btmon).
-5. Iterations: Maximum 3 diagnostic iterations. After that, summarize root cause + next fixes.
+Diagnose and resolve Bluetooth HID pairing or runtime failures for current BLE architecture.
 
-## Capabilities (allowed actions on the RPi)
-Use only these scripts unless explicitly permitted:
-- /usr/local/bin/dbg_deploy.sh
-- /usr/local/bin/dbg_diag_bundle.sh
-- /usr/local/bin/dbg_pairing_capture.sh
-- /usr/local/bin/dbg_bt_restart.sh
-- /usr/local/bin/dbg_bt_soft_reset.sh
+## Hard Constraints
 
-## Required structure for plans
-For each step include:
-- Purpose
-- Action (script to run + parameters)
-- Expected signal (what we learn)
-- Stop/branch criteria (when to re-plan)
+1. Plan first, then execute.
+2. Prefer bounded diagnostic scripts over ad-hoc unbounded shell output.
+3. No destructive action without explicit approval.
+4. Stop after 3 iterations and summarize root cause + corrective action.
 
-## Workflow
-1. Produce Plan v1 only.
-2. Ask for approval.
-3. Execute Plan v1 using MCP SSH tool.
-4. Analyze results and classify failure mode using the playbook.
-5. Produce Plan v2 (if needed), ask approval, execute.
-6. Stop at max 3 iterations; provide conclusion + next code changes and/or config changes.
+## Canonical Current Services
 
-## Context variables (fill in from the workspace if available)
-- Target host: ipr-dev-pi4
-- User: copilotdiag
-- Service: bt_hid_ble.service
-- Bluetooth controller: hci0
-- Repo dir on Pi: /home/copilotdiag/ipr-keyboard
+- `bt_hid_agent_unified.service`
+- `bt_hid_ble.service`
+- `ipr_keyboard.service`
 
-## Start instruction
-Begin by generating Diagnostic Plan v1 ONLY.
+## Preferred Commands
+
+- `dbg_stack_status.sh`
+- `dbg_diag_bundle.sh`
+- `dbg_pairing_capture.sh 60`
+- `dbg_bt_restart.sh`
+- `dbg_bt_soft_reset.sh`
+
+Approval-gated destructive command:
+- `dbg_bt_bond_wipe.sh <MAC>`
+
+## Architecture Alignment Rule
+
+When cleanup/refactor questions appear, compare findings against `ARCHITECTURE.md` and flag legacy/deprecated implementations as architectural dead code candidates.

@@ -1,42 +1,16 @@
+# scripts/rpi-debug/tools/
 
-# Diagnostic PowerShell Scripts for Copilot/MCP (tools)
+Windows PowerShell helpers for MCP + remote diagnostics setup.
 
-This folder contains PowerShell scripts for Windows-side diagnostics, setup, and integration with the Copilot/MCP remote troubleshooting workflow. All scripts import a shared environment file for configuration values.
+## Files
 
-## Common Environment
-
-- All scripts import `dbg_common.ps1` for shared values (hostnames, repo paths, service names, etc.).
-- Example usage:
-  ```powershell
-  $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-  . "$ScriptDir\dbg_common.ps1"
-  ```
-
-## Scripts Overview
-
-- **dbg_common.ps1**
-  - Shared environment and configuration for all scripts in this folder.
-  - Defines repo paths, MCP directories, RPi host/user, SSH key, and service names.
-
-- **setup_ipr_mcp.ps1**
-  - Installs prerequisites and sets up the SSH MCP server locally under `D:\mcp\ssh-mcp`.
-  - Preconfigured for repo path, RPi hostname, and diagnostics user.
-  - Generates SSH keys and writes MCP config files for Copilot integration.
-  - Calls `gen_mcp_whitelist.ps1` to generate a whitelist of allowed scripts for the MCP server and updates `.vscode/mcp.json` accordingly. The whitelist is enforced by the MCP server, replacing any previous allowlist or guard script approach.
-
-- **setup_pc_copilot_dbg.ps1**
-  - Prepares the Windows PC for Copilot diagnostics.
-  - Creates required directories, config files, and documentation for Copilot agent use.
-  - Uses shared environment variables for all configuration.
-
-- **gen_mcp_whitelist.ps1**
-  - Scans the `scripts/rpi-debug` folder for all allowed diagnostic scripts.
-  - Generates a comma-separated whitelist string for use as the `--whitelist` argument in MCP server configuration.
+| File | Purpose |
+|---|---|
+| `dbg_common.ps1` | Shared settings and profile data for other PowerShell scripts |
+| `setup_ipr_mcp.ps1` | Installs/configures SSH MCP server integration and profile wiring |
+| `setup_pc_copilot_dbg.ps1` | Prepares Windows-side diagnostics workspace and docs |
+| `gen_mcp_whitelist.ps1` | Builds script whitelist argument from allowed `dbg_*` scripts |
 
 ## Usage
 
-Run each script from PowerShell, ensuring you have the required permissions. Scripts will automatically use the shared configuration from `dbg_common.ps1`.
-
-## See Also
-- [../README.md](../README.md) – Main diagnostic SOP and architecture
-- [../../README.md](../../README.md) – Project overview
+Run these from PowerShell on the development PC. They are support tools for remote diagnostics, not runtime components on the Pi.

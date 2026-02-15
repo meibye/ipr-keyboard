@@ -1,30 +1,18 @@
+# Local-Only Analysis Prompt
 
-## Copilot Agent – Use MCP Server for RPI Commands
-## Remote Device Access via SSH MCP Server
+Use this when remote execution is unavailable or intentionally disallowed.
 
-For all remote diagnostic actions, use the SSH MCP server as defined in `.vscode/mcp.json`.
+## Instruction
 
-**Example:**
-- To run a diagnostic script remotely:
-	- Use the `ipr-rpi-dev-ssh` profile.
-	- Execute via MCP server (see Copilot agent or VS Code integration).
+Analyze only repository files and local outputs. Do not assume live Raspberry Pi state.
 
-**Typical usage:**
-```json
-{
-	"cmdString": "/usr/local/bin/dbg_stack_status.sh"
-}
-```
-See `.vscode/mcp.json` for server details and allowed commands.
+## Required Output Shape
 
-**Do not use direct SSH or SCP.** All remote actions should be performed via the MCP server for consistency and auditability.
+1. What is known from repository state
+2. What is unknown without runtime access
+3. Exact next remote commands that should be run when access is available
+4. Risk/impact assessment for each recommendation
 
----
+## Architecture Rule
 
-Instructions:
-- If a question or analysis requires determining status or taking further actions on the Raspberry Pi (RPI), use the MCP server (as defined in `.vscode/mcp.json`) to execute commands remotely on the RPI.
-- Remote command execution, diagnostics, and status checks on the RPI are permitted whenever required for accurate analysis or next steps.
-- Local-only reasoning is allowed when sufficient, but prefer remote execution if the answer depends on RPI state or files.
-
-**Usage Instruction Update:**
-This prompt should be used to enable Copilot agent actions via the MCP server for any RPI-related status, diagnostics, or command execution required by the question or analysis. If the MCP server is unavailable or remote actions are explicitly forbidden, revert to local-only reasoning and summarize what would be done.
+Always align findings with `ARCHITECTURE.md` and explicitly flag any legacy/deprecated pattern touched by the issue.
