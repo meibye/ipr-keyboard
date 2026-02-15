@@ -626,11 +626,11 @@ class HidService(Service):
         self.add_characteristic(self.protocol_mode)
 
         self.input_report = InputReportCharacteristic(
-            bus, 4, self, notify_state, report_id=1
+            bus, 4, self, notify_state, report_id=0
         )
         self.add_characteristic(self.input_report)
 
-        self.output_report = OutputReportCharacteristic(bus, 5, self, report_id=1)
+        self.output_report = OutputReportCharacteristic(bus, 5, self, report_id=0)
         self.add_characteristic(self.output_report)
 
         self.boot_input = BootKeyboardInputCharacteristic(bus, 6, self, notify_state)

@@ -69,6 +69,11 @@ def set_adapter_ready(
         pass
 
     alias = env_clean("BT_DEVICE_NAME", "IPR Keyboard")
+    # BLE advertising is limited to 31 bytes. To ensure appearance fits,
+    # truncate name if it would exceed ~12 characters (leaving room for
+    # flags, UUID, appearance, and overhead).
+    if alias and len(alias) > 12:
+        alias = alias[:12]
     if alias:
         try:
             props.Set(ADAPTER_IFACE, "Alias", dbus.String(alias))
