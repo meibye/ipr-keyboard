@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"chat.promptFilesLocations": {
+			"docs\\copilot": true
+		}
+	}
+}

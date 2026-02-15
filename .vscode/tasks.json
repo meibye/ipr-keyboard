@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Launch Local Claude (with GPU Check)",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-ExecutionPolicy", "Bypass",
+                "-File", "${workspaceFolder}/scripts/launch_claude.ps1"
+            ],
+            "options": {
+                "env": {
+                    "ANTHROPIC_BASE_URL": "http://localhost:11434/v1",
+                    "ANTHROPIC_AUTH_TOKEN": "ollama",
+                    "ANTHROPIC_API_KEY": "ollama"
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            }
+        }
+    ]
+}Take mom's almost done that. On this.
