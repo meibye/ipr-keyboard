@@ -17,11 +17,9 @@ Flask web layer for status/config/log/pairing operations.
 - `GET /logs/`
 - `GET /logs/tail`
 - `GET /pairing`
-- `GET /pairing/activate-ble`
 - `GET /pairing/start`
 
 ## Implementation Notes
 
 - `/status` reads environment (`IPR_USER`, `IPR_PROJECT_ROOT`) and reports service/adaptor data.
 - Pairing routes execute shell/systemctl calls and are operationally privileged.
-- `/pairing/activate-ble` references `ipr_backend_manager.service` (legacy dependency signal).

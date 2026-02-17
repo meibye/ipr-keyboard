@@ -76,13 +76,10 @@ Defined by `AppConfig` in `src/ipr_keyboard/config/manager.py`:
 
 ## 6. Legacy and Deprecated Patterns
 
-### Legacy Patterns (still present, not canonical)
+### Legacy Signals (historical compatibility context)
 
-1. `uinput` backend assumptions in diagnostics/tests (`bt_hid_uinput.service` branches).
-2. References to `KeyboardBackend` synchronization between app config and `/etc/ipr-keyboard/backend`.
-3. `/pairing/activate-ble` route calling `ipr_backend_manager.service` in `src/ipr_keyboard/web/pairing_routes.py`.
-4. Duplicated disable script: `scripts/service/svc_disable_all_services.sh`.
-5. Prompt file mirroring under `scripts/docs/copilot/*`.
+1. The platform historically had `uinput` backend assumptions and backend selector paths (`/etc/ipr-keyboard/backend`), but current runtime is BLE-only.
+2. `ipr_backend_manager.service` is not part of shipped current units and should be treated as deprecated if referenced externally.
 
 ### Deprecated Patterns
 

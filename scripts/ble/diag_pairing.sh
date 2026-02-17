@@ -5,10 +5,10 @@
 # Comprehensive Bluetooth Pairing Diagnostic Tool for ipr-keyboard
 #
 # Purpose:
-#   Diagnoses all phases of Bluetooth pairing for both uinput and BLE backends:
+#   Diagnoses all phases of Bluetooth pairing for the canonical BLE backend:
 #   - Adapter status and configuration
 #   - Agent service status and recent pairing events
-#   - Backend service status
+#   - BLE backend service status
 #   - Pairing history and current paired devices
 #   - Authentication and authorization events
 #
@@ -20,7 +20,7 @@
 #   - Bluetooth services should be installed
 #
 # category: Diagnostics
-# purpose: Diagnose Bluetooth pairing issues for all backends
+# purpose: Diagnose Bluetooth pairing issues for BLE backend
 # sudo: yes
 #
 
@@ -112,24 +112,12 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-section "2. Backend Configuration"
+section "2. Backend Mode"
 # ---------------------------------------------------------------------------
 
-BACKEND_FILE="/etc/ipr-keyboard/backend"
-CONFIG_FILE="config.json"
-
-if [[ -f "$BACKEND_FILE" ]]; then
-  BACKEND=$(cat "$BACKEND_FILE" | tr -d '[:space:]')
-  info "Backend (from $BACKEND_FILE): $BACKEND"
-else
-  warn "Backend file not found: $BACKEND_FILE"
-  BACKEND="unknown"
-fi
-
-if [[ -f "$CONFIG_FILE" ]] && command -v jq >/dev/null 2>&1; then
-  CONFIG_BACKEND=$(jq -r '.KeyboardBackend // "not set"' "$CONFIG_FILE")
-  info "Backend (from config.json): $CONFIG_BACKEND"
-fi
+BACKEND="ble"
+BACKEND_SERVICE="bt_hid_ble.service"
+info "Backend mode: $BACKEND (canonical)"
 
 # ---------------------------------------------------------------------------
 section "3. Agent Service Status"
@@ -153,33 +141,22 @@ if systemctl list-unit-files | awk '{print $1}' | grep -qx "$AGENT_SERVICE"; the
   fi
 else
   err "$AGENT_SERVICE not installed"
-  echo "   Install with: sudo ./scripts/ble/ble_install_helper.sh"
+  echo "   Install with: sudo ./scripts/service/svc_install_bt_gatt_hid.sh"
 fi
 
 # ---------------------------------------------------------------------------
 section "4. Backend Service Status"
 # ---------------------------------------------------------------------------
 
-if [[ "$BACKEND" == "uinput" ]]; then
-  BACKEND_SERVICE="bt_hid_uinput.service"
-elif [[ "$BACKEND" == "ble" ]]; then
-  BACKEND_SERVICE="bt_hid_ble.service"
-else
-  warn "Unknown backend: $BACKEND"
-  BACKEND_SERVICE=""
-fi
-
-if [[ -n "$BACKEND_SERVICE" ]]; then
-  if systemctl list-unit-files | awk '{print $1}' | grep -qx "$BACKEND_SERVICE"; then
-    if systemctl is-active --quiet "$BACKEND_SERVICE"; then
-      ok "$BACKEND_SERVICE is active"
-    else
-      err "$BACKEND_SERVICE is NOT active"
-      systemctl status "$BACKEND_SERVICE" --no-pager -l -n 5 2>&1 || true
-    fi
+if systemctl list-unit-files | awk '{print $1}' | grep -qx "$BACKEND_SERVICE"; then
+  if systemctl is-active --quiet "$BACKEND_SERVICE"; then
+    ok "$BACKEND_SERVICE is active"
   else
-    err "$BACKEND_SERVICE not installed"
+    err "$BACKEND_SERVICE is NOT active"
+    systemctl status "$BACKEND_SERVICE" --no-pager -l -n 5 2>&1 || true
   fi
+else
+  err "$BACKEND_SERVICE not installed"
 fi
 
 # ---------------------------------------------------------------------------
@@ -244,13 +221,11 @@ journalctl -u "$AGENT_SERVICE" -n 50 --no-pager 2>/dev/null | \
 section "7. Recent Backend Events"
 # ---------------------------------------------------------------------------
 
-if [[ -n "$BACKEND_SERVICE" ]]; then
-  echo ""
-  info "Recent events from $BACKEND_SERVICE:"
-  echo ""
-  journalctl -u "$BACKEND_SERVICE" -n 30 --no-pager 2>/dev/null || \
-    warn "No recent backend events"
-fi
+echo ""
+info "Recent events from $BACKEND_SERVICE:"
+echo ""
+journalctl -u "$BACKEND_SERVICE" -n 30 --no-pager 2>/dev/null || \
+  warn "No recent backend events"
 
 # ---------------------------------------------------------------------------
 section "8. Pairing Method Analysis"

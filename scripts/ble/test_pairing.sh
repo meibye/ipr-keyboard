@@ -5,11 +5,11 @@
 # Interactive Bluetooth Pairing Test Script for ipr-keyboard
 #
 # Purpose:
-#   Tests the Bluetooth pairing workflow for both uinput and BLE backends.
+#   Tests the Bluetooth pairing workflow for the canonical BLE backend.
 #   Monitors agent events in real-time and provides step-by-step guidance.
 #
 # Usage:
-#   sudo ./scripts/test_pairing.sh [uinput|ble]
+#   sudo ./scripts/test_pairing.sh
 #
 # Prerequisites:
 #   - Must be run as root
@@ -17,8 +17,8 @@
 #   - Bluetooth adapter must be available
 #
 # category: Testing
-# purpose: Interactive Bluetooth pairing test for all backends
-# parameters: uinput,ble
+# purpose: Interactive Bluetooth pairing test for BLE backend
+# parameters:
 # sudo: no
 
 set -eo pipefail
@@ -68,34 +68,17 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-# Parse backend argument
-BACKEND="${1:-}"
-if [[ -z "$BACKEND" ]]; then
-  # Try to detect from config
-  if [[ -f "/etc/ipr-keyboard/backend" ]]; then
-    BACKEND=$(cat /etc/ipr-keyboard/backend | tr -d '[:space:]')
-  elif [[ -f "config.json" ]] && command -v jq >/dev/null 2>&1; then
-    BACKEND=$(jq -r '.KeyboardBackend // "ble"' config.json)
-  else
-    BACKEND="ble"
-  fi
-  info "Auto-detected backend: $BACKEND"
-fi
-
-if [[ "$BACKEND" != "uinput" && "$BACKEND" != "ble" ]]; then
-  err "Invalid backend: $BACKEND (must be 'uinput' or 'ble')"
+if [[ -n "${1:-}" ]]; then
+  err "This script is BLE-only and does not accept a backend argument."
+  err "Usage: sudo ./scripts/test_pairing.sh"
   exit 1
 fi
 
+BACKEND="ble"
 section "Bluetooth Pairing Test - $BACKEND Backend"
 
-# Determine services based on backend
 AGENT_SERVICE="bt_hid_agent_unified.service"
-if [[ "$BACKEND" == "uinput" ]]; then
-  BACKEND_SERVICE="bt_hid_uinput.service"
-else
-  BACKEND_SERVICE="bt_hid_ble.service"
-fi
+BACKEND_SERVICE="bt_hid_ble.service"
 
 # ---------------------------------------------------------------------------
 step "1" "Verify Prerequisites"

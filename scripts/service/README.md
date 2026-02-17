@@ -11,7 +11,6 @@ Systemd service installers, service units, and monitoring tools.
 - `svc_install_systemd.sh`: writes/enables `ipr_keyboard.service`
 - `svc_enable_services.sh`: enables unified agent, BLE daemon, and `ipr_keyboard.service`
 - `svc_disable_services.sh`: disables/stops service set
-- `svc_disable_all_services.sh`: legacy duplicate disable script
 - `svc_status_services.sh`: prints status for key services
 - `svc_tail_all_logs.sh`: tails relevant journals
 - `svc_status_monitor.py`: interactive service/status TUI
@@ -35,4 +34,3 @@ Systemd service installers, service units, and monitoring tools.
 ## Notes
 
 - No `bt_hid_uinput.service` unit file is shipped in `scripts/service/svc/`.
-- Keep `svc_disable_all_services.sh` classified as legacy duplicate unless removed.

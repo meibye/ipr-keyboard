@@ -179,14 +179,8 @@ echo "[diag_troubleshoot] Checking Bluetooth helper..."
 
 echo "[diag_troubleshoot] Checking Bluetooth backend and services..."
 
-BACKEND=$(python -c "from ipr_keyboard.config.manager import ConfigManager; cfg = ConfigManager.instance().get(); print(getattr(cfg, 'KeyboardBackend', 'uinput'))" 2>/dev/null || echo "uinput")
-echo "Configured backend: $BACKEND"
-
-if [[ "$BACKEND" == "ble" ]]; then
-  SERVICE="bt_hid_ble.service"
-else
-  SERVICE="bt_hid_uinput.service"
-fi
+SERVICE="bt_hid_ble.service"
+echo "Configured backend: ble (canonical)"
 
 # Always check the unified agent service (not legacy)
 AGENT_SERVICE="bt_hid_agent_unified.service"
@@ -208,7 +202,7 @@ for SVC in "$SERVICE" "$AGENT_SERVICE"; do
     systemctl status "$SVC" --no-pager -l -n 0 2>&1 || true
   else
     echo "⚠ $SVC is NOT installed"
-    echo "  Run: sudo ./scripts/ble/ble_install_helper.sh"
+    echo "  Run: sudo ./scripts/service/svc_install_bt_gatt_hid.sh"
   fi
 done
 

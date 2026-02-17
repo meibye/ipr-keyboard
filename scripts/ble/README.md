@@ -13,8 +13,8 @@ Bluetooth-specific scripts.
 | `ble_show_bt_mac_for_windows.sh` | Shows BT MAC in Linux + Windows-friendly format |
 | `diag_bt_visibility.sh` | BLE visibility diagnostics with optional `--fix` |
 | `diag_pairing.sh` | Pairing diagnostics and event analysis |
-| `test_bluetooth.sh` | Manual Bluetooth send test (contains legacy `uinput` service assumption) |
-| `test_pairing.sh` | Interactive pairing flow test (`ble` or legacy `uinput` branch) |
+| `test_bluetooth.sh` | Manual Bluetooth send test for BLE service stack |
+| `test_pairing.sh` | Interactive pairing flow test for BLE backend |
 
 ## Important Split of Responsibilities
 
@@ -31,6 +31,6 @@ sudo ./scripts/ble/ble_setup_extras.sh
 sudo ./scripts/service/svc_enable_services.sh
 ```
 
-## Legacy Signals
+## Runtime Notes
 
-`test_bluetooth.sh` and `test_pairing.sh` still reference `uinput` pathways. Current shipped unit files are BLE-focused.
+Scripts in this directory target the BLE service stack (`bt_hid_ble.service` + `bt_hid_agent_unified.service`).

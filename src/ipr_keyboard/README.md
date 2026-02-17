@@ -38,4 +38,4 @@ Python application package for `ipr-keyboard`.
 
 ## Notes
 
-`web/pairing_routes.py` includes an `/activate-ble` action that invokes `ipr_backend_manager.service`. This service is not part of current shipped unit files and should be treated as legacy integration logic.
+`web/pairing_routes.py` uses BLE-only pairing actions and does not depend on backend-switch manager services.

@@ -11,7 +11,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SOURCE_DIR="${REPO_ROOT}/docs/copilot"
 TARGET_DIRS=(
   "${REPO_ROOT}/.github/prompts/copilot"
-  "${REPO_ROOT}/scripts/docs/copilot"
 )
 
 MODE="${1:---sync}"

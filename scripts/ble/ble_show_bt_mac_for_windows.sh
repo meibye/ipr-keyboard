@@ -7,7 +7,7 @@
 #   - Windows instance-id format (no colons, uppercase)
 #
 # Usage:
-#   ./scripts/ble_switch_backend.sh [uinput|ble]
+#   ./scripts/ble/ble_show_bt_mac_for_windows.sh
 #
 # Prerequisites:
 #   - None

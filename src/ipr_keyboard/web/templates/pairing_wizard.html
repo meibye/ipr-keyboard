@@ -16,33 +16,19 @@
   <h1>IPR Keyboard – Pairing Wizard</h1>
 
   <div class="card">
-    <h2>Step 1: Activate BLE Backend</h2>
-    <p>This will switch the device to use the BLE HID backend and stop the classic HID backend.</p>
-    <button onclick="activateBackend()">Activate BLE Backend</button>
-    <pre id="backendResult"></pre>
-  </div>
-
-  <div class="card">
-    <h2>Step 2: Start Pairing Mode</h2>
+    <h2>Step 1: Start Pairing Mode</h2>
     <p>Put the Pi into Bluetooth pairing mode, then add the device on your Windows PC.</p>
     <button onclick="startPairing()">Start Pairing Mode</button>
     <pre id="pairingResult"></pre>
   </div>
 
   <div class="card">
-    <h2>Step 3: Inspect Status</h2>
+    <h2>Step 2: Inspect Status</h2>
     <button onclick="loadStatus()">Refresh Status</button>
     <pre id="statusBox"></pre>
   </div>
 
   <script>
-    function activateBackend() {
-      fetch("/pairing/activate-ble")
-        .then(r => r.text())
-        .then(t => { document.getElementById("backendResult").textContent = t; })
-        .catch(e => { document.getElementById("backendResult").textContent = "Error: " + e; });
-    }
-
     function startPairing() {
       fetch("/pairing/start")
         .then(r => r.text())

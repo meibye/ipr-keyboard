@@ -84,7 +84,6 @@ Manual runs:
 ## Important Notes
 
 - Current service units shipped in repo do **not** include `bt_hid_uinput.service`.
-- Some diagnostic scripts still contain legacy branches for `uinput` or `KeyboardBackend`; treat those as historical compatibility paths.
-- `src/ipr_keyboard/web/pairing_routes.py` includes `/pairing/activate-ble` that calls `ipr_backend_manager.service`, which is not shipped in current service units.
+- Runtime pairing endpoints are BLE-only and do not call `ipr_backend_manager.service`.
 
 For cleanup/refactor work, start from `ARCHITECTURE.md`.

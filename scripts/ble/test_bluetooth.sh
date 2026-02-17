@@ -34,7 +34,7 @@ echo "=== [test_bluetooth] Test Bluetooth keyboard pipeline (helper/daemon) ==="
 # Use env var for project root if needed
 BT_HELPER="/usr/local/bin/bt_kb_send"
 FIFO="/run/ipr_bt_keyboard_fifo"
-SERVICE="bt_hid_uinput.service"
+SERVICE="bt_hid_ble.service"
 
 # Accept test string as argument, else use default
 if [[ -n "$1" ]]; then

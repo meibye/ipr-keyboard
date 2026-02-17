@@ -1,5 +1,4 @@
 #!/bin/bash
-# Renamed from svc_disable_all_services.sh
 # Disable all ipr-keyboard related services
 
 set -euo pipefail
@@ -8,7 +7,6 @@ SERVICES=(
   ipr_keyboard.service
   bt_hid_ble.service
   bt_hid_agent_unified.service
-  ipr_backend_manager.service
   ipr-provision.service
 )
 

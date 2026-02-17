@@ -18,11 +18,10 @@ Evaluation aligned to repository state on 2026-02-15.
 
 ## Legacy / Drift Candidates
 
-- `scripts/service/svc_disable_all_services.sh`: legacy duplicate of `svc_disable_services.sh`
-- `scripts/ble/test_bluetooth.sh`: hard-codes `bt_hid_uinput.service`
-- `scripts/ble/test_pairing.sh`: retains `uinput` branch in current BLE-centric service set
-- `scripts/diag_troubleshoot.sh`: backend detection fallback references non-canonical `KeyboardBackend`
-- `scripts/docs/copilot/*`: mirrored prompt docs (potential duplication with `docs/copilot/*`)
+- Legacy candidates from the 2026-02-15 audit have been cleaned:
+  - duplicate disable script removed
+  - pairing/diagnostic scripts moved to BLE-only runtime paths
+  - prompt mirror under `scripts/docs/copilot/*` removed
 
 ## Recommendation
 

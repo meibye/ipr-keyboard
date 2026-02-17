@@ -39,7 +39,7 @@ Operational scripts for installation, diagnostics, testing, and service control.
 
 ### `scripts/service/`
 
-- installers/managers: `svc_install_bt_gatt_hid.sh`, `svc_install_all_services.sh`, `svc_install_systemd.sh`, `svc_enable_services.sh`, `svc_disable_services.sh`, `svc_disable_all_services.sh`, `svc_status_services.sh`, `svc_tail_all_logs.sh`
+- installers/managers: `svc_install_bt_gatt_hid.sh`, `svc_install_all_services.sh`, `svc_install_systemd.sh`, `svc_enable_services.sh`, `svc_disable_services.sh`, `svc_status_services.sh`, `svc_tail_all_logs.sh`
 - monitor: `svc_status_monitor.py`
 - service payloads: `bin/bt_hid_agent_unified.py`, `bin/bt_hid_ble_daemon.py`, `svc/bt_hid_agent_unified.service`, `svc/bt_hid_ble.service`
 
@@ -72,4 +72,4 @@ Operational scripts for installation, diagnostics, testing, and service control.
 ## Current vs Legacy Notes
 
 - Current service design is BLE-centric (`bt_hid_ble.service` + `bt_hid_agent_unified.service`).
-- Some scripts still contain legacy branches for `uinput` or `KeyboardBackend`. Keep them tagged as legacy candidates per `ARCHITECTURE.md`.
+- Pairing and troubleshooting scripts in this directory now target BLE-only runtime paths.

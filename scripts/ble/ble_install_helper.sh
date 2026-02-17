@@ -32,7 +32,7 @@ HELPER_PATH="/usr/local/bin/bt_kb_send"
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "=== [ble_install_helper] Installing Bluetooth keyboard helper and backends ==="
+echo "=== [ble_install_helper] Installing Bluetooth keyboard helper and dependencies ==="
 
 ########################################
 # 1. Install system dependencies
@@ -66,4 +66,5 @@ chmod +x "$HELPER_PATH"
 echo "=== [ble_install_helper] Installation complete. ==="
 echo "  - Helper:        $HELPER_PATH"
 echo "  - FIFO:          $FIFO_PATH"
+echo "  - Service install is managed by: scripts/service/svc_install_bt_gatt_hid.sh"
 
