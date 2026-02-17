@@ -9,6 +9,7 @@ Operational scripts for installation, diagnostics, testing, and service control.
 | `env_set_variables.sh` | Shared env defaults (`IPR_USER`, `IPR_PROJECT_ROOT`) |
 | `sys_install_packages.sh` | System dependency install and optional user venv setup |
 | `sys_setup_venv.sh` | Creates project venv and installs package/deps |
+| `sys_sync_copilot_prompts.sh` | Sync/check no-drift mirrors for `docs/copilot/*.md` |
 | `dev_run_app.sh` | Runs `python -m ipr_keyboard.main` in foreground |
 | `dev_run_webserver.sh` | Runs `python -m ipr_keyboard.web.server` directly |
 | `diag_status.sh` | Quick environment/service/Bluetooth/web status snapshot |

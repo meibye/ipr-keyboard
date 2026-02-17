@@ -18,6 +18,26 @@ Project instructions for Claude Code in this repository.
 2. If touching modules marked `Legacy` or `Deprecated`, call this out before extending behavior.
 3. Keep docs and prompt files aligned with repository implementation state.
 
+## Shared Prompt Catalog
+
+Use the same prompt set defined for Copilot/Codex:
+
+- `docs/copilot/ARCH_ALIGNMENT_PROMPT.md`
+- `docs/copilot/DIAG_AGENT_PROMPT.md`
+- `docs/copilot/LOCAL_ONLY_PROMPT.md`
+- `docs/copilot/BT_PAIRING_PLAYBOOK.md`
+
+GitHub Copilot mirror copies:
+
+- `.github/prompts/copilot/ARCH_ALIGNMENT_PROMPT.md`
+- `.github/prompts/copilot/DIAG_AGENT_PROMPT.md`
+- `.github/prompts/copilot/LOCAL_ONLY_PROMPT.md`
+- `.github/prompts/copilot/BT_PAIRING_PLAYBOOK.md`
+
+## Shared Skills Catalog
+
+Reference `docs/copilot/PYTHON_AGENT_SKILLS.md` for the common Python agent skills list used across assistants.
+
 ## Architectural Alignment Skill
 
 When asked to "clean" the repo, compare every module against ARCHITECTURE.md. If a module implements a pattern marked as "Deprecated" or "Legacy" in the architecture doc, even if it is still being called, flag it as Architectural Dead Code and propose a refactor or removal.

@@ -54,6 +54,24 @@ sudo ./provision/06_verify.sh
 pytest
 ```
 
+## Prompt Drift Automation
+
+Prompt mirrors are automatically checked in CI via `.github/workflows/prompt-drift-check.yml`.
+
+Local pre-commit enforcement:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Manual runs:
+
+```bash
+./scripts/sys_sync_copilot_prompts.sh --check
+./scripts/sys_sync_copilot_prompts.sh --sync
+```
+
 ## Directory Guide
 
 - `ARCHITECTURE.md`: canonical module/state map, including legacy/deprecated patterns
