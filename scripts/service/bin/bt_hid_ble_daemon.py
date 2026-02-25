@@ -328,14 +328,16 @@ class Characteristic(dbus.service.Object):
         self.descriptors.append(desc)
 
     def get_properties(self):
-        return {
-            GATT_CHRC_IFACE: {
-                "Service": self.service.get_path(),
-                "UUID": dbus.String(self.uuid),
-                "Flags": dbus.Array(self.flags, signature="s"),
-                "Value": dbus.Array(self._value, signature="y"),
+            # Remove unsupported 'secure-read' and 'secure-write' flags for stability
+            filtered_flags = [f for f in self.flags if f not in ("secure-read", "secure-write")]
+            return {
+                GATT_CHRC_IFACE: {
+                    "Service": self.service.get_path(),
+                    "UUID": dbus.String(self.uuid),
+                    "Flags": dbus.Array(filtered_flags, signature="s"),
+                    "Value": dbus.Array(self._value, signature="y"),
+                }
             }
-        }
 
     @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
     def GetAll(self, interface):
@@ -789,9 +791,10 @@ def ensure_fifo_exists() -> None:
         os.mkfifo(FIFO_PATH)
         if BLE_DEBUG:
             journal.send(f"[DEBUG] FIFO created: {FIFO_PATH}")
-    os.chmod(FIFO_PATH, 0o666)
+    # Secure permissions: owner read/write only
+    os.chmod(FIFO_PATH, 0o600)
     if BLE_DEBUG:
-        journal.send(f"[DEBUG] FIFO permissions set: {FIFO_PATH}")
+        journal.send(f"[DEBUG] FIFO permissions set: {FIFO_PATH} (0600)")
 
 
 def send_next_character(
