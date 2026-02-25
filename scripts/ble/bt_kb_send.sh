@@ -10,22 +10,6 @@ NOTIFY_FLAG="/run/ipr_bt_keyboard_notifying"
 
 WAIT_SECS="${BT_KB_WAIT_SECS:-10}"
 
-usage() {
-  echo "Usage: bt_kb_send [--nowait] [--wait <seconds>] \"text...\""
-}
-
-# Check BLE daemon status before waiting for FIFO
-check_ble_daemon() {
-  if command -v systemctl >/dev/null 2>&1; then
-    if ! systemctl is-active --quiet bt_hid_ble.service; then
-      echo "ERROR: BLE daemon (bt_hid_ble.service) is not running." >&2
-      echo "Hint: Start it with: sudo systemctl start bt_hid_ble.service" >&2
-      exit 1
-    fi
-  fi
-}
-
-check_ble_daemon
 
 # Parse CLI flags for wait/nowait/debug and capture text payload.
 NOWAIT=0
@@ -57,56 +41,47 @@ if [[ -z "$TEXT" ]]; then
   exit 2
 fi
 
+usage() {
+  echo "Usage: bt_kb_send [--nowait] [--wait <seconds>] [--debug] \"text...\""
+}
+
+# Check BLE daemon status before waiting for FIFO
+check_ble_daemon() {
+  if command -v systemctl >/dev/null 2>&1; then
+    if ! systemctl is-active --quiet bt_hid_ble.service; then
+      echo "ERROR: BLE daemon (bt_hid_ble.service) is not running." >&2
+      echo "Hint: Start it with: sudo systemctl start bt_hid_ble.service" >&2
+      exit 1
+    else
+      if (( DEBUG == 1 )); then
+        echo "[DEBUG] BLE daemon is active." >&2
+      fi
+    fi
+  else
+    echo "WARNING: systemctl not found, skipping BLE daemon check." >&2
+  fi
+}
+
+check_ble_daemon
+
 # Robust FIFO wait: retry if daemon is running, provide guidance if not ready
-t=0
-while [[ ! -p "$FIFO" ]]; do
-  (( t++ )) || true
-  if (( t >= WAIT_SECS )); then
-    echo "ERROR: FIFO not ready: $FIFO" >&2
-    echo "Hint: BLE daemon is running but FIFO is not ready. This may indicate a startup race or daemon issue." >&2
-    echo "Check daemon logs: sudo journalctl -u bt_hid_ble.service -n 20" >&2
-    exit 1
-  fi
-  sleep 1
-done
-if (( DEBUG == 1 )); then
-  echo "[DEBUG] FIFO is ready after $t seconds." >&2
-fi
-
-# Wait for FIFO
-t=0
-if (( DEBUG == 1 )); then
-  echo "[DEBUG] Waiting for FIFO: $FIFO (timeout: $WAIT_SECS s)" >&2
-fi
-until [[ -p "$FIFO" ]]; do
-  (( t++ )) || true
-  if (( t >= WAIT_SECS )); then
-    echo "ERROR: FIFO not ready: $FIFO" >&2
-    exit 1
-  fi
-  sleep 1
-done
-if (( DEBUG == 1 )); then
-  echo "[DEBUG] FIFO is ready after $t seconds." >&2
-fi
-
-
 if (( NOWAIT == 0 )); then
-  # Wait for HID notify subscription (StartNotify creates the flag file)
   t=0
   if (( DEBUG == 1 )); then
-    echo "[DEBUG] Waiting for HID notify flag: $NOTIFY_FLAG (timeout: $WAIT_SECS s)" >&2
+    echo "[DEBUG] Waiting for FIFO: $FIFO (timeout: $WAIT_SECS s)" >&2
   fi
-  until [[ -f "$NOTIFY_FLAG" ]]; do
+  while [[ ! -p "$FIFO" ]]; do
     (( t++ )) || true
     if (( t >= WAIT_SECS )); then
-      echo "ERROR: HID notify not ready (no StartNotify yet). Flag: $NOTIFY_FLAG" >&2
+      echo "ERROR: FIFO not ready: $FIFO" >&2
+      echo "Hint: BLE daemon is running but FIFO is not ready. This may indicate a startup race or daemon issue." >&2
+      echo "Check daemon logs: sudo journalctl -u bt_hid_ble.service -n 20" >&2
       exit 1
     fi
     sleep 1
   done
   if (( DEBUG == 1 )); then
-    echo "[DEBUG] HID notify flag is ready after $t seconds." >&2
+    echo "[DEBUG] FIFO is ready after $t seconds." >&2
   fi
 fi
 
