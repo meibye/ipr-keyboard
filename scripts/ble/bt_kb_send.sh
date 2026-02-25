@@ -88,6 +88,21 @@ fi
 if (( DEBUG == 1 )); then
   echo "[DEBUG] Sending text to FIFO: '$TEXT'" >&2
 fi
+if [[ ! -w "$FIFO" ]]; then
+  echo "[WARN] FIFO $FIFO is not writable. Attempting to fix permissions..." >&2
+  if command -v sudo >/dev/null 2>&1; then
+    sudo chmod 666 "$FIFO" || {
+      echo "[ERROR] Failed to chmod 666 $FIFO. Permission denied." >&2
+      exit 1
+    }
+  else
+    chmod 666 "$FIFO" || {
+      echo "[ERROR] Failed to chmod 666 $FIFO. Permission denied." >&2
+      exit 1
+    }
+  fi
+fi
+
 printf "%s" "$TEXT" > "$FIFO"
 if (( DEBUG == 1 )); then
   echo "[DEBUG] Done writing to FIFO." >&2
