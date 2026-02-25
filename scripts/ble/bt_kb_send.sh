@@ -72,10 +72,6 @@ done
 if (( DEBUG == 1 )); then
   echo "[DEBUG] FIFO is ready after $t seconds." >&2
 fi
-}
-
-
-
 
 # Wait for FIFO
 t=0
