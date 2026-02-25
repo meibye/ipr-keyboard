@@ -21,6 +21,10 @@
 # Usage:
 #   sudo ./scripts/ble/bt_configure_system.sh
 #
+# category: Bluetooth
+# purpose: Configure /etc/bluetooth/main.conf for BLE-only HID peripheral
+# sudo: yes
+#
 set -euo pipefail
 
 CONF="/etc/bluetooth/main.conf"

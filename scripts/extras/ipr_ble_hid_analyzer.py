@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""
-ipr_ble_hid_analyzer.py
-
-Debug tool for BLE HID:
-  - Watches PropertiesChanged for GATT characteristics
-  - Logs HID report Value changes and connection-related indicators
-
-
-Usage:
-  sudo /usr/local/bin/ipr_ble_hid_analyzer.py
-
-To view output in the systemd journal, run:
-  journalctl -t ipr_ble_hid_analyzer -f
-
-Prerequisites:
-  - Must be run as root
-  - BLE HID daemon must be running
-
-category: Diagnostics
-purpose: Monitor GATT characteristics and HID reports for debugging
-"""
+# ipr_ble_hid_analyzer.py
+#
+# Debug tool for BLE HID:
+#   - Watches PropertiesChanged for GATT characteristics
+#   - Logs HID report Value changes and connection-related indicators
+#
+#
+# Usage:
+#   sudo /usr/local/bin/ipr_ble_hid_analyzer.py
+#
+# To view output in the systemd journal, run:
+#   journalctl -t ipr_ble_hid_analyzer -f
+#
+# Prerequisites:
+#   - Must be run as root
+#   - BLE HID daemon must be running
+#
+# category: Diagnostics
+# purpose: Monitor GATT characteristics and HID reports for debugging
+# sudo: yes
+#
 
 import dbus
 import dbus.mainloop.glib

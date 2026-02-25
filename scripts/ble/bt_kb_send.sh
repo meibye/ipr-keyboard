@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# category: Bluetooth
+# purpose: Helper script to send text to the BLE keyboard FIFO for testing/debugging.
+# parameters: --nowait,--wait,--debug
+# sudo: yes
 set -euo pipefail
 
 FIFO="/run/ipr_bt_keyboard_fifo"
@@ -23,24 +27,7 @@ check_ble_daemon() {
 
 check_ble_daemon
 
-# Robust FIFO wait: retry if daemon is running, provide guidance if not ready
-t=0
-while [[ ! -p "$FIFO" ]]; do
-  (( t++ )) || true
-  if (( t >= WAIT_SECS )); then
-    echo "ERROR: FIFO not ready: $FIFO" >&2
-    echo "Hint: BLE daemon is running but FIFO is not ready. This may indicate a startup race or daemon issue." >&2
-    echo "Check daemon logs: sudo journalctl -u bt_hid_ble.service -n 20" >&2
-    exit 1
-  fi
-  sleep 1
-done
-if (( DEBUG == 1 )); then
-  echo "[DEBUG] FIFO is ready after $t seconds." >&2
-fi
-}
-
-
+# Parse CLI flags for wait/nowait/debug and capture text payload.
 NOWAIT=0
 DEBUG=0
 while [[ $# -gt 0 ]]; do
@@ -69,6 +56,25 @@ if [[ -z "$TEXT" ]]; then
   usage
   exit 2
 fi
+
+# Robust FIFO wait: retry if daemon is running, provide guidance if not ready
+t=0
+while [[ ! -p "$FIFO" ]]; do
+  (( t++ )) || true
+  if (( t >= WAIT_SECS )); then
+    echo "ERROR: FIFO not ready: $FIFO" >&2
+    echo "Hint: BLE daemon is running but FIFO is not ready. This may indicate a startup race or daemon issue." >&2
+    echo "Check daemon logs: sudo journalctl -u bt_hid_ble.service -n 20" >&2
+    exit 1
+  fi
+  sleep 1
+done
+if (( DEBUG == 1 )); then
+  echo "[DEBUG] FIFO is ready after $t seconds." >&2
+fi
+}
+
+
 
 
 # Wait for FIFO
