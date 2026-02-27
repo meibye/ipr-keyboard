@@ -168,6 +168,18 @@ def main() -> None:
 
     verbose = env_clean("BT_AGENT_DEBUG", "0") == "1"
 
+    # Auto-unblock Bluetooth if soft-blocked
+    try:
+        import subprocess
+        rfkill_out = subprocess.check_output(["rfkill", "list", "bluetooth"], encoding="utf-8")
+        if "Soft blocked: yes" in rfkill_out:
+            subprocess.run(["sudo", "rfkill", "unblock", "bluetooth"], check=False)
+            if verbose:
+                print("[agent] Auto-unblocked Bluetooth via rfkill.", flush=True)
+    except Exception as exc:
+        if verbose:
+            print(f"[agent] rfkill check failed: {exc}", flush=True)
+
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
 
