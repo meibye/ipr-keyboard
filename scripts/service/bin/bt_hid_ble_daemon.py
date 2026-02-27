@@ -1034,15 +1034,17 @@ def main() -> None:
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
-        # Auto-unblock Bluetooth if soft-blocked
-        try:
-            import subprocess
-            rfkill_out = subprocess.check_output(["rfkill", "list", "bluetooth"], encoding="utf-8")
-            if "Soft blocked: yes" in rfkill_out:
-                subprocess.run(["sudo", "rfkill", "unblock", "bluetooth"], check=False)
-                print("[ble] Auto-unblocked Bluetooth via rfkill.", flush=True)
-        except Exception as exc:
-            print(f"[ble] rfkill check failed: {exc}", flush=True)
+    # Auto-unblock Bluetooth if soft-blocked
+    try:
+        import subprocess
+        rfkill_out = subprocess.check_output(
+            ["rfkill", "list", "bluetooth"], encoding="utf-8"
+        )
+        if "Soft blocked: yes" in rfkill_out:
+            subprocess.run(["sudo", "rfkill", "unblock", "bluetooth"], check=False)
+            print("[ble] Auto-unblocked Bluetooth via rfkill.", flush=True)
+    except Exception as exc:
+        print(f"[ble] rfkill check failed: {exc}", flush=True)
 
     adapter_path = find_adapter_path(bus, args.adapter)
     set_adapter_ready(bus, adapter_path)
