@@ -110,6 +110,7 @@ UUID_BATTERY_LEVEL = "2a19"
 APPEARANCE_KEYBOARD = 0x03C1
 
 MOD_LSHIFT = 0x02
+MOD_ALTGR = 0x40  # AltGr modifier (Right Alt)
 LETTER_USAGES = {chr(ord("a") + i): 0x04 + i for i in range(26)}
 DIGIT_USAGES = {
     str(i): 0x1E + (0 if i == 1 else i - 1 if i > 0 else 9) for i in range(10)
@@ -151,6 +152,23 @@ PUNCT = {
     "+": (0x2E, MOD_LSHIFT),
     "`": (0x35, 0),
     "~": (0x35, MOD_LSHIFT),
+    # Danish/Nordic dead keys and AltGr
+    "§": (0x35, 0), # Section sign
+    "½": (0x14, 0), # 1/2
+    "¤": (0x21, 0), # Currency sign
+    "£": (0x20, 0), # Pound
+    "µ": (0x10, MOD_LSHIFT), # Micro
+    "¨": (0x34, MOD_LSHIFT), # Diaeresis
+    "´": (0x2F, MOD_LSHIFT), # Acute
+    # AltGr mappings
+    "€": (0x08, MOD_ALTGR), # Euro (AltGr+E)
+    "@": (0x1F, MOD_ALTGR), # At (AltGr+2)
+    "|": (0x31, MOD_ALTGR), # Pipe (AltGr+<)
+    "{": (0x2F, MOD_ALTGR), # AltGr+7
+    "[": (0x2F, MOD_ALTGR), # AltGr+8
+    "]": (0x30, MOD_ALTGR), # AltGr+9
+    "}": (0x30, MOD_ALTGR), # AltGr+0
+    # Add more AltGr as needed
 }
 SPECIAL_DK = {
     "å": (0x2F, 0),
@@ -159,12 +177,16 @@ SPECIAL_DK = {
     "Æ": (0x33, MOD_LSHIFT),
     "ø": (0x34, 0),
     "Ø": (0x34, MOD_LSHIFT),
+    # Add precomposed diacritics and dead key combos as needed
 }
 
 
 def map_char(ch: str):
     if BLE_DEBUG:
         journal.send(f"[DEBUG] map_char({ch})")
+    # Handle combining diacritics (dead key + base letter)
+    import unicodedata
+    # Precomposed: try direct mapping first
     if ch in PUNCT:
         return PUNCT[ch]
     if ch in DIGIT_USAGES:
@@ -175,6 +197,22 @@ def map_char(ch: str):
         return (LETTER_USAGES[ch], 0)
     if ch.lower() in LETTER_USAGES and ch.isupper():
         return (LETTER_USAGES[ch.lower()], MOD_LSHIFT)
+
+    # Handle combining forms (e.g. á, è, õ)
+    decomp = unicodedata.normalize('NFD', ch)
+    if len(decomp) == 2:
+        base, mark = decomp[0], decomp[1]
+        dead_key_map = {
+            '\u0301': (0x2F, MOD_LSHIFT),  # acute
+            '\u0300': (0x35, 0),           # grave
+            '\u0302': (0x34, MOD_LSHIFT),  # circumflex
+            '\u0308': (0x34, MOD_LSHIFT),  # diaeresis
+            '\u0303': (0x31, MOD_LSHIFT),  # tilde
+        }
+        if mark in dead_key_map and base in LETTER_USAGES:
+            # Send dead key, then base letter
+            return [dead_key_map[mark], (LETTER_USAGES[base], 0)]
+    # Fallback: not supported
     return (0, 0)
 
 
@@ -904,9 +942,12 @@ def fifo_worker(hid: HidService, notify_state: NotifyState):
 
             with open(FIFO_PATH, "r", encoding="utf-8", errors="ignore") as fifo:
                 for line in fifo:
-                    text = line.rstrip("\n")
-                    for ch in text:
-                        queue.append(ch)
+                    for ch in line:
+                        # Convert LF to CR so the host receives Enter semantics.
+                        if ch == "\n":
+                            queue.append("\r")
+                        else:
+                            queue.append(ch)
                     if notify_state.event.is_set():
                         drain_queue(queue, hid, notify_state)
         except Exception as exc:

@@ -1,0 +1,81 @@
+Danish Logitech MX Keys (Nordic) – Character & Combination Test Sheet
+Purpose: print this file and also use it as scan input to verify full character coverage.
+
+1) Alphabet (lowercase)
+abcdefghijklmnopqrstuvwxyzæøå
+
+2) Alphabet (UPPERCASE)
+ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ
+
+3) Digits
+0123456789
+
+4) Common symbols by key (unshift / shift / AltGr where applicable)
+  '§'  '½'
+  '1'  '!'
+  '2'  '"'
+  '3'  '#'  '@'
+  '4'  '¤'  '£'
+  '5'  '%'  '$'
+  '6'  '&'  '€'
+  '7'  '/'  '{'
+  '8'  '('  '['
+  '9'  ')'  ']'
+  '0'  '='  '}'
+  '+'  '?'  '|'
+  '´'  '`'
+
+5) Other punctuation / symbols
+  'å'  'Å'
+  '¨'  '^'  '~'
+  'æ'  'Æ'
+  'ø'  'Ø'
+  '''  '*'
+  ','  ';'  'µ'
+  '.'  ':'
+  '-'  '_'
+  '<'  '>'  '\'
+
+Dead-key combinations (type dead key, then letter; include dead key + SPACE to get the mark alone):
+  ´ + SPACE -> '´'   |  Examples (combining acute): á é í ó ú ý Á É Í Ó Ú Ý
+  ` + SPACE -> '`'   |  Examples (combining grave): à è ì ò ù À È Ì Ò Ù
+  ^ + SPACE -> '^'   |  Examples (combining circumflex): â ê î ô û Â Ê Î Ô Û
+  ¨ + SPACE -> '¨'   |  Examples (combining diaeresis): ä ë ï ö ü ÿ Ä Ë Ï Ö Ü Ÿ
+  ~ + SPACE -> '~'   |  Examples (combining tilde): ã ñ õ Ã Ñ Õ
+  Combining form: á é í ó ú ý ń ǽ ǿ ǻ Á É Í Ó Ú Ý Ń Ǽ Ǿ Ǻ
+  Combining form: à è ì ò ù ỳ ǹ æ̀ ø̀ å̀ À È Ì Ò Ù Ỳ Ǹ Æ̀ Ø̀ Å̀
+  Combining form: â ê î ô û ŷ n̂ æ̂ ø̂ å̂ Â Ê Î Ô Û Ŷ N̂ Æ̂ Ø̂ Å̂
+  Combining form: ä ë ï ö ü ÿ n̈ æ̈ ø̈ å̈ Ä Ë Ï Ö Ü Ÿ N̈ Æ̈ Ø̈ Å̈
+  Combining form: ã ẽ ĩ õ ũ ỹ ñ æ̃ ø̃ å̃ Ã Ẽ Ĩ Õ Ũ Ỹ Ñ Æ̃ Ø̃ Å̃
+
+6) All unique printable characters collected (space-separated)
+! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ £ ¤ § ¨ ´ µ ½ À Á Â Ã Ä Å Æ È É Ê Ë Ì Í Î Ï Ñ Ò Ó Ô Õ Ö Ø Ù Ú Û Ü Ý à á â ã ä å æ è é ê ë ì í î ï ñ ò ó ô õ ö ø ù ú û ü ý ÿ Ÿ €
+
+7) Continuous stress strings (no spaces)
+Lowercase+extras:
+abcdefghijklmnopqrstuvwxyzæøå0123456789
+Uppercase+extras:
+ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ0123456789
+Mixed symbols (repeat x3):
+!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~£¤§¨´µ½ÀÁÂÃÄÅÆÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝàáâãäåæèéêëìíîïñòóôõöøùúûüýÿŸ€
+!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~£¤§¨´µ½ÀÁÂÃÄÅÆÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝàáâãäåæèéêëìíîïñòóôõöøùúûüýÿŸ€
+!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~£¤§¨´µ½ÀÁÂÃÄÅÆÈÉÊËÌÍÎÏÑÒÓÔÕÖØÙÚÛÜÝàáâãäåæèéêëìíîïñòóôõöøùúûüýÿŸ€
+
+8) Scan/print blocks (monospace-friendly)
+0123456789 !"#¤%&/()=?+´`|\[]{}@£€µ
+abcdefghijklmnopqrstuvwxyzæøå
+ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ
+.,;:-_<>*'
+
+9) Diacritics block (precomposed)
+Acute: áéíóúýÁÉÍÓÚÝ
+Grave: àèìòùÀÈÌÒÙ
+Circ : âêîôûÂÊÎÔÛ
+Dia  : äëïöüÿÄËÏÖÜŸ
+Tilde: ãñõÃÑÕ
+
+10) Lines designed to reveal encoding/layout issues
+æøå ÆØÅ  åÅæÆøØ  ½§  €£¤  µ  @  {|}  [\]  <>
+
+The quick brown fox jumps over the lazy dog 0123456789 (ASCII baseline)
+Rødgrød med fløde — æøå test (Danish letters in sentence)

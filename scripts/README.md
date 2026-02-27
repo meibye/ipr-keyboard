@@ -69,6 +69,12 @@ Operational scripts for installation, diagnostics, testing, and service control.
 
 - `bt_agent_unified_env.sh` shared helper for unified agent env/profile management
 
+### `scripts/tests/`
+
+- `run_ble_roundtrip_mcp.ps1`
+- `win_ble_capture.ps1`
+- `win_compare_ble_capture.ps1`
+
 ## Current vs Legacy Notes
 
 - Current service design is BLE-centric (`bt_hid_ble.service` + `bt_hid_agent_unified.service`).

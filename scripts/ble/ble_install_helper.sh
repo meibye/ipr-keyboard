@@ -28,6 +28,7 @@ fi
 
 FIFO_PATH="/run/ipr_bt_keyboard_fifo"
 HELPER_PATH="/usr/local/bin/bt_kb_send"
+FILE_HELPER_PATH="/usr/local/bin/bt_kb_send_file"
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,9 +49,9 @@ apt install -y \
   bluez-tools
 
 ########################################
-# 2. Install helper script: bt_kb_send
+# 2. Install helper scripts
 ########################################
-echo "=== [ble_install_helper] Installing $HELPER_PATH ==="
+echo "=== [ble_install_helper] Installing helper scripts ==="
 # bt_kb_send: write text into the BLE keyboard FIFO
 # - waits for FIFO to exist
 # - waits for Windows to subscribe to InputReport notifications (flag file)
@@ -58,13 +59,20 @@ if [[ ! -f "$SCRIPT_DIR/bt_kb_send.sh" ]]; then
   echo "ERROR: bt_kb_send.sh not found at $SCRIPT_DIR/bt_kb_send.sh"
   exit 1
 fi
+if [[ ! -f "$SCRIPT_DIR/bt_kb_send_file.sh" ]]; then
+  echo "ERROR: bt_kb_send_file.sh not found at $SCRIPT_DIR/bt_kb_send_file.sh"
+  exit 1
+fi
 
 cp "$SCRIPT_DIR/bt_kb_send.sh" "$HELPER_PATH"
 chmod +x "$HELPER_PATH"
+cp "$SCRIPT_DIR/bt_kb_send_file.sh" "$FILE_HELPER_PATH"
+chmod +x "$FILE_HELPER_PATH"
 
 
 echo "=== [ble_install_helper] Installation complete. ==="
 echo "  - Helper:        $HELPER_PATH"
+echo "  - File helper:   $FILE_HELPER_PATH"
 echo "  - FIFO:          $FIFO_PATH"
 echo "  - Service install is managed by: scripts/service/svc_install_bt_gatt_hid.sh"
 

@@ -10,6 +10,7 @@ Bluetooth-specific scripts.
 | `ble_install_helper.sh` | Installs helper dependencies and `/usr/local/bin/bt_kb_send` |
 | `ble_setup_extras.sh` | Installs BLE diagnostics/analyzer tools and validates pairing web route/template wiring |
 | `bt_kb_send.sh` | Source helper script copied to `/usr/local/bin/bt_kb_send` |
+| `bt_kb_send_file.sh` | Sends full file content into BLE FIFO for end-to-end text validation |
 | `ble_show_bt_mac_for_windows.sh` | Shows BT MAC in Linux + Windows-friendly format |
 | `diag_bt_visibility.sh` | BLE visibility diagnostics with optional `--fix` |
 | `diag_pairing.sh` | Pairing diagnostics and event analysis |
