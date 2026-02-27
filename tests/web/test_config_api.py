@@ -55,7 +55,6 @@ def test_get_config(flask_client):
     assert "Logging" in data
     assert "MaxFileSize" in data
     assert "LogPort" in data
-    assert "KeyboardBackend" in data
 
 
 def test_update_config(flask_client):
@@ -118,36 +117,3 @@ def test_update_config_empty_body(flask_client):
     assert response.status_code == 200
 
 
-def test_get_backends(flask_client):
-    """Test GET /config/backends returns backend information.
-    
-    Verifies that backend options are returned.
-    """
-    response = flask_client.get("/config/backends")
-    
-    assert response.status_code == 200
-    data = response.get_json()
-    
-    assert "current" in data
-    assert "available" in data
-    assert data["current"] in ["uinput", "ble"]
-    assert "uinput" in data["available"]
-    assert "ble" in data["available"]
-
-
-def test_update_keyboard_backend(flask_client):
-    """Test updating the keyboard backend.
-    
-    Verifies that backend can be changed via API.
-    """
-    response = flask_client.post("/config/", json={
-        "KeyboardBackend": "ble"
-    })
-    
-    assert response.status_code == 200
-    data = response.get_json()
-    assert data["KeyboardBackend"] == "ble"
-    
-    # Verify backends endpoint reflects change
-    backends = flask_client.get("/config/backends").get_json()
-    assert backends["current"] == "ble"

@@ -85,20 +85,18 @@ def test_multiple_config_updates(flask_client):
             assert data[key] == value
 
 
-def test_backends_endpoint(flask_client):
-    """Test backends endpoint returns valid data.
-    
-    Verifies backend information structure.
-    """
-    response = flask_client.get("/config/backends")
-    
+def test_config_endpoint_shape(flask_client):
+    """Test config endpoint returns expected fields."""
+    response = flask_client.get("/config/")
+
     assert response.status_code == 200
     data = response.get_json()
-    
-    assert "current" in data
-    assert "available" in data
-    assert isinstance(data["available"], list)
-    assert len(data["available"]) == 2
+
+    assert "IrisPenFolder" in data
+    assert "DeleteFiles" in data
+    assert "Logging" in data
+    assert "MaxFileSize" in data
+    assert "LogPort" in data
 
 
 def test_invalid_json_handling(flask_client):

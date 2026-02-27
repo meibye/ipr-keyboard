@@ -18,12 +18,7 @@ def test_newest_and_read(tmp_path):
     f1.write_text("first", encoding="utf-8")
     f2.write_text("second", encoding="utf-8")
 
-    # Print modification times with high resolution
-    print(f"a.txt mtime: {f1.stat().st_mtime:.9f}")
-    print(f"b.txt mtime: {f2.stat().st_mtime:.9f}")
-
     newest = detector.newest_file(tmp_path)
-    print(f"Detected newest: {newest.name} (mtime: {newest.stat().st_mtime:.9f})")
     assert newest == f2
 
     content = reader.read_file(newest, max_size=1024)

@@ -24,18 +24,9 @@ def test_run_web_server_creates_app(temp_config, monkeypatch):
     
     monkeypatch.setattr("ipr_keyboard.main.create_app", mock_create_app)
     
-    # Run in a thread and stop quickly
-    def run():
-        run_web_server()
+    # Call directly; app.run is mocked so this does not block.
+    run_web_server()
     
-    thread = threading.Thread(target=run)
-    thread.daemon = True
-    thread.start()
-    
-    # Give it a moment to start
-    time.sleep(0.1)
-    
-    # Verify app.run was called
     app_mock.run.assert_called_once()
     call_kwargs = app_mock.run.call_args[1]
     assert call_kwargs["host"] == "0.0.0.0"

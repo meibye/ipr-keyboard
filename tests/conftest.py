@@ -27,8 +27,7 @@ def temp_config(tmp_path, monkeypatch):
         "DeleteFiles": True,
         "Logging": True,
         "MaxFileSize": 1048576,
-        "LogPort": 8080,
-        "KeyboardBackend": "uinput"
+        "LogPort": 8080
     })
     
     # Patch config_path to return our temp config
@@ -41,7 +40,10 @@ def temp_config(tmp_path, monkeypatch):
     from ipr_keyboard.config.manager import ConfigManager
     ConfigManager._instance = None
     
-    yield cfg_file
+    try:
+        yield cfg_file
+    finally:
+        ConfigManager._instance = None
 
 
 @pytest.fixture
