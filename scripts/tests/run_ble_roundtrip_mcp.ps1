@@ -1,75 +1,183 @@
+# ============================================================================
+# IPR BLE Keyboard Roundtrip Test Script
+#
+# This script performs a BLE roundtrip test between a Raspberry Pi and a PC.
+# It verifies connectivity, sets up capture, sends a test file, and compares results.
+#
+# Usage:
+#   .\run_ble_roundtrip_mcp.ps1 -RpiHost <host> -RpiUser <user> -PcHost <host> -PcUser <user>
+#
+# Only the first four parameters are required. All other configuration variables
+# are set in the script below and can be adjusted as needed.
+# ============================================================================
+
 param(
   [string]$RpiHost = 'ipr-dev-pi4',
   [string]$RpiUser = 'meibye',
   [string]$PcHost = 'msi',
-  [string]$PcUser = 'micha',
-  [string]$SshKey = "$HOME/.ssh/id_ed25519_ipr_kb",
-  [string]$RepoOnRpi = '/home/meibye/ipr-keyboard',
-  [string]$RepoOnPc = 'D:\\sandbox\\ipr-keyboard',
-  [string]$ExpectedRelativePath = 'tests/data/danish_mx_keys_all_chars.txt',
-  [string]$CapturePath = 'C:\\Temp\\ble_capture_result.txt',
-  [string]$ReportPath = 'C:\\Temp\\ble_capture_diff.txt',
-  [int]$CaptureInactivitySeconds = 4,
-  [int]$CaptureMaxSeconds = 300,
-  [string]$NewlineMode = 'cr'
+  [string]$PcUser = 'micha'
 )
 
+# -----------------------------------------------------------------------------
+# Configurable variables (edit as needed)
+# -----------------------------------------------------------------------------
+$SshKey = "$HOME/.ssh/id_ed25519_ipr_kb"
+$RepoOnRpi = '/home/meibye/dev/ipr-keyboard'
+$RepoOnPc = 'D:\sandbox\ipr-keyboard'
+$ExpectedRelativePath = 'tests/data/danish_mx_keys_all_chars.txt'
+$CapturePath = 'C:\Temp\ble_capture_result.txt'
+$ReportPath = 'C:\Temp\ble_capture_diff.txt'
+$CaptureInactivitySeconds = 4
+$CaptureMaxSeconds = 300
+$NewlineMode = 'cr'
+$pcCaptureReadyPath = 'C:\Temp\ble_capture.ready'
+$pcCaptureDonePath = 'C:\Temp\ble_capture.done'
+$pcCaptureScript = "$RepoOnPc\scripts\tests\win_ble_capture.ps1"
+$pcCompareScript = "$RepoOnPc\scripts\tests\win_compare_ble_capture.ps1"
+$pcCaptureScriptRemote = 'C:\Temp\win_ble_capture.ps1'
+$pcCompareScriptRemote = 'C:\Temp\win_compare_ble_capture.ps1'
+$captureResultLocal = "C:\Temp\ble_capture_result.txt"
+$pcExpectedPath = "$RepoOnPc\$($ExpectedRelativePath -replace '/', '\')"
+$pcRemoteLog = 'C:\Temp\ble_capture_start_full.log'
+$rpiExpectedPath = "$RepoOnRpi/$ExpectedRelativePath"
+$rpiSendScript = "$RepoOnRpi/scripts/ble/bt_kb_send_file.sh"
+$expandedRemoteCmdPath = "C:\Temp\ble_capture_debug_cmd.ps1"
+
+# -----------------------------------------------------------------------------
+# Script settings
+# -----------------------------------------------------------------------------
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# -----------------------------------------------------------------------------
+# Helper functions
+# -----------------------------------------------------------------------------
 function Invoke-Ssh {
   param(
-    [string]$Host,
+    [string]$SshHost,
     [string]$User,
     [string]$Command
   )
-
-  $args = @('-i', $SshKey, "$User@$Host", $Command)
-  & ssh @args
+  $arguments = @('-i', $SshKey, "$User@$SshHost", $Command)
+  & ssh @arguments
   if ($LASTEXITCODE -ne 0) {
-    throw "SSH command failed on $User@$Host: $Command"
+    throw "SSH command failed on ${User}@${SshHost}: $Command"
   }
 }
 
 function Wait-RemoteFile {
   param(
-    [string]$Host,
+    [string]$SshHost,
     [string]$User,
     [string]$PosixPath,
     [int]$TimeoutSeconds = 30
   )
-
   $start = Get-Date
+  $remoteCmd = 'powershell -NoProfile -Command "if (Test-Path -Path ''{0}'') {{ exit 0 }} else {{ exit 1 }}"' -f $PosixPath
+  $firstIteration = $true
   while (((Get-Date) - $start).TotalSeconds -lt $TimeoutSeconds) {
-    & ssh -i $SshKey "$User@$Host" "test -f '$PosixPath'"
+    if ($firstIteration) {
+      Write-Host "SSH: $User@$SshHost -> $remoteCmd"
+      $firstIteration = $false
+    }
+    & ssh @('-i', $SshKey, "$User@$SshHost", $remoteCmd)
     if ($LASTEXITCODE -eq 0) {
       return
     }
     Start-Sleep -Milliseconds 500
   }
-  throw "Timed out waiting for remote file on $User@$Host: $PosixPath"
+  throw "Timed out waiting for remote file on ${User}@${SshHost}: $PosixPath"
 }
 
-$pcCaptureReadyPath = 'C:\\Temp\\ble_capture.ready'
-$pcCaptureDonePath = 'C:\\Temp\\ble_capture.done'
+# -----------------------------------------------------------------------------
+# Step 0: Verify connectivity
+# -----------------------------------------------------------------------------
+Write-Host '[0/4] Verifying connectivity to RPi and PC...'
+try {
+  Invoke-Ssh -SshHost $RpiHost -User $RpiUser -Command 'echo "RPi reachable"' | Out-Null
+  Write-Host "✓ RPi ($RpiHost) is reachable" -ForegroundColor Green
+} catch {
+  Write-Host "✗ Cannot reach RPi ($RpiHost). Check SSH key, host, and network." -ForegroundColor Red
+  exit 1
+}
 
-$pcCaptureScript = "$RepoOnPc\\scripts\\tests\\win_ble_capture.ps1"
-$pcCompareScript = "$RepoOnPc\\scripts\\tests\\win_compare_ble_capture.ps1"
-$pcExpectedPath = "$RepoOnPc\\$($ExpectedRelativePath -replace '/', '\\')"
+try {
+  Invoke-Ssh -SshHost $PcHost -User $PcUser -Command 'powershell -NoProfile -Command "Write-Host ''PC reachable''"' | Out-Null
+  Write-Host "✓ PC ($PcHost) is reachable" -ForegroundColor Green
+} catch {
+  Write-Host "✗ Cannot reach PC ($PcHost). Check SSH key, host, and network." -ForegroundColor Red
+  exit 1
+}
 
-$rpiExpectedPath = "$RepoOnRpi/$ExpectedRelativePath"
-$rpiSendScript = "$RepoOnRpi/scripts/ble/bt_kb_send_file.sh"
+# -----------------------------------------------------------------------------
+# Step 1: Copy scripts to PC
+# -----------------------------------------------------------------------------
+Write-Host '[1/4] Copying scripts to PC...'
+Invoke-Ssh -SshHost $PcHost -User $PcUser -Command 'powershell -NoProfile -Command "New-Item -ItemType Directory -Path ''C:\Temp'' -Force | Out-Null"'
+$scpArgs1 = @('-i', $SshKey, $pcCaptureScript, "$PcUser@${PcHost}:$pcCaptureScriptRemote")
+& scp @scpArgs1
+if ($LASTEXITCODE -ne 0) { throw "SCP failed for $pcCaptureScript" }
+$scpArgs2 = @('-i', $SshKey, $pcCompareScript, "$PcUser@${PcHost}:$pcCompareScriptRemote")
+& scp @scpArgs2
+if ($LASTEXITCODE -ne 0) { throw "SCP failed for $pcCompareScript" }
 
-Write-Host '[1/4] Starting capture window on PC...'
-Invoke-Ssh -Host $PcHost -User $PcUser -Command @"
-set -e
-rm -f /mnt/c/Temp/ble_capture.ready /mnt/c/Temp/ble_capture.done
-nohup powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -File '$pcCaptureScript' -OutputPath '$CapturePath' -ReadyPath '$pcCaptureReadyPath' -DonePath '$pcCaptureDonePath' -InactivitySeconds $CaptureInactivitySeconds -MaxSeconds $CaptureMaxSeconds >/tmp/ble_capture_runner.log 2>&1 &
+# -----------------------------------------------------------------------------
+# Step 2: Start capture window on PC
+# -----------------------------------------------------------------------------
+Write-Host '[2/4] Starting capture window on PC...'
+
+# Compose the expanded PowerShell command string for remote debugging
+$localDebugScript = Join-Path $PSScriptRoot 'ble_capture_debug_cmd.ps1'
+$expandedRemoteCmdContent = @"
+`$ErrorActionPreference = 'Stop'
+`$log = "$pcRemoteLog"
+Remove-Item -Path "$pcRemoteLog" -ErrorAction SilentlyContinue
+try {
+    "==== BEGIN $(Get-Date -Format o) ====" | Out-File -FilePath "$pcRemoteLog" -Encoding UTF8 -Append
+    Remove-Item -Path "$pcCaptureReadyPath","$pcCaptureDonePath","$CapturePath" -ErrorAction SilentlyContinue | Out-String | Tee-Object -FilePath "$pcRemoteLog" -Append | Write-Host
+    Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Normal','-File',"$pcCaptureScriptRemote",'-OutputPath',"$CapturePath",'-ReadyPath',"$pcCaptureReadyPath",'-DonePath',"$pcCaptureDonePath",'-InactivitySeconds',"$CaptureInactivitySeconds",'-MaxSeconds',"$CaptureMaxSeconds" -WindowStyle Normal | Out-String | Tee-Object -FilePath "$pcRemoteLog" -Append | Write-Host
+    "==== END $(Get-Date -Format o) ====" | Out-File -FilePath "$pcRemoteLog" -Encoding UTF8 -Append
+} catch {
+    `$_ | Out-String | Tee-Object -FilePath "$pcRemoteLog" -Append | Write-Host
+    `$_ | Out-File -FilePath 'C:\Temp\ble_capture_start_error.log' -Encoding UTF8
+    exit 1
+}
 "@
-Wait-RemoteFile -Host $PcHost -User $PcUser -PosixPath '/mnt/c/Temp/ble_capture.ready' -TimeoutSeconds 30
 
-Write-Host '[2/4] Sending expected file over BLE from RPi...'
-Invoke-Ssh -Host $RpiHost -User $RpiUser -Command @"
+# Now expand all variables to their literal values (no $var left in the script)
+$expandedRemoteCmdContent = $expandedRemoteCmdContent.Replace("$pcRemoteLog", $pcRemoteLog)
+$expandedRemoteCmdContent = $expandedRemoteCmdContent.Replace("$pcCaptureReadyPath", $pcCaptureReadyPath)
+$expandedRemoteCmdContent = $expandedRemoteCmdContent.Replace("$pcCaptureDonePath", $pcCaptureDonePath)
+$expandedRemoteCmdContent = $expandedRemoteCmdContent.Replace("$CapturePath", $CapturePath)
+$expandedRemoteCmdContent = $expandedRemoteCmdContent.Replace("$pcCaptureScriptRemote", $pcCaptureScriptRemote)
+$expandedRemoteCmdContent = $expandedRemoteCmdContent.Replace("$CaptureInactivitySeconds", $CaptureInactivitySeconds)
+$expandedRemoteCmdContent = $expandedRemoteCmdContent.Replace("$CaptureMaxSeconds", $CaptureMaxSeconds)
+Set-Content -Path $localDebugScript -Value $expandedRemoteCmdContent -Encoding UTF8
+
+# Copy the debug script to the remote PC
+$remoteCmdPath = 'C:\Temp\ble_capture_debug_cmd.ps1'
+$scpArgsDebug = @('-i', $SshKey, $localDebugScript, "$PcUser@${PcHost}:$remoteCmdPath")
+& scp @scpArgsDebug
+if ($LASTEXITCODE -ne 0) { throw "SCP failed for $localDebugScript" }
+Write-Host "Remote debug script written to $remoteCmdPath on $PcHost."
+
+# Execute the debug script on the remote PC
+Invoke-Ssh -SshHost $PcHost -User $PcUser -Command (
+  'powershell -NoProfile -ExecutionPolicy Bypass -File "' + $remoteCmdPath + '"'
+)
+
+# Fetch and print the remote log file for visibility
+Write-Host '--- Remote capture start log ---'
+Invoke-Ssh -SshHost $PcHost -User $PcUser -Command "type $pcRemoteLog"
+Write-Host '--- End of remote log ---'
+Write-Host "Waiting 30 seconds for capture to be ready on PC (looking for $pcCaptureReadyPath)..."
+#Wait-RemoteFile -SshHost $PcHost -User $PcUser -PosixPath 'C:\Temp\ble_capture.ready' -TimeoutSeconds 30
+
+# -----------------------------------------------------------------------------
+# Step 3: Send expected file over BLE from RPi
+# -----------------------------------------------------------------------------
+Write-Host '[3/4] Sending expected file over BLE from RPi...'
+Invoke-Ssh -SshHost $RpiHost -User $RpiUser -Command @"
 set -e
 if [ ! -f '$rpiExpectedPath' ]; then
   echo 'Expected file not found on RPi: $rpiExpectedPath' >&2
@@ -82,13 +190,19 @@ fi
 '$rpiSendScript' --file '$rpiExpectedPath' --newline-mode '$NewlineMode' --debug
 "@
 
-Write-Host '[3/4] Comparing captured content on PC...'
-Wait-RemoteFile -Host $PcHost -User $PcUser -PosixPath '/mnt/c/Temp/ble_capture.done' -TimeoutSeconds ($CaptureMaxSeconds + 30)
-Invoke-Ssh -Host $PcHost -User $PcUser -Command @"
-set -e
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File '$pcCompareScript' -ExpectedPath '$pcExpectedPath' -CapturedPath '$CapturePath' -ReportPath '$ReportPath'
+# -----------------------------------------------------------------------------
+# Step 4: Compare captured content and retrieve results
+# -----------------------------------------------------------------------------
+Write-Host '[4/4] Comparing captured content on PC and retrieving results...'
+Wait-RemoteFile -SshHost $PcHost -User $PcUser -PosixPath '/mnt/c/Temp/ble_capture.done' -TimeoutSeconds ($CaptureMaxSeconds + 30)
+Invoke-Ssh -SshHost $PcHost -User $PcUser -Command @"
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File '$pcCompareScriptRemote' -ExpectedPath '$pcExpectedPath' -CapturedPath '$CapturePath' -ReportPath '$ReportPath'
 "@
 
-Write-Host '[4/4] Done.'
 Write-Host "Capture file: $CapturePath"
 Write-Host "Diff report : $ReportPath"
+
+Write-Host 'Copying capture result back to local machine...'
+$scpArgs3 = @('-i', $SshKey, "$PcUser@${PcHost}:$CapturePath", $captureResultLocal)
+& scp @scpArgs3
+if ($LASTEXITCODE -ne 0) { Write-Warning "SCP failed for $CapturePath" } else { Write-Host "Copied: $CapturePath -> $captureResultLocal" }

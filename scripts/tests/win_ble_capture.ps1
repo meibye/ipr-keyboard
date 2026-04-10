@@ -48,15 +48,26 @@ $form.Height = 720
 $form.StartPosition = 'CenterScreen'
 $form.TopMost = $true
 
+# Add a label to show the three paths
+$pathsLabel = New-Object System.Windows.Forms.Label
+$pathsLabel.AutoSize = $true
+$pathsLabel.Location = New-Object System.Drawing.Point(12, 0)
+$pathsLabel.Font = New-Object System.Drawing.Font('Consolas', 8)
+$pathsLabel.Text = "Output: $OutputPath`nReady:  $ReadyPath`nDone:   $DonePath"
+$form.Controls.Add($pathsLabel)
+
+# Calculate header height (3 lines of 8pt font, plus spacing)
+$headerHeight = 8 * 6 + 10  # 3 lines, 8pt font, add 10px for spacing
+
 $label = New-Object System.Windows.Forms.Label
 $label.AutoSize = $true
-$label.Location = New-Object System.Drawing.Point(12, 12)
+$label.Location = New-Object System.Drawing.Point(12, $headerHeight)
 $label.Text = "Capture is active. Click textbox and keep focus there. Ctrl+Shift+S saves immediately."
 $form.Controls.Add($label)
 
 $status = New-Object System.Windows.Forms.Label
 $status.AutoSize = $true
-$status.Location = New-Object System.Drawing.Point(12, 34)
+$status.Location = New-Object System.Drawing.Point(12, ($headerHeight + 22))
 $status.Text = "Waiting for first keystroke..."
 $form.Controls.Add($status)
 
@@ -67,7 +78,7 @@ $textBox.AcceptsTab = $true
 $textBox.ScrollBars = 'Both'
 $textBox.WordWrap = $false
 $textBox.Font = New-Object System.Drawing.Font('Consolas', 11)
-$textBox.Location = New-Object System.Drawing.Point(12, 62)
+$textBox.Location = New-Object System.Drawing.Point(12, ($headerHeight + 50))
 $textBox.Size = New-Object System.Drawing.Size(960, 590)
 $form.Controls.Add($textBox)
 
@@ -89,7 +100,6 @@ $form.Add_Shown({
   [IO.File]::WriteAllText($ReadyPath, ([DateTime]::UtcNow.ToString('o')), $utf8NoBom)
 })
 
-$form.Add_KeyPreviewChanged({})
 $form.KeyPreview = $true
 $form.Add_KeyDown({
   param($sender, $e)
