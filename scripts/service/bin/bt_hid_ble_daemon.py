@@ -123,60 +123,51 @@ PUNCT = {
     "-": (0x2D, 0),
     "_": (0x2D, MOD_LSHIFT),
     ",": (0x36, 0),
-    "<": (0x64, 0),
+    ";": (0x37, MOD_LSHIFT),
     ".": (0x37, 0),
-    ">": (0x64, MOD_LSHIFT),
-    ";": (0x33, 0),
-    ":": (0x33, MOD_LSHIFT),
-    "/": (0x38, 0),
-    "?": (0x38, MOD_LSHIFT),
+    ":": (0x37, MOD_LSHIFT),
+    "/": (0x24, 0),
+    "?": (0x2E, MOD_LSHIFT),
     "'": (0x34, 0),
     '"': (0x34, MOD_LSHIFT),
-    "[": (0x2F, 0),
-    "]": (0x30, 0),
-    "{": (0x2F, MOD_LSHIFT),
-    "}": (0x30, MOD_LSHIFT),
-    "|": (0x31, MOD_LSHIFT),
-    "\\": (0x31, 0),
+    "[": (0x25, MOD_ALTGR),
+    "]": (0x26, MOD_ALTGR),
+    "{": (0x27, MOD_ALTGR),
+    "}": (0x2D, MOD_ALTGR),
+    "|": (0x64, MOD_ALTGR),
+    "\\": (0x64, 0),
     "!": (0x1E, MOD_LSHIFT),
-    "@": (0x1F, MOD_LSHIFT),
-    "#": (0x20, MOD_LSHIFT),
-    "$": (0x21, MOD_LSHIFT),
-    "%": (0x22, MOD_LSHIFT),
+    '"': (0x1F, MOD_LSHIFT),
+    "#": (0x20, 0),
+    "$": (0x22, MOD_ALTGR),
+    "%": (0x22, 0),
     "^": (0x23, MOD_LSHIFT),
     "&": (0x24, MOD_LSHIFT),
     "*": (0x25, MOD_LSHIFT),
     "(": (0x26, MOD_LSHIFT),
     ")": (0x27, MOD_LSHIFT),
     "=": (0x2E, 0),
-    "+": (0x2E, MOD_LSHIFT),
+    "+": (0x30, 0),
     "`": (0x35, 0),
-    "~": (0x35, MOD_LSHIFT),
-    # Danish/Nordic dead keys and AltGr
-    "§": (0x35, 0), # Section sign
-    "½": (0x14, 0), # 1/2
-    "¤": (0x21, 0), # Currency sign
-    "£": (0x20, 0), # Pound
-    "µ": (0x10, MOD_LSHIFT), # Micro
-    "¨": (0x34, MOD_LSHIFT), # Diaeresis
-    "´": (0x2F, MOD_LSHIFT), # Acute
+    "~": (0x32, MOD_ALTGR),
+    "§": (0x35, 0),
+    "½": (0x14, 0),
+    "¤": (0x21, 0),
+    "£": (0x23, MOD_ALTGR),
+    "µ": (0x10, MOD_LSHIFT),
+    "¨": (0x2B, MOD_LSHIFT),
+    "´": (0x2F, MOD_LSHIFT),
     # AltGr mappings
-    "€": (0x08, MOD_ALTGR), # Euro (AltGr+E)
-    "@": (0x1F, MOD_ALTGR), # At (AltGr+2)
-    "|": (0x31, MOD_ALTGR), # Pipe (AltGr+<)
-    "{": (0x2F, MOD_ALTGR), # AltGr+7
-    "[": (0x2F, MOD_ALTGR), # AltGr+8
-    "]": (0x30, MOD_ALTGR), # AltGr+9
-    "}": (0x30, MOD_ALTGR), # AltGr+0
-    # Add more AltGr as needed
+    "@": (0x1F, MOD_ALTGR),
+    "€": (0x08, MOD_ALTGR),
 }
 SPECIAL_DK = {
-    "å": (0x2F, 0),
-    "Å": (0x2F, MOD_LSHIFT),
-    "æ": (0x33, 0),
-    "Æ": (0x33, MOD_LSHIFT),
-    "ø": (0x34, 0),
-    "Ø": (0x34, MOD_LSHIFT),
+    "å": (0x34, 0),
+    "Å": (0x34, MOD_LSHIFT),
+    "æ": (0x31, 0),
+    "Æ": (0x31, MOD_LSHIFT),
+    "ø": (0x33, 0),
+    "Ø": (0x33, MOD_LSHIFT),
     # Add precomposed diacritics and dead key combos as needed
 }
 

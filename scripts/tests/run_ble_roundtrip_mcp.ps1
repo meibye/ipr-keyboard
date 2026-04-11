@@ -24,9 +24,11 @@ param(
 $SshKey = "$HOME/.ssh/id_ed25519_ipr_kb"
 $RepoOnRpi = '/home/meibye/dev/ipr-keyboard'
 $RepoOnPc = 'D:\sandbox\ipr-keyboard'
-$ExpectedRelativePath = 'tests/data/danish_mx_keys_all_chars.txt'
+$CharsPath = 'danish_mx_keys_all_chars.txt'
+$ExpectedRelativePath = "tests/data/$CharsPath"
 $CapturePath = 'C:\Temp\ble_capture_result.txt'
 $ReportPath = 'C:\Temp\ble_capture_diff.txt'
+$ExpectedCharsPath = "C:\Temp\$CharsPath"
 $CaptureInactivitySeconds = 4
 $CaptureMaxSeconds = 300
 $NewlineMode = 'cr'
@@ -125,6 +127,7 @@ if ($LASTEXITCODE -ne 0) { throw "SCP failed for $pcCompareScript" }
 # Step 2: Start capture window on PC
 # -----------------------------------------------------------------------------
 Write-Host '[2/4] Starting capture window on PC...'
+# Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Normal','-File',"$pcCaptureScriptRemote",'-OutputPath',"$CapturePath",'-ReadyPath',"$pcCaptureReadyPath",'-DonePath',"$pcCaptureDonePath",'-InactivitySeconds',"$CaptureInactivitySeconds",'-MaxSeconds',"$CaptureMaxSeconds" -WindowStyle Normal | Out-String | Tee-Object -FilePath "$pcRemoteLog" -Append | Write-Host
 
 # Compose the expanded PowerShell command string for remote debugging
 $localDebugScript = Join-Path $PSScriptRoot 'ble_capture_debug_cmd.ps1'
@@ -135,8 +138,17 @@ Remove-Item -Path "$pcRemoteLog" -ErrorAction SilentlyContinue
 try {
     "==== BEGIN $(Get-Date -Format o) ====" | Out-File -FilePath "$pcRemoteLog" -Encoding UTF8 -Append
     Remove-Item -Path "$pcCaptureReadyPath","$pcCaptureDonePath","$CapturePath" -ErrorAction SilentlyContinue | Out-String | Tee-Object -FilePath "$pcRemoteLog" -Append | Write-Host
-    Start-Process powershell.exe -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Normal','-File',"$pcCaptureScriptRemote",'-OutputPath',"$CapturePath",'-ReadyPath',"$pcCaptureReadyPath",'-DonePath',"$pcCaptureDonePath",'-InactivitySeconds',"$CaptureInactivitySeconds",'-MaxSeconds',"$CaptureMaxSeconds" -WindowStyle Normal | Out-String | Tee-Object -FilePath "$pcRemoteLog" -Append | Write-Host
+    `$future = (Get-Date).AddSeconds(5)
+    `$startTime = `$future.ToString("HH:mm:ss")
+    `$startDate = `$future.ToString("dd/MM/yyyy")
+    `$taskName = "IPRKeyboard_BLE_Capture_Once"
+
+    `$action = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ```"$pcCaptureScriptRemote```" -OutputPath ```"$CapturePath```" -ReadyPath ```"$pcCaptureReadyPath```" -DonePath ```"$pcCaptureDonePath```" -InactivitySeconds $CaptureInactivitySeconds -MaxSeconds $CaptureMaxSeconds"
+
+    schtasks /Create /TN "`$taskName" /TR "`$action" /SC ONCE /ST `$startTime /SD `$startDate /F | Out-String | Tee-Object -FilePath "$pcRemoteLog" -Append | Write-Host
+    schtasks /Run /TN "`$taskName" | Out-String | Tee-Object -FilePath "$pcRemoteLog" -Append | Write-Host
     "==== END $(Get-Date -Format o) ====" | Out-File -FilePath "$pcRemoteLog" -Encoding UTF8 -Append
+
 } catch {
     `$_ | Out-String | Tee-Object -FilePath "$pcRemoteLog" -Append | Write-Host
     `$_ | Out-File -FilePath 'C:\Temp\ble_capture_start_error.log' -Encoding UTF8
@@ -193,16 +205,22 @@ fi
 # -----------------------------------------------------------------------------
 # Step 4: Compare captured content and retrieve results
 # -----------------------------------------------------------------------------
-Write-Host '[4/4] Comparing captured content on PC and retrieving results...'
+Write-Host '[4/4] Comparing captured content on PC and retrieved results...'
 Wait-RemoteFile -SshHost $PcHost -User $PcUser -PosixPath '/mnt/c/Temp/ble_capture.done' -TimeoutSeconds ($CaptureMaxSeconds + 30)
+Write-Host 'Copy expected result to remote PC...'
+$scpArgs3 = @('-i', $SshKey, $pcExpectedPath, "$PcUser@${PcHost}:$ExpectedCharsPath")
+& scp @scpArgs3
+if ($LASTEXITCODE -ne 0) { throw "SCP failed for $ExpectedCharsPath" }
+
+Write-Host 'Capture completed now comparing results...'
 Invoke-Ssh -SshHost $PcHost -User $PcUser -Command @"
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File '$pcCompareScriptRemote' -ExpectedPath '$pcExpectedPath' -CapturedPath '$CapturePath' -ReportPath '$ReportPath'
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File '$pcCompareScriptRemote' -ExpectedPath '$ExpectedCharsPath' -CapturedPath '$CapturePath' -ReportPath '$ReportPath'
 "@
 
 Write-Host "Capture file: $CapturePath"
 Write-Host "Diff report : $ReportPath"
 
 Write-Host 'Copying capture result back to local machine...'
-$scpArgs3 = @('-i', $SshKey, "$PcUser@${PcHost}:$CapturePath", $captureResultLocal)
-& scp @scpArgs3
+$scpArgs4 = @('-i', $SshKey, "$PcUser@${PcHost}:$CapturePath", $captureResultLocal)
+& scp @scpArgs4
 if ($LASTEXITCODE -ne 0) { Write-Warning "SCP failed for $CapturePath" } else { Write-Host "Copied: $CapturePath -> $captureResultLocal" }

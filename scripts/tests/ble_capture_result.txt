@@ -1,0 +1,40 @@
+Danish Logitech MX Keys )Nordic=  Character / Combination Test Sheet
+PurposeÆ print this file and also use it as scan input to verify full character coverage.
+
+1= Alphabet )lowercase=
+abcdefghijklmnopqrstuvwxyzæøå
+
+2= Alphabet )UPPERCASE=
+ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ
+
+3= Digits
+0123456789
+
+4= Common symbols by key )unshift - shift - AltGr where applicable=
+  ø½ø  øqø
+  ø1ø  ø!ø
+  ø2ø  øØø
+  ø3ø  ø#ø  ø@ø
+  ø4ø  ø4ø  ø3ø
+  ø5ø  ø%ø  ø¤ø
+  ø6ø  ø/ø  ø€ø
+  ø7ø  ø-ø  øø
+  ø8ø  ø)ø  øø
+  ø9ø  ø=ø  ø~ø
+  ø0ø  ø´ø  ø~ø
+  ø`ø  ø_ø  øø
+  øÅø  ø½ø
+
+5= Other punctuation - symbols
+  øåø  øÅø
+  øØø  ø&ø  ø§ø
+  øæø  øÆø
+  øøø  øØø
+  øøø  ø(ø
+  ø,ø  øæø  øMø
+  ø.ø  øÆø
+  ø+ø  ø?ø
+  ø<ø  ø>ø  ø'ø
+
+Dead+key combinations )type dead key, then letteræ include dead key `SPACE to get the mark alone=Æ
+  Å `SPACE +> øÅø     Examples )combining acute=Æ 
