@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from .config.manager import ConfigManager, log_version_info
+from .config import manager as config_manager
 from .bluetooth.keyboard import BluetoothKeyboard
 from .bluetooth import keyboard as bt_keyboard
 from .logging.logger import get_logger
@@ -20,10 +21,10 @@ from .web import server as web_server
 
 logger = get_logger()
 
-VERSION = '2026-04-12 19:49:16'
+VERSION = '2026-04-12 19:53:57'
 
 def log_version_info():
-    ConfigManager.log_version_info()
+    config_manager.log_version_info()
     bt_keyboard.log_version_info()
     usb_detector.log_version_info()
     usb_reader.log_version_info()
