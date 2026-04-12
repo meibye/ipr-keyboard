@@ -42,6 +42,8 @@ Dead-key combinations (type dead key, then letter; include dead key + SPACE to g
   ^ + SPACE -> '^'   |  Examples (combining circumflex): â ê î ô û Â Ê Î Ô Û
   ¨ + SPACE -> '¨'   |  Examples (combining diaeresis): ä ë ï ö ü ÿ Ä Ë Ï Ö Ü Ÿ
   ~ + SPACE -> '~'   |  Examples (combining tilde): ã ñ õ Ã Ñ Õ
+
+Combined forms are NOT used but are translated to a single character with the form
   Combining form: á é í ó ú ý Á É Í Ó Ú Ý
   Combining form: à è ì ò ù ỳ À È Ì Ò Ù
   Combining form: â ê î ô û Â Ê Î Ô Û

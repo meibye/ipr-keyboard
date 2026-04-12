@@ -51,6 +51,13 @@ def create_app() -> Flask:
     app.register_blueprint(bp_logs)
     app.register_blueprint(pairing_bp)
 
+    from flask import render_template
+
+    @app.route("/")
+    def index():
+        """Root: Human-readable HTML index of server functionality."""
+        return render_template("index.html")
+
     @app.get("/health")
     def health():
         """Simple health-check endpoint."""

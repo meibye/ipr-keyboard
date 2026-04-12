@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IPR Keyboard Web Server</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        h1 { color: #2c3e50; }
+        ul { line-height: 1.7; }
+        .desc { color: #555; font-size: 0.95em; }
+        .endpoint { font-family: monospace; color: #2980b9; }
+    </style>
+</head>
+<body>
+    <h1>IPR Keyboard Web Server</h1>
+    <p>Welcome! This server provides the following endpoints and features:</p>
+    <ul>
+        <li><span class="endpoint">/health</span> <span class="desc">– Health check (returns status: ok)</span></li>
+        <li><span class="endpoint">/status</span> <span class="desc">– System status (env, config, logs, BLE services, Bluetooth info)</span></li>
+        <li><span class="endpoint">/config/*</span> <span class="desc">– Configuration management (API)</span></li>
+        <li><span class="endpoint">/logs/*</span> <span class="desc">– Log access (API)</span></li>
+        <li><span class="endpoint">/pairing/*</span> <span class="desc">– Bluetooth pairing wizard and API</span></li>
+    </ul>
+    <p>For a human-readable system status, visit <a href="/status">/status</a>.</p>
+</body>
+</html>
