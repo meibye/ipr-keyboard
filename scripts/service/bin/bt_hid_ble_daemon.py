@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Created:  
-# VERSION: '2026-04-12 16:17:46'
+# VERSION: '2026-04-12 16:49:46'
 import argparse
 import os
 import threading
@@ -14,7 +14,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 16:17:46'
+VERSION = '2026-04-12 16:49:46'
 
 try:
     from systemd import journal
@@ -85,7 +85,7 @@ def log_err(msg: str) -> None:
 
 def log_trace(msg: str) -> None:
     if BLE_TRACE_KEYS:
-        journal.send("TRACE: " + msg, PRIORITY=getattr(journal, "LOG_INFO", 6))
+        journal.send(msg, PRIORITY=getattr(journal, "LOG_INFO", 6))
 
 
 def format_char_debug(ch: str) -> str:
