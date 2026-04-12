@@ -42,11 +42,11 @@ Dead-key combinations (type dead key, then letter; include dead key + SPACE to g
   ^ + SPACE -> '^'   |  Examples (combining circumflex): â ê î ô û Â Ê Î Ô Û
   ¨ + SPACE -> '¨'   |  Examples (combining diaeresis): ä ë ï ö ü ÿ Ä Ë Ï Ö Ü Ÿ
   ~ + SPACE -> '~'   |  Examples (combining tilde): ã ñ õ Ã Ñ Õ
-  Combining form: á é í ó ú ý         Á É Í Ó Ú Ý
-  Combining form: à è ì ò ù ỳ         À È Ì Ò Ù Ỳ
-  Combining form: â ê î ô û           Â Ê Î Ô Û Ŷ
-  Combining form: ä ë ï ö ü ÿ         Ä Ë Ï Ö Ü Ÿ
-  Combining form: ã     õ     ñ       Ã Ẽ Ĩ Õ Ũ Ỹ
+  Combining form: á é í ó ú ý Á É Í Ó Ú Ý
+  Combining form: à è ì ò ù ỳ À È Ì Ò Ù
+  Combining form: â ê î ô û Â Ê Î Ô Û
+  Combining form: ä ë ï ö ü ÿ Ä Ë Ï Ö Ü Ÿ
+  Combining form: ã õ ñ Ã Ñ Õ
 
 6) All unique printable characters collected (space-separated)
 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ £ ¤ § ¨ ´ µ ½ À Á Â Ã Ä Å Æ È É Ê Ë Ì Í Î Ï Ñ Ò Ó Ô Õ Ö Ø Ù Ú Û Ü Ý à á â ã ä å æ è é ê ë ì í î ï ñ ò ó ô õ ö ø ù ú û ü ý ÿ Ÿ €
