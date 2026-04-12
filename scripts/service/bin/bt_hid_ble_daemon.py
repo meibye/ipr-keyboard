@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
+#
+# Characters that CANNOT be supported without Windows registry changes:
+# Category	        Examples	                Reason
+# ----------------------------------------------------------------------------------
+# Precomposed,      ń ǽ ǿ ǻ ỳ ǹ ŷ ẽ ĩ ũ ỹ       Not in Windows-1252; 
+# codepoint > 255	(+ capitals)	            Alt+0XXX wraps mod 256
+#
+# No precomposed    æ̀ ø̀ å̀ n̂ æ̂ ø̂ å̂ n̈ æ̈ ø̈ å̈ æ̃ ø̃ å̃ Only exist as combining sequences; 
+# Unicode form	    (+ capitals)	            no single codepoint to emit
+# 
 # Created:  
-# VERSION: '2026-04-12 17:22:36'
+# VERSION: '2026-04-12 17:47:30'
 import argparse
 import os
 import threading
@@ -14,7 +24,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 17:22:36'
+VERSION = '2026-04-12 17:47:30'
 
 try:
     from systemd import journal
@@ -425,6 +435,23 @@ def map_char(ch: str):
                 details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
             )
             return dead_key_sequence
+
+        # For unsupported dead-key compositions, try NFC → Alt decimal code
+        # before falling back to the literal dead-key route (which Windows
+        # cannot compose and would output the dead-key char + base letter).
+        if UNICODE_MODE in ("windows_alt_decimal", "windows_hybrid"):
+            nfc = unicodedata.normalize("NFC", ch)
+            if len(nfc) == 1 and (
+                nfc in WINDOWS_ALT_DECIMAL_CODES or 160 <= ord(nfc) <= 255
+            ):
+                sequence = build_windows_alt_decimal_sequence(nfc)
+                trace_mapping(
+                    ch,
+                    "combining-nfc-alt-decimal",
+                    sequence,
+                    details=f"nfc={format_char_debug(nfc)}",
+                )
+                return sequence
 
         literal_dead_key_sequence = map_dead_key_literal_cluster(ch[0], ch[1])
         if literal_dead_key_sequence and UNICODE_MODE != "windows_hex_alt":
