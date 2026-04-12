@@ -36,7 +36,7 @@ $NewlineMode = 'cr'
 $pcCaptureReadyPath = 'C:\Temp\ble_capture.ready'
 $pcCaptureDonePath = 'C:\Temp\ble_capture.done'
 $pcCaptureScript = "$RepoOnPc\scripts\tests\win_ble_capture.ps1"
-$pcCompareScript = "$RepoOnPc\scripts\tests\win_compare_ble_capture.ps1"
+$pcCompareScript = "$RepoOnPc\tests\win_compare_ble_capture.ps1"
 $pcCaptureScriptRemote = 'C:\Temp\win_ble_capture.ps1'
 $pcCompareScriptRemote = 'C:\Temp\win_compare_ble_capture.ps1'
 $captureResultLocal = "C:\Temp\ble_capture_result.txt"
@@ -126,9 +126,9 @@ Invoke-Ssh -SshHost $PcHost -User $PcUser -Command 'powershell -NoProfile -Comma
 $scpArgs1 = @('-i', $SshKey, $pcCaptureScript, "$PcUser@${PcHost}:$pcCaptureScriptRemote")
 & scp @scpArgs1
 if ($LASTEXITCODE -ne 0) { throw "SCP failed for $pcCaptureScript" }
-$scpArgs2 = @('-i', $SshKey, $pcCompareScript, "$PcUser@${PcHost}:$pcCompareScriptRemote")
-& scp @scpArgs2
-if ($LASTEXITCODE -ne 0) { throw "SCP failed for $pcCompareScript" }
+# $scpArgs2 = @('-i', $SshKey, $pcCompareScript, "$PcUser@${PcHost}:$pcCompareScriptRemote")
+# & scp @scpArgs2
+# if ($LASTEXITCODE -ne 0) { throw "SCP failed for $pcCompareScript" }
 
 # -----------------------------------------------------------------------------
 # Step 2: Start capture window on PC
@@ -220,16 +220,18 @@ $scpArgs3 = @('-i', $SshKey, $pcExpectedPath, "$PcUser@${PcHost}:$ExpectedCharsP
 & scp @scpArgs3
 if ($LASTEXITCODE -ne 0) { throw "SCP failed for $ExpectedCharsPath" }
 
-Write-Host 'Capture completed now comparing results...'
-Invoke-Ssh -SshHost $PcHost -User $PcUser -NoThrow -Command (
-  'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $pcCompareScriptRemote + '" -ExpectedPath "' + $ExpectedCharsPath + '" -CapturedPath "' + $CapturePath + '" -ReportPath "' + $ReportPath + '"'
-)
+# Commented out due to virus detection issues with the compare script, will run manually for now
+
+# Write-Host 'Capture completed now comparing results...'
+# Invoke-Ssh -SshHost $PcHost -User $PcUser -NoThrow -Command (
+#   'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $pcCompareScriptRemote + '" -ExpectedPath "' + $ExpectedCharsPath + '" -CapturedPath "' + $CapturePath + '" -ReportPath "' + $ReportPath + '"'
+# )
 
 Write-Host "Capture file: $CapturePath"
-Write-Host "Diff report : $ReportPath"
+# Write-Host "Diff report : $ReportPath"
 
 Write-Host 'Copying results back to local machine...'
 $scpArgs4 = @('-i', $SshKey, "$PcUser@${PcHost}:$CapturePath", "$RepoOnPc\$($LocalOutputRelativePath-replace '/', '\')\captured.txt")  
 & scp @scpArgs4
-$scpArgs4 = @('-i', $SshKey, "$PcUser@${PcHost}:$ReportPath", "$RepoOnPc\$($LocalOutputRelativePath-replace '/', '\')\difference.txt")  
-& scp @scpArgs4
+# $scpArgs4 = @('-i', $SshKey, "$PcUser@${PcHost}:$ReportPath", "$RepoOnPc\$($LocalOutputRelativePath-replace '/', '\')\difference.txt")  
+# & scp @scpArgs4

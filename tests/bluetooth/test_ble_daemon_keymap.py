@@ -134,3 +134,15 @@ def test_default_mode_keeps_ascii_fallback_for_emdash():
     ]
     assert mod.UNICODE_MODE == "off"
     assert mod.map_char("—") == expected
+
+
+def test_default_mode_keeps_ascii_fallback_for_endash():
+    mod = load_daemon_module()
+
+    expected = [
+        (0, 0x38),
+        mod.REPORT_RELEASE,
+        (0, 0x38),
+        mod.REPORT_RELEASE,
+    ]
+    assert mod.map_char("–") == expected

@@ -192,7 +192,7 @@ DIRECT_KEYMAP = {
     "€": (0x22, MOD_ALTGR),
 }
 ASCII_FALLBACK_SEQUENCES = {
-    "–": [DIRECT_KEYMAP["-"]],
+    "–": [DIRECT_KEYMAP["-"], DIRECT_KEYMAP["-"]],
     "—": [DIRECT_KEYMAP["-"], DIRECT_KEYMAP["-"]],
 }
 # Keep host-specific Unicode entry opt-in; many Windows hosts ignore HID Alt-hex.
