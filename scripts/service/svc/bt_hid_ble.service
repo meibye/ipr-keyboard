@@ -1,7 +1,7 @@
 [Unit]
-Description=IPR Keyboard BLE HOGP GATT Daemon
-After=bt_hid_agent_unified.service bluetooth.service
-Requires=bt_hid_agent_unified.service bluetooth.service
+Description=IPR,Keyboard,BLE,HOGP,GATT,Daemon
+After=bt_hid_agent_unified.service,bluetooth.service
+Requires=bt_hid_agent_unified.service,bluetooth.service
 BindsTo=bluetooth.service
 PartOf=bluetooth.service
 
@@ -12,8 +12,8 @@ StandardError=journal
 SyslogIdentifier=bt_hid_ble
 EnvironmentFile=-/opt/ipr_common.env
 Environment=BT_BLE_TRACE_KEYS=1
-Environment=BT_BLE_TRACE_FILTER=–,—,ǹ,æ̀,å̀
-ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_ble_daemon.py --adapter ${BT_HCI:-hci0}
+Environment=BT_BLE_TRACE_FILTER=á,é,í,ó,ú,ý,ń,ǽ,ǿ,ǻ,Á,É,Í,Ó,Ú,Ý,Ń,Ǽ,Ǿ,Ǻ,à,è,ì,ò,ù,ỳ,ǹ,æ̀,ø̀,å̀,À,È,Ì,Ò,Ù,Ỳ,Ǹ,Æ̀,Ø̀,Å̀,â,ê,î,ô,û,ŷ,n̂,æ̂,ø̂,å̂,Â,Ê,Î,Ô,Û,Ŷ,N̂,Æ̂,Ø̂,Å̂,ä,ë,ï,ö,ü,ÿ,n̈,æ̈,ø̈,å̈,Ä,Ë,Ï,Ö,Ü,Ÿ,N̈,Æ̈,Ø̈,Å̈,ã,ẽ,ĩ,õ,ũ,ỹ,ñ,æ̃,ø̃,å̃,Ã,Ẽ,Ĩ,Õ,Ũ,Ỹ,Ñ,Æ̃,Ø̃,Å̃
+ExecStart=/usr/bin/python3,-u,/usr/local/bin/bt_hid_ble_daemon.py,--adapter,${BT_HCI:-hci0}
 Restart=always
 RestartSec=2
 
