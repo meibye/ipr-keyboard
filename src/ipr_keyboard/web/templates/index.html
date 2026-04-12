@@ -15,12 +15,11 @@
     <h1>IPR Keyboard Web Server</h1>
     <p>Welcome! This server provides the following endpoints and features:</p>
     <ul>
-        <li><span class="endpoint">/health</span> <span class="desc">– Health check (returns status: ok)</span></li>
-        <li><span class="endpoint">/status</span> <span class="desc">– System status (env, config, logs, BLE services, Bluetooth info)</span></li>
-        <li><span class="endpoint">/config/*</span> <span class="desc">– Configuration management (API)</span></li>
-        <li><span class="endpoint">/logs/*</span> <span class="desc">– Log access (API)</span></li>
-        <li><span class="endpoint">/pairing/*</span> <span class="desc">– Bluetooth pairing wizard and API</span></li>
+        <li><a class="endpoint" href="/status">System Status</a> <span class="desc">– env, config, logs, BLE services, Bluetooth info</span></li>
+        <li><a class="endpoint" href="/pairing/">Bluetooth Pairing Wizard</a> <span class="desc">– Start or manage Bluetooth pairing</span></li>
+        <li><a class="endpoint" href="/config/">Configuration API</a> <span class="desc">– View or update configuration (API, JSON)</span></li>
+        <li><a class="endpoint" href="/logs/">Log Access</a> <span class="desc">– View logs (API, JSON)</span></li>
+        <li><a class="endpoint" href="/health">Health Check</a> <span class="desc">– Returns status: ok (API, JSON)</span></li>
     </ul>
-    <p>For a human-readable system status, visit <a href="/status">/status</a>.</p>
 </body>
 </html>

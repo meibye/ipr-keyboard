@@ -55,7 +55,7 @@ def create_app() -> Flask:
 
     @app.route("/")
     def index():
-        """Root: Human-readable HTML index of server functionality."""
+        """Root: Human-readable HTML index of server functionality with links."""
         return render_template("index.html")
 
     @app.get("/health")
@@ -63,35 +63,21 @@ def create_app() -> Flask:
         """Simple health-check endpoint."""
         return jsonify({"status": "ok"})
 
-    @app.get("/status")
+    @app.route("/status")
     def status():
-        """System status endpoint.
-
-        Returns JSON with:
-          - environment (IPR_USER, IPR_PROJECT_ROOT)
-          - config file info
-          - log file presence
-          - systemd status for BLE HID service
-          - Bluetooth adapter + paired device info
-        """
+        """System status endpoint (HTML)."""
         env = {
             "IPR_USER": os.environ.get("IPR_USER", ""),
             "IPR_PROJECT_ROOT": os.environ.get("IPR_PROJECT_ROOT", ""),
         }
-
         project_root = Path(env["IPR_PROJECT_ROOT"] or ".")
         config_file = project_root / "ipr-keyboard" / "config.json"
         log_file = project_root / "ipr-keyboard" / "logs" / "ipr_keyboard.log"
-
         services = {
             "bt_hid_ble.service": _service_status("bt_hid_ble.service"),
             "bt_hid_agent_unified.service": _service_status("bt_hid_agent_unified.service"),
         }
-
-        # Bluetooth adapter info
         adapter_info = _run_cmd(["bluetoothctl", "show"])
-
-        # Paired devices and their info
         devices: list[dict[str, Any]] = []
         try:
             devices_out = subprocess.check_output(
@@ -105,24 +91,13 @@ def create_app() -> Flask:
                     devices.append({"mac": mac, "info": info_out})
         except Exception as exc:
             devices.append({"error": f"failed to query devices: {exc}"})
-
-        return jsonify(
-            {
-                "env": env,
-                "config": {
-                    "file": str(config_file),
-                    "exists": config_file.exists(),
-                },
-                "log": {
-                    "file": str(log_file),
-                    "exists": log_file.exists(),
-                },
-                "services": services,
-                "bluetooth": {
-                    "adapter": adapter_info,
-                    "devices": devices,
-                },
-            }
+        return render_template(
+            "status.html",
+            env=env,
+            config={"file": str(config_file), "exists": config_file.exists()},
+            log={"file": str(log_file), "exists": log_file.exists()},
+            services=services,
+            bluetooth={"adapter": adapter_info, "devices": devices},
         )
 
     logger.info("Web server created")
