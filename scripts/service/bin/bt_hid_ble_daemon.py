@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Created:  
-# VERSION: '2026-04-12 12:43:08'
+# VERSION: '2026-04-12 12:44:16'
 import argparse
 import os
 import threading
@@ -13,7 +13,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 12:43:08'
+VERSION = '2026-04-12 12:44:16'
 
 try:
     from systemd import journal
@@ -77,7 +77,7 @@ def log_info(msg: str, always: bool = False) -> None:
 def log_err(msg: str) -> None:
     journal.send(msg, PRIORITY=getattr(journal, "LOG_ERR", 3))
 
-def log_version_info(msg: str) -> None:
+def log_version_info() -> None:
     LIGHT_GREEN = '\033[92m'
     RESET = '\033[0m'
     journal.send(f"{LIGHT_GREEN}==== VERSION: {VERSION} ====={RESET}", PRIORITY=getattr(journal, "LOG_INFO", 6))
