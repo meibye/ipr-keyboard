@@ -213,9 +213,9 @@ $scpArgs3 = @('-i', $SshKey, $pcExpectedPath, "$PcUser@${PcHost}:$ExpectedCharsP
 if ($LASTEXITCODE -ne 0) { throw "SCP failed for $ExpectedCharsPath" }
 
 Write-Host 'Capture completed now comparing results...'
-Invoke-Ssh -SshHost $PcHost -User $PcUser -Command @"
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File '$pcCompareScriptRemote' -ExpectedPath '$ExpectedCharsPath' -CapturedPath '$CapturePath' -ReportPath '$ReportPath'
-"@
+Invoke-Ssh -SshHost $PcHost -User $PcUser -Command (
+  'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $pcCompareScriptRemote + '" -ExpectedPath "' + $ExpectedCharsPath + '" -CapturedPath "' + $CapturePath + '" -ReportPath "' + $ReportPath + '"'
+)
 
 Write-Host "Capture file: $CapturePath"
 Write-Host "Diff report : $ReportPath"

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # Created:  
-# VERSION: '2026-04-12 13:15:53'
+# VERSION: '2026-04-12 13:47:21'
 import argparse
 import os
 import threading
 import time
+import unicodedata
 from collections import deque
 
 import dbus
@@ -13,7 +14,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 13:15:53'
+VERSION = '2026-04-12 13:47:21'
 
 try:
     from systemd import journal
@@ -124,105 +125,133 @@ LETTER_USAGES = {chr(ord("a") + i): 0x04 + i for i in range(26)}
 DIGIT_USAGES = {
     str(i): 0x1E + (0 if i == 1 else i - 1 if i > 0 else 9) for i in range(10)
 }
-PUNCT = {
+SPACE_KEYPRESS = (0x2C, 0)
+DEAD_KEY_MARKS = {
+    "\u0301": (0x2E, 0),             # acute
+    "\u0300": (0x2E, MOD_LSHIFT),    # grave
+    "\u0302": (0x30, MOD_LSHIFT),    # circumflex
+    "\u0308": (0x30, 0),             # diaeresis
+    "\u0303": (0x30, MOD_ALTGR),     # tilde
+}
+DEAD_KEY_SEQUENCES = {
+    "´": [DEAD_KEY_MARKS["\u0301"], SPACE_KEYPRESS],
+    "`": [DEAD_KEY_MARKS["\u0300"], SPACE_KEYPRESS],
+    "^": [DEAD_KEY_MARKS["\u0302"], SPACE_KEYPRESS],
+    "¨": [DEAD_KEY_MARKS["\u0308"], SPACE_KEYPRESS],
+    "~": [DEAD_KEY_MARKS["\u0303"], SPACE_KEYPRESS],
+}
+# Windows Danish / Logitech MX Nordic physical key layout.
+DIRECT_KEYMAP = {
     " ": (0x2C, 0),
     "\n": (0x28, 0),
     "\r": (0x28, 0),
     "\t": (0x2B, 0),
-    "-": (0x2D, 0),
-    "_": (0x2D, MOD_LSHIFT),
-    ",": (0x36, 0),
-    ";": (0x37, MOD_LSHIFT),
-    ".": (0x37, 0),
-    ":": (0x37, MOD_LSHIFT),
-    "/": (0x24, 0),
-    "?": (0x2E, MOD_LSHIFT),
-    "'": (0x34, 0),
-    '"': (0x34, MOD_LSHIFT),
-    "[": (0x25, MOD_ALTGR),
-    "]": (0x26, MOD_ALTGR),
-    "{": (0x27, MOD_ALTGR),
-    "}": (0x2D, MOD_ALTGR),
-    "|": (0x64, MOD_ALTGR),
-    "\\": (0x64, 0),
     "!": (0x1E, MOD_LSHIFT),
-    "#": (0x20, 0),
-    "$": (0x22, MOD_ALTGR),
-    "%": (0x22, 0),
-    "^": (0x23, MOD_LSHIFT),
-    "&": (0x24, MOD_LSHIFT),
-    "*": (0x25, MOD_LSHIFT),
-    "(": (0x26, MOD_LSHIFT),
-    ")": (0x27, MOD_LSHIFT),
-    "=": (0x2E, 0),
-    "+": (0x30, 0),
-    "`": (0x35, 0),
-    "~": (0x32, MOD_ALTGR),
-    "<": (0x64, 0),  # Nordic "<" key (often at bottom left)
+    '"': (0x1F, MOD_LSHIFT),
+    "#": (0x20, MOD_LSHIFT),
+    "$": (0x21, MOD_ALTGR),
+    "%": (0x22, MOD_LSHIFT),
+    "&": (0x23, MOD_LSHIFT),
+    "'": (0x31, 0),
+    "(": (0x25, MOD_LSHIFT),
+    ")": (0x26, MOD_LSHIFT),
+    "*": (0x31, MOD_LSHIFT),
+    "+": (0x2D, 0),
+    ",": (0x36, 0),
+    "-": (0x38, 0),
+    ".": (0x37, 0),
+    "/": (0x24, MOD_LSHIFT),
+    ":": (0x37, MOD_LSHIFT),
+    ";": (0x36, MOD_LSHIFT),
+    "<": (0x64, 0),
+    "=": (0x27, MOD_LSHIFT),
     ">": (0x64, MOD_LSHIFT),
-    "§": (0x35, 0),
-    "½": (0x14, 0),
-    "¤": (0x21, 0),
-    "£": (0x23, MOD_ALTGR),
-    "µ": (0x10, MOD_LSHIFT),
-    "¨": (0x2B, MOD_LSHIFT),
-    "´": (0x2F, MOD_LSHIFT),
     "@": (0x1F, MOD_ALTGR),
-    "€": (0x08, MOD_ALTGR),
-    "Ÿ": (0x1C, MOD_LSHIFT | MOD_ALTGR),  # fallback, not on standard DK layout
+    "?": (0x2D, MOD_LSHIFT),
+    "[": (0x25, MOD_ALTGR),
+    "\\": (0x64, MOD_ALTGR),
+    "]": (0x26, MOD_ALTGR),
+    "_": (0x38, MOD_LSHIFT),
+    "{": (0x24, MOD_ALTGR),
+    "|": (0x2E, MOD_ALTGR),
+    "}": (0x27, MOD_ALTGR),
+    "£": (0x20, MOD_ALTGR),
+    "¤": (0x21, MOD_LSHIFT),
+    "§": (0x35, MOD_LSHIFT),
+    "½": (0x35, 0),
+    "µ": (0x10, MOD_ALTGR),
+    "Å": (0x2F, MOD_LSHIFT),
+    "Æ": (0x33, MOD_LSHIFT),
+    "Ø": (0x34, MOD_LSHIFT),
+    "å": (0x2F, 0),
+    "æ": (0x33, 0),
+    "ø": (0x34, 0),
+    "€": (0x22, MOD_ALTGR),
 }
-SPECIAL_DK = {
-    "å": (0x34, 0),
-    "Å": (0x34, MOD_LSHIFT),
-    "æ": (0x31, 0),
-    "Æ": (0x31, MOD_LSHIFT),
-    "ø": (0x33, 0),
-    "Ø": (0x33, MOD_LSHIFT),
-    "ß": (0x2D, MOD_ALTGR),  # German sharp s, fallback
-    "¨": (0x2B, MOD_LSHIFT),  # diaeresis dead key
-    "´": (0x2F, MOD_LSHIFT),  # acute dead key
-    "`": (0x35, 0),           # grave dead key
-    "^": (0x23, MOD_LSHIFT),  # circumflex dead key
-    "~": (0x32, MOD_ALTGR),   # tilde dead key
+ASCII_FALLBACK_SEQUENCES = {
+    "–": [DIRECT_KEYMAP["-"]],
+    "—": [DIRECT_KEYMAP["-"], DIRECT_KEYMAP["-"]],
 }
 
 
-def map_char(ch: str):
-    """
-    Map a Unicode character to a (keycode, modifier) tuple or a list of such tuples for dead key sequences.
-    Returns (0, 0) if not mappable.
-    """
-    import unicodedata
-    if BLE_DEBUG:
-        journal.send(f"[DEBUG] map_char({ch})")
-    # Direct mapping for punctuation, digits, special DK, and letters
-    if ch in PUNCT:
-        return PUNCT[ch]
+def simple_keypress(ch: str):
+    if ch in DIRECT_KEYMAP:
+        return DIRECT_KEYMAP[ch]
     if ch in DIGIT_USAGES:
         return (DIGIT_USAGES[ch], 0)
-    if ch in SPECIAL_DK:
-        return SPECIAL_DK[ch]
     if ch in LETTER_USAGES:
         return (LETTER_USAGES[ch], 0)
     if ch.lower() in LETTER_USAGES and ch.isupper():
         return (LETTER_USAGES[ch.lower()], MOD_LSHIFT)
-    # Try to handle precomposed diacritics and combining forms
-    decomp = unicodedata.normalize('NFD', ch)
-    if len(decomp) == 2:
-        base, mark = decomp[0], decomp[1]
-        dead_key_map = {
-            '\u0301': (0x2F, MOD_LSHIFT),  # acute
-            '\u0300': (0x35, 0),           # grave
-            '\u0302': (0x23, MOD_LSHIFT),  # circumflex
-            '\u0308': (0x2B, MOD_LSHIFT),  # diaeresis
-            '\u0303': (0x32, MOD_ALTGR),   # tilde
-        }
-        # Only handle if base is a letter we can type
-        if mark in dead_key_map and (base in LETTER_USAGES or base in SPECIAL_DK):
-            base_code = (LETTER_USAGES[base], 0) if base in LETTER_USAGES else SPECIAL_DK[base]
-            return [dead_key_map[mark], base_code]
-    # Fallback: not supported
-    return (0, 0)
+    return None
+
+
+def split_base_and_marks(ch: str):
+    if len(ch) > 1 and all(unicodedata.combining(mark) for mark in ch[1:]):
+        return ch[0], ch[1:]
+    decomp = unicodedata.normalize("NFD", ch)
+    if len(decomp) > 1 and all(unicodedata.combining(mark) for mark in decomp[1:]):
+        return decomp[0], decomp[1:]
+    return ch, ""
+
+
+def map_char(ch: str):
+    """
+    Map a grapheme cluster to one or more (keycode, modifier) presses.
+    Returns an empty list if the character is not mappable.
+    """
+    if BLE_DEBUG:
+        journal.send(f"[DEBUG] map_char({ch})")
+    if ch in DEAD_KEY_SEQUENCES:
+        return DEAD_KEY_SEQUENCES[ch]
+    if ch in ASCII_FALLBACK_SEQUENCES:
+        return ASCII_FALLBACK_SEQUENCES[ch]
+
+    keypress = simple_keypress(ch)
+    if keypress is not None:
+        return [keypress]
+
+    base, marks = split_base_and_marks(ch)
+    if len(marks) == 1:
+        dead_key = DEAD_KEY_MARKS.get(marks[0])
+        base_keypress = simple_keypress(base)
+        if dead_key and base_keypress is not None:
+            return [dead_key, base_keypress]
+
+    return []
+
+
+def iter_text_clusters(text: str):
+    cluster = ""
+    for ch in text:
+        if cluster and unicodedata.combining(ch):
+            cluster += ch
+            continue
+        if cluster:
+            yield cluster
+        cluster = ch
+    if cluster:
+        yield cluster
 
 
 def build_kbd_report(mods: int, keycode: int) -> bytes:
@@ -890,31 +919,35 @@ def send_next_character(
         return False
 
     ch = queue[0]
-    keycode, mods = map_char(ch)
+    sequence = map_char(ch)
 
     if BLE_DEBUG:
         journal.send(
-            f"[DEBUG] send_next_character: ch={ch}, keycode={keycode}, mods={mods}"
+            f"[DEBUG] send_next_character: ch={ch}, sequence={sequence}"
         )
 
     # Drop unsupported characters rather than stalling the queue indefinitely.
-    if keycode == 0:
+    if not sequence:
         if BLE_DEBUG:
             journal.send(f"[DEBUG] send_next_character: unsupported char {ch}")
         queue.popleft()
         return True
 
-    press = build_kbd_report(mods, keycode)
     release = build_kbd_report(0, 0)
 
-    if not hid.notify_key_report(press):
-        if BLE_DEBUG:
-            journal.send("[DEBUG] send_next_character: notify_key_report(press) failed")
-        return False
+    for keycode, mods in sequence:
+        press = build_kbd_report(mods, keycode)
 
-    time.sleep(0.012)
-    hid.notify_key_report(release)
-    time.sleep(0.008)
+        if not hid.notify_key_report(press):
+            if BLE_DEBUG:
+                journal.send(
+                    "[DEBUG] send_next_character: notify_key_report(press) failed"
+                )
+            return False
+
+        time.sleep(0.012)
+        hid.notify_key_report(release)
+        time.sleep(0.008)
 
     queue.popleft()
     if BLE_DEBUG:
@@ -951,7 +984,7 @@ def fifo_worker(hid: HidService, notify_state: NotifyState):
 
             with open(FIFO_PATH, "r", encoding="utf-8", errors="ignore") as fifo:
                 for line in fifo:
-                    for ch in line:
+                    for ch in iter_text_clusters(line):
                         # Convert LF to CR so the host receives Enter semantics.
                         if ch == "\n":
                             queue.append("\r")

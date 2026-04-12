@@ -12,7 +12,8 @@
     	"triggerTaskOnSave.showNotifications": true,
 		"triggerTaskOnSave.tasks": {
 			"Update VERSION stamp": [
-			"**/*.py"
+			"**/*.py",
+			"**/*.sh"
 			]
 		}
 	}
