@@ -251,7 +251,7 @@ SUPPORTED_DEAD_KEY_COMPOSITIONS = {
     "\u0308": set("aeiouyAEIOU"),
     "\u0303": set("anoANO"),
 }
-UNICODE_MODE = env_str("BT_BLE_UNICODE_MODE", "windows_alt_decimal").lower()
+UNICODE_MODE = env_str("BT_BLE_UNICODE_MODE", "windows_hybrid").lower()
 
 
 def simple_keypress(ch: str):
@@ -326,6 +326,22 @@ def build_windows_hex_alt_sequence(text: str):
     return states
 
 
+def build_windows_unicode_sequence(text: str):
+    if UNICODE_MODE == "windows_alt_decimal":
+        return build_windows_alt_decimal_sequence(text)
+    if UNICODE_MODE == "windows_hex_alt":
+        return build_windows_hex_alt_sequence(text)
+    if UNICODE_MODE == "windows_hybrid":
+        states = []
+        for ch in text:
+            if ch in WINDOWS_ALT_DECIMAL_CODES:
+                states.extend(build_windows_alt_decimal_sequence(ch))
+            else:
+                states.extend(build_windows_hex_alt_sequence(ch))
+        return states
+    return []
+
+
 def build_explicit_cluster_sequence(ch: str):
     base, marks = split_base_and_marks(ch)
     states = []
@@ -334,16 +350,10 @@ def build_explicit_cluster_sequence(ch: str):
     if base_keypress is not None:
         states.extend(keypresses_to_report_states([base_keypress]))
     else:
-        if UNICODE_MODE == "windows_alt_decimal":
-            states.extend(build_windows_alt_decimal_sequence(base))
-        else:
-            states.extend(build_windows_hex_alt_sequence(base))
+        states.extend(build_windows_unicode_sequence(base))
 
     for mark in marks:
-        if UNICODE_MODE == "windows_alt_decimal":
-            states.extend(build_windows_alt_decimal_sequence(mark))
-        else:
-            states.extend(build_windows_hex_alt_sequence(mark))
+        states.extend(build_windows_unicode_sequence(mark))
 
     return states
 
@@ -377,15 +387,6 @@ def map_char(ch: str):
         return sequence
 
     if is_explicit_combining_cluster(ch):
-        dead_key_sequence = map_dead_key_cluster(ch[0], ch[1])
-        if dead_key_sequence:
-            trace_mapping(
-                ch,
-                "combining-dead-key",
-                dead_key_sequence,
-                details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
-            )
-            return dead_key_sequence
         if UNICODE_MODE == "windows_alt_decimal":
             sequence = build_explicit_cluster_sequence(ch)
             trace_mapping(
@@ -404,6 +405,24 @@ def map_char(ch: str):
                 details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
             )
             return sequence
+        if UNICODE_MODE == "windows_hybrid":
+            sequence = build_explicit_cluster_sequence(ch)
+            trace_mapping(
+                ch,
+                "combining-alt-hybrid",
+                sequence,
+                details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
+            )
+            return sequence
+        dead_key_sequence = map_dead_key_cluster(ch[0], ch[1])
+        if dead_key_sequence:
+            trace_mapping(
+                ch,
+                "combining-dead-key",
+                dead_key_sequence,
+                details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
+            )
+            return dead_key_sequence
 
     base, marks = split_base_and_marks(ch)
     if len(marks) == 1:
@@ -425,6 +444,11 @@ def map_char(ch: str):
     if UNICODE_MODE == "windows_hex_alt":
         sequence = build_windows_hex_alt_sequence(ch)
         trace_mapping(ch, "alt-hex", sequence)
+        return sequence
+
+    if UNICODE_MODE == "windows_hybrid":
+        sequence = build_windows_unicode_sequence(ch)
+        trace_mapping(ch, "alt-hybrid", sequence)
         return sequence
 
     if ch in ASCII_FALLBACK_SEQUENCES:
