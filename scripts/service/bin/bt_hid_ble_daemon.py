@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Created:  
-# VERSION: '2026-04-12 12:44:16'
+# VERSION: '2026-04-12 13:15:53'
 import argparse
 import os
 import threading
@@ -13,7 +13,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 12:44:16'
+VERSION = '2026-04-12 13:15:53'
 
 try:
     from systemd import journal
@@ -146,7 +146,6 @@ PUNCT = {
     "|": (0x64, MOD_ALTGR),
     "\\": (0x64, 0),
     "!": (0x1E, MOD_LSHIFT),
-    '"': (0x1F, MOD_LSHIFT),
     "#": (0x20, 0),
     "$": (0x22, MOD_ALTGR),
     "%": (0x22, 0),
@@ -159,6 +158,8 @@ PUNCT = {
     "+": (0x30, 0),
     "`": (0x35, 0),
     "~": (0x32, MOD_ALTGR),
+    "<": (0x64, 0),  # Nordic "<" key (often at bottom left)
+    ">": (0x64, MOD_LSHIFT),
     "§": (0x35, 0),
     "½": (0x14, 0),
     "¤": (0x21, 0),
@@ -166,9 +167,9 @@ PUNCT = {
     "µ": (0x10, MOD_LSHIFT),
     "¨": (0x2B, MOD_LSHIFT),
     "´": (0x2F, MOD_LSHIFT),
-    # AltGr mappings
     "@": (0x1F, MOD_ALTGR),
     "€": (0x08, MOD_ALTGR),
+    "Ÿ": (0x1C, MOD_LSHIFT | MOD_ALTGR),  # fallback, not on standard DK layout
 }
 SPECIAL_DK = {
     "å": (0x34, 0),
@@ -177,16 +178,24 @@ SPECIAL_DK = {
     "Æ": (0x31, MOD_LSHIFT),
     "ø": (0x33, 0),
     "Ø": (0x33, MOD_LSHIFT),
-    # Add precomposed diacritics and dead key combos as needed
+    "ß": (0x2D, MOD_ALTGR),  # German sharp s, fallback
+    "¨": (0x2B, MOD_LSHIFT),  # diaeresis dead key
+    "´": (0x2F, MOD_LSHIFT),  # acute dead key
+    "`": (0x35, 0),           # grave dead key
+    "^": (0x23, MOD_LSHIFT),  # circumflex dead key
+    "~": (0x32, MOD_ALTGR),   # tilde dead key
 }
 
 
 def map_char(ch: str):
+    """
+    Map a Unicode character to a (keycode, modifier) tuple or a list of such tuples for dead key sequences.
+    Returns (0, 0) if not mappable.
+    """
+    import unicodedata
     if BLE_DEBUG:
         journal.send(f"[DEBUG] map_char({ch})")
-    # Handle combining diacritics (dead key + base letter)
-    import unicodedata
-    # Precomposed: try direct mapping first
+    # Direct mapping for punctuation, digits, special DK, and letters
     if ch in PUNCT:
         return PUNCT[ch]
     if ch in DIGIT_USAGES:
@@ -197,21 +206,21 @@ def map_char(ch: str):
         return (LETTER_USAGES[ch], 0)
     if ch.lower() in LETTER_USAGES and ch.isupper():
         return (LETTER_USAGES[ch.lower()], MOD_LSHIFT)
-
-    # Handle combining forms (e.g. á, è, õ)
+    # Try to handle precomposed diacritics and combining forms
     decomp = unicodedata.normalize('NFD', ch)
     if len(decomp) == 2:
         base, mark = decomp[0], decomp[1]
         dead_key_map = {
             '\u0301': (0x2F, MOD_LSHIFT),  # acute
             '\u0300': (0x35, 0),           # grave
-            '\u0302': (0x34, MOD_LSHIFT),  # circumflex
-            '\u0308': (0x34, MOD_LSHIFT),  # diaeresis
-            '\u0303': (0x31, MOD_LSHIFT),  # tilde
+            '\u0302': (0x23, MOD_LSHIFT),  # circumflex
+            '\u0308': (0x2B, MOD_LSHIFT),  # diaeresis
+            '\u0303': (0x32, MOD_ALTGR),   # tilde
         }
-        if mark in dead_key_map and base in LETTER_USAGES:
-            # Send dead key, then base letter
-            return [dead_key_map[mark], (LETTER_USAGES[base], 0)]
+        # Only handle if base is a letter we can type
+        if mark in dead_key_map and (base in LETTER_USAGES or base in SPECIAL_DK):
+            base_code = (LETTER_USAGES[base], 0) if base in LETTER_USAGES else SPECIAL_DK[base]
+            return [dead_key_map[mark], base_code]
     # Fallback: not supported
     return (0, 0)
 

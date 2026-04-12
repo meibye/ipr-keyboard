@@ -71,11 +71,11 @@ function Wait-RemoteFile {
   param(
     [string]$SshHost,
     [string]$User,
-    [string]$PosixPath,
+    [string]$Path,
     [int]$TimeoutSeconds = 30
   )
   $start = Get-Date
-  $remoteCmd = 'powershell -NoProfile -Command "if (Test-Path -Path ''{0}'') {{ exit 0 }} else {{ exit 1 }}"' -f $PosixPath
+  $remoteCmd = 'powershell -NoProfile -Command "if (Test-Path -Path ''{0}'') {{ exit 0 }} else {{ exit 1 }}"' -f $Path
   $firstIteration = $true
   while (((Get-Date) - $start).TotalSeconds -lt $TimeoutSeconds) {
     if ($firstIteration) {
@@ -183,7 +183,7 @@ Write-Host '--- Remote capture start log ---'
 Invoke-Ssh -SshHost $PcHost -User $PcUser -Command "type $pcRemoteLog"
 Write-Host '--- End of remote log ---'
 Write-Host "Waiting 30 seconds for capture to be ready on PC (looking for $pcCaptureReadyPath)..."
-#Wait-RemoteFile -SshHost $PcHost -User $PcUser -PosixPath 'C:\Temp\ble_capture.ready' -TimeoutSeconds 30
+#Wait-RemoteFile -SshHost $PcHost -User $PcUser -Path 'C:\Temp\ble_capture.ready' -TimeoutSeconds 30
 
 # -----------------------------------------------------------------------------
 # Step 3: Send expected file over BLE from RPi
@@ -206,7 +206,7 @@ fi
 # Step 4: Compare captured content and retrieve results
 # -----------------------------------------------------------------------------
 Write-Host '[4/4] Comparing captured content on PC and retrieved results...'
-Wait-RemoteFile -SshHost $PcHost -User $PcUser -PosixPath '/mnt/c/Temp/ble_capture.done' -TimeoutSeconds ($CaptureMaxSeconds + 30)
+Wait-RemoteFile -SshHost $PcHost -User $PcUser -Path 'C:\Temp\ble_capture.done' -TimeoutSeconds ($CaptureMaxSeconds + 30)
 Write-Host 'Copy expected result to remote PC...'
 $scpArgs3 = @('-i', $SshKey, $pcExpectedPath, "$PcUser@${PcHost}:$ExpectedCharsPath")
 & scp @scpArgs3
