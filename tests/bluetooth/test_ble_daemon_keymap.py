@@ -1,13 +1,19 @@
 """Keymap tests for the BLE HID daemon."""
 
 import importlib.util
+import os
 import sys
 import types
 from pathlib import Path
 
 
-def load_daemon_module():
+def load_daemon_module(unicode_mode=None):
     """Import the daemon module with lightweight DBus/GI stubs."""
+    if unicode_mode is None:
+        os.environ.pop("BT_BLE_UNICODE_MODE", None)
+    else:
+        os.environ["BT_BLE_UNICODE_MODE"] = unicode_mode
+
     dbus = types.ModuleType("dbus")
     dbus.Byte = int
     dbus.UInt16 = int
@@ -72,7 +78,7 @@ def load_daemon_module():
 
 
 def test_windows_hex_unicode_sequence_for_emdash():
-    mod = load_daemon_module()
+    mod = load_daemon_module("windows_hex_alt")
 
     sequence = mod.map_char("—")
 
@@ -86,7 +92,7 @@ def test_windows_hex_unicode_sequence_for_emdash():
 
 
 def test_explicit_combining_cluster_preserves_codepoints():
-    mod = load_daemon_module()
+    mod = load_daemon_module("windows_hex_alt")
 
     sequence = mod.map_char("a\u0301")
 
@@ -115,3 +121,16 @@ def test_direct_danish_letter_uses_layout_mapping():
     mod = load_daemon_module()
 
     assert mod.map_char("æ") == [(0, 0x33), mod.REPORT_RELEASE]
+
+
+def test_default_mode_keeps_ascii_fallback_for_emdash():
+    mod = load_daemon_module()
+
+    expected = [
+        (0, 0x38),
+        mod.REPORT_RELEASE,
+        (0, 0x38),
+        mod.REPORT_RELEASE,
+    ]
+    assert mod.UNICODE_MODE == "off"
+    assert mod.map_char("—") == expected

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Created:  
-# VERSION: '2026-04-12 14:39:48'
+# VERSION: '2026-04-12 14:48:50'
 import argparse
 import os
 import threading
@@ -14,7 +14,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 14:39:48'
+VERSION = '2026-04-12 14:48:50'
 
 try:
     from systemd import journal
@@ -195,7 +195,8 @@ ASCII_FALLBACK_SEQUENCES = {
     "–": [DIRECT_KEYMAP["-"]],
     "—": [DIRECT_KEYMAP["-"], DIRECT_KEYMAP["-"]],
 }
-UNICODE_MODE = env_str("BT_BLE_UNICODE_MODE", "windows_hex_alt").lower()
+# Keep host-specific Unicode entry opt-in; many Windows hosts ignore HID Alt-hex.
+UNICODE_MODE = env_str("BT_BLE_UNICODE_MODE", "off").lower()
 
 
 def simple_keypress(ch: str):
