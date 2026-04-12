@@ -10,7 +10,7 @@
 # Unicode form	    (+ capitals)	            no single codepoint to emit
 # 
 # Created:  
-# VERSION: '2026-04-12 17:47:30'
+# VERSION: '2026-04-12 18:10:16'
 import argparse
 import os
 import threading
@@ -24,7 +24,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 17:47:30'
+VERSION = '2026-04-12 18:10:16'
 
 try:
     from systemd import journal
