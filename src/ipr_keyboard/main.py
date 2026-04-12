@@ -9,14 +9,26 @@ import threading
 import time
 from pathlib import Path
 
-from .config.manager import ConfigManager
+from .config.manager import ConfigManager, log_version_info
 from .bluetooth.keyboard import BluetoothKeyboard
+from .bluetooth import keyboard as bt_keyboard
 from .logging.logger import get_logger
 from .usb import detector, reader, deleter
+from .usb import detector as usb_detector, reader as usb_reader, deleter as usb_deleter
 from .web.server import create_app
+from .web import server as web_server
 
 logger = get_logger()
 
+VERSION = '2026-04-12 19:44:41'
+
+log_version_info()
+    config_manager.log_version_info()
+    bt_keyboard.log_version_info()
+    usb_detector.log_version_info()
+    usb_reader.log_version_info()
+    usb_deleter.log_version_info()
+    web_server.log_version_info()
 
 def run_web_server():
     """Run the Flask web server for configuration and log viewing.
@@ -94,6 +106,7 @@ def main():
     Initializes the configuration, starts the web server and USB monitoring
     threads, and keeps the application running until interrupted with Ctrl+C.
     """
+    log_version_info()
     cfg = ConfigManager.instance().get()
     logger.info("Starting ipr_keyboard with config: %s", cfg.to_dict())
 

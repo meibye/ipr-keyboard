@@ -10,6 +10,13 @@ from pathlib import Path
 from typing import List, Optional
 
 
+VERSION = '2026-04-12 19:41:04'
+
+def log_version_info():
+    import logging
+    logging.getLogger(__name__).info(f"==== ipr_keyboard.usb.detector VERSION: {VERSION} ====")
+
+
 def list_files(folder: Path) -> List[Path]:
     """List all files in a folder, sorted by modification time.
 

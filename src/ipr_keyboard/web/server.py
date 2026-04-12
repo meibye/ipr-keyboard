@@ -19,6 +19,11 @@ from ..logging.web import bp_logs
 
 logger = get_logger()
 
+VERSION = '2026-04-12 19:40:34'
+
+def log_version_info():
+    logger.info(f"==== ipr_keyboard.web.server VERSION: {VERSION} ====")
+
 
 def _run_cmd(cmd: List[str]) -> str:
     try:

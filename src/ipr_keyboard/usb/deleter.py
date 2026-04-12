@@ -8,6 +8,13 @@ from pathlib import Path
 from typing import Optional, List
 
 
+VERSION = '2026-04-12 19:41:30'
+
+def log_version_info():
+    import logging
+    logging.getLogger(__name__).info(f"==== ipr_keyboard.usb.deleter VERSION: {VERSION} ====")
+
+
 def delete_file(path: Path) -> bool:
     """Delete a single file.
     

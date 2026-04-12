@@ -16,6 +16,11 @@ from ..logging.logger import get_logger
 
 logger = get_logger()
 
+VERSION = '2026-04-12 19:40:39'
+
+def log_version_info():
+    logger.info(f"==== ipr_keyboard.config.manager VERSION: {VERSION} ====")
+
 
 @dataclass
 class AppConfig:

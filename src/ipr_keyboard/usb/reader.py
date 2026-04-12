@@ -8,6 +8,13 @@ from pathlib import Path
 from typing import Optional
 
 
+VERSION = '2026-04-12 19:40:56'
+
+def log_version_info():
+    import logging
+    logging.getLogger(__name__).info(f"==== ipr_keyboard.usb.reader VERSION: {VERSION} ====")
+
+
 def read_file(path: Path, max_size: int) -> Optional[str]:
     """Read a text file with size limit.
     

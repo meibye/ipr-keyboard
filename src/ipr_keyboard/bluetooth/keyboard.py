@@ -12,6 +12,11 @@ from ..logging.logger import get_logger
 
 logger = get_logger()
 
+VERSION = '2026-04-12 19:41:16'
+
+def log_version_info():
+    logger.info(f"==== ipr_keyboard.bluetooth.keyboard VERSION: {VERSION} ====")
+
 
 class BluetoothKeyboard:
     """High-level Bluetooth keyboard interface.
