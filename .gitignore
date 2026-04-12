@@ -53,3 +53,4 @@ htmlcov/
 /tmp/
 !scripts/lib/
 !scripts/lib/**
+tests/data/reports/

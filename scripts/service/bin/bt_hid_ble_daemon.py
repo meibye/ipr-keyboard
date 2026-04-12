@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Created:  
-# VERSION: '2026-04-12 13:47:21'
+# VERSION: '2026-04-12 14:39:48'
 import argparse
 import os
 import threading
@@ -14,7 +14,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 13:47:21'
+VERSION = '2026-04-12 14:39:48'
 
 try:
     from systemd import journal
@@ -120,11 +120,14 @@ UUID_BATTERY_LEVEL = "2a19"
 APPEARANCE_KEYBOARD = 0x03C1
 
 MOD_LSHIFT = 0x02
+MOD_LALT = 0x04
 MOD_ALTGR = 0x40  # AltGr modifier (Right Alt)
 LETTER_USAGES = {chr(ord("a") + i): 0x04 + i for i in range(26)}
 DIGIT_USAGES = {
     str(i): 0x1E + (0 if i == 1 else i - 1 if i > 0 else 9) for i in range(10)
 }
+REPORT_RELEASE = (0, 0)
+KEYPAD_PLUS_USAGE = 0x57
 SPACE_KEYPRESS = (0x2C, 0)
 DEAD_KEY_MARKS = {
     "\u0301": (0x2E, 0),             # acute
@@ -192,6 +195,7 @@ ASCII_FALLBACK_SEQUENCES = {
     "–": [DIRECT_KEYMAP["-"]],
     "—": [DIRECT_KEYMAP["-"], DIRECT_KEYMAP["-"]],
 }
+UNICODE_MODE = env_str("BT_BLE_UNICODE_MODE", "windows_hex_alt").lower()
 
 
 def simple_keypress(ch: str):
@@ -215,28 +219,85 @@ def split_base_and_marks(ch: str):
     return ch, ""
 
 
+def is_explicit_combining_cluster(ch: str) -> bool:
+    return len(ch) > 1 and all(unicodedata.combining(mark) for mark in ch[1:])
+
+
+def tap_report_sequence(mods: int, keycode: int, keep_mods: int = 0):
+    return [(mods, keycode), (keep_mods, 0)]
+
+
+def keypresses_to_report_states(keypresses):
+    states = []
+    for keycode, mods in keypresses:
+        states.extend(tap_report_sequence(mods, keycode))
+    return states
+
+
+def hex_digit_keypress(digit: str):
+    if digit.isdigit():
+        return (DIGIT_USAGES[digit], 0)
+    return (LETTER_USAGES[digit.lower()], 0)
+
+
+def build_windows_hex_alt_sequence(text: str):
+    states = []
+    for ch in text:
+        hex_digits = f"{ord(ch):04X}"
+        states.append((MOD_LALT, 0))
+        states.extend(tap_report_sequence(MOD_LALT, KEYPAD_PLUS_USAGE, MOD_LALT))
+        for digit in hex_digits:
+            keycode, mods = hex_digit_keypress(digit)
+            states.extend(tap_report_sequence(MOD_LALT | mods, keycode, MOD_LALT))
+        states.append(REPORT_RELEASE)
+    return states
+
+
+def build_explicit_cluster_sequence(ch: str):
+    base, marks = split_base_and_marks(ch)
+    states = []
+
+    base_keypress = simple_keypress(base)
+    if base_keypress is not None:
+        states.extend(keypresses_to_report_states([base_keypress]))
+    else:
+        states.extend(build_windows_hex_alt_sequence(base))
+
+    for mark in marks:
+        states.extend(build_windows_hex_alt_sequence(mark))
+
+    return states
+
+
 def map_char(ch: str):
     """
-    Map a grapheme cluster to one or more (keycode, modifier) presses.
+    Map a grapheme cluster to a sequence of HID report states.
     Returns an empty list if the character is not mappable.
     """
     if BLE_DEBUG:
         journal.send(f"[DEBUG] map_char({ch})")
     if ch in DEAD_KEY_SEQUENCES:
-        return DEAD_KEY_SEQUENCES[ch]
-    if ch in ASCII_FALLBACK_SEQUENCES:
-        return ASCII_FALLBACK_SEQUENCES[ch]
+        return keypresses_to_report_states(DEAD_KEY_SEQUENCES[ch])
 
     keypress = simple_keypress(ch)
     if keypress is not None:
-        return [keypress]
+        return keypresses_to_report_states([keypress])
+
+    if UNICODE_MODE == "windows_hex_alt" and is_explicit_combining_cluster(ch):
+        return build_explicit_cluster_sequence(ch)
+
+    if UNICODE_MODE == "windows_hex_alt":
+        return build_windows_hex_alt_sequence(ch)
+
+    if ch in ASCII_FALLBACK_SEQUENCES:
+        return keypresses_to_report_states(ASCII_FALLBACK_SEQUENCES[ch])
 
     base, marks = split_base_and_marks(ch)
     if len(marks) == 1:
         dead_key = DEAD_KEY_MARKS.get(marks[0])
         base_keypress = simple_keypress(base)
         if dead_key and base_keypress is not None:
-            return [dead_key, base_keypress]
+            return keypresses_to_report_states([dead_key, base_keypress])
 
     return []
 
@@ -933,20 +994,17 @@ def send_next_character(
         queue.popleft()
         return True
 
-    release = build_kbd_report(0, 0)
+    for mods, keycode in sequence:
+        report = build_kbd_report(mods, keycode)
 
-    for keycode, mods in sequence:
-        press = build_kbd_report(mods, keycode)
-
-        if not hid.notify_key_report(press):
+        if not hid.notify_key_report(report):
             if BLE_DEBUG:
                 journal.send(
-                    "[DEBUG] send_next_character: notify_key_report(press) failed"
+                    "[DEBUG] send_next_character: notify_key_report(report) failed"
                 )
             return False
 
         time.sleep(0.012)
-        hid.notify_key_report(release)
         time.sleep(0.008)
 
     queue.popleft()

@@ -26,6 +26,7 @@ $RepoOnRpi = '/home/meibye/dev/ipr-keyboard'
 $RepoOnPc = 'D:\sandbox\ipr-keyboard'
 $CharsPath = 'danish_mx_keys_all_chars.txt'
 $ExpectedRelativePath = "tests/data/$CharsPath"
+$LocalOutputRelativePath = "tests/data/reports"
 $CapturePath = 'C:\Temp\ble_capture_result.txt'
 $ReportPath = 'C:\Temp\ble_capture_diff.txt'
 $ExpectedCharsPath = "C:\Temp\$CharsPath"
@@ -58,12 +59,17 @@ function Invoke-Ssh {
   param(
     [string]$SshHost,
     [string]$User,
-    [string]$Command
+    [string]$Command,
+    [switch]$NoThrow
   )
   $arguments = @('-i', $SshKey, "$User@$SshHost", $Command)
   & ssh @arguments
   if ($LASTEXITCODE -ne 0) {
-    throw "SSH command failed on ${User}@${SshHost}: $Command"
+    if ($NoThrow) {
+      Write-Warning "SSH command failed (non-throwing) on ${User}@${SshHost}: $Command"
+    } else {
+      throw "SSH command failed on ${User}@${SshHost}: $Command"
+    } 
   }
 }
 
@@ -79,7 +85,8 @@ function Wait-RemoteFile {
   $firstIteration = $true
   while (((Get-Date) - $start).TotalSeconds -lt $TimeoutSeconds) {
     if ($firstIteration) {
-      Write-Host "SSH: $User@$SshHost -> $remoteCmd"
+      Write-Host "Wait-RemoteFile: waiting for existence of $Path"
+      # Write-Host "SSH: $User@$SshHost -> $remoteCmd"
       $firstIteration = $false
     }
     & ssh @('-i', $SshKey, "$User@$SshHost", $remoteCmd)
@@ -207,20 +214,22 @@ fi
 # -----------------------------------------------------------------------------
 Write-Host '[4/4] Comparing captured content on PC and retrieved results...'
 Wait-RemoteFile -SshHost $PcHost -User $PcUser -Path 'C:\Temp\ble_capture.done' -TimeoutSeconds ($CaptureMaxSeconds + 30)
+
 Write-Host 'Copy expected result to remote PC...'
 $scpArgs3 = @('-i', $SshKey, $pcExpectedPath, "$PcUser@${PcHost}:$ExpectedCharsPath")
 & scp @scpArgs3
 if ($LASTEXITCODE -ne 0) { throw "SCP failed for $ExpectedCharsPath" }
 
 Write-Host 'Capture completed now comparing results...'
-Invoke-Ssh -SshHost $PcHost -User $PcUser -Command (
+Invoke-Ssh -SshHost $PcHost -User $PcUser -NoThrow -Command (
   'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $pcCompareScriptRemote + '" -ExpectedPath "' + $ExpectedCharsPath + '" -CapturedPath "' + $CapturePath + '" -ReportPath "' + $ReportPath + '"'
 )
 
 Write-Host "Capture file: $CapturePath"
 Write-Host "Diff report : $ReportPath"
 
-Write-Host 'Copying capture result back to local machine...'
-$scpArgs4 = @('-i', $SshKey, "$PcUser@${PcHost}:$CapturePath", $captureResultLocal)
+Write-Host 'Copying results back to local machine...'
+$scpArgs4 = @('-i', $SshKey, "$PcUser@${PcHost}:$CapturePath", "$RepoOnPc\$($LocalOutputRelativePath-replace '/', '\')\captured.txt")  
 & scp @scpArgs4
-if ($LASTEXITCODE -ne 0) { Write-Warning "SCP failed for $CapturePath" } else { Write-Host "Copied: $CapturePath -> $captureResultLocal" }
+$scpArgs4 = @('-i', $SshKey, "$PcUser@${PcHost}:$ReportPath", "$RepoOnPc\$($LocalOutputRelativePath-replace '/', '\')\difference.txt")  
+& scp @scpArgs4

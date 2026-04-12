@@ -13,9 +13,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$FilePath,
-
     [int]$SearchLinesFromTop = 80,
-
     [string]$TimestampFormat = "yyyy-MM-dd HH:mm:ss"
 )
 
