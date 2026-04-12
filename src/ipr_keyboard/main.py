@@ -20,10 +20,10 @@ from .web import server as web_server
 
 logger = get_logger()
 
-VERSION = '2026-04-12 19:44:41'
+VERSION = '2026-04-12 19:49:16'
 
-log_version_info()
-    config_manager.log_version_info()
+def log_version_info():
+    ConfigManager.log_version_info()
     bt_keyboard.log_version_info()
     usb_detector.log_version_info()
     usb_reader.log_version_info()
