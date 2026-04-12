@@ -105,6 +105,34 @@ def test_explicit_combining_cluster_preserves_codepoints():
     assert (mod.MOD_LALT, mod.DIGIT_USAGES["1"]) in sequence
 
 
+def test_default_mode_prefers_dead_key_composition_for_explicit_cluster():
+    mod = load_daemon_module()
+
+    sequence = mod.map_char("a\u0301")
+
+    expected = [
+        (0, 0x2E),
+        mod.REPORT_RELEASE,
+        (0, mod.LETTER_USAGES["a"]),
+        mod.REPORT_RELEASE,
+    ]
+    assert sequence == expected
+
+
+def test_default_mode_falls_back_to_literal_dead_key_for_unsupported_cluster():
+    mod = load_daemon_module()
+
+    sequence = mod.map_char("n\u0300")
+
+    expected = [
+        (mod.MOD_LSHIFT, 0x2E),
+        mod.REPORT_RELEASE,
+        (0, mod.LETTER_USAGES["n"]),
+        mod.REPORT_RELEASE,
+    ]
+    assert sequence == expected
+
+
 def test_literal_dead_key_mark_keeps_layout_typing():
     mod = load_daemon_module()
 
@@ -128,7 +156,7 @@ def test_direct_danish_letter_uses_layout_mapping():
 def test_default_mode_uses_decimal_unicode_for_emdash():
     mod = load_daemon_module()
 
-    assert mod.UNICODE_MODE == "windows_hybrid"
+    assert mod.UNICODE_MODE == "windows_alt_decimal"
     sequence = mod.map_char("—")
     assert sequence[0] == (mod.MOD_LALT, 0)
     assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["1"]) in sequence
@@ -148,7 +176,7 @@ def test_default_mode_uses_decimal_unicode_for_endash():
 
 
 def test_default_mode_uses_hex_unicode_for_combining_mark():
-    mod = load_daemon_module()
+    mod = load_daemon_module("windows_hybrid")
 
     sequence = mod.map_char("n\u0300")
 

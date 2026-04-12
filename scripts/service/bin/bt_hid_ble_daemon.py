@@ -251,7 +251,7 @@ SUPPORTED_DEAD_KEY_COMPOSITIONS = {
     "\u0308": set("aeiouyAEIOU"),
     "\u0303": set("anoANO"),
 }
-UNICODE_MODE = env_str("BT_BLE_UNICODE_MODE", "windows_hybrid").lower()
+UNICODE_MODE = env_str("BT_BLE_UNICODE_MODE", "windows_alt_decimal").lower()
 
 
 def simple_keypress(ch: str):
@@ -368,6 +368,16 @@ def map_dead_key_cluster(base: str, mark: str):
     return []
 
 
+def map_dead_key_literal_cluster(base: str, mark: str):
+    if len(base) != 1:
+        return []
+    dead_key = DEAD_KEY_MARKS.get(mark)
+    base_keypress = simple_keypress(base)
+    if dead_key and base_keypress is not None:
+        return keypresses_to_report_states([dead_key, base_keypress])
+    return []
+
+
 def map_char(ch: str):
     """
     Map a grapheme cluster to a sequence of HID report states.
@@ -387,15 +397,6 @@ def map_char(ch: str):
         return sequence
 
     if is_explicit_combining_cluster(ch):
-        if UNICODE_MODE == "windows_alt_decimal":
-            sequence = build_explicit_cluster_sequence(ch)
-            trace_mapping(
-                ch,
-                "combining-alt-decimal",
-                sequence,
-                details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
-            )
-            return sequence
         if UNICODE_MODE == "windows_hex_alt":
             sequence = build_explicit_cluster_sequence(ch)
             trace_mapping(
@@ -414,6 +415,7 @@ def map_char(ch: str):
                 details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
             )
             return sequence
+
         dead_key_sequence = map_dead_key_cluster(ch[0], ch[1])
         if dead_key_sequence:
             trace_mapping(
@@ -423,6 +425,26 @@ def map_char(ch: str):
                 details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
             )
             return dead_key_sequence
+
+        literal_dead_key_sequence = map_dead_key_literal_cluster(ch[0], ch[1])
+        if literal_dead_key_sequence and UNICODE_MODE != "windows_hex_alt":
+            trace_mapping(
+                ch,
+                "combining-literal-dead-key",
+                literal_dead_key_sequence,
+                details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
+            )
+            return literal_dead_key_sequence
+
+        if UNICODE_MODE == "windows_alt_decimal":
+            sequence = build_explicit_cluster_sequence(ch)
+            trace_mapping(
+                ch,
+                "combining-alt-decimal",
+                sequence,
+                details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
+            )
+            return sequence
 
     base, marks = split_base_and_marks(ch)
     if len(marks) == 1:
@@ -1290,6 +1312,15 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--adapter", default=env_str("BT_HCI", "hci0"))
     args = parser.parse_args()
+
+    if UNICODE_MODE in {"windows_hex_alt", "windows_hybrid"}:
+        log_info(
+            "[ble] Unicode mode uses Windows Alt+hex input for combining marks. "
+            "The receiving Windows account must have "
+            "HKCU\\Control Panel\\Input Method\\EnableHexNumpad=1 and must sign out/in "
+            "before exact combining codepoints can be captured.",
+            always=True,
+        )
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()

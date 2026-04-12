@@ -49,3 +49,5 @@ Use this order with your configured servers in `.vscode/mcp.json`:
 - `win_ble_capture.ps1` requires an interactive desktop session on the test PC.
 - BLE daemon newline handling in `scripts/service/bin/bt_hid_ble_daemon.py` now maps FIFO `\n` to carriage return (`\r`) so multiline files produce Enter key presses.
 - If a character is unsupported by the daemon keymap, it is dropped; mismatches are expected until mappings are expanded.
+- Exact capture of literal combining sequences like `á`, `ǹ`, `æ̈`, and `å̃` requires the receiving Windows account to support `Alt` + hex Unicode input. Set `HKCU\Control Panel\Input Method\EnableHexNumpad=1`, then sign out and back in before running the BLE roundtrip.
+- Without `EnableHexNumpad`, the daemon can still send those sequences, but Windows commonly drops the combining mark and you will capture only the base letter.
