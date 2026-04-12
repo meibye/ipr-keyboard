@@ -7,6 +7,13 @@
 	"settings": {
 		"chat.promptFilesLocations": {
 			"docs\\copilot": true
+		},
+		"triggerTaskOnSave.showStatusBarToggle": true,
+    	"triggerTaskOnSave.showNotifications": true,
+		"triggerTaskOnSave.tasks": {
+			"Update VERSION stamp": [
+			"**/*.py"
+			]
 		}
 	}
 }

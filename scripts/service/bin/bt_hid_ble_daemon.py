@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Created:  
-# VERSION: 2026-04-11 19:57:11
+# VERSION: '2026-04-12 12:07:03'
 import argparse
 import os
 import threading
@@ -12,12 +12,15 @@ import dbus.mainloop.glib
 import dbus.service
 from gi.repository import GLib
 
+# Last saved date and time (Version):
+VERSION = '2026-04-12 12:07:03'
+
 try:
     from systemd import journal
 except ImportError:
 
     class DummyJournal:
-        LOG_INFO = 6ss
+        LOG_INFO = 6
         LOG_ERR = 3
 
         @staticmethod
@@ -74,6 +77,10 @@ def log_info(msg: str, always: bool = False) -> None:
 def log_err(msg: str) -> None:
     journal.send(msg, PRIORITY=getattr(journal, "LOG_ERR", 3))
 
+def log_version_info(msg: str) -> None:
+    LIGHT_GREEN = '\033[92m'
+    RESET = '\033[0m'
+    journal.send(f"{LIGHT_GREEN}==== VERSION: {VERSION} ====={RESET}", PRIORITY=getattr(journal, "LOG_INFO", 6))
 
 # BlueZ constants
 BLUEZ = "org.bluez"
@@ -1021,6 +1028,7 @@ def register_ble_stack_async(main_loop, bus, adapter_path, app, adv) -> None:
 
 
 def main() -> None:
+    log_version_info()
     parser = argparse.ArgumentParser()
     parser.add_argument("--adapter", default=env_str("BT_HCI", "hci0"))
     args = parser.parse_args()

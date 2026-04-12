@@ -2,6 +2,31 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Update VERSION stamp",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}\\.vscode\\update-version.ps1",
+                "-FilePath",
+                "${file}",
+                "-SearchLinesFromTop",
+                "120"
+            ],
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared",
+                "clear": false
+            },
+            "problemMatcher": [],
+            "runOptions": {
+                "reevaluateOnRerun": true
+            }
+        },
+        {
             "label": "Launch Local Claude (with GPU Check)",
             "type": "shell",
             "command": "powershell",
