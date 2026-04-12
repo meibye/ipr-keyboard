@@ -33,7 +33,9 @@ python3 scripts/tests/compare_ble_capture_local.py \
   --report tests/data/reports/difference.txt
 ```
 
-The script compares against the text a Danish keyboard can actually render on Windows, so dead-key output like ``´n`` and fallback punctuation like `--` are handled consistently.
+The script defaults to `--mode rendered`, which compares against the text a Danish keyboard can actually render on Windows, so dead-key output like ``´n``, `` `y``, `^æ`, `¨Ø`, `~i`, and fallback punctuation like `--` are handled consistently.
+
+If you want a byte-for-byte Unicode comparison instead, pass `--mode exact`.
 
 ## Use via MCP SSH servers in VS Code
 

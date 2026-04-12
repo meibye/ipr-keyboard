@@ -24,6 +24,7 @@ SUPPORTED_COMPOSITIONS = {
     "\u0308": set("aeiouyAEIOU"),
     "\u0303": set("anoANO"),
 }
+DIRECT_RENDERED_CHARACTERS = {"–", "—", "Ÿ"}
 
 
 def normalize_text(text: str) -> str:
@@ -54,10 +55,8 @@ def split_explicit_cluster(element: str):
 
 
 def render_text_element(element: str) -> str:
-    if element == "–":
-        return "--"
-    if element == "—":
-        return "--"
+    if element in DIRECT_RENDERED_CHARACTERS:
+        return element
 
     explicit = split_explicit_cluster(element)
     if explicit is not None:
@@ -162,7 +161,7 @@ def main() -> int:
     parser.add_argument(
         "--mode",
         choices=("exact", "rendered"),
-        default="exact",
+        default="rendered",
         help="Compare exact source text or Danish-keyboard rendered expectation.",
     )
     args = parser.parse_args()

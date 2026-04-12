@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Created:  
-# VERSION: '2026-04-12 16:49:46'
+# VERSION: '2026-04-12 17:22:36'
 import argparse
 import os
 import threading
@@ -14,7 +14,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 16:49:46'
+VERSION = '2026-04-12 17:22:36'
 
 try:
     from systemd import journal
