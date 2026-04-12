@@ -22,20 +22,31 @@
     <div class="section">
         <form method="post">
             <table>
-                <tr><th>Parameter</th><th>Value</th><th>Action</th></tr>
+                <tr><th>Parameter</th><th>Value</th></tr>
                 {% for key, value in config.items() %}
                 <tr>
                     <td>{{ key }}</td>
-                    <td><input type="text" name="{{ key }}" value="{{ value }}" /></td>
-                    <td><button class="btn" type="submit" name="update" value="{{ key }}">Update</button></td>
+                    <td>
+                        {% if value is boolean %}
+                            <input type="checkbox" name="{{ key }}" {% if value %}checked{% endif %} />
+                        {% elif value is number %}
+                            <input type="number" name="{{ key }}" value="{{ value }}" />
+                        {% else %}
+                            <input type="text" name="{{ key }}" value="{{ value }}" />
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </table>
+            <button class="btn" type="submit">Save All</button>
         </form>
     </div>
     <div class="section">
-        <form method="post">
+        <form method="post" style="display:inline;">
             <button class="btn fail" type="submit" name="restart" value="1">Restart Machine</button>
+        </form>
+        <form method="post" style="display:inline; margin-left:1em;">
+            <button class="btn fail" type="submit" name="shutdown" value="1">Shutdown Machine</button>
         </form>
     </div>
     {% if result %}

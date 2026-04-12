@@ -16,7 +16,6 @@ from ..config.manager import ConfigManager
 from ..config.web import bp_config
 from ..logging.logger import get_logger
 from ..logging.web import bp_logs
-from .pairing_routes import pairing_bp
 
 logger = get_logger()
 
@@ -49,7 +48,6 @@ def create_app() -> Flask:
     # Register blueprints
     app.register_blueprint(bp_config)
     app.register_blueprint(bp_logs)
-    app.register_blueprint(pairing_bp)
 
     from flask import render_template
 
@@ -101,14 +99,29 @@ def create_app() -> Flask:
 
     @app.route("/logs/")
     def logs():
-        project_root = Path(os.environ.get("IPR_PROJECT_ROOT", "."))
-        log_file = project_root / "ipr-keyboard" / "logs" / "ipr_keyboard.log"
+        # Supported units from svc_tail_all_logs.sh
+        units = [
+            "ipr_keyboard.service",
+            "ipr-provision.service",
+            "bt_hid_ble.service",
+            "bt_hid_agent_unified.service",
+            "bluetooth.service",
+            "dbus.service",
+            "systemd-udevd.service",
+        ]
+        import flask
+        selected_units = flask.request.args.getlist("unit")
+        if not selected_units:
+            selected_units = ["ipr_keyboard.service"]
+        # Build journalctl command
+        cmd = ["journalctl", "-n", "1000", "-o", "short"]
+        for u in selected_units:
+            cmd += ["-u", u]
         try:
-            with open(log_file, "r", encoding="utf-8", errors="replace") as f:
-                log_content = f.read()[-100_000:]
+            log_content = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
         except Exception as exc:
-            log_content = f"Could not read log: {exc}"
-        return render_template("logs.html", log_content=log_content)
+            log_content = f"Could not read logs: {exc}"
+        return render_template("logs_select.html", log_content=log_content, units=units, selected_units=selected_units)
 
     @app.route("/pairing/", methods=["GET", "POST"])
     def pairing():
@@ -141,7 +154,8 @@ def create_app() -> Flask:
     def config():
         result = error = None
         config_mgr = ConfigManager.instance()
-        config_dict = config_mgr.as_dict()
+        config_obj = config_mgr.get()
+        config_dict = config_obj.to_dict()
         if flask.request.method == "POST":
             if "restart" in flask.request.form:
                 try:
@@ -149,15 +163,34 @@ def create_app() -> Flask:
                     result = "Restarting machine..."
                 except Exception as exc:
                     error = f"Failed to restart: {exc}"
+            elif "shutdown" in flask.request.form:
+                try:
+                    subprocess.Popen(["sudo", "shutdown", "-h", "now"])
+                    result = "Shutting down machine..."
+                except Exception as exc:
+                    error = f"Failed to shutdown: {exc}"
             else:
-                for key in config_dict:
-                    if key in flask.request.form:
-                        try:
-                            config_mgr.set(key, flask.request.form[key])
-                            result = f"Updated {key}."
-                        except Exception as exc:
-                            error = f"Failed to update {key}: {exc}"
-                config_dict = config_mgr.as_dict()
+                update_kwargs = {}
+                for key, value in flask.request.form.items():
+                    if key in config_dict:
+                        # Type conversion
+                        field_type = type(getattr(config_obj, key))
+                        if field_type is bool:
+                            update_kwargs[key] = value == "on"
+                        elif field_type is int:
+                            try:
+                                update_kwargs[key] = int(value)
+                            except Exception:
+                                update_kwargs[key] = config_dict[key]
+                        else:
+                            update_kwargs[key] = value
+                try:
+                    config_mgr.update(**update_kwargs)
+                    result = "Configuration updated."
+                except Exception as exc:
+                    error = f"Failed to update config: {exc}"
+                config_obj = config_mgr.get()
+                config_dict = config_obj.to_dict()
         return render_template("config.html", config=config_dict, result=result, error=error)
 
     logger.info("Web server created")
