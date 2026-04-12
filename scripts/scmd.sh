@@ -141,6 +141,20 @@ explain_purpose() {
         fi
     fi
 }
+# ==================================================================================
+# Function to extract version string from a file
+get_version_string() {
+    local file="$1"
+    if [ -f "$file" ]; then
+        # Grep for a line like '# VERSION: ...' with optional spaces after # and :
+        local version_line
+        version_line=$(grep -E '^[[:space:]]*# ?VERSION[[:space:]]*:[[:space:]]*' "$file" | head -1)
+        if [ -n "$version_line" ]; then
+            # Extract everything after the first colon
+            echo "$version_line" | sed -E 's/^[[:space:]]*# ?VERSION[[:space:]]*:[[:space:]]*//'
+        fi
+    fi
+}
 
 # ==================================================================================
 # Function to get script parameters (if any)
@@ -424,9 +438,18 @@ while true; do
                         sudo_prefix="sudo "
                     fi
 
+
                     # Execute the selected script
                     cd "$CURRENT_DIR"
-                    echo -e "${BGreen}Executing '${sudo_prefix}$script_path' in directory '$CURRENT_DIR'${Color_Off}"
+                    echo -e "${BGreen}Executing '${sudo_prefix}$script_path $params' in directory '$CURRENT_DIR'${Color_Off}"
+                    
+                    # Get version info if available and display before execution
+                    version_info=$(get_version_string "$script_path")
+                    if [ -n "$version_info" ]; then
+                        echo -e "${BYellow}Version:${Color_Off} $version_info"
+                    else
+                        echo -e "${BYellow}Version information not found.${Color_Off}"
+                    fi
                     echo -e "${BBlue}$(repeat 80 "=")${Color_Off}"
                     if [ -n "$params" ]; then
                         eval "$sudo_prefix\"$script_path\" $params"
