@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Created:  
-# VERSION: '2026-04-12 15:47:08'
+# VERSION: '2026-04-12 16:17:46'
 import argparse
 import os
 import threading
@@ -14,7 +14,7 @@ import dbus.service
 from gi.repository import GLib
 
 # Last saved date and time (Version):
-VERSION = '2026-04-12 15:47:08'
+VERSION = '2026-04-12 16:17:46'
 
 try:
     from systemd import journal
@@ -68,6 +68,10 @@ def env_hex_int(name: str, default: int) -> int:
 
 
 BLE_DEBUG = env_bool("BT_BLE_DEBUG", "0")
+BLE_TRACE_KEYS = env_bool("BT_BLE_TRACE_KEYS", "0")
+BLE_TRACE_FILTER = [
+    token for token in (part.strip() for part in env_str("BT_BLE_TRACE_FILTER", "").split(",")) if token
+]
 
 
 def log_info(msg: str, always: bool = False) -> None:
@@ -77,6 +81,34 @@ def log_info(msg: str, always: bool = False) -> None:
 
 def log_err(msg: str) -> None:
     journal.send(msg, PRIORITY=getattr(journal, "LOG_ERR", 3))
+
+
+def log_trace(msg: str) -> None:
+    if BLE_TRACE_KEYS:
+        journal.send("TRACE: " + msg, PRIORITY=getattr(journal, "LOG_INFO", 6))
+
+
+def format_char_debug(ch: str) -> str:
+    codepoints = " ".join(f"U+{ord(part):04X}" for part in ch)
+    names = " | ".join(unicodedata.name(part, "UNKNOWN") for part in ch)
+    return f"{ch!r} ({codepoints}; {names})"
+
+
+def should_trace_char(ch: str) -> bool:
+    if not BLE_TRACE_KEYS:
+        return False
+    if not BLE_TRACE_FILTER:
+        return True
+    return ch in BLE_TRACE_FILTER
+
+
+def trace_mapping(ch: str, route: str, sequence, details: str = ""):
+    if not should_trace_char(ch):
+        return
+    suffix = f" details={details}" if details else ""
+    log_trace(
+        f"[TRACE] map_char ch={format_char_debug(ch)} route={route} sequence={sequence}{suffix}"
+    )
 
 def log_version_info() -> None:
     LIGHT_GREEN = '\033[92m'
@@ -125,6 +157,18 @@ MOD_ALTGR = 0x40  # AltGr modifier (Right Alt)
 LETTER_USAGES = {chr(ord("a") + i): 0x04 + i for i in range(26)}
 DIGIT_USAGES = {
     str(i): 0x1E + (0 if i == 1 else i - 1 if i > 0 else 9) for i in range(10)
+}
+KEYPAD_DIGIT_USAGES = {
+    "1": 0x59,
+    "2": 0x5A,
+    "3": 0x5B,
+    "4": 0x5C,
+    "5": 0x5D,
+    "6": 0x5E,
+    "7": 0x5F,
+    "8": 0x60,
+    "9": 0x61,
+    "0": 0x62,
 }
 REPORT_RELEASE = (0, 0)
 KEYPAD_PLUS_USAGE = 0x57
@@ -195,8 +239,19 @@ ASCII_FALLBACK_SEQUENCES = {
     "–": [DIRECT_KEYMAP["-"], DIRECT_KEYMAP["-"]],
     "—": [DIRECT_KEYMAP["-"], DIRECT_KEYMAP["-"]],
 }
-# Keep host-specific Unicode entry opt-in; many Windows hosts ignore HID Alt-hex.
-UNICODE_MODE = env_str("BT_BLE_UNICODE_MODE", "off").lower()
+WINDOWS_ALT_DECIMAL_CODES = {
+    "–": "0150",
+    "—": "0151",
+    "Ÿ": "0159",
+}
+SUPPORTED_DEAD_KEY_COMPOSITIONS = {
+    "\u0301": set("aeiouyAEIOUY"),
+    "\u0300": set("aeiouAEIOU"),
+    "\u0302": set("aeiouAEIOU"),
+    "\u0308": set("aeiouyAEIOU"),
+    "\u0303": set("anoANO"),
+}
+UNICODE_MODE = env_str("BT_BLE_UNICODE_MODE", "windows_alt_decimal").lower()
 
 
 def simple_keypress(ch: str):
@@ -224,6 +279,10 @@ def is_explicit_combining_cluster(ch: str) -> bool:
     return len(ch) > 1 and all(unicodedata.combining(mark) for mark in ch[1:])
 
 
+def supports_dead_key_composition(base: str, mark: str) -> bool:
+    return base in SUPPORTED_DEAD_KEY_COMPOSITIONS.get(mark, set())
+
+
 def tap_report_sequence(mods: int, keycode: int, keep_mods: int = 0):
     return [(mods, keycode), (keep_mods, 0)]
 
@@ -239,6 +298,19 @@ def hex_digit_keypress(digit: str):
     if digit.isdigit():
         return (DIGIT_USAGES[digit], 0)
     return (LETTER_USAGES[digit.lower()], 0)
+
+
+def build_windows_alt_decimal_sequence(text: str):
+    states = []
+    for ch in text:
+        digits = WINDOWS_ALT_DECIMAL_CODES.get(ch, str(ord(ch)).zfill(4))
+        states.append((MOD_LALT, 0))
+        for digit in digits:
+            states.extend(
+                tap_report_sequence(MOD_LALT, KEYPAD_DIGIT_USAGES[digit], MOD_LALT)
+            )
+        states.append(REPORT_RELEASE)
+    return states
 
 
 def build_windows_hex_alt_sequence(text: str):
@@ -262,12 +334,28 @@ def build_explicit_cluster_sequence(ch: str):
     if base_keypress is not None:
         states.extend(keypresses_to_report_states([base_keypress]))
     else:
-        states.extend(build_windows_hex_alt_sequence(base))
+        if UNICODE_MODE == "windows_alt_decimal":
+            states.extend(build_windows_alt_decimal_sequence(base))
+        else:
+            states.extend(build_windows_hex_alt_sequence(base))
 
     for mark in marks:
-        states.extend(build_windows_hex_alt_sequence(mark))
+        if UNICODE_MODE == "windows_alt_decimal":
+            states.extend(build_windows_alt_decimal_sequence(mark))
+        else:
+            states.extend(build_windows_hex_alt_sequence(mark))
 
     return states
+
+
+def map_dead_key_cluster(base: str, mark: str):
+    if len(base) != 1:
+        return []
+    dead_key = DEAD_KEY_MARKS.get(mark)
+    base_keypress = simple_keypress(base)
+    if dead_key and base_keypress is not None and supports_dead_key_composition(base, mark):
+        return keypresses_to_report_states([dead_key, base_keypress])
+    return []
 
 
 def map_char(ch: str):
@@ -278,28 +366,73 @@ def map_char(ch: str):
     if BLE_DEBUG:
         journal.send(f"[DEBUG] map_char({ch})")
     if ch in DEAD_KEY_SEQUENCES:
-        return keypresses_to_report_states(DEAD_KEY_SEQUENCES[ch])
+        sequence = keypresses_to_report_states(DEAD_KEY_SEQUENCES[ch])
+        trace_mapping(ch, "literal-dead-key", sequence)
+        return sequence
 
     keypress = simple_keypress(ch)
     if keypress is not None:
-        return keypresses_to_report_states([keypress])
+        sequence = keypresses_to_report_states([keypress])
+        trace_mapping(ch, "direct-keymap", sequence)
+        return sequence
 
-    if UNICODE_MODE == "windows_hex_alt" and is_explicit_combining_cluster(ch):
-        return build_explicit_cluster_sequence(ch)
-
-    if UNICODE_MODE == "windows_hex_alt":
-        return build_windows_hex_alt_sequence(ch)
-
-    if ch in ASCII_FALLBACK_SEQUENCES:
-        return keypresses_to_report_states(ASCII_FALLBACK_SEQUENCES[ch])
+    if is_explicit_combining_cluster(ch):
+        dead_key_sequence = map_dead_key_cluster(ch[0], ch[1])
+        if dead_key_sequence:
+            trace_mapping(
+                ch,
+                "combining-dead-key",
+                dead_key_sequence,
+                details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
+            )
+            return dead_key_sequence
+        if UNICODE_MODE == "windows_alt_decimal":
+            sequence = build_explicit_cluster_sequence(ch)
+            trace_mapping(
+                ch,
+                "combining-alt-decimal",
+                sequence,
+                details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
+            )
+            return sequence
+        if UNICODE_MODE == "windows_hex_alt":
+            sequence = build_explicit_cluster_sequence(ch)
+            trace_mapping(
+                ch,
+                "combining-alt-hex",
+                sequence,
+                details=f"base={format_char_debug(ch[0])} mark={format_char_debug(ch[1])}",
+            )
+            return sequence
 
     base, marks = split_base_and_marks(ch)
     if len(marks) == 1:
-        dead_key = DEAD_KEY_MARKS.get(marks[0])
-        base_keypress = simple_keypress(base)
-        if dead_key and base_keypress is not None:
-            return keypresses_to_report_states([dead_key, base_keypress])
+        dead_key_sequence = map_dead_key_cluster(base, marks[0])
+        if dead_key_sequence:
+            trace_mapping(
+                ch,
+                "normalized-dead-key",
+                dead_key_sequence,
+                details=f"base={format_char_debug(base)} mark={format_char_debug(marks[0])}",
+            )
+            return dead_key_sequence
 
+    if UNICODE_MODE == "windows_alt_decimal":
+        sequence = build_windows_alt_decimal_sequence(ch)
+        trace_mapping(ch, "alt-decimal", sequence)
+        return sequence
+
+    if UNICODE_MODE == "windows_hex_alt":
+        sequence = build_windows_hex_alt_sequence(ch)
+        trace_mapping(ch, "alt-hex", sequence)
+        return sequence
+
+    if ch in ASCII_FALLBACK_SEQUENCES:
+        sequence = keypresses_to_report_states(ASCII_FALLBACK_SEQUENCES[ch])
+        trace_mapping(ch, "ascii-fallback", sequence)
+        return sequence
+
+    trace_mapping(ch, "unsupported", [])
     return []
 
 

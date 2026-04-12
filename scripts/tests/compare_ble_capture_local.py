@@ -159,6 +159,12 @@ def main() -> int:
     parser.add_argument("--expected", required=True, help="Path to source fixture text.")
     parser.add_argument("--captured", required=True, help="Path to locally copied capture text.")
     parser.add_argument("--report", required=True, help="Path to write the diff report.")
+    parser.add_argument(
+        "--mode",
+        choices=("exact", "rendered"),
+        default="exact",
+        help="Compare exact source text or Danish-keyboard rendered expectation.",
+    )
     args = parser.parse_args()
 
     expected_path = Path(args.expected)
@@ -167,7 +173,10 @@ def main() -> int:
 
     expected_source = normalize_text(expected_path.read_text(encoding="utf-8"))
     captured = normalize_text(captured_path.read_text(encoding="utf-8"))
-    expected = convert_to_keyboard_rendered_text(expected_source)
+    if args.mode == "rendered":
+        expected = convert_to_keyboard_rendered_text(expected_source)
+    else:
+        expected = expected_source
 
     result, report_lines = build_report(expected_source, expected, captured)
 

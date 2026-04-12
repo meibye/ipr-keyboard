@@ -92,15 +92,15 @@ def test_windows_hex_unicode_sequence_for_emdash():
 
 
 def test_explicit_combining_cluster_preserves_codepoints():
-    mod = load_daemon_module("windows_hex_alt")
+    mod = load_daemon_module("windows_alt_decimal")
 
     sequence = mod.map_char("a\u0301")
 
     assert sequence[:2] == [(0, mod.LETTER_USAGES["a"]), mod.REPORT_RELEASE]
-    assert (mod.MOD_LALT, mod.KEYPAD_PLUS_USAGE) in sequence
-    assert (mod.MOD_LALT, mod.DIGIT_USAGES["3"]) in sequence
-    assert (mod.MOD_LALT, mod.DIGIT_USAGES["0"]) in sequence
-    assert (mod.MOD_LALT, mod.DIGIT_USAGES["1"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["0"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["7"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["6"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["8"]) in sequence
 
 
 def test_literal_dead_key_mark_keeps_layout_typing():
@@ -123,8 +123,31 @@ def test_direct_danish_letter_uses_layout_mapping():
     assert mod.map_char("æ") == [(0, 0x33), mod.REPORT_RELEASE]
 
 
-def test_default_mode_keeps_ascii_fallback_for_emdash():
+def test_default_mode_uses_decimal_unicode_for_emdash():
     mod = load_daemon_module()
+
+    assert mod.UNICODE_MODE == "windows_alt_decimal"
+    sequence = mod.map_char("—")
+    assert sequence[0] == (mod.MOD_LALT, 0)
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["2"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["0"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["1"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["4"]) in sequence
+
+
+def test_default_mode_uses_decimal_unicode_for_endash():
+    mod = load_daemon_module()
+
+    sequence = mod.map_char("–")
+    assert sequence[0] == (mod.MOD_LALT, 0)
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["2"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["0"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["1"]) in sequence
+    assert (mod.MOD_LALT, mod.KEYPAD_DIGIT_USAGES["3"]) in sequence
+
+
+def test_off_mode_keeps_ascii_fallback_for_emdash():
+    mod = load_daemon_module("off")
 
     expected = [
         (0, 0x38),
@@ -132,17 +155,4 @@ def test_default_mode_keeps_ascii_fallback_for_emdash():
         (0, 0x38),
         mod.REPORT_RELEASE,
     ]
-    assert mod.UNICODE_MODE == "off"
     assert mod.map_char("—") == expected
-
-
-def test_default_mode_keeps_ascii_fallback_for_endash():
-    mod = load_daemon_module()
-
-    expected = [
-        (0, 0x38),
-        mod.REPORT_RELEASE,
-        (0, 0x38),
-        mod.REPORT_RELEASE,
-    ]
-    assert mod.map_char("–") == expected
