@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Logs - IPR Keyboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        h1 { color: #2c3e50; }
+        .log-container {
+            border: 1px solid #ccc;
+            background: #f8f8f8;
+            padding: 1em;
+            height: 500px;
+            overflow-y: scroll;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        a { display: inline-block; margin-bottom: 1em; }
+    </style>
+</head>
+<body>
+    <h1>Log File</h1>
+    <a href="/">&larr; Back to Home</a>
+    <div class="log-container">{{ log_content }}</div>
+</body>
+</html>

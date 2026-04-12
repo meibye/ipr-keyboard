@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Configuration - IPR Keyboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        h1 { color: #2c3e50; }
+        table { border-collapse: collapse; margin-bottom: 2em; }
+        th, td { border: 1px solid #ccc; padding: 0.5em 1em; }
+        th { background: #f4f4f4; }
+        .section { margin-bottom: 2em; }
+        .btn { background: #2980b9; color: #fff; border: none; padding: 0.4em 1em; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        .btn:disabled { background: #aaa; }
+        .ok { color: #27ae60; }
+        .fail { color: #c0392b; }
+    </style>
+</head>
+<body>
+    <h1>Configuration</h1>
+    <a href="/">&larr; Back to Home</a>
+    <div class="section">
+        <form method="post">
+            <table>
+                <tr><th>Parameter</th><th>Value</th><th>Action</th></tr>
+                {% for key, value in config.items() %}
+                <tr>
+                    <td>{{ key }}</td>
+                    <td><input type="text" name="{{ key }}" value="{{ value }}" /></td>
+                    <td><button class="btn" type="submit" name="update" value="{{ key }}">Update</button></td>
+                </tr>
+                {% endfor %}
+            </table>
+        </form>
+    </div>
+    <div class="section">
+        <form method="post">
+            <button class="btn fail" type="submit" name="restart" value="1">Restart Machine</button>
+        </form>
+    </div>
+    {% if result %}
+        <div class="ok">{{ result }}</div>
+    {% endif %}
+    {% if error %}
+        <div class="fail">{{ error }}</div>
+    {% endif %}
+</body>
+</html>
