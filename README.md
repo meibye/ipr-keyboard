@@ -21,7 +21,9 @@ The app itself does not implement backend switching in `config.json`; it only pe
 ## Runtime Flow
 
 1. `ipr_keyboard.main` starts:
-   - Flask API thread (`/health`, `/status`, `/config/`, `/logs/`, `/pairing`)
+   - Flask web server thread — image-first dashboard SPA at `/`, dashboard JSON API under
+     `/api/` (status, events, config, actions), and legacy endpoints (`/health`, `/status`,
+     `/config/`, `/logs/`, `/pairing/`)
    - USB watch loop thread (folder polling)
 2. New file is detected in `IrisPenFolder`
 3. File content is read and sent via `BluetoothKeyboard.send_text()`

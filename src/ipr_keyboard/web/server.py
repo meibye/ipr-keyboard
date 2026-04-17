@@ -16,6 +16,7 @@ from ..config.manager import ConfigManager
 from ..config.web import bp_config
 from ..logging.logger import get_logger
 from ..logging.web import bp_logs
+from .api import bp_api
 
 logger = get_logger()
 
@@ -53,13 +54,14 @@ def create_app() -> Flask:
     # Register blueprints
     app.register_blueprint(bp_config)
     app.register_blueprint(bp_logs)
+    app.register_blueprint(bp_api)
 
     from flask import render_template
 
     @app.route("/")
     def index():
-        """Root: Human-readable HTML index of server functionality with links."""
-        return render_template("index.html")
+        """Root: Image-first dashboard."""
+        return render_template("dashboard.html")
 
     @app.get("/health")
     def health():

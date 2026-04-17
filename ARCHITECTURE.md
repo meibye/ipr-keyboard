@@ -19,7 +19,9 @@ IrisPen folder (config.json -> IrisPenFolder)
     -> host receives HID input
 ```
 
-In parallel, `src/ipr_keyboard/web/server.py` serves Flask APIs and status endpoints.
+In parallel, `src/ipr_keyboard/web/server.py` serves the image-first dashboard SPA at `/` and
+legacy status endpoints. New dashboard endpoints use the `/api/` prefix, served by the `api`
+Blueprint in `src/ipr_keyboard/web/api.py`. SVG assets live in `src/ipr_keyboard/web/static/`.
 
 ## 3. Source Module Map
 
@@ -33,6 +35,9 @@ In parallel, `src/ipr_keyboard/web/server.py` serves Flask APIs and status endpo
 - `src/ipr_keyboard/usb/*`
 - `src/ipr_keyboard/bluetooth/keyboard.py`
 - `src/ipr_keyboard/web/server.py`
+- `src/ipr_keyboard/web/api.py` (dashboard `/api/` Blueprint)
+- `src/ipr_keyboard/web/templates/dashboard.html` (image-first SPA)
+- `src/ipr_keyboard/web/static/` (SVG icons and device illustration)
 
 ### Support (Current)
 

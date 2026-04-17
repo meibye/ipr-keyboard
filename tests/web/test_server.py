@@ -32,7 +32,7 @@ def test_health_endpoint(flask_client):
 def test_blueprints_registered(temp_config):
     """Test that blueprints are registered.
     
-    Verifies that config and logs blueprints are active.
+    Verifies that config, logs, and api blueprints are active.
     """
     from ipr_keyboard.web.server import create_app
     
@@ -41,6 +41,7 @@ def test_blueprints_registered(temp_config):
     # Check that blueprints are registered
     assert "config" in app.blueprints
     assert "logs" in app.blueprints
+    assert "api" in app.blueprints
 
 
 def test_config_endpoint_registered(flask_client):
@@ -167,17 +168,16 @@ def test_service_status_exception(temp_config, monkeypatch):
 
 
 def test_status_endpoint(flask_client, temp_config, monkeypatch):
-    """Test /status endpoint.
-    
-    Verifies that status endpoint returns system information.
+    """Test /status endpoint returns an HTML page.
+
+    Verifies that the legacy status endpoint renders without error.
     """
     import subprocess
-    
-    # Mock subprocess calls for systemctl and bluetoothctl
-    def mock_call(cmd):
+
+    def mock_call(cmd, **kwargs):
         return 1  # inactive services
-    
-    def mock_check_output(cmd, text=True, stderr=None):
+
+    def mock_check_output(cmd, text=True, stderr=None, **kwargs):
         if "bluetoothctl" in cmd:
             if "devices" in cmd:
                 return "Device AA:BB:CC:DD:EE:FF TestDevice"
@@ -186,46 +186,38 @@ def test_status_endpoint(flask_client, temp_config, monkeypatch):
             else:
                 return "Adapter info"
         return ""
-    
+
     monkeypatch.setattr(subprocess, "call", mock_call)
     monkeypatch.setattr(subprocess, "check_output", mock_check_output)
-    
+
     response = flask_client.get("/status")
-    
+
     assert response.status_code == 200
-    data = response.get_json()
-    assert "env" in data
-    assert "config" in data
-    assert "log" in data
-    assert "services" in data
-    assert "bluetooth" in data
+    # /status renders an HTML template, not JSON
+    assert b"System Status" in response.data
 
 
 def test_status_endpoint_bluetooth_error(flask_client, temp_config, monkeypatch):
     """Test /status endpoint when bluetoothctl fails.
-    
-    Verifies that status endpoint handles bluetooth errors gracefully.
+
+    Verifies that the legacy status endpoint handles bluetooth errors gracefully.
     """
     import subprocess
-    
-    # Mock subprocess calls
-    def mock_call(cmd):
+
+    def mock_call(cmd, **kwargs):
         return 1  # inactive services
-    
-    def mock_check_output(cmd, text=True, stderr=None):
+
+    def mock_check_output(cmd, text=True, stderr=None, **kwargs):
         if "bluetoothctl" in cmd:
             if "devices" in cmd:
                 raise subprocess.CalledProcessError(1, cmd)
         return "mock output"
-    
+
     monkeypatch.setattr(subprocess, "call", mock_call)
     monkeypatch.setattr(subprocess, "check_output", mock_check_output)
-    
+
     response = flask_client.get("/status")
-    
+
     assert response.status_code == 200
-    data = response.get_json()
-    assert "bluetooth" in data
-    assert "devices" in data["bluetooth"]
-    # Should contain error info
-    assert len(data["bluetooth"]["devices"]) > 0
+    # /status renders an HTML template
+    assert b"System Status" in response.data

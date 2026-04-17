@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <circle cx="24" cy="24" r="22" fill="#e8f5e9"/>
+  <!-- pen body -->
+  <rect x="20" y="10" width="8" height="22" rx="2" fill="#43a047"/>
+  <!-- pen tip -->
+  <polygon points="20,32 28,32 24,42" fill="#2e7d32"/>
+  <!-- clip -->
+  <rect x="26" y="11" width="2" height="14" rx="1" fill="#81c784"/>
+  <!-- ready dot -->
+  <circle cx="24" cy="8" r="3" fill="#43a047"/>
+</svg>
