@@ -1,5 +1,32 @@
 # Claude project context
 
+## How to operate in this repository
+Follow AGENTS.md as the primary repository policy.
+
+## Workflow preferences
+- Use skills for repeatable workflows
+- Use subagents for specialized review or generation
+- Use hooks and local commands to validate changes automatically where configured
+- Use MCP when live system context is needed instead of guessing
+
+## Required behavior
+- Make minimal, well-scoped edits
+- Preserve architecture boundaries
+- Update tests and docs when behavior changes
+- Summarize validation results clearly
+
+## Preferred subagents
+- reviewer
+- tester
+- docs-writer
+- security-auditor
+
+## Protected areas
+Do not modify without explicit need:
+- generated artifacts
+- secrets and environment templates
+- deployment manifests shared across environments
+
 ## Project
 
 Raspberry Pi based BLE HID keyboard / pen bridge with a local web dashboard.

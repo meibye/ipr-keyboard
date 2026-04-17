@@ -1,5 +1,7 @@
 # Repository instructions for GitHub Copilot
 
+Understand the repository before suggesting changes.
+
 ## Purpose
 
 This repository contains a Raspberry Pi based BLE HID keyboard / pen bridge solution.
@@ -8,10 +10,21 @@ AI-generated changes must preserve lightweight operation and fit the realities o
 ## High-level guidance
 
 - Prefer incremental improvement over large rewrites.
+- Avoid speculative refactors unless requested
 - Preserve the current Python-based backend approach where practical.
 - Avoid introducing heavy runtime stacks unless clearly justified.
 - Prefer simple, maintainable solutions that are easy to debug on-device.
+- Avoid speculative refactors unless requested
+- Keep code, tests, and documentation aligned
 - Keep runtime dependencies small.
+
+## Validation expectations
+When making or suggesting changes, consider:
+- formatting
+- linting
+- tests
+- impacted docs
+- migration or compatibility concerns
 
 ## Web dashboard guidance
 
@@ -71,6 +84,8 @@ When changing functionality, also update relevant documentation:
 - UI docs
 - API docs if contract changes
 
+When code changes affect interfaces, configuration, workflows, or architecture, update the relevant documents in `docs/`.
+
 ## Quality bar
 
 Before finalizing a change:
@@ -80,3 +95,11 @@ Before finalizing a change:
 - prefer clear file structure
 - add or update tests where practical
 - include testing notes in the PR summary
+
+## Change summaries
+Summaries should state:
+- files changed
+- behavior changed
+- tests added or run
+- docs updated
+- follow-up work
