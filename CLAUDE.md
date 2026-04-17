@@ -26,13 +26,22 @@ The web UI should be:
 - `docs/ui/user-states.md`
 - `docs/ui/api-contract.md`
 
+## Existing baseline
+
+Flask server: `src/ipr_keyboard/web/server.py`
+Templates: `src/ipr_keyboard/web/templates/`
+Static assets: `src/ipr_keyboard/web/static/` (SVG icons and illustrations go here)
+
+New dashboard endpoints must use the `/api/` prefix. Evolve the existing server rather than replacing it.
+
 ## Design preferences
 
 - plain-language user-facing text
 - translated events before raw logs
-- SVG assets preferred
+- SVG assets in `src/ipr_keyboard/web/static/`
+- vanilla HTML/CSS/JS — no build step required
 - avoid heavy SSR/runtime web frameworks unless clearly justified
-- preserve the existing Python-oriented architecture where practical
+- prefer Server-Sent Events for live state updates
 
 ## Change preferences
 

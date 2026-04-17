@@ -307,3 +307,6 @@ The user should visually notice, in this order:
 
 These wireframes are intentionally low-fidelity.
 If a frontend implementation chooses slightly different visual arrangements while preserving the same information hierarchy and simplicity, that is acceptable.
+
+SVG assets (device illustrations, state icons) should be stored in `src/ipr_keyboard/web/static/`.
+The existing Flask templates in `src/ipr_keyboard/web/templates/` are the baseline to evolve from.

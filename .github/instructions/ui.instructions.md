@@ -28,10 +28,15 @@ Build a lightweight, image-first dashboard for the Raspberry Pi device.
 
 ## Architecture rules
 
-- prefer static or lightly dynamic frontend assets
+- the backend is Flask (`src/ipr_keyboard/web/server.py`) — evolve it, do not replace it
+- new dashboard endpoints must use the `/api/` prefix
+- use vanilla HTML/CSS/JS — no build step required
+- prefer static or lightly dynamic frontend assets served by Flask or nginx
 - do not introduce a full heavy SSR runtime by default
 - use backend APIs for authoritative state
 - keep frontend logic simple and presentational where possible
+- store SVG assets in `src/ipr_keyboard/web/static/`
+- prefer Server-Sent Events for live updates; fall back to polling if needed
 
 ## Safety rules
 

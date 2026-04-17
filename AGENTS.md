@@ -22,22 +22,33 @@ Read these files first:
 - `docs/ui/user-states.md`
 - `docs/ui/api-contract.md`
 
+### Existing baseline
+
+The Flask server at `src/ipr_keyboard/web/server.py` is the starting point.
+HTML templates live in `src/ipr_keyboard/web/templates/`.
+SVG assets should go in `src/ipr_keyboard/web/static/`.
+
+New dashboard API endpoints must use the `/api/` prefix as defined in the API contract.
+Evolve the current server incrementally.
+
 ### Dashboard expectations
 
 - keep the UI simple and image-first
 - use plain-language labels
 - show translated event messages before raw logs
-- prefer SVG assets committed to the repository
+- prefer SVG assets committed to `src/ipr_keyboard/web/static/`
+- use vanilla HTML/CSS/JS — no build step required
 - preserve a lightweight backend/frontend split
 - avoid introducing a heavy server-side web runtime unless justified
+- prefer Server-Sent Events for live updates
 
 ### Default implementation direction
 
 Unless the codebase strongly suggests otherwise:
 
-- keep Python as the backend/control layer
+- keep Flask as the backend
 - evolve the current web solution incrementally
-- use stable API endpoints for UI state
+- use stable `/api/` endpoints for UI state
 - keep browser-side logic straightforward
 
 ## Change management
@@ -54,7 +65,7 @@ For larger changes:
 If images or icons are needed:
 
 - generate them as SVG where possible
-- store them in a predictable frontend asset folder
+- store them in `src/ipr_keyboard/web/static/`
 - keep the visual style simple and consistent
 - avoid oversized or decorative assets
 

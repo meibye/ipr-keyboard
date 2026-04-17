@@ -1,5 +1,3 @@
-
-
 # IPR Keyboard Web Dashboard User State Model
 
 This document defines the UI-facing state model.
