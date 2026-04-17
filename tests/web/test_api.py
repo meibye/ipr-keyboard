@@ -32,8 +32,6 @@ def test_api_status_structure(flask_client, temp_config, monkeypatch):
 
 def test_api_status_bluetooth_connected(flask_client, temp_config, monkeypatch):
     """GET /api/status detects a connected Bluetooth device."""
-    call_count = [0]
-
     def mock_call(cmd, **kwargs):
         return 1
 

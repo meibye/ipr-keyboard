@@ -291,7 +291,8 @@ def api_logs_raw():
     try:
         output = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=10)
     except Exception as exc:
-        output = f"Could not read logs: {exc}"
+        logger.warning("api_logs_raw: journalctl failed: %s", exc)
+        output = ""
 
     lines = output.splitlines()
     if contains:
@@ -348,7 +349,8 @@ def api_config_post():
         _add_event("config", "info", "Configuration updated", "Settings were saved.")
         return jsonify({"ok": True, "message": "Configuration updated."})
     except Exception as exc:
-        return jsonify({"error": {"code": "update_failed", "message": str(exc)}}), 500
+        logger.warning("api_config_post: update failed: %s", exc)
+        return jsonify({"error": {"code": "update_failed", "message": "Configuration update failed."}}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +373,8 @@ def api_action_pairing():
             _add_event("bluetooth", "info", "Pairing mode disabled")
             return jsonify({"ok": True, "message": "Pairing mode disabled."})
     except Exception as exc:
-        return jsonify({"error": {"code": "action_failed", "message": str(exc)}}), 500
+        logger.warning("api_action_pairing: failed: %s", exc)
+        return jsonify({"error": {"code": "action_failed", "message": "Pairing action failed."}}), 500
 
 
 @bp_api.post("/actions/rescan-pen")
@@ -387,7 +390,8 @@ def api_action_reconnect():
         _add_event("bluetooth", "info", "Bluetooth reconnect started")
         return jsonify({"ok": True, "message": "Bluetooth reconnect started."})
     except Exception as exc:
-        return jsonify({"error": {"code": "action_failed", "message": str(exc)}}), 500
+        logger.warning("api_action_reconnect: failed: %s", exc)
+        return jsonify({"error": {"code": "action_failed", "message": "Reconnect action failed."}}), 500
 
 
 @bp_api.post("/actions/reboot")
@@ -402,7 +406,8 @@ def api_action_reboot():
         subprocess.Popen(["sudo", "reboot"])
         return jsonify({"ok": True, "message": "Reboot initiated."})
     except Exception as exc:
-        return jsonify({"error": {"code": "action_failed", "message": str(exc)}}), 500
+        logger.warning("api_action_reboot: failed: %s", exc)
+        return jsonify({"error": {"code": "action_failed", "message": "Reboot action failed."}}), 500
 
 
 @bp_api.post("/actions/shutdown")
@@ -417,7 +422,8 @@ def api_action_shutdown():
         subprocess.Popen(["sudo", "shutdown", "-h", "now"])
         return jsonify({"ok": True, "message": "Shutdown initiated."})
     except Exception as exc:
-        return jsonify({"error": {"code": "action_failed", "message": str(exc)}}), 500
+        logger.warning("api_action_shutdown: failed: %s", exc)
+        return jsonify({"error": {"code": "action_failed", "message": "Shutdown action failed."}}), 500
 
 
 # ---------------------------------------------------------------------------
