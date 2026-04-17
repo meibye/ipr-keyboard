@@ -16,7 +16,7 @@ import subprocess
 import threading
 from collections import deque
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 
@@ -55,13 +55,6 @@ def _add_event(category: str, severity: str, summary: str, details: str = "") ->
         }
         _EVENTS.append(event)
     return event
-
-
-def _run_cmd(cmd: List[str], timeout: int = 5) -> str:
-    try:
-        return subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=timeout)
-    except Exception as exc:
-        return f"ERROR: {exc}"
 
 
 def _service_active(name: str) -> bool:
@@ -436,16 +429,18 @@ def api_stream():
     import time
 
     def event_stream():
-        last_count = 0
+        # Track the global event counter so we survive deque wrap-around.
+        last_seen_counter = _EVENT_COUNTER
         while True:
             time.sleep(3)
             with _EVENTS_LOCK:
-                current_count = len(_EVENTS)
-                if current_count > last_count:
-                    new_events = list(_EVENTS)[last_count:]
-                    last_count = current_count
-                else:
-                    new_events = []
+                # Collect events newer than last_seen_counter by ID.
+                new_events = [
+                    e for e in _EVENTS
+                    if int(e["id"].split("_", 1)[1]) > last_seen_counter
+                ]
+                if new_events:
+                    last_seen_counter = int(new_events[-1]["id"].split("_", 1)[1])
 
             for event in new_events:
                 payload = json.dumps({"type": "event_added", "data": event})
