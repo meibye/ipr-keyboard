@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPR Pen Bridge</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #222; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: #1a237e;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 1.2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .topbar-title { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.02em; }
+    .state-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.25rem 0.7rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-ready    { background: #43a047; color: #fff; }
+    .badge-busy     { background: #1976d2; color: #fff; }
+    .badge-warning  { background: #f9a825; color: #333; }
+    .badge-error    { background: #e53935; color: #fff; }
+    .badge-offline  { background: #9e9e9e; color: #fff; }
+    .badge-waiting  { background: #78909c; color: #fff; }
+
+    /* ── Navigation ── */
+    .navbar {
+      background: #283593;
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .navbar::-webkit-scrollbar { display: none; }
+    .nav-btn {
+      flex: 1;
+      min-width: 64px;
+      border: none;
+      background: transparent;
+      color: #c5cae9;
+      cursor: pointer;
+      padding: 0.75rem 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      transition: background 0.15s, color 0.15s;
+      border-bottom: 3px solid transparent;
+    }
+    .nav-btn svg { width: 20px; height: 20px; }
+    .nav-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-btn.active { border-bottom-color: #ffcc02; color: #fff; background: rgba(255,255,255,0.12); }
+
+    /* ── Page container ── */
+    .page { display: none; padding: 1rem; flex: 1; }
+    .page.active { display: block; }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .card img, .card svg { width: 52px; height: 52px; }
+    .card-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #666; }
+    .card-state { font-size: 1.15rem; font-weight: 700; }
+    .card-explanation { font-size: 0.82rem; color: #555; }
+    .card-action { margin-top: 0.5rem; }
+
+    /* State tones */
+    .tone-success .card-state { color: #2e7d32; }
+    .tone-info    .card-state { color: #1565c0; }
+    .tone-warning .card-state { color: #e65100; }
+    .tone-danger  .card-state { color: #c62828; }
+    .tone-muted   .card-state { color: #757575; }
+
+    /* ── Hero flow ── */
+    .hero {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.5rem 1rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin: 1rem 0;
+      text-align: center;
+    }
+    .hero img { max-width: 100%; height: auto; }
+    .hero-label { font-size: 1.2rem; font-weight: 700; margin-top: 0.5rem; }
+    .hero-sub { font-size: 0.9rem; color: #555; }
+
+    /* ── Last event bar ── */
+    .last-event-bar {
+      background: #fff;
+      border-radius: 10px;
+      padding: 0.7rem 1rem;
+      margin: 0.5rem 0 1rem;
+      font-size: 0.85rem;
+      color: #444;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .last-event-bar .evt-label { font-style: italic; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      padding: 0.55rem 1.1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: filter 0.15s;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn-primary  { background: #1565c0; color: #fff; }
+    .btn-success  { background: #388e3c; color: #fff; }
+    .btn-warning  { background: #f57c00; color: #fff; }
+    .btn-danger   { background: #c62828; color: #fff; }
+    .btn-muted    { background: #e0e0e0; color: #444; }
+    .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
+
+    /* ── Connection chain ── */
+    .connection-chain {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    .chain-node {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      min-width: 120px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .chain-node img { width: 48px; height: 48px; }
+    .chain-node-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #666; margin-top: 0.3rem; }
+    .chain-node-state { font-size: 0.9rem; font-weight: 700; }
+    .chain-arrow { color: #90a4ae; font-size: 1.8rem; padding: 0 0.3rem; line-height: 1; }
+    .chain-node.state-connected { border: 2px solid #43a047; }
+    .chain-node.state-waiting   { border: 2px solid #bdbdbd; }
+    .chain-node.state-error     { border: 2px solid #e53935; }
+    .chain-node.state-ready     { border: 2px solid #43a047; }
+    .chain-node.state-missing   { border: 2px solid #bdbdbd; }
+
+    /* ── Connection actions ── */
+    .action-row { display: flex; gap: 0.7rem; flex-wrap: wrap; margin: 1rem 0; }
+    .detail-section { background: #fff; border-radius: 10px; padding: 1rem; margin: 0.5rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .detail-section h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #555; margin-bottom: 0.5rem; }
+    .detail-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 0.2rem 0; border-bottom: 1px solid #f0f0f0; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { color: #666; }
+    .detail-val { font-weight: 600; }
+
+    /* ── Activity screen ── */
+    .activity-state-bar {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.2rem 1rem;
+      margin: 1rem 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .activity-state-label { font-size: 1.4rem; font-weight: 700; }
+    .progress-bar-wrap { background: #e0e0e0; border-radius: 999px; height: 12px; margin: 0.8rem 0; }
+    .progress-bar-fill { background: #1565c0; height: 12px; border-radius: 999px; transition: width 0.5s; }
+    .activity-meta { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; font-size: 0.85rem; color: #555; margin-top: 0.5rem; }
+    .activity-meta span strong { color: #222; }
+
+    /* ── Event list ── */
+    .filter-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.8rem 0; }
+    .chip {
+      border: 2px solid #c5cae9;
+      background: #fff;
+      border-radius: 999px;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .chip.active { background: #283593; color: #fff; border-color: #283593; }
+    .event-list { display: flex; flex-direction: column; gap: 0.4rem; }
+    .event-item {
+      background: #fff;
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      display: flex;
+      gap: 0.7rem;
+      align-items: flex-start;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+      font-size: 0.85rem;
+    }
+    .evt-icon { font-size: 1.1rem; flex-shrink: 0; line-height: 1.4; }
+    .evt-body { flex: 1; }
+    .evt-summary { font-weight: 600; }
+    .evt-details { color: #666; font-size: 0.8rem; }
+    .evt-time { font-size: 0.75rem; color: #999; flex-shrink: 0; }
+    .evt-sev-info    .evt-icon { color: #1565c0; }
+    .evt-sev-warning .evt-icon { color: #e65100; }
+    .evt-sev-error   .evt-icon { color: #c62828; }
+    .log-panel { display: none; margin-top: 0.5rem; }
+    .log-panel.open { display: block; }
+    pre.log-pre { background: #263238; color: #cfd8dc; padding: 0.8rem; border-radius: 8px; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+    .empty-state { text-align: center; color: #999; padding: 2rem; font-size: 0.95rem; }
+
+    /* ── Settings ── */
+    .settings-section { background: #fff; border-radius: 12px; padding: 1.1rem 1rem; margin: 0.8rem 0; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .settings-section h2 { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #555; margin-bottom: 0.8rem; }
+    .settings-field { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.8rem; }
+    .settings-field:last-of-type { margin-bottom: 0; }
+    .settings-field label { font-size: 0.82rem; color: #555; font-weight: 600; }
+    .settings-field input[type="text"],
+    .settings-field select { border: 1px solid #ccc; border-radius: 6px; padding: 0.45rem 0.7rem; font-size: 0.9rem; width: 100%; }
+    .settings-field input[type="checkbox"] { width: 18px; height: 18px; }
+    .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0; }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row label { font-size: 0.88rem; }
+    .power-zone { border: 2px solid #e53935; border-radius: 12px; }
+    .power-zone h2 { color: #c62828; }
+
+    /* ── Toast notifications ── */
+    #toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: #323232; color: #fff; padding: 0.65rem 1.2rem; border-radius: 8px; font-size: 0.9rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+    #toast.show { opacity: 1; }
+
+    /* ── Confirm dialog ── */
+    .dialog-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; }
+    .dialog-overlay.open { display: flex; }
+    .dialog-box { background: #fff; border-radius: 12px; padding: 1.5rem; max-width: 360px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
+    .dialog-box h3 { font-size: 1.1rem; margin-bottom: 0.6rem; }
+    .dialog-box p { font-size: 0.88rem; color: #555; margin-bottom: 1.2rem; }
+    .dialog-actions { display: flex; gap: 0.7rem; justify-content: flex-end; }
+
+    /* ── Page title ── */
+    .page-title { font-size: 1.3rem; font-weight: 700; margin: 0.4rem 0 0.8rem; }
+    .section-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin: 1rem 0 0.4rem; }
+
+    /* ── Responsive ── */
+    @media (min-width: 640px) {
+      .page { padding: 1.4rem; }
+      .card img, .card svg { width: 64px; height: 64px; }
+    }
+    @media (max-width: 480px) {
+      .topbar-title { font-size: 0.95rem; }
+      .chain-node { min-width: 90px; padding: 0.7rem 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<header class="topbar">
+  <span class="topbar-title">IPR Pen Bridge</span>
+  <span id="overall-badge" class="state-badge badge-offline">Offline</span>
+</header>
+
+<!-- ── Navigation ── -->
+<nav class="navbar" role="navigation" aria-label="Main">
+  <button class="nav-btn active" data-page="home" onclick="showPage('home',this)" aria-label="Home">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+    Home
+  </button>
+  <button class="nav-btn" data-page="connections" onclick="showPage('connections',this)" aria-label="Connections">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3a4.237 4.237 0 00-6 0zm-4-4l2 2a7.074 7.074 0 0110 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+    Connections
+  </button>
+  <button class="nav-btn" data-page="activity" onclick="showPage('activity',this)" aria-label="Activity">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 3.21-1.81 6-4.72 7.72L13 17v5h5l-1.22-1.22C19.91 19.07 22 15.76 22 12c0-5.18-3.95-9.45-9-9.95zM11 2.05C5.95 2.55 2 6.82 2 12c0 3.76 2.09 7.07 5.22 8.78L6 22h5v-5l-2.28 2.28C7.28 18.06 6 15.17 6 12c0-4.08 3.05-7.44 7-7.93V2.05z"/></svg>
+    Activity
+  </button>
+  <button class="nav-btn" data-page="events" onclick="showPage('events',this)" aria-label="Events">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+    Events
+  </button>
+  <button class="nav-btn" data-page="settings" onclick="showPage('settings',this)" aria-label="Settings">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96a7.12 7.12 0 00-1.62-.94l-.36-2.54A.484.484 0 0014 2h-3.84c-.24 0-.43.17-.47.4l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L3.8 8.46a.48.48 0 00.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.4l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+    Settings
+  </button>
+</nav>
+
+<!-- ════════════════════════════════ HOME ═══════════════════════════════════ -->
+<main id="page-home" class="page active">
+  <div class="hero">
+    <img src="/static/device-flow.svg" alt="Pen to Raspberry Pi to PC flow" width="220" height="66">
+    <div class="hero-label" id="home-overall-label">Loading…</div>
+    <div class="hero-sub" id="home-overall-explanation"></div>
+  </div>
+
+  <div class="card-grid">
+    <!-- Bluetooth card -->
+    <div class="card" id="card-bt">
+      <img id="icon-bt" src="/static/icon-bt-waiting.svg" alt="Bluetooth">
+      <div class="card-label">Bluetooth</div>
+      <div class="card-state" id="bt-state-label">—</div>
+      <div class="card-explanation" id="bt-explanation"></div>
+    </div>
+    <!-- Pen card -->
+    <div class="card" id="card-pen">
+      <img id="icon-pen" src="/static/icon-pen-missing.svg" alt="Pen">
+      <div class="card-label">Pen / Scanner</div>
+      <div class="card-state" id="pen-state-label">—</div>
+      <div class="card-explanation" id="pen-explanation"></div>
+    </div>
+    <!-- Transmission card -->
+    <div class="card" id="card-tx">
+      <img id="icon-tx" src="/static/icon-tx-idle.svg" alt="Transmission">
+      <div class="card-label">Transmission</div>
+      <div class="card-state" id="tx-state-label">—</div>
+      <div class="card-explanation" id="tx-explanation"></div>
+    </div>
+    <!-- System card -->
+    <div class="card" id="card-sys">
+      <img id="icon-sys" src="/static/icon-system-ok.svg" alt="System">
+      <div class="card-label">System</div>
+      <div class="card-state" id="sys-state-label">—</div>
+      <div class="card-explanation" id="sys-explanation"></div>
+    </div>
+  </div>
+
+  <div class="last-event-bar" id="last-event-bar" style="display:none">
+    <span>Last event: <span id="last-event-summary" class="evt-label"></span></span>
+    <button class="btn btn-muted btn-sm" onclick="showPage('events',document.querySelector('[data-page=events]'))">View Events</button>
+  </div>
+
+  <div style="display:flex; gap:0.8rem; flex-wrap:wrap; margin-top:0.5rem;">
+    <button class="btn btn-primary btn-sm" onclick="showPage('activity',document.querySelector('[data-page=activity]'))">View Activity</button>
+    <button class="btn btn-muted btn-sm" onclick="showPage('settings',document.querySelector('[data-page=settings]'))">Open Settings</button>
+  </div>
+</main>
+
+<!-- ════════════════════════════════ CONNECTIONS ════════════════════════════ -->
+<main id="page-connections" class="page">
+  <div class="page-title">Connections</div>
+
+  <div class="connection-chain" id="conn-chain">
+    <div class="chain-node" id="chain-pc">
+      <img src="/static/icon-bt-waiting.svg" alt="PC" width="48" height="48">
+      <div class="chain-node-label">PC / Bluetooth</div>
+      <div class="chain-node-state" id="chain-pc-state">—</div>
+      <div style="font-size:0.75rem;color:#666;" id="chain-pc-host"></div>
+    </div>
+    <div class="chain-arrow">›</div>
+    <div class="chain-node state-ready">
+      <svg viewBox="0 0 48 48" width="48" height="48"><rect x="8" y="12" width="32" height="24" rx="5" fill="#c62828"/><circle cx="15" cy="22" r="3" fill="#ef9a9a"/><circle cx="24" cy="22" r="3" fill="#ef9a9a"/><rect x="12" y="28" width="24" height="4" rx="2" fill="#b71c1c"/></svg>
+      <div class="chain-node-label">Bridge</div>
+      <div class="chain-node-state" id="chain-pi-state">Active</div>
+    </div>
+    <div class="chain-arrow">›</div>
+    <div class="chain-node" id="chain-pen">
+      <img src="/static/icon-pen-missing.svg" alt="Pen" width="48" height="48">
+      <div class="chain-node-label">Pen / Scanner</div>
+      <div class="chain-node-state" id="chain-pen-state">—</div>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <button class="btn btn-primary btn-sm" onclick="doAction('pairing','Enter pairing mode',{enabled:true})">Enter pairing mode</button>
+    <button class="btn btn-muted btn-sm" onclick="doAction('reconnect-bluetooth','Reconnect Bluetooth',{})">Reconnect Bluetooth</button>
+    <button class="btn btn-muted btn-sm" onclick="doAction('rescan-pen','Rescan pen',{})">Rescan pen</button>
+  </div>
+
+  <div class="section-label">Details</div>
+  <div class="detail-section" id="conn-details">
+    <div class="detail-row"><span class="detail-key">Bluetooth state</span><span class="detail-val" id="det-bt-state">—</span></div>
+    <div class="detail-row"><span class="detail-key">Host name</span><span class="detail-val" id="det-bt-host">—</span></div>
+    <div class="detail-row"><span class="detail-key">Pen state</span><span class="detail-val" id="det-pen-state">—</span></div>
+  </div>
+</main>
+
+<!-- ════════════════════════════════ ACTIVITY ════════════════════════════════ -->
+<main id="page-activity" class="page">
+  <div class="page-title">Activity</div>
+
+  <div class="activity-state-bar">
+    <div class="activity-state-label" id="act-state-label">Idle</div>
+    <div style="font-size:0.85rem;color:#666;margin:0.3rem 0 0.6rem;" id="act-explanation">No active send</div>
+    <div class="progress-bar-wrap" id="act-progress-wrap" style="display:none">
+      <div class="progress-bar-fill" id="act-progress-fill" style="width:0%"></div>
+    </div>
+    <div class="activity-meta" id="act-meta"></div>
+  </div>
+
+  <div class="section-label">Recent Activity</div>
+  <div class="event-list" id="activity-event-list">
+    <div class="empty-state">No recent activity</div>
+  </div>
+</main>
+
+<!-- ════════════════════════════════ EVENTS ══════════════════════════════════ -->
+<main id="page-events" class="page">
+  <div class="page-title">Events</div>
+
+  <div class="filter-chips" id="event-filters">
+    <button class="chip active" onclick="setEventFilter('',this)">All</button>
+    <button class="chip" onclick="setEventFilter('bluetooth',this)">Bluetooth</button>
+    <button class="chip" onclick="setEventFilter('pen',this)">Pen</button>
+    <button class="chip" onclick="setEventFilter('transmission',this)">Transfer</button>
+    <button class="chip" onclick="setEventFilter('system',this)">System</button>
+    <button class="chip" onclick="setEventFilter('config',this)">Config</button>
+  </div>
+
+  <div class="event-list" id="event-list">
+    <div class="empty-state">No events yet</div>
+  </div>
+
+  <div style="margin-top:1rem;">
+    <button class="btn btn-muted btn-sm" onclick="toggleRawLogs(this)">Show raw logs</button>
+  </div>
+  <div class="log-panel" id="log-panel">
+    <pre class="log-pre" id="log-pre">Loading…</pre>
+  </div>
+</main>
+
+<!-- ════════════════════════════════ SETTINGS ════════════════════════════════ -->
+<main id="page-settings" class="page">
+  <div class="page-title">Settings</div>
+
+  <div class="settings-section">
+    <h2>Device</h2>
+    <div class="settings-row"><label>Iris Pen Folder</label><span id="cfg-pen-folder" style="font-size:0.82rem;color:#555;word-break:break-all;"></span></div>
+    <div class="settings-row"><label>Delete files after use</label><span id="cfg-delete-files"></span></div>
+    <div class="settings-row"><label>Logging</label><span id="cfg-log-level"></span></div>
+  </div>
+
+  <div class="settings-section">
+    <h2>Bluetooth</h2>
+    <div class="settings-row"><label>Pairing timeout</label><span id="cfg-bt-timeout">120 s</span></div>
+    <div class="settings-row"><label>Auto reconnect</label><span id="cfg-bt-reconnect">Enabled</span></div>
+  </div>
+
+  <div class="settings-section">
+    <h2>Pen / Scanner</h2>
+    <div class="settings-row"><label>Auto detect</label><span id="cfg-pen-auto">Enabled</span></div>
+    <div class="settings-row"><label>Read timeout</label><span id="cfg-pen-timeout">10 s</span></div>
+  </div>
+
+  <div class="settings-section power-zone">
+    <h2>Power</h2>
+    <p style="font-size:0.82rem;color:#c62828;margin-bottom:0.8rem;">These actions affect the device immediately.</p>
+    <div style="display:flex;gap:0.8rem;flex-wrap:wrap;">
+      <button class="btn btn-warning" onclick="confirmPower('reboot')">Restart device</button>
+      <button class="btn btn-danger"  onclick="confirmPower('shutdown')">Shut down device</button>
+    </div>
+  </div>
+
+  <div style="margin-top:0.8rem;">
+    <a class="btn btn-muted btn-sm" href="/status" target="_blank" rel="noopener">Technical status page</a>
+    <a class="btn btn-muted btn-sm" href="/logs/" target="_blank" rel="noopener" style="margin-left:0.5rem;">Raw log viewer</a>
+  </div>
+</main>
+
+<!-- ── Confirm dialog ── -->
+<div class="dialog-overlay" id="confirm-overlay" role="dialog" aria-modal="true">
+  <div class="dialog-box">
+    <h3 id="confirm-title">Are you sure?</h3>
+    <p id="confirm-message"></p>
+    <div class="dialog-actions">
+      <button class="btn btn-muted" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════════════════════ */
+let _currentStatus = null;
+let _currentPage = 'home';
+let _eventFilter = '';
+let _allEvents = [];
+
+/* ═══════════════════════════════════════════════════════════════
+   Navigation
+   ═══════════════════════════════════════════════════════════════ */
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  _currentPage = name;
+  if (name === 'events') fetchEvents();
+  if (name === 'settings') fetchConfig();
+  if (name === 'activity') renderActivity(_currentStatus);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Toast
+   ═══════════════════════════════════════════════════════════════ */
+function showToast(msg, duration=3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Overall badge
+   ═══════════════════════════════════════════════════════════════ */
+function updateBadge(state, label) {
+  const badge = document.getElementById('overall-badge');
+  const cls = {
+    ready:'badge-ready', busy:'badge-busy', warning:'badge-warning',
+    error:'badge-error', offline:'badge-offline', waiting:'badge-waiting'
+  }[state] || 'badge-offline';
+  badge.className = 'state-badge ' + cls;
+  badge.textContent = label || state;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   State icon helpers
+   ═══════════════════════════════════════════════════════════════ */
+const BT_ICONS = {
+  connected:  '/static/icon-bt-connected.svg',
+  waiting:    '/static/icon-bt-waiting.svg',
+  pairing:    '/static/icon-bt-waiting.svg',
+  reconnecting:'/static/icon-bt-waiting.svg',
+  error:      '/static/icon-bt-waiting.svg',
+};
+const PEN_ICONS = {
+  ready:    '/static/icon-pen-ready.svg',
+  reading:  '/static/icon-pen-ready.svg',
+  missing:  '/static/icon-pen-missing.svg',
+  detecting:'/static/icon-pen-missing.svg',
+  error:    '/static/icon-pen-missing.svg',
+};
+const TX_ICONS = {
+  idle:     '/static/icon-tx-idle.svg',
+  preparing:'/static/icon-tx-active.svg',
+  sending:  '/static/icon-tx-active.svg',
+  retrying: '/static/icon-tx-active.svg',
+  success:  '/static/icon-tx-idle.svg',
+  failed:   '/static/icon-tx-idle.svg',
+};
+const SYS_ICONS = {
+  healthy:      '/static/icon-system-ok.svg',
+  busy:         '/static/icon-system-ok.svg',
+  warning:      '/static/icon-system-warning.svg',
+  error:        '/static/icon-system-warning.svg',
+  rebooting:    '/static/icon-system-warning.svg',
+  shutting_down:'/static/icon-system-warning.svg',
+};
+const STATE_TONE = {
+  connected:'success', ready:'success', healthy:'success', sent:'success',
+  idle:'muted', waiting:'muted', missing:'muted',
+  pairing:'info', reconnecting:'info', detecting:'info', sending:'info', preparing:'info', busy:'info', reading:'info',
+  warning:'warning', retrying:'warning',
+  error:'danger', failed:'danger',
+};
+
+function setCard(cardId, imgId, iconMap, state, label, explanation) {
+  const card = document.getElementById(cardId);
+  const img  = document.getElementById(imgId);
+  const sl   = card.querySelector('.card-state');
+  const ex   = card.querySelector('.card-explanation');
+  if (img && iconMap[state]) img.src = iconMap[state];
+  if (sl) sl.textContent = label || state;
+  if (ex) ex.textContent = explanation || '';
+  const tone = STATE_TONE[state] || 'muted';
+  card.className = 'card tone-' + tone;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Home screen rendering
+   ═══════════════════════════════════════════════════════════════ */
+function renderHome(data) {
+  if (!data) return;
+  updateBadge(data.overall.state, data.overall.label);
+  document.getElementById('home-overall-label').textContent = data.overall.label;
+  document.getElementById('home-overall-explanation').textContent = data.overall.explanation || '';
+
+  setCard('card-bt',  'icon-bt',  BT_ICONS,  data.bluetooth.state, data.bluetooth.label,  data.bluetooth.explanation);
+  setCard('card-pen', 'icon-pen', PEN_ICONS, data.pen.state,       data.pen.label,        data.pen.explanation);
+  setCard('card-tx',  'icon-tx',  TX_ICONS,  data.transmission.state, data.transmission.label, data.transmission.explanation);
+  setCard('card-sys', 'icon-sys', SYS_ICONS, data.system.state,    data.system.label,     data.system.explanation);
+
+  const evtBar = document.getElementById('last-event-bar');
+  if (data.last_event) {
+    document.getElementById('last-event-summary').textContent = data.last_event.summary;
+    evtBar.style.display = '';
+  } else {
+    evtBar.style.display = 'none';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Connections screen rendering
+   ═══════════════════════════════════════════════════════════════ */
+function renderConnections(data) {
+  if (!data) return;
+  const bt = data.bluetooth;
+  const pen = data.pen;
+
+  const pcNode = document.getElementById('chain-pc');
+  pcNode.className = 'chain-node state-' + bt.state;
+  document.getElementById('chain-pc-state').textContent = bt.label;
+  document.getElementById('chain-pc-host').textContent = bt.host_name || '';
+
+  const penNode = document.getElementById('chain-pen');
+  penNode.className = 'chain-node state-' + pen.state;
+  document.getElementById('chain-pen-state').textContent = pen.label;
+
+  document.getElementById('det-bt-state').textContent = bt.label;
+  document.getElementById('det-bt-host').textContent = bt.host_name || 'Not connected';
+  document.getElementById('det-pen-state').textContent = pen.label;
+  document.getElementById('chain-pi-state').textContent = data.system.state === 'healthy' ? 'Active' : data.system.label;
+
+  const pcImg = pcNode.querySelector('img');
+  if (pcImg) pcImg.src = BT_ICONS[bt.state] || BT_ICONS.waiting;
+  const penImg = penNode.querySelector('img');
+  if (penImg) penImg.src = PEN_ICONS[pen.state] || PEN_ICONS.missing;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Activity screen rendering
+   ═══════════════════════════════════════════════════════════════ */
+function renderActivity(data) {
+  if (!data) return;
+  const tx = data.transmission;
+  document.getElementById('act-state-label').textContent = tx.label || 'Idle';
+  document.getElementById('act-explanation').textContent = tx.explanation || '';
+
+  const pw = document.getElementById('act-progress-wrap');
+  if (tx.state === 'sending' || tx.state === 'preparing') {
+    pw.style.display = '';
+    document.getElementById('act-progress-fill').style.width = (tx.progress_percent || 0) + '%';
+  } else {
+    pw.style.display = 'none';
+  }
+
+  const meta = document.getElementById('act-meta');
+  if (tx.items_sent || tx.retry_count) {
+    meta.innerHTML = `
+      <span>Items sent: <strong>${tx.items_sent || 0}</strong></span>
+      <span>Retries: <strong>${tx.retry_count || 0}</strong></span>
+      ${tx.last_success_at ? '<span>Last success: <strong>' + fmtTime(tx.last_success_at) + '</strong></span>' : ''}
+    `;
+  } else {
+    meta.innerHTML = '';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Events
+   ═══════════════════════════════════════════════════════════════ */
+const SEV_ICON = { info: '✓', warning: '!', error: '✕' };
+
+function setEventFilter(cat, btn) {
+  _eventFilter = cat;
+  document.querySelectorAll('#event-filters .chip').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderEventList();
+}
+
+function renderEventList() {
+  const list = document.getElementById('event-list');
+  let items = _allEvents.slice().reverse(); // newest first
+  if (_eventFilter) items = items.filter(e => e.category === _eventFilter);
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-state">No events yet</div>';
+    return;
+  }
+  list.innerHTML = items.map(e => `
+    <div class="event-item evt-sev-${e.severity}">
+      <span class="evt-icon">${SEV_ICON[e.severity] || '·'}</span>
+      <div class="evt-body">
+        <div class="evt-summary">${esc(e.summary)}</div>
+        ${e.details ? '<div class="evt-details">' + esc(e.details) + '</div>' : ''}
+      </div>
+      <span class="evt-time">${fmtTime(e.timestamp)}</span>
+    </div>
+  `).join('');
+}
+
+function renderActivityEvents() {
+  const list = document.getElementById('activity-event-list');
+  const txEvents = _allEvents.slice().reverse().filter(e => e.category === 'transmission').slice(0, 8);
+  if (!txEvents.length) {
+    list.innerHTML = '<div class="empty-state">No recent activity</div>';
+    return;
+  }
+  list.innerHTML = txEvents.map(e => `
+    <div class="event-item evt-sev-${e.severity}">
+      <span class="evt-icon">${SEV_ICON[e.severity] || '·'}</span>
+      <div class="evt-body">
+        <div class="evt-summary">${esc(e.summary)}</div>
+      </div>
+      <span class="evt-time">${fmtTime(e.timestamp)}</span>
+    </div>
+  `).join('');
+}
+
+async function fetchEvents() {
+  try {
+    const r = await fetch('/api/events?limit=100');
+    const d = await r.json();
+    _allEvents = d.items || [];
+    renderEventList();
+    renderActivityEvents();
+  } catch(e) { /* ignore */ }
+}
+
+function toggleRawLogs(btn) {
+  const panel = document.getElementById('log-panel');
+  const pre   = document.getElementById('log-pre');
+  if (panel.classList.toggle('open')) {
+    btn.textContent = 'Hide raw logs';
+    pre.textContent = 'Loading…';
+    fetch('/api/logs/raw?limit=100').then(r=>r.json()).then(d => {
+      pre.textContent = (d.items || []).map(i => i.line).join('\n') || '(no logs)';
+    }).catch(() => { pre.textContent = 'Could not load logs.'; });
+  } else {
+    btn.textContent = 'Show raw logs';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Settings
+   ═══════════════════════════════════════════════════════════════ */
+async function fetchConfig() {
+  try {
+    const r = await fetch('/api/config');
+    const d = await r.json();
+    document.getElementById('cfg-pen-folder').textContent = d.iris_pen_folder || '—';
+    document.getElementById('cfg-delete-files').textContent = d.delete_files ? 'Yes' : 'No';
+    document.getElementById('cfg-log-level').textContent = d.diagnostics?.log_level || '—';
+    document.getElementById('cfg-bt-timeout').textContent = (d.bluetooth?.pairing_timeout_seconds || '—') + ' s';
+    document.getElementById('cfg-bt-reconnect').textContent = d.bluetooth?.auto_reconnect ? 'Enabled' : 'Disabled';
+    document.getElementById('cfg-pen-auto').textContent = d.pen?.auto_detect ? 'Enabled' : 'Disabled';
+    document.getElementById('cfg-pen-timeout').textContent = (d.pen?.read_timeout_seconds || '—') + ' s';
+  } catch(e) { /* ignore */ }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Actions
+   ═══════════════════════════════════════════════════════════════ */
+async function doAction(action, label, body) {
+  try {
+    const r = await fetch('/api/actions/' + action, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showToast(d.message || label + ' done.');
+      fetchEvents();
+    } else {
+      showToast((d.error && d.error.message) || 'Action failed.');
+    }
+  } catch(e) {
+    showToast('Network error.');
+  }
+}
+
+/* Power confirm dialog */
+let _pendingPowerAction = null;
+function confirmPower(action) {
+  _pendingPowerAction = action;
+  const isReboot = action === 'reboot';
+  document.getElementById('confirm-title').textContent = isReboot ? 'Restart device?' : 'Shut down device?';
+  document.getElementById('confirm-message').textContent = isReboot
+    ? 'The device will restart. It will be available again in about a minute.'
+    : 'The device will shut down. You will need to physically power it on again to restart it.';
+  document.getElementById('confirm-ok-btn').textContent = isReboot ? 'Yes, restart' : 'Yes, shut down';
+  document.getElementById('confirm-ok-btn').onclick = executePower;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _pendingPowerAction = null;
+}
+async function executePower() {
+  closeConfirm();
+  if (!_pendingPowerAction) return;
+  try {
+    const r = await fetch('/api/actions/' + _pendingPowerAction, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({confirm:true}),
+    });
+    const d = await r.json();
+    showToast(d.ok ? (d.message || 'Done.') : ((d.error && d.error.message) || 'Failed.'), 5000);
+  } catch(e) { showToast('Network error.', 4000); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Polling
+   ═══════════════════════════════════════════════════════════════ */
+async function fetchStatus() {
+  try {
+    const r = await fetch('/api/status');
+    if (!r.ok) throw new Error('bad status');
+    const data = await r.json();
+    _currentStatus = data;
+    renderHome(data);
+    if (_currentPage === 'connections') renderConnections(data);
+    if (_currentPage === 'activity')    renderActivity(data);
+  } catch(e) {
+    updateBadge('offline', 'Offline');
+    document.getElementById('home-overall-label').textContent = 'Offline';
+    document.getElementById('home-overall-explanation').textContent = 'Cannot reach device';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Utilities
+   ═══════════════════════════════════════════════════════════════ */
+function fmtTime(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  } catch(e) { return iso; }
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SSE (with polling fallback)
+   ═══════════════════════════════════════════════════════════════ */
+function startSSE() {
+  if (!window.EventSource) { startPolling(); return; }
+  const es = new EventSource('/api/stream');
+  es.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === 'event_added') {
+        _allEvents.push(msg.data);
+        if (_currentPage === 'events')   renderEventList();
+        if (_currentPage === 'activity') renderActivityEvents();
+      }
+    } catch(e) { /* ignore */ }
+  };
+  es.onerror = () => { es.close(); startPolling(); };
+}
+function startPolling() {
+  setInterval(fetchEvents, 10000);
+}
+
+/* ── Bootstrap ── */
+fetchStatus();
+setInterval(fetchStatus, 5000);
+fetchEvents();
+startSSE();
+</script>
+</body>
+</html>

@@ -17,14 +17,18 @@ Python application package for `ipr-keyboard`.
 | `usb/deleter.py` | File deletion helpers |
 | `usb/mtp_sync.py` | MTP -> cache sync utility + CLI |
 | `utils/helpers.py` | Project/config path and JSON helpers |
-| `web/server.py` | Flask app factory and root endpoints |
-| `web/pairing_routes.py` | Pairing wizard endpoints |
-| `web/templates/pairing_wizard.html` | Pairing UI template |
+| `web/server.py` | Flask app factory, legacy HTML endpoints, and dashboard root |
+| `web/api.py` | `/api/` Blueprint — dashboard JSON API (all `/api/*` routes) |
+| `web/pairing_routes.py` | Legacy pairing wizard endpoints |
+| `web/templates/dashboard.html` | Image-first SPA dashboard (primary UI) |
+| `web/templates/` | Legacy HTML templates (status, config, logs, pairing) |
+| `web/static/` | SVG icons and device-flow illustration for the dashboard |
 
 ## Runtime Model
 
 - Main loop monitors configured folder and sends text through `BluetoothKeyboard`.
-- Web server runs concurrently for config/log/status routes.
+- Web server runs concurrently, serving the image-first dashboard SPA at `/` and dashboard
+  API endpoints under `/api/` (see `web/api.py` and `docs/ui/api-contract.md`).
 - Bluetooth transmission is delegated to external helper (`bt_kb_send`) and systemd BLE daemon stack.
 
 ## Current Config Fields
