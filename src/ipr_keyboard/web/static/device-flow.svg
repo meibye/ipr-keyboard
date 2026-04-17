@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80" width="400" height="80">
+  <!-- Pen box -->
+  <rect x="4" y="16" width="88" height="48" rx="8" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2"/>
+  <text x="48" y="34" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#7f8c8d">Pen</text>
+  <rect x="20" y="38" width="56" height="18" rx="3" fill="#95a5a6"/>
+  <polygon points="48,38 68,38 76,47 68,56 28,56 20,47" fill="#95a5a6"/>
+  <text x="48" y="52" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#fff">Scanner</text>
+  <!-- Arrow 1 -->
+  <line x1="96" y1="40" x2="140" y2="40" stroke="#bdc3c7" stroke-width="2"/>
+  <polyline points="132,34 144,40 132,46" fill="none" stroke="#bdc3c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Pi box -->
+  <rect x="148" y="16" width="104" height="48" rx="8" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2"/>
+  <text x="200" y="34" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#7f8c8d">Raspberry Pi</text>
+  <rect x="168" y="38" width="64" height="18" rx="3" fill="#2980b9"/>
+  <text x="200" y="52" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#fff">Bridge</text>
+  <!-- Arrow 2 -->
+  <line x1="256" y1="40" x2="300" y2="40" stroke="#bdc3c7" stroke-width="2"/>
+  <polyline points="292,34 304,40 292,46" fill="none" stroke="#bdc3c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- PC box -->
+  <rect x="308" y="16" width="88" height="48" rx="8" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2"/>
+  <text x="352" y="34" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#7f8c8d">PC</text>
+  <rect x="328" y="38" width="48" height="18" rx="3" fill="#27ae60"/>
+  <text x="352" y="52" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#fff">Host</text>
+</svg>

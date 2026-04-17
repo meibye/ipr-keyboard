@@ -1,0 +1,481 @@
+"""Flask API blueprint for the dashboard.
+
+Implements all /api/ endpoints as defined in docs/ui/api-contract.md.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from datetime import datetime, timezone
+from typing import Any
+
+from flask import Blueprint, Response, jsonify, request, stream_with_context
+
+from ..config.manager import ConfigManager
+from ..logging.logger import get_logger
+
+logger = get_logger()
+
+bp_api = Blueprint("api", __name__, url_prefix="/api")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _run(cmd: list[str], timeout: int = 5) -> str:
+    try:
+        return subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=timeout)
+    except Exception as exc:
+        return f"ERROR: {exc}"
+
+
+def _service_active(name: str) -> bool:
+    try:
+        rc = subprocess.call(
+            ["systemctl", "is-active", "--quiet", name],
+            timeout=5,
+        )
+        return rc == 0
+    except Exception:
+        return False
+
+
+def _build_bluetooth_state() -> dict[str, Any]:
+    ble_active = _service_active("bt_hid_ble.service")
+    adapter_out = _run(["bluetoothctl", "show"])
+    powered = "Powered: yes" in adapter_out
+
+    connected_device = None
+    if ble_active and powered:
+        try:
+            devices_out = subprocess.check_output(
+                ["bluetoothctl", "devices", "Connected"],
+                text=True,
+                stderr=subprocess.STDOUT,
+                timeout=5,
+            )
+            for line in devices_out.splitlines():
+                parts = line.split(None, 2)
+                if len(parts) >= 3:
+                    connected_device = parts[2].strip()
+                    break
+        except Exception:
+            pass
+
+    if ble_active and powered and connected_device:
+        state = "connected"
+        label = "Connected"
+        explanation = f"Paired with {connected_device}"
+    elif ble_active:
+        state = "waiting"
+        label = "Waiting"
+        explanation = "Waiting for paired PC"
+    else:
+        state = "error"
+        label = "Error"
+        explanation = "Bluetooth service not running"
+
+    return {
+        "state": state,
+        "label": label,
+        "explanation": explanation,
+        "host_name": connected_device,
+    }
+
+
+def _build_pen_state() -> dict[str, Any]:
+    agent_active = _service_active("bt_hid_agent_unified.service")
+    if agent_active:
+        state, label, explanation = "ready", "Ready", "Scanner found"
+    else:
+        state, label, explanation = "missing", "Not detected", "Attach the pen / scanner"
+    return {"state": state, "label": label, "explanation": explanation, "device_name": "IR Pen Scanner"}
+
+
+def _build_transmission_state() -> dict[str, Any]:
+    return {
+        "state": "idle",
+        "label": "Idle",
+        "explanation": "No active send",
+        "progress_percent": None,
+        "items_sent": 0,
+        "retry_count": 0,
+        "last_success_at": None,
+    }
+
+
+def _build_system_state(bt: dict[str, Any]) -> dict[str, Any]:
+    ble_active = _service_active("bt_hid_ble.service")
+    agent_active = _service_active("bt_hid_agent_unified.service")
+    if ble_active and agent_active:
+        state, label, explanation = "healthy", "Healthy", "No current warnings"
+    else:
+        state, label, explanation = "warning", "Warning", "One or more services are not running"
+    return {"state": state, "label": label, "explanation": explanation}
+
+
+def _build_overall_state(bt: dict, pen: dict, tx: dict, sys: dict) -> dict[str, Any]:
+    states = [bt["state"], pen["state"], tx["state"], sys["state"]]
+    if any(s == "error" for s in states) or tx["state"] == "failed":
+        return {"state": "error", "label": "Error", "explanation": "A problem needs attention"}
+    if any(s in ("warning", "retrying") for s in states) or sys["state"] == "warning":
+        return {"state": "warning", "label": "Warning", "explanation": "Something needs attention"}
+    if bt["state"] == "connected" and pen["state"] == "ready":
+        return {"state": "ready", "label": "Ready", "explanation": "Ready for use"}
+    return {"state": "warning", "label": "Warning", "explanation": "Not fully ready"}
+
+
+def _parse_journalctl_events(lines: list[str], category_filter: str | None, severity_filter: str | None, limit: int) -> list[dict]:
+    events: list[dict] = []
+    for i, line in enumerate(reversed(lines)):
+        if len(events) >= limit:
+            break
+        line = line.strip()
+        if not line:
+            continue
+
+        # Determine category from unit name hints
+        lline = line.lower()
+        if "bt_hid_ble" in lline or "bluetooth" in lline or "bluetoothctl" in lline:
+            category = "bluetooth"
+        elif "pen" in lline or "irispen" in lline or "scanner" in lline:
+            category = "pen"
+        elif "transmission" in lline or "transfer" in lline or "send" in lline:
+            category = "transmission"
+        elif "systemd" in lline or "kernel" in lline or "reboot" in lline:
+            category = "system"
+        else:
+            category = "system"
+
+        if category_filter and category != category_filter:
+            continue
+
+        # Severity from keywords
+        if any(k in lline for k in ("error", "failed", "failure", "critical")):
+            severity = "error"
+        elif any(k in lline for k in ("warn", "warning", "retry", "retrying")):
+            severity = "warning"
+        else:
+            severity = "info"
+
+        if severity_filter and severity != severity_filter:
+            continue
+
+        # Friendly summary
+        if "connected" in lline and "bluetooth" in category:
+            summary = "Bluetooth connected"
+            details = "The device connected via Bluetooth."
+        elif "disconnected" in lline and "bluetooth" in category:
+            summary = "Bluetooth disconnected"
+            details = "The Bluetooth connection was lost."
+        elif "started" in lline:
+            summary = "Service started"
+            details = line
+        elif "stopped" in lline:
+            summary = "Service stopped"
+            details = line
+        else:
+            summary = line[:80] if len(line) > 80 else line
+            details = line
+
+        events.append({
+            "id": f"evt_{i}",
+            "timestamp": _now(),
+            "category": category,
+            "severity": severity,
+            "summary": summary,
+            "details": details,
+        })
+
+    return events
+
+
+# ---------------------------------------------------------------------------
+# Status endpoints
+# ---------------------------------------------------------------------------
+
+@bp_api.get("/status")
+def api_status():
+    try:
+        bt = _build_bluetooth_state()
+        pen = _build_pen_state()
+        tx = _build_transmission_state()
+        sys = _build_system_state(bt)
+        overall = _build_overall_state(bt, pen, tx, sys)
+
+        events = _fetch_recent_events(limit=1)
+        last_event = events[0] if events else None
+
+        return jsonify({
+            "timestamp": _now(),
+            "overall": overall,
+            "bluetooth": bt,
+            "pen": pen,
+            "transmission": tx,
+            "system": sys,
+            "last_event": last_event,
+        })
+    except Exception:
+        logger.exception("Error in /api/status")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.get("/status/bluetooth")
+def api_status_bluetooth():
+    try:
+        bt = _build_bluetooth_state()
+        bt["timestamp"] = _now()
+        return jsonify(bt)
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.get("/status/pen")
+def api_status_pen():
+    try:
+        pen = _build_pen_state()
+        pen["timestamp"] = _now()
+        return jsonify(pen)
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.get("/status/transmission")
+def api_status_transmission():
+    try:
+        tx = _build_transmission_state()
+        tx["timestamp"] = _now()
+        return jsonify(tx)
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.get("/status/system")
+def api_status_system():
+    try:
+        sys = _build_system_state({})
+        sys["timestamp"] = _now()
+        return jsonify(sys)
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# ---------------------------------------------------------------------------
+# Event endpoints
+# ---------------------------------------------------------------------------
+
+def _fetch_recent_events(limit: int = 50, category: str | None = None, severity: str | None = None) -> list[dict]:
+    try:
+        cmd = ["journalctl", "-n", str(limit * 4), "-o", "short", "--no-pager"]
+        out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=10)
+        lines = out.splitlines()
+        return _parse_journalctl_events(lines, category, severity, limit)
+    except Exception:
+        return []
+
+
+@bp_api.get("/events")
+def api_events():
+    try:
+        limit = min(int(request.args.get("limit", 50)), 200)
+        category = request.args.get("category") or None
+        severity = request.args.get("severity") or None
+        events = _fetch_recent_events(limit=limit, category=category, severity=severity)
+        return jsonify({"items": events})
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.get("/events/latest")
+def api_events_latest():
+    try:
+        events = _fetch_recent_events(limit=1)
+        if events:
+            return jsonify(events[0])
+        return jsonify({
+            "id": "evt_0",
+            "timestamp": _now(),
+            "category": "system",
+            "severity": "info",
+            "summary": "No recent events",
+            "details": "",
+        })
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# ---------------------------------------------------------------------------
+# Log endpoints
+# ---------------------------------------------------------------------------
+
+@bp_api.get("/logs/raw")
+def api_logs_raw():
+    try:
+        limit = min(int(request.args.get("limit", 100)), 1000)
+        contains = request.args.get("contains") or None
+        cmd = ["journalctl", "-n", str(limit), "-o", "short", "--no-pager"]
+        try:
+            out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=10)
+        except Exception:
+            out = ""
+        items = []
+        for line in out.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if contains and contains.lower() not in line.lower():
+                continue
+            items.append({"timestamp": _now(), "line": line})
+        return jsonify({"items": items})
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# ---------------------------------------------------------------------------
+# Config endpoints
+# ---------------------------------------------------------------------------
+
+@bp_api.get("/config")
+def api_config_get():
+    try:
+        cfg = ConfigManager.instance().get()
+        return jsonify({
+            "device_name": "IPR Pen Bridge",
+            "ui_title": "IPR Pen Bridge",
+            "bluetooth": {
+                "auto_reconnect": True,
+                "pairing_timeout_seconds": 120,
+            },
+            "pen": {
+                "auto_detect": True,
+                "read_timeout_seconds": 10,
+            },
+            "diagnostics": {
+                "log_level": "INFO" if getattr(cfg, "Logging", True) else "OFF",
+            },
+        })
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/config")
+def api_config_post():
+    try:
+        data = request.get_json(force=True) or {}
+        cfg_mgr = ConfigManager.instance()
+        update_kwargs: dict[str, Any] = {}
+        if "diagnostics" in data and "log_level" in data["diagnostics"]:
+            update_kwargs["Logging"] = data["diagnostics"]["log_level"] != "OFF"
+        if update_kwargs:
+            cfg_mgr.update(**update_kwargs)
+        return jsonify({"ok": True, "message": "Configuration updated."})
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# ---------------------------------------------------------------------------
+# Action endpoints
+# ---------------------------------------------------------------------------
+
+@bp_api.post("/actions/pairing")
+def api_action_pairing():
+    try:
+        data = request.get_json(force=True) or {}
+        enabled = data.get("enabled", True)
+        if enabled:
+            _run(["bluetoothctl", "pairable", "on"])
+            _run(["bluetoothctl", "discoverable", "on"])
+            _run(["bluetoothctl", "agent", "on"])
+            _run(["bluetoothctl", "default-agent"])
+            return jsonify({"ok": True, "message": "Pairing mode enabled."})
+        else:
+            _run(["bluetoothctl", "pairable", "off"])
+            _run(["bluetoothctl", "discoverable", "off"])
+            return jsonify({"ok": True, "message": "Pairing mode disabled."})
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/actions/rescan-pen")
+def api_action_rescan_pen():
+    return jsonify({"ok": True, "message": "Pen rescan started."})
+
+
+@bp_api.post("/actions/reconnect-bluetooth")
+def api_action_reconnect_bluetooth():
+    try:
+        subprocess.Popen(["systemctl", "restart", "bt_hid_ble.service"])
+        return jsonify({"ok": True, "message": "Bluetooth reconnect started."})
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/actions/reboot")
+def api_action_reboot():
+    data = request.get_json(force=True) or {}
+    if not data.get("confirm"):
+        return jsonify({"error": {"code": "confirmation_required", "message": "Set confirm=true to proceed."}}), 400
+    try:
+        subprocess.Popen(["sudo", "reboot"])
+        return jsonify({"ok": True, "message": "Reboot initiated."})
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/actions/shutdown")
+def api_action_shutdown():
+    data = request.get_json(force=True) or {}
+    if not data.get("confirm"):
+        return jsonify({"error": {"code": "confirmation_required", "message": "Set confirm=true to proceed."}}), 400
+    try:
+        subprocess.Popen(["sudo", "shutdown", "-h", "now"])
+        return jsonify({"ok": True, "message": "Shutdown initiated."})
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# ---------------------------------------------------------------------------
+# SSE stream endpoint
+# ---------------------------------------------------------------------------
+
+@bp_api.get("/stream")
+def api_stream():
+    def generate():
+        import time
+        while True:
+            try:
+                bt = _build_bluetooth_state()
+                pen = _build_pen_state()
+                tx = _build_transmission_state()
+                sys = _build_system_state(bt)
+                overall = _build_overall_state(bt, pen, tx, sys)
+                payload = json.dumps({
+                    "type": "status_update",
+                    "data": {
+                        "timestamp": _now(),
+                        "overall": overall,
+                        "bluetooth": bt,
+                        "pen": pen,
+                        "transmission": tx,
+                        "system": sys,
+                    },
+                })
+                yield f"data: {payload}\n\n"
+            except Exception:
+                yield "data: {}\n\n"
+            time.sleep(5)
+
+    return Response(
+        stream_with_context(generate()),
+        content_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

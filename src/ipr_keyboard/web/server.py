@@ -54,12 +54,15 @@ def create_app() -> Flask:
     app.register_blueprint(bp_config)
     app.register_blueprint(bp_logs)
 
+    from .api import bp_api
+    app.register_blueprint(bp_api)
+
     from flask import render_template
 
     @app.route("/")
     def index():
-        """Root: Human-readable HTML index of server functionality with links."""
-        return render_template("index.html")
+        """Root: Serve the image-first dashboard SPA."""
+        return render_template("dashboard.html")
 
     @app.get("/health")
     def health():

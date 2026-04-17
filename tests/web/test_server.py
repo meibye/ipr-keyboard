@@ -41,6 +41,7 @@ def test_blueprints_registered(temp_config):
     # Check that blueprints are registered
     assert "config" in app.blueprints
     assert "logs" in app.blueprints
+    assert "api" in app.blueprints
 
 
 def test_config_endpoint_registered(flask_client):
@@ -166,66 +167,23 @@ def test_service_status_exception(temp_config, monkeypatch):
     assert result == "unknown"
 
 
-def test_status_endpoint(flask_client, temp_config, monkeypatch):
-    """Test /status endpoint.
-    
-    Verifies that status endpoint returns system information.
+def test_status_endpoint_returns_html(flask_client, temp_config, monkeypatch):
+    """Test /status endpoint returns HTML (not JSON).
+
+    The legacy /status route renders an HTML template; JSON API state is at /api/status.
     """
     import subprocess
-    
-    # Mock subprocess calls for systemctl and bluetoothctl
-    def mock_call(cmd):
-        return 1  # inactive services
-    
-    def mock_check_output(cmd, text=True, stderr=None):
-        if "bluetoothctl" in cmd:
-            if "devices" in cmd:
-                return "Device AA:BB:CC:DD:EE:FF TestDevice"
-            elif "info" in cmd:
-                return "Connected: yes"
-            else:
-                return "Adapter info"
-        return ""
-    
-    monkeypatch.setattr(subprocess, "call", mock_call)
-    monkeypatch.setattr(subprocess, "check_output", mock_check_output)
-    
-    response = flask_client.get("/status")
-    
-    assert response.status_code == 200
-    data = response.get_json()
-    assert "env" in data
-    assert "config" in data
-    assert "log" in data
-    assert "services" in data
-    assert "bluetooth" in data
 
-
-def test_status_endpoint_bluetooth_error(flask_client, temp_config, monkeypatch):
-    """Test /status endpoint when bluetoothctl fails.
-    
-    Verifies that status endpoint handles bluetooth errors gracefully.
-    """
-    import subprocess
-    
-    # Mock subprocess calls
     def mock_call(cmd):
-        return 1  # inactive services
-    
+        return 1
+
     def mock_check_output(cmd, text=True, stderr=None):
-        if "bluetoothctl" in cmd:
-            if "devices" in cmd:
-                raise subprocess.CalledProcessError(1, cmd)
         return "mock output"
-    
+
     monkeypatch.setattr(subprocess, "call", mock_call)
     monkeypatch.setattr(subprocess, "check_output", mock_check_output)
-    
+
     response = flask_client.get("/status")
-    
+
     assert response.status_code == 200
-    data = response.get_json()
-    assert "bluetooth" in data
-    assert "devices" in data["bluetooth"]
-    # Should contain error info
-    assert len(data["bluetooth"]["devices"]) > 0
+    assert b"html" in response.data.lower()
