@@ -1,41 +1,76 @@
-# AGENTS.md
+# Agent guidance for this repository
 
-Shared agent instructions for Codex in this repository.
+## Project context
 
-## Canonical Source
+This repository contains a Raspberry Pi based BLE HID keyboard / pen bridge project.
+The device is resource-constrained and is expected to run reliably on Raspberry Pi Zero 2 W.
 
-Use `docs/copilot/*.md` as the canonical source for prompts and skills.
+## Core engineering priorities
 
-## Prompt Catalog
+1. reliability on-device
+2. low runtime overhead
+3. simple deployment and debugging
+4. incremental change over unnecessary rewrites
+5. clear repository-local documentation
 
-- `docs/copilot/ARCH_ALIGNMENT_PROMPT.md`
-- `docs/copilot/DIAG_AGENT_PROMPT.md`
-- `docs/copilot/LOCAL_ONLY_PROMPT.md`
-- `docs/copilot/BT_PAIRING_PLAYBOOK.md`
+## When working on the web dashboard
 
-Mirror copies for GitHub Copilot prompts:
+Read these files first:
 
-- `.github/prompts/copilot/ARCH_ALIGNMENT_PROMPT.md`
-- `.github/prompts/copilot/DIAG_AGENT_PROMPT.md`
-- `.github/prompts/copilot/LOCAL_ONLY_PROMPT.md`
-- `.github/prompts/copilot/BT_PAIRING_PLAYBOOK.md`
+- `docs/ui/dashboard-spec.md`
+- `docs/ui/wireframes.md`
+- `docs/ui/user-states.md`
+- `docs/ui/api-contract.md`
 
-## Skills Catalog
+### Dashboard expectations
 
-Source file:
+- keep the UI simple and image-first
+- use plain-language labels
+- show translated event messages before raw logs
+- prefer SVG assets committed to the repository
+- preserve a lightweight backend/frontend split
+- avoid introducing a heavy server-side web runtime unless justified
 
-- `docs/copilot/PYTHON_AGENT_SKILLS.md`
+### Default implementation direction
 
-Current installed skills list:
+Unless the codebase strongly suggests otherwise:
 
-1. `doc`
-2. `jupyter-notebook`
-3. `playwright`
-4. `gh-fix-ci`
-5. `gh-address-comments`
-6. `security-best-practices`
-7. `openai-docs`
+- keep Python as the backend/control layer
+- evolve the current web solution incrementally
+- use stable API endpoints for UI state
+- keep browser-side logic straightforward
 
-## Alignment Rule
+## Change management
 
-When cleanup or refactor questions appear, compare findings against `ARCHITECTURE.md` and flag legacy/deprecated implementations as architectural dead code candidates.
+For larger changes:
+
+- first update or confirm repository guidance and docs
+- then implement the feature
+- keep PRs reviewable
+- describe architecture decisions in the PR summary
+
+## Generated assets
+
+If images or icons are needed:
+
+- generate them as SVG where possible
+- store them in a predictable frontend asset folder
+- keep the visual style simple and consistent
+- avoid oversized or decorative assets
+
+## Testing expectations
+
+At minimum:
+
+- verify key flows manually
+- verify API behavior for changed endpoints
+- describe how the change was tested
+
+## Prohibited tendencies
+
+Avoid:
+
+- large speculative rewrites
+- unnecessary framework churn
+- introducing heavyweight UI infrastructure without clear need
+- exposing raw technical state directly as primary UI messaging

@@ -1,43 +1,42 @@
-# CLAUDE.md
+# Claude project context
 
-Project instructions for Claude Code in this repository.
+## Project
 
-## Canonical Architecture Reference
+Raspberry Pi based BLE HID keyboard / pen bridge with a local web dashboard.
 
-`ARCHITECTURE.md` is the source of truth for current vs legacy/deprecated patterns.
+## Runtime reality
 
-## Current Runtime Expectations
+Target device is Raspberry Pi Zero 2 W.
+Changes must respect limited CPU, RAM, and storage.
 
-- App entry: `python -m ipr_keyboard.main`
-- Canonical services: `ipr_keyboard.service`, `bt_hid_ble.service`, `bt_hid_agent_unified.service`, `ipr-provision.service`
-- Helper send path: `/usr/local/bin/bt_kb_send`
+## Important product direction
 
-## Working Rules
+The web UI should be:
 
-1. Prefer edits aligned to modules marked `Current` in `ARCHITECTURE.md`.
-2. If touching modules marked `Legacy` or `Deprecated`, call this out before extending behavior.
-3. Keep docs and prompt files aligned with repository implementation state.
+- image-first
+- easy for non-technical users to understand
+- responsive on local browsers
+- lightweight and robust
+- built around status, events, configuration, reboot, and shutdown
 
-## Shared Prompt Catalog
+## Read before changing the dashboard
 
-Use the same prompt set defined for Copilot/Codex:
+- `docs/ui/dashboard-spec.md`
+- `docs/ui/wireframes.md`
+- `docs/ui/user-states.md`
+- `docs/ui/api-contract.md`
 
-- `docs/copilot/ARCH_ALIGNMENT_PROMPT.md`
-- `docs/copilot/DIAG_AGENT_PROMPT.md`
-- `docs/copilot/LOCAL_ONLY_PROMPT.md`
-- `docs/copilot/BT_PAIRING_PLAYBOOK.md`
+## Design preferences
 
-GitHub Copilot mirror copies:
+- plain-language user-facing text
+- translated events before raw logs
+- SVG assets preferred
+- avoid heavy SSR/runtime web frameworks unless clearly justified
+- preserve the existing Python-oriented architecture where practical
 
-- `.github/prompts/copilot/ARCH_ALIGNMENT_PROMPT.md`
-- `.github/prompts/copilot/DIAG_AGENT_PROMPT.md`
-- `.github/prompts/copilot/LOCAL_ONLY_PROMPT.md`
-- `.github/prompts/copilot/BT_PAIRING_PLAYBOOK.md`
+## Change preferences
 
-## Shared Skills Catalog
-
-Reference `docs/copilot/PYTHON_AGENT_SKILLS.md` for the common Python agent skills list used across assistants.
-
-## Architectural Alignment Skill
-
-When asked to "clean" the repo, compare every module against ARCHITECTURE.md. If a module implements a pattern marked as "Deprecated" or "Legacy" in the architecture doc, even if it is still being called, flag it as Architectural Dead Code and propose a refactor or removal.
+- prefer incremental changes
+- keep diffs reviewable
+- update docs with implementation changes
+- include testing notes in commits or PR summaries when appropriate

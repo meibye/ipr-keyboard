@@ -1,98 +1,72 @@
-# GitHub Copilot Instructions for ipr-keyboard
+# Repository instructions for GitHub Copilot
 
-## Source of Truth
+## Purpose
 
-Use `ARCHITECTURE.md` as the canonical reference for current system design.
-Use `docs/copilot/*.md` as the canonical prompt/skills source.
+This repository contains a Raspberry Pi based BLE HID keyboard / pen bridge solution.
+AI-generated changes must preserve lightweight operation and fit the realities of Raspberry Pi Zero 2 W.
 
-## Shared Prompt Catalog
+## High-level guidance
 
-The following prompt files are available for Copilot and mirrored from `docs/copilot`:
+- Prefer incremental improvement over large rewrites.
+- Preserve the current Python-based backend approach where practical.
+- Avoid introducing heavy runtime stacks unless clearly justified.
+- Prefer simple, maintainable solutions that are easy to debug on-device.
+- Keep runtime dependencies small.
 
-- `.github/prompts/copilot/ARCH_ALIGNMENT_PROMPT.md`
-- `.github/prompts/copilot/DIAG_AGENT_PROMPT.md`
-- `.github/prompts/copilot/LOCAL_ONLY_PROMPT.md`
-- `.github/prompts/copilot/BT_PAIRING_PLAYBOOK.md`
+## Web dashboard guidance
 
-Shared skills file:
+When working on the web UI:
 
-- `.github/prompts/copilot/PYTHON_AGENT_SKILLS.md`
+- treat `docs/ui/dashboard-spec.md` as the product specification
+- treat `docs/ui/wireframes.md` as the layout guide
+- treat `docs/ui/user-states.md` as the UI state model
+- treat `docs/ui/api-contract.md` as the backend/frontend contract
 
-## Current Stack Summary
+### UI requirements
 
-- Python package: `src/ipr_keyboard`
-- Entry point: `ipr_keyboard.main:main`
-- BLE service path: `bt_hid_ble.service` + `bt_hid_agent_unified.service`
-- Send helper: `/usr/local/bin/bt_kb_send`
-- Main service: `ipr_keyboard.service`
+- image-first and icon-heavy
+- understandable to non-technical users
+- plain-language user-facing text
+- technical logs are secondary to translated events
+- touch-friendly and responsive
+- lightweight enough for Raspberry Pi Zero 2 W
 
-# Project Guidelines
+### Asset requirements
 
-## Code Style
+- prefer SVG for UI illustrations and icons
+- commit generated assets in-repo
+- keep assets simple, flat, and readable
+- avoid large raster image files unless truly necessary
 
-- Python 3.12+ (see [pyproject.toml](pyproject.toml))
-- Use dataclasses for config/state ([src/ipr_keyboard/config/manager.py](src/ipr_keyboard/config/manager.py))
-- Prefer type hints and docstrings throughout
-- Logging via [get_logger()](src/ipr_keyboard/logging/logger.py)
-- Web endpoints registered via Flask blueprints ([src/ipr_keyboard/web/server.py](src/ipr_keyboard/web/server.py))
-- USB file logic via helpers ([src/ipr_keyboard/usb/detector.py](src/ipr_keyboard/usb/detector.py), [src/ipr_keyboard/usb/reader.py](src/ipr_keyboard/usb/reader.py), [src/ipr_keyboard/usb/deleter.py](src/ipr_keyboard/usb/deleter.py))
+### Architecture preferences
 
-## Architecture
+- prefer Python backend continuity
+- prefer static frontend assets if adding a richer frontend
+- avoid a persistent heavy SSR runtime such as a full Next.js server unless there is a strong reason
 
-- Canonical module map: [ARCHITECTURE.md](ARCHITECTURE.md)
-- Main app: [src/ipr_keyboard/main.py](src/ipr_keyboard/main.py)
-- BLE backend: [bt_hid_ble.service](scripts/service/svc/bt_hid_ble.service), [bt_hid_agent_unified.service](scripts/service/svc/bt_hid_agent_unified.service)
-- Helper: [bt_kb_send.sh](scripts/ble/bt_kb_send.sh)
-- Web server: [src/ipr_keyboard/web/server.py](src/ipr_keyboard/web/server.py)
-- Config: [src/ipr_keyboard/config/manager.py](src/ipr_keyboard/config/manager.py), [config.json](config.json)
-- See [ARCHITECTURE.md](ARCHITECTURE.md) for current vs legacy/deprecated patterns
+## Safety and actions
 
-## Build and Test
+Dangerous actions such as reboot and shutdown must:
 
-- Setup: `./scripts/sys_setup_venv.sh`
-- Run app: `./scripts/dev_run_app.sh`
-- Run web: `./scripts/dev_run_webserver.sh`
-- Test: `pytest` or `pytest --cov=ipr_keyboard --cov-report=term-missing`
-- E2E/systemd: `./scripts/test_e2e_demo.sh`, `./scripts/test_e2e_systemd.sh`, `./scripts/test_smoke.sh`
-- See [tests/README.md](tests/README.md) for test inventory
+- require explicit confirmation
+- be visually separated in the UI
+- use backend-controlled actions rather than direct frontend shell behavior
 
-## Project Conventions
+## Documentation
 
-- Config reads/updates via `ConfigManager.instance()` ([src/ipr_keyboard/config/manager.py](src/ipr_keyboard/config/manager.py))
-- Logging via `get_logger()` ([src/ipr_keyboard/logging/logger.py](src/ipr_keyboard/logging/logger.py))
-- USB file ops via helpers ([src/ipr_keyboard/usb/detector.py](src/ipr_keyboard/usb/detector.py), [src/ipr_keyboard/usb/reader.py](src/ipr_keyboard/usb/reader.py), [src/ipr_keyboard/usb/deleter.py](src/ipr_keyboard/usb/deleter.py))
-- Web endpoints in blueprints/app factory ([src/ipr_keyboard/web/server.py](src/ipr_keyboard/web/server.py))
-- Pairing wizard: [src/ipr_keyboard/web/pairing_routes.py](src/ipr_keyboard/web/pairing_routes.py)
-- Legacy/compatibility paths flagged per [ARCHITECTURE.md](ARCHITECTURE.md)
+When changing functionality, also update relevant documentation:
 
-## Integration Points
+- deployment notes
+- configuration notes
+- UI docs
+- API docs if contract changes
 
-- BLE HID stack via systemd services ([scripts/service/svc/bt_hid_ble.service](scripts/service/svc/bt_hid_ble.service), [scripts/service/svc/bt_hid_agent_unified.service](scripts/service/svc/bt_hid_agent_unified.service))
-- Helper script: `/usr/local/bin/bt_kb_send` ([scripts/ble/bt_kb_send.sh](scripts/ble/bt_kb_send.sh))
-- Flask web API ([src/ipr_keyboard/web/server.py](src/ipr_keyboard/web/server.py))
-- Provisioning pipeline ([provision/README.md](provision/README.md))
+## Quality bar
 
-## Security
+Before finalizing a change:
 
-- Sensitive config in `/opt/ipr_common.env` (see [provision/README.md](provision/README.md))
-- BLE pairing and agent services run as systemd units
-- No destructive actions without explicit approval (see [docs/copilot/DIAG_AGENT_PROMPT.md](docs/copilot/DIAG_AGENT_PROMPT.md))
-
-## Development Commands
-
-```bash
-./scripts/sys_setup_venv.sh
-./scripts/dev_run_app.sh
-pytest --cov=ipr_keyboard --cov-report=term-missing
-```
-
-## Implementation Conventions
-
-- Use `ConfigManager.instance()` for config reads/updates.
-- Use `get_logger()` from `src/ipr_keyboard/logging/logger.py`.
-- Use USB helper modules (`detector`, `reader`, `deleter`) instead of ad-hoc file logic.
-- Keep web endpoints registered in blueprints/app factory patterns.
-
-## Architectural Alignment Skill
-
-When asked to "clean" the repo, compare every module against ARCHITECTURE.md. If a module implements a pattern marked as "Deprecated" or "Legacy" in the architecture doc, even if it is still being called, flag it as Architectural Dead Code and propose a refactor or removal.
+- keep the diff focused
+- avoid unnecessary architecture churn
+- prefer clear file structure
+- add or update tests where practical
+- include testing notes in the PR summary
