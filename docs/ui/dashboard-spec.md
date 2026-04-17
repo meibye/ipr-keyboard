@@ -65,12 +65,20 @@ The UI must be simple enough for a non-technical user standing near the device.
 
 ## Recommended architecture
 
+### Existing baseline
+
+The Flask server at `src/ipr_keyboard/web/server.py` is the starting point for the dashboard.
+HTML templates live in `src/ipr_keyboard/web/templates/`.
+SVG assets and other static files should go in `src/ipr_keyboard/web/static/`.
+
+All implementation work should evolve this server rather than replacing it.
+
 ### Preferred solution
 
-- Backend: Python with FastAPI or Flask
-- Frontend: lightweight static frontend
-- Static serving: nginx
-- Realtime updates: Server-Sent Events preferred, WebSocket optional
+- Backend: Python with Flask (already in place)
+- Frontend: vanilla HTML/CSS/JS served as static files — no build step
+- Static serving: Flask development, nginx in production
+- Realtime updates: Server-Sent Events preferred, lightweight polling as fallback
 
 ### Architecture principles
 
@@ -78,10 +86,11 @@ The UI must be simple enough for a non-technical user standing near the device.
 - Keep the frontend mostly presentational and state-driven.
 - Avoid introducing a full SSR runtime such as a persistent Next.js server.
 - Prefer incremental evolution of the current web implementation.
+- New dashboard API endpoints must use the `/api/` prefix as defined in the API contract.
 
 ### Why this approach
 
-This project already has a Python-based device backend and simple Flask pages. The best path is usually to keep Python as the control layer and improve the UI incrementally, instead of introducing a large new runtime stack.
+This project already has a Python-based device backend and a Flask server with templates. The best path is to keep Flask as the control layer and improve the UI incrementally, without introducing a large new runtime stack or a front-end build pipeline.
 
 ---
 
@@ -361,6 +370,11 @@ Must require confirmation and warn that manual power action may be needed to sta
 ---
 
 ## Asset strategy
+
+### Asset folder
+
+Store all SVG assets in `src/ipr_keyboard/web/static/`.
+Use predictable naming: `icon-bt-connected.svg`, `icon-pen-ready.svg`, `device-flow.svg`, etc.
 
 ### Preferred asset format
 

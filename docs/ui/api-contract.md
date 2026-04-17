@@ -16,6 +16,15 @@ The backend may have additional internal endpoints, but the frontend should depe
 - no frontend direct shell execution
 - all timestamps should be ISO 8601
 
+## Existing server baseline
+
+The Flask server at `src/ipr_keyboard/web/server.py` currently serves non-prefixed routes
+(`/`, `/health`, `/status`, `/logs/`, `/pairing/`, `/config/`).
+
+New dashboard endpoints defined in this contract use the `/api/` prefix.
+Existing routes should remain functional during migration.
+When the dashboard implementation PR lands, the old routes can be deprecated incrementally.
+
 ---
 
 ## Base path

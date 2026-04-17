@@ -22,6 +22,13 @@ When working on the web UI:
 - treat `docs/ui/user-states.md` as the UI state model
 - treat `docs/ui/api-contract.md` as the backend/frontend contract
 
+### Existing baseline
+
+The dashboard already has a Flask server at `src/ipr_keyboard/web/server.py` with HTML templates in `src/ipr_keyboard/web/templates/`.
+Evolve this incrementally rather than replacing it.
+
+New dashboard API endpoints must be added under the `/api/` prefix as defined in the API contract.
+
 ### UI requirements
 
 - image-first and icon-heavy
@@ -34,15 +41,18 @@ When working on the web UI:
 ### Asset requirements
 
 - prefer SVG for UI illustrations and icons
+- store SVG assets in `src/ipr_keyboard/web/static/`
 - commit generated assets in-repo
 - keep assets simple, flat, and readable
 - avoid large raster image files unless truly necessary
 
 ### Architecture preferences
 
-- prefer Python backend continuity
-- prefer static frontend assets if adding a richer frontend
-- avoid a persistent heavy SSR runtime such as a full Next.js server unless there is a strong reason
+- the backend is Flask — keep it that way unless there is a strong reason to change
+- use vanilla HTML/CSS/JS for the frontend — no build step required
+- prefer static frontend assets served by the existing Flask server or nginx
+- avoid a persistent heavy SSR runtime such as a full Next.js server
+- prefer Server-Sent Events for live state updates; fall back to polling if needed
 
 ## Safety and actions
 
