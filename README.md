@@ -2,90 +2,29 @@
 
 IrisPen text-file ingestion to Bluetooth keyboard output on Raspberry Pi.
 
-## Current State (audited 2026-02-15)
+## Documentation
 
-The implementation currently runs a BLE HID over GATT stack:
-- Python app entry point: `src/ipr_keyboard/main.py`
-- Bluetooth send helper used by app: `/usr/local/bin/bt_kb_send`
-- Active backend service design: `bt_hid_ble.service` + `bt_hid_agent_unified.service`
-- Main app service: `ipr_keyboard.service`
-- Headless hotspot service: `ipr-provision.service`
+See:
+- docs/README.md
+- docs/architecture/ARCHITECTURE.md
+- docs/operations/device-bringup.md
 
-The app itself does not implement backend switching in `config.json`; it only persists:
-- `IrisPenFolder`
-- `DeleteFiles`
-- `Logging`
-- `MaxFileSize`
-- `LogPort`
+## Current State
 
-## Runtime Flow
-
-1. `ipr_keyboard.main` starts:
-   - Flask web server thread — image-first dashboard SPA at `/`, dashboard JSON API under
-     `/api/` (status, events, config, actions), and legacy endpoints (`/health`, `/status`,
-     `/config/`, `/logs/`, `/pairing/`)
-   - USB watch loop thread (folder polling)
-2. New file is detected in `IrisPenFolder`
-3. File content is read and sent via `BluetoothKeyboard.send_text()`
-4. `BluetoothKeyboard` shells out to `/usr/local/bin/bt_kb_send`
-5. `bt_hid_ble_daemon.py` consumes FIFO payload and emits BLE HID reports
+BLE HID over GATT stack using bt_hid_ble.service and bt_hid_agent_unified.service.
 
 ## Quick Start
 
-### Provisioning (recommended)
-
-Use `provision/provision_wizard.sh` or run steps manually:
-
 ```bash
-sudo ./provision/00_bootstrap.sh
-sudo ./provision/01_os_base.sh
-sudo reboot
-sudo ./provision/02_device_identity.sh
-sudo reboot
-sudo ./provision/03_app_install.sh
-sudo ./provision/04_enable_services.sh
-sudo ./provision/05_copilot_debug_tools.sh   # optional
-sudo ./provision/06_verify.sh
-```
-
-### Local Development
-
-```bash
-./scripts/sys_setup_venv.sh
-./scripts/dev_run_app.sh
-pytest
-```
-
-## Prompt Drift Automation
-
-Prompt mirrors are automatically checked in CI via `.github/workflows/prompt-drift-check.yml`.
-
-Local pre-commit enforcement:
-
-```bash
-pip install pre-commit
-pre-commit install
-```
-
-Manual runs:
-
-```bash
-./scripts/sys_sync_copilot_prompts.sh --check
-./scripts/sys_sync_copilot_prompts.sh --sync
+sudo ./provision/provision_wizard.sh
 ```
 
 ## Directory Guide
 
-- `ARCHITECTURE.md`: canonical module/state map, including legacy/deprecated patterns
-- `provision/`: end-to-end device bootstrap flow
-- `scripts/`: install, diagnostic, test, service management scripts
-- `src/ipr_keyboard/`: Python application package
-- `tests/`: pytest suite
-- `docs/copilot/`: agent prompts and troubleshooting playbooks
+- docs/ — all human-facing documentation
+- src/ipr_keyboard/ — application
+- scripts/ — operational scripts
 
-## Important Notes
+## Notes
 
-- Current service units shipped in repo do **not** include `bt_hid_uinput.service`.
-- Runtime pairing endpoints are BLE-only and do not call `ipr_backend_manager.service`.
-
-For cleanup/refactor work, start from `ARCHITECTURE.md`.
+Start all cleanup and refactor work from docs/architecture/ARCHITECTURE.md
