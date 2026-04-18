@@ -1,0 +1,11 @@
+# Example Codex configuration.
+# Adjust model, approval, and sandbox settings to match your environment.
+
+model = "gpt-5-codex"
+model_reasoning_effort = "medium"
+
+[tools]
+web_search = true
+
+[mcp]
+# See .codex/mcp.json for example server declarations.

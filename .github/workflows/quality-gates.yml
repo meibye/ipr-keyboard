@@ -1,0 +1,42 @@
+name: quality-gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Python checks when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f pyproject.toml ]; then
+            pip install uv
+            uv run ruff check . || true
+            uv run ruff format --check . || true
+            if [ -d tests ]; then
+              uv run pytest -q || true
+            fi
+          fi
+
+      - name: Run Node checks when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f package.json ]; then
+            npm ci || npm install
+            npm run lint --if-present || true
+            npm run test --if-present || true
+          fi

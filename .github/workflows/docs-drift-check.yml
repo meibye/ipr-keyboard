@@ -1,0 +1,27 @@
+name: docs-drift-check
+
+on:
+  pull_request:
+
+jobs:
+  docs-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect interface/config changes
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          CHANGED="$(git diff --name-only origin/${{ github.base_ref }}...HEAD)"
+          echo "$CHANGED"
+
+          NEEDS_DOCS=0
+
+          echo "$CHANGED" | grep -E '(^src/api/|^src/cli/|^infra/|^deploy/|schema|openapi|config)' && NEEDS_DOCS=1 || true
+
+          if [ "$NEEDS_DOCS" -eq 1 ]; then
+            echo "$CHANGED" | grep -E '(^docs/|README.md)' >/dev/null || {
+              echo "Code/config/interface changes detected without documentation updates."
+              exit 1
+            }
+          fi
