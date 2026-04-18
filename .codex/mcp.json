@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "github": {
+      "description": "GitHub MCP server placeholder. Replace with your preferred GitHub MCP configuration."
+    },
+    "docs": {
+      "description": "Documentation MCP server placeholder for internal or vendor documentation."
+    },
+    "browser": {
+      "description": "Browser or Playwright MCP server placeholder for UI and end-to-end validation."
+    }
+  }
+}

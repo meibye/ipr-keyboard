@@ -1,5 +1,71 @@
 # Agent guidance for this repository
 
+## Purpose
+This repository contains production software and associated operational and developer documentation.
+Every change must preserve buildability, testability, maintainability, and documentation accuracy.
+
+## Global working rules
+- Read the relevant files before changing code.
+- Prefer small, reviewable changes over broad rewrites.
+- Do not change public behavior silently.
+- Keep architecture boundaries intact.
+- Do not introduce new dependencies unless justified.
+- Do not edit generated files unless the task explicitly requires it.
+
+## Required validation
+Before concluding work, run the smallest relevant validation set:
+- format
+- lint
+- unit tests
+- targeted integration tests when behavior changed
+- docs checks when public behavior, configuration, or workflows changed
+
+## Documentation policy
+Update documentation when any of the following changes:
+- public APIs
+- CLI commands or flags
+- configuration schema or environment variables
+- architecture or component responsibilities
+- deployment or operational workflows
+- user-visible behavior
+
+Prefer targeted documentation edits over rewriting whole documents.
+
+## Testing policy
+For bug fixes:
+- add or update a regression test where practical
+
+For new features:
+- add happy-path tests
+- add at least one boundary or failure-path test when practical
+
+## Security and safety
+- Never commit secrets or credentials
+- Treat authentication, authorization, encryption, and data handling changes as high risk
+- Prefer least privilege in configs and tooling
+- Flag any security-relevant uncertainty explicitly
+
+## Review expectations
+Summaries must include:
+- what changed
+- why it changed
+- how it was validated
+- which docs were updated
+- remaining risks or follow-ups
+
+## Skills to use
+Use the most relevant skill when applicable:
+- implement-feature
+- add-tests
+- review-pr
+- refactor-safely
+- update-docs-from-code
+- prepare-release
+- root-cause-analysis
+- dependency-upgrade
+- security-review
+- design-rfc
+
 ## Project context
 
 This repository contains a Raspberry Pi based BLE HID keyboard / pen bridge project.
