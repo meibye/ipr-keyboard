@@ -95,7 +95,7 @@ Defined by `AppConfig` in `src/ipr_keyboard/config/manager.py`:
 
 Required policy text for agent instructions:
 
-"When asked to 'clean' the repo, compare every module against ARCHITECTURE.md. If a module implements a pattern marked as 'Deprecated' or 'Legacy' in the architecture doc, even if it is still being called, flag it as Architectural Dead Code and propose a refactor or removal."
+"When asked to 'clean' the repo, compare every module against this architecture document. If a module implements a pattern marked as 'Deprecated' or 'Legacy', even if it is still being called, flag it as Architectural Dead Code and propose a refactor or removal."
 
 ## 8. Decision Rule for Cleanup Work
 
