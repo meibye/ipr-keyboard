@@ -9,6 +9,7 @@ import io
 import json
 import os
 import subprocess
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -219,6 +220,7 @@ def api_status():
             "transmission": tx,
             "system": sys,
             "last_event": last_event,
+            "recent_activities": transmission.get_history(),
         })
     except Exception:
         logger.exception("Error in /api/status")
@@ -440,6 +442,36 @@ def api_action_shutdown():
 
 
 # ---------------------------------------------------------------------------
+# Version endpoint
+# ---------------------------------------------------------------------------
+
+@bp_api.get("/version")
+def api_version():
+    try:
+        from .. import __version__ as pkg_ver
+        from ..main import VERSION as main_ver
+        from ..config import manager as cfg_mod
+        from ..bluetooth import keyboard as bt_mod
+        from ..usb import detector as det_mod, reader as rdr_mod, deleter as del_mod
+        from ..web import server as srv_mod
+        return jsonify({
+            "package": pkg_ver,
+            "python": sys.version,
+            "modules": {
+                "main":         main_ver,
+                "config":       cfg_mod.VERSION,
+                "bluetooth":    bt_mod.VERSION,
+                "usb.detector": det_mod.VERSION,
+                "usb.reader":   rdr_mod.VERSION,
+                "usb.deleter":  del_mod.VERSION,
+                "web.server":   srv_mod.VERSION,
+            },
+        })
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# ---------------------------------------------------------------------------
 # SSE stream endpoint
 # ---------------------------------------------------------------------------
 
@@ -463,6 +495,7 @@ def api_stream():
                         "pen": pen,
                         "transmission": tx,
                         "system": sys,
+                        "recent_activities": transmission.get_history(),
                     },
                 })
                 yield f"data: {payload}\n\n"

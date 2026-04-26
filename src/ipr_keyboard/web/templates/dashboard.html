@@ -703,6 +703,19 @@
       </div>
     </div>
 
+    <div class="settings-section card" id="software-info-section">
+      <h2>Software</h2>
+      <div class="settings-row">
+        <label>Package version</label>
+        <span class="setting-value" id="sw-package-ver">—</span>
+      </div>
+      <div class="settings-row">
+        <label>Python</label>
+        <span class="setting-value" id="sw-python-ver">—</span>
+      </div>
+      <div id="sw-module-list" style="margin-top:8px;font-size:12px;color:var(--color-text-muted)"></div>
+    </div>
+
     <div style="text-align:right;margin-top:12px;">
       <button class="btn btn-primary" onclick="saveSettings()">💾 Save settings</button>
     </div>
@@ -937,6 +950,8 @@ function applyStatus(data) {
   } else {
     document.getElementById('last-event-text').textContent = 'No recent events';
   }
+
+  if (currentScreen === 'activity') updateActivity();
 }
 
 async function refreshStatus() {
@@ -1006,6 +1021,11 @@ function updateConnections() {
 }
 
 // ---- Activity screen ----
+function fmtTime(ts) {
+  if (!ts) return '';
+  return new Date(ts * 1000).toLocaleString();
+}
+
 function updateActivity() {
   const tx = (statusData && statusData.transmission) || {};
   const state = tx.state || 'idle';
@@ -1017,7 +1037,24 @@ function updateActivity() {
     <div class="act-detail">${tx.explanation || ''}</div>
     ${tx.progress_percent != null ? `<div class="act-detail">Progress: ${tx.progress_percent}%</div>` : ''}
     ${tx.items_sent ? `<div class="act-detail">Items sent: ${tx.items_sent}</div>` : ''}
+    ${tx.last_success_at ? `<div class="act-detail" style="color:var(--color-text-muted)">Last sent: ${fmtTime(tx.last_success_at)}</div>` : ''}
   `;
+
+  const activities = (statusData && statusData.recent_activities) || [];
+  const list = document.getElementById('activity-list');
+  if (!activities.length) {
+    list.innerHTML = '<li><span>No recent activity recorded.</span></li>';
+    return;
+  }
+  list.innerHTML = [...activities].reverse().map(a => `
+    <li>
+      <span class="ev-icon ${stateClass(a.state)}">${a.state === 'success' ? '✓' : '✕'}</span>
+      <div>
+        <div class="ev-summary">${a.label}: ${a.explanation}</div>
+        <div class="ev-time">${fmtTime(a.timestamp)}</div>
+      </div>
+    </li>
+  `).join('');
 }
 
 // ---- Events screen ----
@@ -1103,6 +1140,15 @@ async function loadSettings() {
   } catch (e) {
     showToast('Could not load settings');
   }
+  try {
+    const ver = await apiFetch('/api/version');
+    document.getElementById('sw-package-ver').textContent = ver.package || '—';
+    document.getElementById('sw-python-ver').textContent = (ver.python || '').split(' ')[0];
+    if (ver.modules) {
+      document.getElementById('sw-module-list').innerHTML =
+        Object.entries(ver.modules).map(([k, v]) => `<div>${k}: ${v}</div>`).join('');
+    }
+  } catch (_) {}
 }
 
 async function saveSettings() {

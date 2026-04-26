@@ -20,12 +20,20 @@ _state: dict = {
     "retry_count": 0,
     "last_success_at": None,
 }
+_history: list[dict] = []
+_HISTORY_MAX = 10
 
 
 def get() -> dict:
     """Return a snapshot copy of the current transmission state."""
     with _lock:
         return dict(_state)
+
+
+def get_history() -> list[dict]:
+    """Return a copy of the recent activity history (oldest first)."""
+    with _lock:
+        return list(_history)
 
 
 def set_sending(source: str = "keyboard") -> None:
@@ -40,19 +48,27 @@ def set_sending(source: str = "keyboard") -> None:
 def set_success() -> None:
     """Mark last transmission as successful and increment counter."""
     with _lock:
+        ts = time.time()
         _state["state"] = "success"
         _state["label"] = "Sent"
         _state["explanation"] = "Last send completed"
-        _state["last_success_at"] = time.time()
+        _state["last_success_at"] = ts
         _state["items_sent"] = _state["items_sent"] + 1
+        _history.append({"timestamp": ts, "state": "success", "label": "Sent", "explanation": "Send completed"})
+        if len(_history) > _HISTORY_MAX:
+            _history.pop(0)
 
 
 def set_failed(reason: str = "") -> None:
     """Mark transmission as failed."""
     with _lock:
+        explanation = reason or "Send failed"
         _state["state"] = "failed"
         _state["label"] = "Failed"
-        _state["explanation"] = reason or "Send failed"
+        _state["explanation"] = explanation
+        _history.append({"timestamp": time.time(), "state": "failed", "label": "Failed", "explanation": explanation})
+        if len(_history) > _HISTORY_MAX:
+            _history.pop(0)
 
 
 def set_idle() -> None:

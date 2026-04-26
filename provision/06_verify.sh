@@ -241,6 +241,23 @@ else
   ERRORS=$(( ${ERRORS:-0} + 1 ))
 fi
 
+# IrisPen udev rule
+UDEV_RULE="/etc/udev/rules.d/69-irispen-mtp.rules"
+if [[ -f "$UDEV_RULE" ]]; then
+  log "✓ IrisPen udev rule: $UDEV_RULE"
+else
+  warn "⚠ IrisPen udev rule not found: $UDEV_RULE"
+  WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+fi
+
+# plugdev group membership
+if id -nG "$APP_USER" 2>/dev/null | grep -qw plugdev; then
+  log "✓ $APP_USER is in plugdev group"
+else
+  warn "⚠ $APP_USER is not in plugdev group (MTP access may fail)"
+  WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+fi
+
 echo ""
 info "═══════════════════════════════════════════"
 

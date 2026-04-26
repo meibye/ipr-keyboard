@@ -78,6 +78,19 @@ log "Enabling key services..."
 systemctl start dbus
 systemctl enable --now bluetooth
 
+log "Configuring IrisPen MTP udev rule..."
+cat > /etc/udev/rules.d/69-irispen-mtp.rules <<'EOF'
+SUBSYSTEM=="usb", ATTR{idVendor}=="0e8d", ATTR{idProduct}=="2008", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+EOF
+
+log "Adding $APP_USER to plugdev and fuse groups..."
+usermod -aG plugdev "$APP_USER"
+usermod -aG fuse    "$APP_USER"
+
+log "Reloading udev rules..."
+udevadm control --reload-rules
+udevadm trigger
+
 log "Recording baseline versions..."
 mkdir -p /opt/ipr_state
 {
@@ -126,6 +139,7 @@ cat >> /opt/ipr_state/bootstrap_info.txt <<EOF
 OS Base completed: $(date -Is)
 System packages installed: yes
 BlueZ configured: yes
+IrisPen udev rule: installed
 EOF
 
 log "OS baseline configuration complete!"
