@@ -296,6 +296,84 @@
   .danger-section { border: 1px solid #fadbd8; border-radius: var(--radius); padding: 16px; }
   .danger-section h2 { color: var(--color-error); margin-bottom: 12px; }
 
+  /* ---- Debug screen ---- */
+  .debug-section-title {
+    font-size: 14px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--color-text-muted);
+    margin-bottom: 10px;
+  }
+  .service-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .service-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 16px;
+  }
+  .service-card .svc-label { font-size: 15px; font-weight: 700; }
+  .service-card .svc-name { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; font-family: monospace; }
+  .service-card .svc-desc { font-size: 12px; color: var(--color-text-muted); margin: 4px 0 8px; }
+  .svc-badge {
+    display: inline-block; font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px; margin-bottom: 8px;
+  }
+  .svc-badge.active { background: #d5f5e3; color: var(--color-ready); }
+  .svc-badge.inactive { background: #fadbd8; color: var(--color-error); }
+  .svc-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .svc-actions .btn { padding: 6px 12px; font-size: 12px; }
+
+  .send-tabs { display: flex; gap: 0; margin-bottom: 14px; }
+  .send-tab {
+    flex: 1; padding: 8px 14px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--color-border);
+    background: var(--color-surface); color: var(--color-text-muted);
+    text-align: center;
+  }
+  .send-tab:first-child { border-radius: 8px 0 0 8px; }
+  .send-tab:last-child { border-radius: 0 8px 8px 0; border-left: none; }
+  .send-tab.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .send-panel { display: none; }
+  .send-panel.active { display: block; }
+
+  .tx-badge-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; }
+  .tx-live-badge {
+    font-size: 11px; font-weight: 700; padding: 3px 10px;
+    border-radius: 12px; background: #ecf0f1; color: var(--color-text-muted);
+  }
+  .tx-live-badge.state-ready   { background: #d5f5e3; color: var(--color-ready); }
+  .tx-live-badge.state-info    { background: #d6eaf8; color: var(--color-info); }
+  .tx-live-badge.state-warning { background: #fef9e7; color: var(--color-warning); }
+  .tx-live-badge.state-error   { background: #fadbd8; color: var(--color-error); }
+
+  .pen-file-list { list-style: none; }
+  .pen-file-list li {
+    padding: 10px 0; border-bottom: 1px solid var(--color-border);
+  }
+  .pen-file-list li:last-child { border-bottom: none; }
+  .pen-file-meta { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+  .pen-file-content {
+    display: none; margin-top: 8px;
+    background: #1e272e; color: #dfe6e9;
+    border-radius: 6px; padding: 10px;
+    font-size: 11px; font-family: monospace;
+    max-height: 160px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .pen-file-toggle {
+    font-size: 12px; font-weight: 600; color: var(--color-primary);
+    cursor: pointer; background: none; border: none; padding: 0;
+    margin-top: 4px;
+  }
+
+  @media (max-width: 640px) {
+    .service-grid { grid-template-columns: 1fr; }
+  }
+
   /* ---- Dialog overlay ---- */
   #dialog-overlay {
     display: none; position: fixed; inset: 0;
@@ -372,6 +450,7 @@
   <a href="#activity" data-screen="activity">Activity</a>
   <a href="#events" data-screen="events">Events</a>
   <a href="#settings" data-screen="settings">Settings</a>
+  <a href="#debug" id="nav-debug" data-screen="debug">Debug</a>
 </nav>
 
 <!-- Mobile navigation -->
@@ -381,6 +460,7 @@
   <a href="#activity" data-screen="activity"><span class="nav-icon">📊</span>Activity</a>
   <a href="#events" data-screen="events"><span class="nav-icon">📋</span>Events</a>
   <a href="#settings" data-screen="settings"><span class="nav-icon">⚙️</span>Settings</a>
+  <a href="#debug" data-screen="debug"><span class="nav-icon">🔧</span>Debug</a>
 </nav>
 
 <!-- Main content -->
@@ -628,6 +708,72 @@
     </div>
   </section>
 
+
+  <!-- DEBUG SCREEN -->
+  <section id="screen-debug" class="screen">
+
+    <!-- Services -->
+    <div class="card">
+      <div class="debug-section-title">Services</div>
+      <div class="service-grid" id="debug-service-grid">
+        <div style="color:var(--color-text-muted);font-size:13px;grid-column:1/-1"><span class="spinner"></span> Loading…</div>
+      </div>
+      <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="loadDebugServices()">↺ Refresh</button>
+    </div>
+
+    <!-- Send to PC -->
+    <div class="card">
+      <div class="debug-section-title">Send to PC</div>
+
+      <div class="tx-badge-row">
+        Transmission:
+        <span class="tx-live-badge" id="debug-tx-badge">—</span>
+        <span id="debug-tx-explanation" style="color:var(--color-text-muted)"></span>
+      </div>
+
+      <div class="send-tabs">
+        <div class="send-tab active" id="tab-text" onclick="switchSendTab('text')">Send text</div>
+        <div class="send-tab" id="tab-file" onclick="switchSendTab('file')">Send file</div>
+      </div>
+
+      <div class="send-panel active" id="panel-text">
+        <textarea id="debug-text-input" rows="4"
+          style="width:100%;border:1px solid var(--color-border);border-radius:8px;padding:10px;font-size:14px;font-family:monospace;resize:vertical"
+          placeholder="Type or paste text to send…"></textarea>
+        <div style="margin-top:10px">
+          <label style="font-size:13px;color:var(--color-text-muted);display:inline-flex;align-items:center;gap:6px;margin-right:14px">
+            <input type="checkbox" id="debug-nowait"> No-wait (skip FIFO check)
+          </label>
+          <button class="btn btn-primary" onclick="sendDebugText()">➡ Send text</button>
+        </div>
+      </div>
+
+      <div class="send-panel" id="panel-file">
+        <div style="margin-bottom:10px;font-size:13px;color:var(--color-text-muted)">
+          Select a UTF-8 text file to send via the BLE keyboard.
+        </div>
+        <input type="file" id="debug-file-input" accept=".txt,.md,.csv,text/*"
+          style="font-size:13px;margin-bottom:12px">
+        <div>
+          <button class="btn btn-primary" onclick="sendDebugFile()">➡ Send file</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pen files -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="debug-section-title" style="margin-bottom:0">Pen Files</div>
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="loadPenFiles()">↺ Refresh</button>
+      </div>
+      <div id="debug-pen-folder" style="font-size:11px;font-family:monospace;color:var(--color-text-muted);margin-bottom:10px"></div>
+      <ul class="pen-file-list" id="debug-pen-list">
+        <li style="color:var(--color-text-muted);font-size:13px"><span class="spinner"></span> Loading…</li>
+      </ul>
+    </div>
+
+  </section>
+
 </main>
 
 <!-- Confirm dialog -->
@@ -671,6 +817,7 @@ function navigate(screen, pushState) {
   if (screen === 'activity') updateActivity();
   if (screen === 'settings') loadSettings();
   if (screen === 'connections') updateConnections();
+  if (screen === 'debug') { loadDebugServices(); loadPenFiles(); }
 }
 
 window.addEventListener('hashchange', () => {
@@ -779,6 +926,9 @@ function applyStatus(data) {
     lbl.className = 'card-label ' + stateClass(s.state);
     document.getElementById('sys-explanation').textContent = s.explanation || '';
   }
+
+  // Debug tx badge (if debug screen is open)
+  if (currentScreen === 'debug') updateDebugTxBadge();
 
   // Last event
   if (data.last_event) {
@@ -1132,6 +1282,136 @@ async function deleteUser(username) {
     showToast('User deleted.');
     refreshUserList();
   } catch (_) { showToast('Failed to delete user.'); }
+}
+
+// ---- Debug screen ----
+
+async function loadDebugServices() {
+  const grid = document.getElementById('debug-service-grid');
+  grid.innerHTML = '<div style="grid-column:1/-1;color:var(--color-text-muted);font-size:13px"><span class="spinner"></span> Loading…</div>';
+  try {
+    const data = await apiFetch('/api/debug/services');
+    if (!data.services || data.services.length === 0) {
+      grid.innerHTML = '<div style="grid-column:1/-1;color:var(--color-text-muted);font-size:13px">No services found.</div>';
+      return;
+    }
+    grid.innerHTML = data.services.map(svc => `
+      <div class="service-card">
+        <div class="svc-label">${svc.label}</div>
+        <div class="svc-name">${svc.name}</div>
+        <div class="svc-desc">${svc.description}</div>
+        <span class="svc-badge ${svc.active ? 'active' : 'inactive'}">${svc.active ? 'Active' : 'Inactive'}</span>
+        <div class="svc-actions">
+          <button class="btn btn-secondary" onclick="serviceAction('${svc.name}','start')">Start</button>
+          <button class="btn btn-secondary" onclick="serviceAction('${svc.name}','stop')">Stop</button>
+          <button class="btn btn-primary" onclick="serviceAction('${svc.name}','restart')">Restart</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    grid.innerHTML = '<div style="grid-column:1/-1;color:var(--color-error);font-size:13px">Failed to load services.</div>';
+  }
+}
+
+async function serviceAction(name, action) {
+  const btns = document.querySelectorAll('#debug-service-grid button');
+  btns.forEach(b => b.disabled = true);
+  try {
+    const res = await apiFetch('/api/debug/services/' + encodeURIComponent(name) + '/' + action, {method: 'POST'});
+    showToast(res.message || (action + ' done.'));
+    await loadDebugServices();
+  } catch (e) {
+    showToast('Action failed: ' + e.message);
+    await loadDebugServices();
+  }
+}
+
+function switchSendTab(tab) {
+  ['text', 'file'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('panel-' + t).classList.toggle('active', t === tab);
+  });
+}
+
+async function sendDebugText() {
+  const text = document.getElementById('debug-text-input').value;
+  if (!text.trim()) { showToast('Enter some text first.'); return; }
+  const nowait = document.getElementById('debug-nowait').checked;
+  try {
+    const res = await apiFetch('/api/debug/send-text', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, nowait}),
+    });
+    showToast(res.message || (res.ok ? 'Text sent.' : 'Send failed.'));
+  } catch (e) {
+    showToast('Send failed: ' + e.message);
+  }
+}
+
+async function sendDebugFile() {
+  const fileInput = document.getElementById('debug-file-input');
+  if (!fileInput.files || fileInput.files.length === 0) {
+    showToast('Select a file first.');
+    return;
+  }
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  try {
+    const res = await fetch('/api/debug/send-file', {method: 'POST', body: fd});
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    const data = await res.json();
+    showToast(data.message || (data.ok ? 'File sent.' : 'Send failed.'));
+  } catch (e) {
+    showToast('Send failed: ' + e.message);
+  }
+}
+
+async function loadPenFiles() {
+  const list = document.getElementById('debug-pen-list');
+  const folderEl = document.getElementById('debug-pen-folder');
+  list.innerHTML = '<li style="color:var(--color-text-muted);font-size:13px"><span class="spinner"></span> Loading…</li>';
+  try {
+    const data = await apiFetch('/api/debug/pen-files');
+    folderEl.textContent = data.folder || '';
+    if (!data.files || data.files.length === 0) {
+      list.innerHTML = '<li style="color:var(--color-text-muted);font-size:13px">No files found in pen folder.</li>';
+      return;
+    }
+    list.innerHTML = data.files.map((f, i) => `
+      <li>
+        <div style="font-size:14px;font-weight:600">${f.name}</div>
+        <div class="pen-file-meta">${f.size_bytes.toLocaleString()} bytes · ${f.modified_at}${f.truncated ? ' · preview truncated to 8 KB' : ''}</div>
+        <button class="pen-file-toggle" onclick="togglePenFile(${i})">▶ Show content</button>
+        <pre class="pen-file-content" id="pen-file-${i}">${escapeHtml(f.content)}</pre>
+      </li>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = '<li style="color:var(--color-error);font-size:13px">Failed to load pen files.</li>';
+  }
+}
+
+function togglePenFile(i) {
+  const pre = document.getElementById('pen-file-' + i);
+  const btn = pre.previousElementSibling;
+  const visible = pre.style.display === 'block';
+  pre.style.display = visible ? 'none' : 'block';
+  btn.textContent = visible ? '▶ Show content' : '▼ Hide content';
+}
+
+function escapeHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updateDebugTxBadge() {
+  if (!statusData || !statusData.transmission) return;
+  const tx = statusData.transmission;
+  const badge = document.getElementById('debug-tx-badge');
+  if (!badge) return;
+  badge.textContent = tx.label || tx.state || '—';
+  badge.className = 'tx-live-badge ' + stateClass(tx.state);
+  const expl = document.getElementById('debug-tx-explanation');
+  if (expl) expl.textContent = tx.explanation || '';
 }
 
 // ---- Init routing from hash ----

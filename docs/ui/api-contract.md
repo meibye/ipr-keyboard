@@ -140,6 +140,7 @@ Example response
 #### GET /api/status/transmission
 
 Returns transmission state and current transfer metadata.
+The state reflects live activity: it is updated by `BluetoothKeyboard.send_text()` (auto USB flow) and by the debug send-text / send-file endpoints (manual send).
 
 Example response
 
@@ -383,6 +384,109 @@ Example response
 {
   "ok": true,
   "message": "Shutdown initiated."
+}
+```
+
+### Debug endpoints
+
+All debug endpoints require an authenticated session. They are intended for diagnostics and manual control, not for normal dashboard operation.
+
+#### GET /api/debug/services
+
+Returns the status of each managed system service.
+
+Managed services (in order):
+
+| Technical name | Descriptive label |
+|---|---|
+| `systemd-udevd` | Device Manager |
+| `dbus` | Message Bus |
+| `bluetooth` | Bluetooth Core |
+| `bt_hid_agent_unified` | Pen Detector |
+| `bt_hid_ble` | BLE Keyboard |
+| `ipr_keyboard` | Keyboard Service |
+
+Example response
+```json
+{
+  "services": [
+    {
+      "name": "bt_hid_ble",
+      "label": "BLE Keyboard",
+      "description": "BLE HID keyboard daemon (writes to FIFO)",
+      "active": true,
+      "enabled": true
+    }
+  ]
+}
+```
+
+#### POST /api/debug/services/\<name\>/\<action\>
+
+Performs a service management action.
+
+- `name` must be one of the managed service names listed above.
+- `action` must be one of: `start`, `stop`, `restart`.
+- Unknown service name or action returns 400.
+
+Example response
+```json
+{ "ok": true, "message": "Service bt_hid_ble restart succeeded." }
+```
+
+On failure
+```json
+{ "ok": false, "message": "Unit bt_hid_ble.service not found." }
+```
+
+#### POST /api/debug/send-text
+
+Sends a text string to the PC via the BLE keyboard FIFO.
+Updates the shared transmission state (`/api/status/transmission`) during the send.
+
+Request body
+```json
+{ "text": "hello world", "nowait": false }
+```
+
+- `text`: required, non-empty string
+- `nowait`: optional boolean, skips FIFO wait (default false)
+
+Example response
+```json
+{ "ok": true, "message": "Text sent." }
+```
+
+#### POST /api/debug/send-file
+
+Sends a file to the PC via the BLE keyboard FIFO.
+Accepts `multipart/form-data` with a `file` field.
+Updates the shared transmission state during the send.
+
+Example response
+```json
+{ "ok": true, "message": "File sent." }
+```
+
+#### GET /api/debug/pen-files
+
+Lists files in the configured pen folder (`IrisPenFolder` in config).
+Returns up to 8 KB of content per file; larger files are truncated (indicated by `truncated: true`).
+
+Example response
+```json
+{
+  "folder": "/mnt/irispen",
+  "files": [
+    {
+      "name": "note.txt",
+      "path": "/mnt/irispen/note.txt",
+      "size_bytes": 142,
+      "modified_at": "2026-04-26T14:00:00Z",
+      "content": "Hello world\n",
+      "truncated": false
+    }
+  ]
 }
 ```
 

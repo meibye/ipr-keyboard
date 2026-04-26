@@ -5,15 +5,21 @@ Implements all /api/ endpoints as defined in docs/ui/api-contract.md.
 
 from __future__ import annotations
 
+import io
 import json
+import os
 import subprocess
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request, session, stream_with_context
 
 from ..config.manager import ConfigManager
 from ..logging.logger import get_logger
+from .. import transmission
+from ..usb.detector import list_files
 from .auth import UserStore
 
 logger = get_logger()
@@ -100,15 +106,7 @@ def _build_pen_state() -> dict[str, Any]:
 
 
 def _build_transmission_state() -> dict[str, Any]:
-    return {
-        "state": "idle",
-        "label": "Idle",
-        "explanation": "No active send",
-        "progress_percent": None,
-        "items_sent": 0,
-        "retry_count": 0,
-        "last_success_at": None,
-    }
+    return transmission.get()
 
 
 def _build_system_state(bt: dict[str, Any]) -> dict[str, Any]:
@@ -480,6 +478,204 @@ def api_stream():
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Debug endpoints  (/api/debug/*)
+# ---------------------------------------------------------------------------
+
+_SERVICES = [
+    {
+        "name": "systemd-udevd",
+        "label": "Device Manager",
+        "description": "Handles hardware device plug/unplug events",
+    },
+    {
+        "name": "dbus",
+        "label": "Message Bus",
+        "description": "System D-Bus message broker",
+    },
+    {
+        "name": "bluetooth",
+        "label": "Bluetooth Core",
+        "description": "BlueZ Bluetooth stack",
+    },
+    {
+        "name": "bt_hid_agent_unified",
+        "label": "Pen Detector",
+        "description": "Pairing and device agent for the Iris pen scanner",
+    },
+    {
+        "name": "bt_hid_ble",
+        "label": "BLE Keyboard",
+        "description": "BLE HID keyboard daemon (writes to FIFO)",
+    },
+    {
+        "name": "ipr_keyboard",
+        "label": "Keyboard Service",
+        "description": "Main keyboard bridge application",
+    },
+]
+
+_SERVICE_NAMES = {s["name"] for s in _SERVICES}
+_ALLOWED_ACTIONS = {"start", "stop", "restart"}
+
+_BT_SEND_HELPER = "/usr/local/bin/bt_kb_send"
+_BT_SEND_FILE_HELPER = "/usr/local/bin/bt_kb_send_file"
+
+_PEN_FILES_CONTENT_CAP = 8192  # bytes
+
+
+def _service_enabled(name: str) -> bool:
+    try:
+        rc = subprocess.call(
+            ["systemctl", "is-enabled", "--quiet", name],
+            timeout=5,
+        )
+        return rc == 0
+    except Exception:
+        return False
+
+
+@bp_api.get("/debug/services")
+def api_debug_services():
+    try:
+        services = []
+        for svc in _SERVICES:
+            services.append({
+                "name": svc["name"],
+                "label": svc["label"],
+                "description": svc["description"],
+                "active": _service_active(svc["name"]),
+                "enabled": _service_enabled(svc["name"]),
+            })
+        return jsonify({"services": services})
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/debug/services/<name>/<action>")
+def api_debug_service_action(name: str, action: str):
+    if name not in _SERVICE_NAMES:
+        return jsonify({"error": {"code": "bad_request", "message": f"Unknown service: {name}"}}), 400
+    if action not in _ALLOWED_ACTIONS:
+        return jsonify({"error": {"code": "bad_request", "message": f"Unknown action: {action}. Allowed: {sorted(_ALLOWED_ACTIONS)}"}}), 400
+    try:
+        result = subprocess.run(
+            ["sudo", "systemctl", action, name],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            return jsonify({"ok": True, "message": f"Service {name} {action} succeeded."})
+        stderr = (result.stderr or "").strip()
+        return jsonify({"ok": False, "message": stderr or f"Service {name} {action} failed (exit {result.returncode})."})
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "message": f"Timed out waiting for systemctl {action} {name}."}), 500
+    except Exception as exc:
+        logger.exception("Service action error")
+        return jsonify({"ok": False, "message": str(exc)}), 500
+
+
+@bp_api.post("/debug/send-text")
+def api_debug_send_text():
+    try:
+        data = request.get_json(force=True) or {}
+        text = data.get("text", "")
+        if not text:
+            return jsonify({"error": {"code": "bad_request", "message": "text is required and must not be empty."}}), 400
+        nowait = bool(data.get("nowait", False))
+        cmd = [_BT_SEND_HELPER]
+        if nowait:
+            cmd.append("--nowait")
+        cmd.append(text)
+        transmission.set_sending("debug/send-text")
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=20)
+            transmission.set_success()
+            return jsonify({"ok": True, "message": "Text sent."})
+        except FileNotFoundError:
+            transmission.set_failed("bt_kb_send helper not found")
+            return jsonify({"ok": False, "message": f"Send helper not found: {_BT_SEND_HELPER}"}), 500
+        except subprocess.CalledProcessError as exc:
+            reason = (exc.stderr or "").strip() or f"exit {exc.returncode}"
+            transmission.set_failed(reason)
+            return jsonify({"ok": False, "message": f"Send failed: {reason}"}), 500
+        except subprocess.TimeoutExpired:
+            transmission.set_failed("Send timed out")
+            return jsonify({"ok": False, "message": "Send timed out."}), 500
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/debug/send-file")
+def api_debug_send_file():
+    try:
+        file_obj = request.files.get("file")
+        if file_obj is None:
+            return jsonify({"error": {"code": "bad_request", "message": "Multipart 'file' field is required."}}), 400
+
+        suffix = os.path.splitext(file_obj.filename or "")[1] or ".txt"
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix="ipr_debug_")
+        try:
+            with os.fdopen(tmp_fd, "wb") as f:
+                file_obj.save(f)
+
+            cmd = [_BT_SEND_FILE_HELPER, "--file", tmp_path, "--newline-mode", "cr"]
+            transmission.set_sending("debug/send-file")
+            try:
+                subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)
+                transmission.set_success()
+                return jsonify({"ok": True, "message": "File sent."})
+            except FileNotFoundError:
+                transmission.set_failed("bt_kb_send_file helper not found")
+                return jsonify({"ok": False, "message": f"Send helper not found: {_BT_SEND_FILE_HELPER}"}), 500
+            except subprocess.CalledProcessError as exc:
+                reason = (exc.stderr or "").strip() or f"exit {exc.returncode}"
+                transmission.set_failed(reason)
+                return jsonify({"ok": False, "message": f"Send failed: {reason}"}), 500
+            except subprocess.TimeoutExpired:
+                transmission.set_failed("Send timed out")
+                return jsonify({"ok": False, "message": "Send timed out."}), 500
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.get("/debug/pen-files")
+def api_debug_pen_files():
+    try:
+        cfg = ConfigManager.instance().get()
+        folder = Path(cfg.IrisPenFolder)
+        files_result = []
+        for p in list_files(folder):
+            try:
+                stat = p.stat()
+                raw = p.read_bytes()
+                content = raw[:_PEN_FILES_CONTENT_CAP].decode("utf-8", errors="replace")
+                truncated = len(raw) > _PEN_FILES_CONTENT_CAP
+                files_result.append({
+                    "name": p.name,
+                    "path": str(p),
+                    "size_bytes": stat.st_size,
+                    "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "content": content,
+                    "truncated": truncated,
+                })
+            except OSError:
+                pass
+        return jsonify({"folder": str(folder), "files": files_result})
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
 
 
 # ---------------------------------------------------------------------------

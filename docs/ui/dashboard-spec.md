@@ -202,6 +202,22 @@ Raw logs must be secondary.
 
 Purpose: configuration and protected actions.
 
+### 6. Debug
+
+Screen id: `#debug`, nav label: "Debug"
+
+Purpose: diagnostics and manual control for developers and support.
+
+Must show:
+
+- A service card grid for each of the 6 managed system services (Device Manager, Message Bus, Bluetooth Core, Pen Detector, BLE Keyboard, Keyboard Service), each with active/inactive badge and Start / Stop / Restart buttons.
+- A "Send to PC" panel with two tabs: send text (textarea + Send button) and send file (file picker + Send button). Both reflect the live transmission state badge from the SSE stream.
+- A "Pen Files" listing of files in the configured pen folder, with name, size, modification time, and expandable content preview.
+
+Data sources: `/api/debug/services`, `/api/debug/send-text`, `/api/debug/send-file`, `/api/debug/pen-files`.
+
+Transmission badge reads `statusData.transmission` pushed by `/api/stream`.
+
 Must show:
 
 - device information

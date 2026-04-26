@@ -174,7 +174,7 @@ No active transmission is happening.
 The system is preparing data for transmission.
 
 #### `sending`
-A transmission is in progress.
+A transmission is in progress. Set by `BluetoothKeyboard.send_text()` (automatic USB-pen flow) or by the debug send-text / send-file endpoints (manual send).
 
 #### `retrying`
 A transmission retry is underway.

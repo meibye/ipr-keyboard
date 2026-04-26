@@ -5,7 +5,13 @@
       "Bash(xargs grep *)",
       "Bash(python -m pytest tests/ -x -q)",
       "Bash(python -m pytest tests/ -q --ignore=tests/bluetooth/test_keyboard.py)",
-      "Bash(python -m pytest tests/web/ -q)"
+      "Bash(python -m pytest tests/web/ -q)",
+      "Skill(keybindings-help)",
+      "Bash(grep -E \"\\\\.\\(py|js|css\\)$\")",
+      "Bash(xargs wc *)",
+      "Bash(python -m pytest tests/test_transmission.py tests/bluetooth/test_keyboard.py tests/web/test_api.py -v)",
+      "Bash(pip install *)",
+      "Bash(python -m pytest -v)"
     ]
   }
 }

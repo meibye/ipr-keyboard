@@ -9,6 +9,7 @@ from __future__ import annotations
 import subprocess
 
 from ..logging.logger import get_logger
+from .. import transmission
 
 logger = get_logger()
 
@@ -55,15 +56,19 @@ class BluetoothKeyboard:
             len(text),
         )
 
+        transmission.set_sending("keyboard")
         try:
             subprocess.run(
                 [self.helper_path, text],
                 check=True,
             )
+            transmission.set_success()
             return True
         except FileNotFoundError:
             logger.error("BT helper not found: %s", self.helper_path)
+            transmission.set_failed("BT helper not found")
             return False
         except subprocess.CalledProcessError as exc:
             logger.error("BT helper exited with error: %s", exc)
+            transmission.set_failed(f"Send error: {exc.returncode}")
             return False

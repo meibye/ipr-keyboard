@@ -228,12 +228,74 @@ def test_is_available_false_not_executable(tmp_path):
 
 def test_is_available_false_directory(tmp_path):
     """Test is_available returns False when path is a directory.
-    
+
     Verifies that directories are not treated as valid helpers.
     """
     helper_dir = tmp_path / "bt_kb_send"
     helper_dir.mkdir()
-    
+
     kb = BluetoothKeyboard(helper_path=str(helper_dir))
-    
+
     assert kb.is_available() is False
+
+
+# ---------------------------------------------------------------------------
+# Transmission state side-effects
+# ---------------------------------------------------------------------------
+
+def test_send_text_sets_transmission_sending_then_success(temp_config, monkeypatch):
+    """send_text() should call set_sending then set_success on success."""
+    import ipr_keyboard.transmission as tx_module
+    calls = []
+
+    monkeypatch.setattr("ipr_keyboard.bluetooth.keyboard.subprocess.run",
+                        lambda args, **kw: subprocess.CompletedProcess(args=args, returncode=0))
+    monkeypatch.setattr(tx_module, "set_sending", lambda source="keyboard": calls.append(("sending", source)))
+    monkeypatch.setattr(tx_module, "set_success", lambda: calls.append(("success",)))
+    monkeypatch.setattr(tx_module, "set_failed", lambda reason="": calls.append(("failed", reason)))
+
+    kb = BluetoothKeyboard(helper_path="/fake/path")
+    result = kb.send_text("hi")
+
+    assert result is True
+    assert calls[0][0] == "sending"
+    assert ("success",) in calls
+    assert not any(c[0] == "failed" for c in calls)
+
+
+def test_send_text_sets_transmission_failed_on_error(temp_config, monkeypatch):
+    """send_text() should call set_failed when subprocess raises CalledProcessError."""
+    import ipr_keyboard.transmission as tx_module
+    calls = []
+
+    def fake_run(args, **kw):
+        raise subprocess.CalledProcessError(returncode=1, cmd=args)
+
+    monkeypatch.setattr("ipr_keyboard.bluetooth.keyboard.subprocess.run", fake_run)
+    monkeypatch.setattr(tx_module, "set_sending", lambda source="keyboard": calls.append("sending"))
+    monkeypatch.setattr(tx_module, "set_success", lambda: calls.append("success"))
+    monkeypatch.setattr(tx_module, "set_failed", lambda reason="": calls.append("failed"))
+
+    kb = BluetoothKeyboard(helper_path="/fake/path")
+    result = kb.send_text("hi")
+
+    assert result is False
+    assert "sending" in calls
+    assert "failed" in calls
+    assert "success" not in calls
+
+
+def test_send_text_empty_skips_transmission(temp_config, monkeypatch):
+    """Empty text should return immediately without touching transmission state."""
+    import ipr_keyboard.transmission as tx_module
+    calls = []
+
+    monkeypatch.setattr(tx_module, "set_sending", lambda source="keyboard": calls.append("sending"))
+    monkeypatch.setattr(tx_module, "set_success", lambda: calls.append("success"))
+    monkeypatch.setattr(tx_module, "set_failed", lambda reason="": calls.append("failed"))
+
+    kb = BluetoothKeyboard(helper_path="/fake/path")
+    result = kb.send_text("")
+
+    assert result is True
+    assert calls == []
