@@ -6,16 +6,21 @@ Creates and configures the Flask application with all blueprints.
 from __future__ import annotations
 
 import os
+import secrets
 import subprocess
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, List
+from urllib.parse import urlparse
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
 from ..config.manager import ConfigManager
 from ..config.web import bp_config
 from ..logging.logger import get_logger
 from ..logging.web import bp_logs
+from ..utils.helpers import project_root
+from .auth import UserStore
 
 logger = get_logger()
 
@@ -30,6 +35,23 @@ def _run_cmd(cmd: List[str]) -> str:
         return subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
     except Exception as exc:
         return f"ERROR: {exc}"
+
+
+def _resolve_secret_key() -> str:
+    env_key = os.environ.get("SECRET_KEY")
+    if env_key:
+        return env_key
+    key_file = project_root() / "secret_key.txt"
+    if key_file.exists():
+        return key_file.read_text(encoding="utf-8").strip()
+    new_key = secrets.token_hex(32)
+    key_file.write_text(new_key, encoding="utf-8")
+    try:
+        key_file.chmod(0o600)
+    except Exception:
+        pass
+    logger.info("Generated new secret key at %s", key_file)
+    return new_key
 
 
 def _service_status(name: str) -> str:
@@ -47,8 +69,15 @@ def _service_status(name: str) -> str:
         return "unknown"
 
 
+_PUBLIC_PATHS = {"/health", "/login", "/logout", "/api/auth/login"}
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
+
+    app.config["SECRET_KEY"] = _resolve_secret_key()
+    app.permanent_session_lifetime = timedelta(days=7)
+    UserStore.instance()  # bootstrap default admin user on first run
 
     # Register blueprints
     app.register_blueprint(bp_config)
@@ -57,11 +86,43 @@ def create_app() -> Flask:
     from .api import bp_api
     app.register_blueprint(bp_api)
 
-    from flask import render_template
+    @app.before_request
+    def _require_login():
+        path = request.path
+        if path.startswith("/static/"):
+            return
+        if any(path == p or path.startswith(p + "/") for p in _PUBLIC_PATHS):
+            return
+        if not session.get("username"):
+            if path.startswith("/api/"):
+                return jsonify({"error": {"code": "unauthenticated", "message": "Login required."}}), 401
+            return redirect(url_for("login"))
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        error = None
+        if request.method == "POST":
+            username = request.form.get("username", "").strip().lower()
+            password = request.form.get("password", "")
+            if UserStore.instance().verify(username, password):
+                session.clear()
+                session.permanent = True
+                session["username"] = username
+                session["is_admin"] = UserStore.instance().user_info(username)["is_admin"]
+                next_url = request.args.get("next", "")
+                if urlparse(next_url).netloc:
+                    next_url = ""
+                return redirect(next_url or url_for("index"))
+            error = "Invalid username or password."
+        return render_template("login.html", error=error)
+
+    @app.route("/logout")
+    def logout():
+        session.clear()
+        return redirect(url_for("login"))
 
     @app.route("/")
     def index():
-        """Root: Serve the image-first dashboard SPA."""
         return render_template("dashboard.html")
 
     @app.get("/health")

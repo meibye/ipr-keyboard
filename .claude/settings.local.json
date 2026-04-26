@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(html|js|css\\)$\")",
+      "Bash(xargs grep *)",
+      "Bash(python -m pytest tests/ -x -q)",
+      "Bash(python -m pytest tests/ -q --ignore=tests/bluetooth/test_keyboard.py)",
+      "Bash(python -m pytest tests/web/ -q)"
+    ]
+  }
+}

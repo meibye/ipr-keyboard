@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in – IPR Pen Bridge</title>
+<style>
+  :root {
+    --color-bg: #f5f6fa;
+    --color-surface: #ffffff;
+    --color-border: #dfe4ea;
+    --color-text: #2c3e50;
+    --color-text-muted: #7f8c8d;
+    --color-primary: #2980b9;
+    --color-error: #e74c3c;
+    --radius: 12px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .login-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .login-brand {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+  }
+
+  .login-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 24px;
+  }
+
+  .login-error {
+    background: #fadbd8;
+    color: var(--color-error);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 18px;
+  }
+
+  .field-group {
+    margin-bottom: 16px;
+  }
+
+  .field-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+  }
+
+  .field-group input {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--color-text);
+    background: var(--color-surface);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+
+  .field-group input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(41,128,185,0.12);
+  }
+
+  .btn-login {
+    width: 100%;
+    margin-top: 8px;
+    padding: 12px;
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-login:hover { opacity: 0.88; }
+  .btn-login:active { opacity: 0.75; }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="login-brand">IPR Pen Bridge</div>
+  <h1 class="login-title">Sign in</h1>
+
+  {% if error %}
+  <div class="login-error">{{ error }}</div>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('login') }}{% if request.args.get('next') %}?next={{ request.args.get('next') | urlencode }}{% endif %}">
+    <div class="field-group">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username"
+             autocomplete="username" autofocus required
+             value="{{ request.form.get('username', '') }}">
+    </div>
+    <div class="field-group">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password"
+             autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="btn-login">Sign in</button>
+  </form>
+</div>
+</body>
+</html>

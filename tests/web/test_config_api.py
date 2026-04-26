@@ -7,12 +7,9 @@ from ipr_keyboard.config.manager import ConfigManager
 
 
 def test_config_api(monkeypatch, tmp_path):
-    """Test configuration GET and POST endpoints.
-    
-    Verifies that the /config/ endpoints correctly retrieve and update
-    configuration values.
-    """
+    """Test configuration GET and POST endpoints."""
     from ipr_keyboard.utils.helpers import save_json
+    from ipr_keyboard.web import auth as auth_module
 
     cfg_file = tmp_path / "config.json"
     save_json(cfg_file, {"IrisPenFolder": "/tmp/usb"})
@@ -21,12 +18,18 @@ def test_config_api(monkeypatch, tmp_path):
         "ipr_keyboard.config.manager.config_path",
         lambda: cfg_file,
     )
-    # re-init instance
+    monkeypatch.setattr(auth_module, "users_path", lambda: tmp_path / "users.json")
+    auth_module.UserStore._instance = None
+
     ConfigManager._instance = None  # type: ignore[attr-defined]
     ConfigManager.instance()
 
     app = create_app()
     client = app.test_client()
+
+    with client.session_transaction() as sess:
+        sess["username"] = "admin"
+        sess["is_admin"] = True
 
     res = client.get("/config/")
     assert res.status_code == 200
@@ -37,6 +40,8 @@ def test_config_api(monkeypatch, tmp_path):
     assert res2.status_code == 200
     data2 = res2.get_json()
     assert data2["DeleteFiles"] is False
+
+    auth_module.UserStore._instance = None
 
 
 def test_get_config(flask_client):

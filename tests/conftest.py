@@ -132,29 +132,33 @@ def mock_bt_helper(monkeypatch):
 
 
 @pytest.fixture
-def flask_client(temp_config):
-    """Create a Flask test client with temporary configuration.
-    
-    This fixture initializes the Flask app with a temporary config file
-    and returns a test client for making requests.
-    
-    Args:
-        temp_config: The temp_config fixture
-        
-    Returns:
-        Flask test client
+def flask_client(temp_config, monkeypatch, tmp_path):
+    """Create an authenticated Flask test client with temporary configuration.
+
+    Pre-injects an admin session so protected routes return content rather
+    than auth redirects.
     """
     from ipr_keyboard.config.manager import ConfigManager
     from ipr_keyboard.web.server import create_app
-    
-    # Initialize the singleton with our temp config
+    from ipr_keyboard.web import auth as auth_module
+
+    # Redirect credential storage to a clean temp file
+    users_file = tmp_path / "users.json"
+    monkeypatch.setattr(auth_module, "users_path", lambda: users_file)
+    auth_module.UserStore._instance = None
+
     ConfigManager.instance()
-    
+
     app = create_app()
     app.config["TESTING"] = True
-    
+
     with app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["username"] = "admin"
+            sess["is_admin"] = True
         yield client
+
+    auth_module.UserStore._instance = None
 
 
 @pytest.fixture

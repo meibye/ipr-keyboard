@@ -60,6 +60,16 @@
   #overall-badge.state-warning { background: #fef9e7; color: var(--color-warning); }
   #overall-badge.state-error   { background: #fadbd8; color: var(--color-error); }
 
+  .topbar-logout {
+    font-size: 13px; font-weight: 500;
+    color: var(--color-text-muted); text-decoration: none;
+    padding: 6px 10px; border-radius: 6px;
+    border: 1px solid var(--color-border);
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .topbar-logout:hover { background: #fadbd8; color: var(--color-error); border-color: var(--color-error); }
+
   /* ---- Desktop nav (tab bar) ---- */
   #desktop-nav {
     position: fixed; top: var(--top-h); left: 0; right: 0;
@@ -352,6 +362,7 @@
 <header id="topbar">
   <span class="title">IPR Pen Bridge</span>
   <span id="overall-badge">—</span>
+  <a href="/logout" class="topbar-logout">Sign out</a>
 </header>
 
 <!-- Desktop navigation -->
@@ -554,6 +565,54 @@
       </div>
     </div>
 
+    <div class="settings-section card" id="user-mgmt-section">
+      <h2>User Accounts</h2>
+
+      <div class="settings-row">
+        <label>Signed in as</label>
+        <span class="setting-value" id="auth-current-user">—</span>
+      </div>
+
+      <div id="user-list-wrap" style="display:none">
+        <div style="font-size:13px;font-weight:600;margin:14px 0 6px">All users</div>
+        <table style="width:100%;font-size:13px;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 0;border-bottom:1px solid var(--color-border)">Username</th>
+              <th style="text-align:left;padding:6px 0;border-bottom:1px solid var(--color-border)">Role</th>
+              <th style="padding:6px 0;border-bottom:1px solid var(--color-border)"></th>
+            </tr>
+          </thead>
+          <tbody id="user-table-body"></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Change password</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="password" id="new-password" placeholder="New password"
+                 style="flex:1;min-width:140px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
+          <input type="password" id="new-password-confirm" placeholder="Confirm"
+                 style="flex:1;min-width:140px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
+          <button class="btn btn-secondary" onclick="changeOwnPassword()">Update</button>
+        </div>
+      </div>
+
+      <div id="add-user-wrap" style="display:none;margin-top:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Add user</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input type="text" id="new-username" placeholder="Username"
+                 style="flex:1;min-width:120px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
+          <input type="password" id="new-user-password" placeholder="Password"
+                 style="flex:1;min-width:120px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap">
+            <input type="checkbox" id="new-user-admin"> Admin
+          </label>
+          <button class="btn btn-primary" onclick="addUser()">Add</button>
+        </div>
+      </div>
+    </div>
+
     <div class="settings-section">
       <div class="danger-section">
         <h2>⚠️ Power</h2>
@@ -629,6 +688,10 @@ document.querySelectorAll('[data-screen]').forEach(el => {
 // ---- API helpers ----
 async function apiFetch(url, opts) {
   const res = await fetch(url, opts);
+  if (res.status === 401) {
+    window.location.href = '/login';
+    throw new Error('Unauthenticated');
+  }
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
@@ -744,8 +807,10 @@ refreshStatus();
 setInterval(refreshStatus, 10000);
 
 // ---- SSE live updates ----
-function startSSE() {
+async function startSSE() {
   try {
+    const check = await fetch('/api/auth/me');
+    if (check.status === 401) { window.location.href = '/login'; return; }
     const es = new EventSource('/api/stream');
     es.onmessage = e => {
       try {
@@ -866,6 +931,7 @@ async function toggleRawLogs() {
 
 // ---- Settings ----
 async function loadSettings() {
+  initAuthUI();
   try {
     const cfg = await apiFetch('/api/config');
     document.getElementById('cfg-device-name').textContent = cfg.device_name || '—';
@@ -971,6 +1037,102 @@ document.getElementById('dialog-confirm-btn').onclick = async () => {
     showToast('Action failed.');
   }
 };
+
+// ---- Auth / User Management ----
+let _currentUsername = null;
+let _currentIsAdmin = false;
+
+async function initAuthUI() {
+  try {
+    const me = await apiFetch('/api/auth/me');
+    _currentUsername = me.username;
+    _currentIsAdmin = !!me.is_admin;
+    document.getElementById('auth-current-user').textContent =
+      me.username + (me.is_admin ? ' (admin)' : '');
+    if (_currentIsAdmin) {
+      document.getElementById('user-list-wrap').style.display = '';
+      document.getElementById('add-user-wrap').style.display = '';
+      refreshUserList();
+    }
+  } catch (_) {}
+}
+
+async function refreshUserList() {
+  try {
+    const data = await apiFetch('/api/auth/users');
+    const tbody = document.getElementById('user-table-body');
+    tbody.innerHTML = (data.users || []).map(u => `
+      <tr>
+        <td style="padding:6px 0">${u.username}</td>
+        <td style="padding:6px 0">${u.is_admin ? 'Admin' : 'User'}</td>
+        <td style="padding:6px 0;text-align:right">
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px"
+                  onclick="resetUserPassword('${u.username}')">Reset pw</button>
+          <button class="btn btn-danger" style="padding:4px 10px;font-size:12px;margin-left:4px"
+                  onclick="deleteUser('${u.username}')">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (_) { showToast('Failed to load users.'); }
+}
+
+async function changeOwnPassword() {
+  const pw = document.getElementById('new-password').value;
+  const confirm = document.getElementById('new-password-confirm').value;
+  if (!pw) { showToast('Enter a new password.'); return; }
+  if (pw !== confirm) { showToast('Passwords do not match.'); return; }
+  try {
+    await apiFetch('/api/auth/users/' + _currentUsername, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: pw}),
+    });
+    document.getElementById('new-password').value = '';
+    document.getElementById('new-password-confirm').value = '';
+    showToast('Password updated.');
+  } catch (_) { showToast('Failed to update password.'); }
+}
+
+async function addUser() {
+  const username = document.getElementById('new-username').value.trim().toLowerCase();
+  const password = document.getElementById('new-user-password').value;
+  const isAdmin = document.getElementById('new-user-admin').checked;
+  if (!username || !password) { showToast('Username and password are required.'); return; }
+  try {
+    await apiFetch('/api/auth/users', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password, is_admin: isAdmin}),
+    });
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-user-password').value = '';
+    document.getElementById('new-user-admin').checked = false;
+    showToast('User added.');
+    refreshUserList();
+  } catch (_) { showToast('Failed to add user.'); }
+}
+
+async function resetUserPassword(username) {
+  const pw = prompt('New password for ' + username + ' (min 8 characters):');
+  if (!pw) return;
+  try {
+    await apiFetch('/api/auth/users/' + username, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: pw}),
+    });
+    showToast('Password reset for ' + username + '.');
+  } catch (_) { showToast('Failed to reset password.'); }
+}
+
+async function deleteUser(username) {
+  if (!confirm('Delete user "' + username + '"? This cannot be undone.')) return;
+  try {
+    await apiFetch('/api/auth/users/' + username, {method: 'DELETE'});
+    showToast('User deleted.');
+    refreshUserList();
+  } catch (_) { showToast('Failed to delete user.'); }
+}
 
 // ---- Init routing from hash ----
 const initHash = location.hash.replace('#', '') || 'home';

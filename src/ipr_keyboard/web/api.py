@@ -10,10 +10,11 @@ import subprocess
 from datetime import datetime, timezone
 from typing import Any
 
-from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask import Blueprint, Response, jsonify, request, session, stream_with_context
 
 from ..config.manager import ConfigManager
 from ..logging.logger import get_logger
+from .auth import UserStore
 
 logger = get_logger()
 
@@ -479,3 +480,104 @@ def api_stream():
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Auth endpoints  (/api/auth/*)
+# ---------------------------------------------------------------------------
+
+def _err(code: str, message: str, status: int):
+    return jsonify({"error": {"code": code, "message": message}}), status
+
+
+def _require_admin():
+    if not session.get("is_admin"):
+        return _err("forbidden", "Admin access required.", 403)
+    return None
+
+
+@bp_api.post("/auth/login")
+def api_auth_login():
+    body = request.get_json(silent=True) or {}
+    username = str(body.get("username", "")).strip().lower()
+    password = str(body.get("password", ""))
+    if not username or not password:
+        return _err("bad_request", "Username and password are required.", 400)
+    if UserStore.instance().verify(username, password):
+        session.clear()
+        session.permanent = True
+        session["username"] = username
+        session["is_admin"] = UserStore.instance().user_info(username)["is_admin"]
+        return jsonify({"ok": True, "username": username})
+    return _err("invalid_credentials", "Invalid username or password.", 401)
+
+
+@bp_api.post("/auth/logout")
+def api_auth_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@bp_api.get("/auth/me")
+def api_auth_me():
+    username = session.get("username")
+    if not username:
+        return _err("unauthenticated", "Not logged in.", 401)
+    return jsonify({"username": username, "is_admin": bool(session.get("is_admin"))})
+
+
+@bp_api.get("/auth/users")
+def api_auth_users():
+    denied = _require_admin()
+    if denied:
+        return denied
+    return jsonify({"users": UserStore.instance().list_users()})
+
+
+@bp_api.post("/auth/users")
+def api_auth_users_create():
+    denied = _require_admin()
+    if denied:
+        return denied
+    body = request.get_json(silent=True) or {}
+    username = str(body.get("username", "")).strip().lower()
+    password = str(body.get("password", ""))
+    is_admin = bool(body.get("is_admin", False))
+    try:
+        UserStore.instance().add_user(username, password, is_admin)
+    except ValueError as exc:
+        return _err("bad_request", str(exc), 400)
+    return jsonify({"ok": True})
+
+
+@bp_api.put("/auth/users/<username>")
+def api_auth_users_update(username: str):
+    caller = session.get("username")
+    is_admin = bool(session.get("is_admin"))
+    if caller != username and not is_admin:
+        return _err("forbidden", "Admin access required to change another user's password.", 403)
+    body = request.get_json(silent=True) or {}
+    password = str(body.get("password", ""))
+    try:
+        UserStore.instance().change_password(username, password)
+    except KeyError:
+        return _err("not_found", f"User '{username}' not found.", 404)
+    except ValueError as exc:
+        return _err("bad_request", str(exc), 400)
+    return jsonify({"ok": True})
+
+
+@bp_api.delete("/auth/users/<username>")
+def api_auth_users_delete(username: str):
+    denied = _require_admin()
+    if denied:
+        return denied
+    if session.get("username") == username:
+        return _err("bad_request", "You cannot delete your own account.", 400)
+    try:
+        UserStore.instance().delete_user(username)
+    except KeyError:
+        return _err("not_found", f"User '{username}' not found.", 404)
+    except ValueError as exc:
+        return _err("bad_request", str(exc), 400)
+    return jsonify({"ok": True})
