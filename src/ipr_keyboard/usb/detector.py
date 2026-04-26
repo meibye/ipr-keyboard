@@ -5,9 +5,12 @@ Provides functions for detecting and waiting for new files from the IrisPen scan
 
 from __future__ import annotations
 
+import logging
 import time
 from pathlib import Path
 from typing import List, Optional
+
+_log = logging.getLogger(__name__)
 
 
 VERSION = '2026-04-12 19:41:04'
@@ -17,11 +20,12 @@ def log_version_info():
     logging.getLogger(__name__).info(f"==== ipr_keyboard.usb.detector VERSION: {VERSION} ====")
 
 
-def list_files(folder: Path) -> List[Path]:
-    """List all files in a folder, sorted by modification time.
+def list_files(folder: Path, pattern: str = "*.txt") -> List[Path]:
+    """List files matching pattern under folder (recursive), sorted by modification time.
 
     Args:
-        folder: Path to the folder to list files from.
+        folder: Root path to search.
+        pattern: Glob pattern passed to rglob (default ``"*.txt"``).
 
     Returns:
         List of Path objects sorted by modification time (oldest first),
@@ -30,7 +34,7 @@ def list_files(folder: Path) -> List[Path]:
     if not folder.exists():
         return []
     return sorted(
-        [p for p in folder.iterdir() if p.is_file()],
+        [p for p in folder.rglob(pattern) if p.is_file()],
         key=lambda p: (p.stat().st_mtime, p.name),
     )
 
@@ -68,6 +72,7 @@ def wait_for_new_file(
         Path to the new file, or None if the folder doesn't exist.
         Note: This function will block indefinitely until a new file appears.
     """
+    polls = 0
     while True:
         if not folder.exists():
             time.sleep(interval)
@@ -79,4 +84,13 @@ def wait_for_new_file(
             mtime = newest.stat().st_mtime
             if mtime > last_seen_mtime:
                 return newest
+
+        polls += 1
+        if polls % 30 == 0:
+            _log.debug(
+                "wait_for_new_file: %d .txt file(s) visible in %s (last_mtime=%.0f)",
+                len(files),
+                folder,
+                last_seen_mtime,
+            )
         time.sleep(interval)

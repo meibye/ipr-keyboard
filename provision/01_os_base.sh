@@ -85,7 +85,7 @@ EOF
 
 log "Adding $APP_USER to plugdev and fuse groups..."
 usermod -aG plugdev "$APP_USER"
-usermod -aG fuse    "$APP_USER"
+# usermod -aG fuse    "$APP_USER"
 
 log "Reloading udev rules..."
 udevadm control --reload-rules
