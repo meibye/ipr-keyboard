@@ -8,6 +8,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import socket
 import subprocess
 import sys
 import tempfile
@@ -365,13 +366,17 @@ def api_config_get():
             "ui_title": "IPR Pen Bridge",
             "bluetooth": {
                 "auto_reconnect": True,
-                "pairing_timeout_seconds": 120,
+                "pairing_timeout_seconds": cfg.PairingTimeoutSeconds,
             },
             "pen": {
                 "auto_detect": True,
-                "read_timeout_seconds": 10,
+                "read_timeout_seconds": cfg.ReadTimeoutSeconds,
                 "folders": list(cfg.IrisPenFolders or []),
                 "folder_options": FOLDER_OPTIONS,
+            },
+            "timing": {
+                "poll_interval_seconds": cfg.PollIntervalSeconds,
+                "status_interval_seconds": cfg.StatusIntervalSeconds,
             },
             "diagnostics": {
                 "log_level": log_level,
@@ -397,11 +402,161 @@ def api_config_post():
             allowed = {o["path"] for o in FOLDER_OPTIONS}
             validated = [p for p in data["pen"]["folders"] if p in allowed]
             update_kwargs["IrisPenFolders"] = validated
+        if "bluetooth" in data:
+            bt = data["bluetooth"]
+            if "pairing_timeout_seconds" in bt:
+                v = int(bt["pairing_timeout_seconds"])
+                if 10 <= v <= 600:
+                    update_kwargs["PairingTimeoutSeconds"] = v
+        if "pen" in data and "read_timeout_seconds" in data["pen"]:
+            v = int(data["pen"]["read_timeout_seconds"])
+            if 1 <= v <= 300:
+                update_kwargs["ReadTimeoutSeconds"] = v
+        if "timing" in data:
+            t = data["timing"]
+            if "poll_interval_seconds" in t:
+                v = float(t["poll_interval_seconds"])
+                if 0.1 <= v <= 60:
+                    update_kwargs["PollIntervalSeconds"] = v
+            if "status_interval_seconds" in t:
+                v = int(t["status_interval_seconds"])
+                if 1 <= v <= 60:
+                    update_kwargs["StatusIntervalSeconds"] = v
         if update_kwargs:
             cfg_mgr.update(**update_kwargs)
         return jsonify({"ok": True, "message": "Configuration updated."})
     except Exception:
         logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# ---------------------------------------------------------------------------
+# Network endpoints
+# ---------------------------------------------------------------------------
+
+_DHCPCD_CONF = "/etc/dhcpcd.conf"
+
+
+def _get_current_ip() -> str:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except Exception:
+        return ""
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+
+
+def _get_network_interface() -> str:
+    try:
+        out = subprocess.check_output(
+            ["ip", "route", "get", "8.8.8.8"], text=True, timeout=3
+        )
+        parts = out.split()
+        if "dev" in parts:
+            return parts[parts.index("dev") + 1]
+    except Exception:
+        pass
+    return "wlan0"
+
+
+def _write_dhcpcd(interface: str, mode: str, ip: str, netmask: str, gateway: str) -> None:
+    try:
+        with open(_DHCPCD_CONF, "r") as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        lines = []
+
+    # Strip existing block for this interface
+    filtered: list[str] = []
+    skip = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped == f"interface {interface}":
+            skip = True
+            continue
+        if skip and stripped.startswith("interface "):
+            skip = False
+        if not skip:
+            filtered.append(line)
+
+    if mode == "static" and ip:
+        cidr = sum(bin(int(x)).count("1") for x in netmask.split(".")) if netmask else 24
+        filtered.append(f"\ninterface {interface}\n")
+        filtered.append(f"static ip_address={ip}/{cidr}\n")
+        if gateway:
+            filtered.append(f"static routers={gateway}\n")
+            filtered.append(f"static domain_name_servers={gateway}\n")
+
+    with open(_DHCPCD_CONF, "w") as f:
+        f.writelines(filtered)
+
+
+@bp_api.get("/network")
+def api_network_get():
+    try:
+        cfg = ConfigManager.instance().get()
+        return jsonify({
+            "current_ip": _get_current_ip(),
+            "interface": _get_network_interface(),
+            "mode": cfg.NetworkMode,
+            "static_ip": cfg.StaticIP,
+            "static_netmask": cfg.StaticNetmask,
+            "static_gateway": cfg.StaticGateway,
+            "port": cfg.LogPort,
+        })
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/network")
+def api_network_post():
+    try:
+        data = request.get_json(force=True) or {}
+        cfg_mgr = ConfigManager.instance()
+        update_kwargs: dict[str, Any] = {}
+
+        if "port" in data:
+            v = int(data["port"])
+            if 1024 <= v <= 65535:
+                update_kwargs["LogPort"] = v
+
+        mode = data.get("mode", "").lower()
+        if mode in ("dhcp", "static"):
+            update_kwargs["NetworkMode"] = mode
+
+        if "static_ip" in data:
+            update_kwargs["StaticIP"] = str(data["static_ip"])
+        if "static_netmask" in data:
+            update_kwargs["StaticNetmask"] = str(data["static_netmask"])
+        if "static_gateway" in data:
+            update_kwargs["StaticGateway"] = str(data["static_gateway"])
+
+        if update_kwargs:
+            cfg_mgr.update(**update_kwargs)
+
+        # Apply to dhcpcd.conf if mode or static fields changed
+        if "mode" in update_kwargs or any(k in update_kwargs for k in ("StaticIP", "StaticNetmask", "StaticGateway")):
+            cfg = cfg_mgr.get()
+            iface = _get_network_interface()
+            try:
+                _write_dhcpcd(iface, cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway)
+                dhcp_msg = "Network config saved. Changes take effect after reboot."
+            except PermissionError:
+                dhcp_msg = "Settings saved, but could not write /etc/dhcpcd.conf (permission denied). Apply manually or run as root."
+            except Exception as exc:
+                dhcp_msg = f"Settings saved, but dhcpcd.conf update failed: {exc}"
+        else:
+            dhcp_msg = "Network settings saved."
+
+        return jsonify({"ok": True, "message": dhcp_msg})
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -525,7 +680,7 @@ def api_stream():
                 yield f"data: {payload}\n\n"
             except Exception:
                 yield "data: {}\n\n"
-            time.sleep(5)
+            time.sleep(ConfigManager.instance().get().StatusIntervalSeconds)
 
     return Response(
         stream_with_context(generate()),

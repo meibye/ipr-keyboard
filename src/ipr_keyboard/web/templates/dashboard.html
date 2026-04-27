@@ -595,6 +595,7 @@
   <!-- SETTINGS SCREEN -->
   <section id="screen-settings" class="screen">
 
+    <!-- Device info -->
     <div class="settings-section card">
       <h2>Device</h2>
       <div class="settings-row">
@@ -607,48 +608,21 @@
       </div>
     </div>
 
-    <div class="settings-section card">
-      <h2>Bluetooth</h2>
+    <!-- Software version info -->
+    <div class="settings-section card" id="software-info-section">
+      <h2>Software</h2>
       <div class="settings-row">
-        <label for="cfg-auto-reconnect">Auto reconnect</label>
-        <input type="checkbox" id="cfg-auto-reconnect">
+        <label>Package version</label>
+        <span class="setting-value" id="sw-package-ver">—</span>
       </div>
       <div class="settings-row">
-        <label for="cfg-pairing-timeout">Pairing timeout (seconds)</label>
-        <input type="number" id="cfg-pairing-timeout" min="10" max="600" value="120" style="width:80px">
+        <label>Python</label>
+        <span class="setting-value" id="sw-python-ver">—</span>
       </div>
+      <div id="sw-module-list" style="margin-top:8px;font-size:12px;color:var(--color-text-muted)"></div>
     </div>
 
-    <div class="settings-section card">
-      <h2>Pen / Scanner</h2>
-      <div class="settings-row">
-        <label for="cfg-auto-detect">Auto detect</label>
-        <input type="checkbox" id="cfg-auto-detect">
-      </div>
-      <div class="settings-row">
-        <label for="cfg-read-timeout">Read timeout (seconds)</label>
-        <input type="number" id="cfg-read-timeout" min="1" max="60" value="10" style="width:80px">
-      </div>
-      <div class="settings-row" style="align-items:flex-start">
-        <label>Scan folders</label>
-        <div id="cfg-pen-folders" style="display:flex;flex-direction:column;gap:8px"></div>
-      </div>
-    </div>
-
-    <div class="settings-section card">
-      <h2>Diagnostics</h2>
-      <div class="settings-row">
-        <label for="cfg-log-level">Log level</label>
-        <select id="cfg-log-level">
-          <option>DEBUG</option>
-          <option selected>INFO</option>
-          <option>WARNING</option>
-          <option>ERROR</option>
-          <option>OFF</option>
-        </select>
-      </div>
-    </div>
-
+    <!-- User accounts -->
     <div class="settings-section card" id="user-mgmt-section">
       <h2>User Accounts</h2>
 
@@ -697,7 +671,113 @@
       </div>
     </div>
 
-    <div class="settings-section">
+    <!-- Network -->
+    <div class="settings-section card">
+      <h2>Network</h2>
+      <div class="settings-row">
+        <label>Current IP</label>
+        <span class="setting-value" id="net-current-ip">—</span>
+      </div>
+      <div class="settings-row">
+        <label>Interface</label>
+        <span class="setting-value" id="net-interface">—</span>
+      </div>
+      <div class="settings-row">
+        <label for="cfg-port">Web port</label>
+        <div>
+          <input type="number" id="cfg-port" min="1024" max="65535" value="8080" style="width:90px">
+          <div style="font-size:11px;color:var(--color-text-muted);margin-top:2px">Takes effect after reboot</div>
+        </div>
+      </div>
+      <div class="settings-row">
+        <label>Network mode</label>
+        <div style="display:flex;gap:20px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="net-mode" value="dhcp" id="net-mode-dhcp" checked> DHCP
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="radio" name="net-mode" value="static" id="net-mode-static"> Static
+          </label>
+        </div>
+      </div>
+      <div id="net-static-fields" style="display:none">
+        <div class="settings-row">
+          <label for="cfg-static-ip">IP address</label>
+          <input type="text" id="cfg-static-ip" placeholder="192.168.1.100"
+                 style="width:180px;border:1px solid var(--color-border);border-radius:6px;padding:6px 8px;font-size:14px">
+        </div>
+        <div class="settings-row">
+          <label for="cfg-static-netmask">Netmask</label>
+          <input type="text" id="cfg-static-netmask" placeholder="255.255.255.0"
+                 style="width:180px;border:1px solid var(--color-border);border-radius:6px;padding:6px 8px;font-size:14px">
+        </div>
+        <div class="settings-row">
+          <label for="cfg-static-gateway">Gateway</label>
+          <input type="text" id="cfg-static-gateway" placeholder="192.168.1.1"
+                 style="width:180px;border:1px solid var(--color-border);border-radius:6px;padding:6px 8px;font-size:14px">
+        </div>
+      </div>
+    </div>
+
+    <!-- Bluetooth -->
+    <div class="settings-section card">
+      <h2>Bluetooth</h2>
+      <div class="settings-row">
+        <label for="cfg-auto-reconnect">Auto reconnect</label>
+        <input type="checkbox" id="cfg-auto-reconnect">
+      </div>
+      <div class="settings-row">
+        <label for="cfg-pairing-timeout">Pairing timeout (seconds)</label>
+        <input type="number" id="cfg-pairing-timeout" min="10" max="600" value="120" style="width:80px">
+      </div>
+    </div>
+
+    <!-- Pen / Scanner -->
+    <div class="settings-section card">
+      <h2>Pen / Scanner</h2>
+      <div class="settings-row">
+        <label for="cfg-auto-detect">Auto detect</label>
+        <input type="checkbox" id="cfg-auto-detect">
+      </div>
+      <div class="settings-row">
+        <label for="cfg-read-timeout">Read timeout (seconds)</label>
+        <input type="number" id="cfg-read-timeout" min="1" max="300" value="10" style="width:80px">
+      </div>
+      <div class="settings-row">
+        <label for="cfg-poll-interval">Poll interval (seconds)</label>
+        <input type="number" id="cfg-poll-interval" min="0.1" max="60" step="0.1" value="1.0" style="width:80px">
+      </div>
+      <div class="settings-row" style="align-items:flex-start">
+        <label>Scan folders</label>
+        <div id="cfg-pen-folders" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+
+    <!-- Diagnostics -->
+    <div class="settings-section card">
+      <h2>Diagnostics</h2>
+      <div class="settings-row">
+        <label for="cfg-log-level">Log level</label>
+        <select id="cfg-log-level">
+          <option>DEBUG</option>
+          <option selected>INFO</option>
+          <option>WARNING</option>
+          <option>ERROR</option>
+          <option>OFF</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <label for="cfg-status-interval">Status refresh (seconds)</label>
+        <input type="number" id="cfg-status-interval" min="1" max="60" value="5" style="width:80px">
+      </div>
+    </div>
+
+    <div style="text-align:right;margin-top:12px;">
+      <button class="btn btn-primary" onclick="saveSettings()">💾 Save settings</button>
+    </div>
+
+    <!-- Power — always last -->
+    <div class="settings-section" style="margin-top:24px">
       <div class="danger-section">
         <h2>⚠️ Power</h2>
         <div class="action-row">
@@ -707,22 +787,6 @@
       </div>
     </div>
 
-    <div class="settings-section card" id="software-info-section">
-      <h2>Software</h2>
-      <div class="settings-row">
-        <label>Package version</label>
-        <span class="setting-value" id="sw-package-ver">—</span>
-      </div>
-      <div class="settings-row">
-        <label>Python</label>
-        <span class="setting-value" id="sw-python-ver">—</span>
-      </div>
-      <div id="sw-module-list" style="margin-top:8px;font-size:12px;color:var(--color-text-muted)"></div>
-    </div>
-
-    <div style="text-align:right;margin-top:12px;">
-      <button class="btn btn-primary" onclick="saveSettings()">💾 Save settings</button>
-    </div>
   </section>
 
 
@@ -1121,19 +1185,29 @@ async function toggleRawLogs() {
 }
 
 // ---- Settings ----
+function _initNetworkModeToggle() {
+  document.querySelectorAll('input[name="net-mode"]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('net-static-fields').style.display =
+        document.getElementById('net-mode-static').checked ? '' : 'none';
+    });
+  });
+}
+
 async function loadSettings() {
   initAuthUI();
+  _initNetworkModeToggle();
   try {
     const cfg = await apiFetch('/api/config');
     document.getElementById('cfg-device-name').textContent = cfg.device_name || '—';
     document.getElementById('cfg-ui-title').textContent = cfg.ui_title || '—';
     if (cfg.bluetooth) {
       document.getElementById('cfg-auto-reconnect').checked = !!cfg.bluetooth.auto_reconnect;
-      document.getElementById('cfg-pairing-timeout').value = cfg.bluetooth.pairing_timeout_seconds || 120;
+      document.getElementById('cfg-pairing-timeout').value = cfg.bluetooth.pairing_timeout_seconds ?? 120;
     }
     if (cfg.pen) {
       document.getElementById('cfg-auto-detect').checked = !!cfg.pen.auto_detect;
-      document.getElementById('cfg-read-timeout').value = cfg.pen.read_timeout_seconds || 10;
+      document.getElementById('cfg-read-timeout').value = cfg.pen.read_timeout_seconds ?? 10;
       if (cfg.pen.folder_options) {
         const wrap = document.getElementById('cfg-pen-folders');
         wrap.innerHTML = '';
@@ -1156,6 +1230,10 @@ async function loadSettings() {
         });
       }
     }
+    if (cfg.timing) {
+      document.getElementById('cfg-poll-interval').value = cfg.timing.poll_interval_seconds ?? 1.0;
+      document.getElementById('cfg-status-interval').value = cfg.timing.status_interval_seconds ?? 5;
+    }
     if (cfg.diagnostics) {
       const sel = document.getElementById('cfg-log-level');
       for (let opt of sel.options) {
@@ -1165,6 +1243,22 @@ async function loadSettings() {
   } catch (e) {
     showToast('Could not load settings');
   }
+  try {
+    const net = await apiFetch('/api/network');
+    document.getElementById('net-current-ip').textContent = net.current_ip || '—';
+    document.getElementById('net-interface').textContent = net.interface || '—';
+    document.getElementById('cfg-port').value = net.port ?? 8080;
+    if (net.mode === 'static') {
+      document.getElementById('net-mode-static').checked = true;
+      document.getElementById('net-static-fields').style.display = '';
+    } else {
+      document.getElementById('net-mode-dhcp').checked = true;
+      document.getElementById('net-static-fields').style.display = 'none';
+    }
+    document.getElementById('cfg-static-ip').value = net.static_ip || '';
+    document.getElementById('cfg-static-netmask').value = net.static_netmask || '255.255.255.0';
+    document.getElementById('cfg-static-gateway').value = net.static_gateway || '';
+  } catch (_) {}
   try {
     const ver = await apiFetch('/api/version');
     document.getElementById('sw-package-ver').textContent = ver.package || '—';
@@ -1188,6 +1282,10 @@ async function saveSettings() {
         read_timeout_seconds: parseInt(document.getElementById('cfg-read-timeout').value, 10),
         folders: Array.from(document.querySelectorAll('#cfg-pen-folders input[type=checkbox]:checked')).map(cb => cb.value),
       },
+      timing: {
+        poll_interval_seconds: parseFloat(document.getElementById('cfg-poll-interval').value),
+        status_interval_seconds: parseInt(document.getElementById('cfg-status-interval').value, 10),
+      },
       diagnostics: {
         log_level: document.getElementById('cfg-log-level').value,
       },
@@ -1200,6 +1298,27 @@ async function saveSettings() {
     showToast(res.message || 'Settings saved.');
   } catch (e) {
     showToast('Failed to save settings.');
+    return;
+  }
+  // Save network settings separately
+  try {
+    const netBody = {
+      port: parseInt(document.getElementById('cfg-port').value, 10),
+      mode: document.querySelector('input[name="net-mode"]:checked')?.value || 'dhcp',
+      static_ip: document.getElementById('cfg-static-ip').value,
+      static_netmask: document.getElementById('cfg-static-netmask').value,
+      static_gateway: document.getElementById('cfg-static-gateway').value,
+    };
+    const netRes = await apiFetch('/api/network', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(netBody),
+    });
+    if (netRes.message && netRes.message !== 'Network settings saved.') {
+      showToast(netRes.message);
+    }
+  } catch (e) {
+    showToast('Network settings could not be saved.');
   }
 }
 

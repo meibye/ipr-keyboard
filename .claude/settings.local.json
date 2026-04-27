@@ -11,7 +11,8 @@
       "Bash(xargs wc *)",
       "Bash(python -m pytest tests/test_transmission.py tests/bluetooth/test_keyboard.py tests/web/test_api.py -v)",
       "Bash(pip install *)",
-      "Bash(python -m pytest -v)"
+      "Bash(python -m pytest -v)",
+      "Skill(claude-hud:setup)"
     ]
   }
 }

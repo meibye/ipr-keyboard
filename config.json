@@ -4,5 +4,13 @@
   "LogPort": 8080,
   "Logging": true,
   "LogLevel": "INFO",
-  "MaxFileSize": 1048576
+  "MaxFileSize": 1048576,
+  "PairingTimeoutSeconds": 120,
+  "ReadTimeoutSeconds": 10,
+  "PollIntervalSeconds": 1.0,
+  "StatusIntervalSeconds": 5,
+  "NetworkMode": "dhcp",
+  "StaticIP": "",
+  "StaticNetmask": "255.255.255.0",
+  "StaticGateway": ""
 }

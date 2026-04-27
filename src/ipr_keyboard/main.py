@@ -70,9 +70,10 @@ def run_usb_bt_loop():
         cfg = cfg_mgr.get()
         folders = [Path(p) for p in (cfg.IrisPenFolders or [])]
 
+        poll = cfg.PollIntervalSeconds
         if not folders:
             logger.debug("No folders configured; sleeping")
-            time.sleep(1.0)
+            time.sleep(poll)
             continue
 
         found_file = None
@@ -98,7 +99,7 @@ def run_usb_bt_loop():
                 break
 
         if found_file is None:
-            time.sleep(1.0)
+            time.sleep(poll)
             continue
 
         logger.info("Detected new file: %s", found_file)

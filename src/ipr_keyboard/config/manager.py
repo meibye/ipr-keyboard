@@ -33,6 +33,14 @@ class AppConfig:
         MaxFileSize: Maximum file size in bytes to process (default: 1MB = 1048576 bytes).
         LogPort: Port number for the web/log server.
         LogLevel: Logging level (DEBUG, INFO, WARNING, ERROR).
+        PairingTimeoutSeconds: Seconds Bluetooth stays in pairing mode.
+        ReadTimeoutSeconds: Max seconds to wait when reading a pen file.
+        PollIntervalSeconds: Seconds between folder polls for new files.
+        StatusIntervalSeconds: Seconds between SSE status push events.
+        NetworkMode: Network configuration mode ("dhcp" or "static").
+        StaticIP: Static IP address (used when NetworkMode is "static").
+        StaticNetmask: Static netmask (used when NetworkMode is "static").
+        StaticGateway: Static gateway (used when NetworkMode is "static").
     """
 
     IrisPenFolders: List[str] = None  # type: ignore[assignment]
@@ -41,6 +49,14 @@ class AppConfig:
     MaxFileSize: int = 1024 * 1024
     LogPort: int = 8080
     LogLevel: str = "INFO"
+    PairingTimeoutSeconds: int = 120
+    ReadTimeoutSeconds: int = 10
+    PollIntervalSeconds: float = 1.0
+    StatusIntervalSeconds: int = 5
+    NetworkMode: str = "dhcp"
+    StaticIP: str = ""
+    StaticNetmask: str = "255.255.255.0"
+    StaticGateway: str = ""
 
     def __post_init__(self) -> None:
         if self.IrisPenFolders is None:
