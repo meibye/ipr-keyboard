@@ -87,6 +87,12 @@ log "Adding $APP_USER to plugdev and fuse groups..."
 usermod -aG plugdev "$APP_USER"
 # usermod -aG fuse    "$APP_USER"
 
+MTP_MOUNTPOINT="/mnt/irispen"
+log "Ensuring IrisPen mountpoint exists and is writable by $APP_USER..."
+mkdir -p "$MTP_MOUNTPOINT"
+chown "$APP_USER:$APP_GROUP" "$MTP_MOUNTPOINT"
+chmod 0775 "$MTP_MOUNTPOINT"
+
 log "Reloading udev rules..."
 udevadm control --reload-rules
 udevadm trigger
@@ -140,6 +146,7 @@ OS Base completed: $(date -Is)
 System packages installed: yes
 BlueZ configured: yes
 IrisPen udev rule: installed
+IrisPen mountpoint: $MTP_MOUNTPOINT (owner=$APP_USER:$APP_GROUP, mode=0775)
 EOF
 
 log "OS baseline configuration complete!"

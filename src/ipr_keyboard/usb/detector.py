@@ -31,12 +31,29 @@ def list_files(folder: Path, pattern: str = "*.txt") -> List[Path]:
         List of Path objects sorted by modification time (oldest first),
         or an empty list if the folder doesn't exist.
     """
-    if not folder.exists():
+    try:
+        if not folder.exists():
+            return []
+    except OSError as exc:
+        _log.warning("list_files: cannot access folder %s: %s", folder, exc)
         return []
-    return sorted(
-        [p for p in folder.rglob(pattern) if p.is_file()],
-        key=lambda p: (p.stat().st_mtime, p.name),
-    )
+
+    files: list[tuple[float, str, Path]] = []
+    try:
+        for path in folder.rglob(pattern):
+            try:
+                if not path.is_file():
+                    continue
+                mtime = path.stat().st_mtime
+                files.append((mtime, path.name, path))
+            except OSError:
+                continue
+    except OSError as exc:
+        _log.warning("list_files: failed while scanning %s: %s", folder, exc)
+        return []
+
+    files.sort(key=lambda item: (item[0], item[1]))
+    return [item[2] for item in files]
 
 
 def newest_file(folder: Path) -> Optional[Path]:
@@ -74,14 +91,26 @@ def wait_for_new_file(
     """
     polls = 0
     while True:
-        if not folder.exists():
+        try:
+            folder_exists = folder.exists()
+        except OSError as exc:
+            _log.warning("wait_for_new_file: folder access failed for %s: %s", folder, exc)
+            time.sleep(interval)
+            continue
+
+        if not folder_exists:
             time.sleep(interval)
             continue
 
         files = list_files(folder)
         if files:
             newest = files[-1]
-            mtime = newest.stat().st_mtime
+            try:
+                mtime = newest.stat().st_mtime
+            except OSError as exc:
+                _log.warning("wait_for_new_file: stat failed for %s: %s", newest, exc)
+                time.sleep(interval)
+                continue
             if mtime > last_seen_mtime:
                 return newest
 

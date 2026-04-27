@@ -258,6 +258,21 @@ else
   WARNINGS=$(( ${WARNINGS:-0} + 1 ))
 fi
 
+MTP_MOUNTPOINT="/mnt/irispen"
+if [[ -d "$MTP_MOUNTPOINT" ]]; then
+  log "✓ IrisPen mountpoint exists: $MTP_MOUNTPOINT"
+else
+  warn "⚠ IrisPen mountpoint missing: $MTP_MOUNTPOINT"
+  WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+fi
+
+if sudo -u "$APP_USER" test -w "$MTP_MOUNTPOINT"; then
+  log "✓ $APP_USER can write to $MTP_MOUNTPOINT"
+else
+  warn "⚠ $APP_USER cannot write to $MTP_MOUNTPOINT (jmtpfs mount may fail)"
+  WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+fi
+
 echo ""
 info "═══════════════════════════════════════════"
 

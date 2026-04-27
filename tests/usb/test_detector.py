@@ -5,6 +5,7 @@ Tests the detector module for finding and monitoring files.
 import time
 import threading
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from ipr_keyboard.usb import detector
 
@@ -179,3 +180,72 @@ def test_wait_for_new_file_nonexistent_folder(tmp_path):
     assert not thread.is_alive()
     assert result_holder["result"] is not None
     assert result_holder["result"].name == "appeared.txt"
+
+
+def test_list_files_oserror_on_exists_returns_empty(tmp_path, monkeypatch):
+    """list_files should handle mount access errors without raising."""
+    folder = tmp_path / "mtp_mount"
+    folder.mkdir()
+
+    original_exists = Path.exists
+
+    def mock_exists(self):
+        if self == folder:
+            raise OSError(5, "Input/output error")
+        return original_exists(self)
+
+    monkeypatch.setattr(Path, "exists", mock_exists)
+
+    assert detector.list_files(folder) == []
+
+
+def test_wait_for_new_file_recovers_after_folder_exists_oserror(tmp_path, monkeypatch):
+    """wait_for_new_file should retry when folder.exists raises OSError."""
+    folder = tmp_path / "mtp_mount"
+    folder.mkdir()
+    candidate = folder / "scan.txt"
+    candidate.write_text("content", encoding="utf-8")
+
+    exists_calls = {"count": 0}
+    original_exists = Path.exists
+
+    def mock_exists(self):
+        if self == folder:
+            exists_calls["count"] += 1
+            if exists_calls["count"] == 1:
+                raise OSError(5, "Input/output error")
+        return original_exists(self)
+
+    monkeypatch.setattr(Path, "exists", mock_exists)
+    monkeypatch.setattr(detector.time, "sleep", lambda _interval: None)
+    monkeypatch.setattr(detector, "list_files", lambda _folder: [candidate])
+
+    result = detector.wait_for_new_file(folder, 0.0, interval=0.01)
+    assert result == candidate
+
+
+def test_wait_for_new_file_ignores_stat_oserror_then_succeeds(tmp_path, monkeypatch):
+    """wait_for_new_file should continue polling if newest.stat fails transiently."""
+    folder = tmp_path / "mtp_mount"
+    folder.mkdir()
+
+    candidate = MagicMock()
+    candidate.__str__.return_value = "scan.txt"
+    stat_calls = {"count": 0}
+
+    def mock_stat():
+        stat_calls["count"] += 1
+        if stat_calls["count"] == 1:
+            raise OSError(5, "Input/output error")
+        stat_obj = MagicMock()
+        stat_obj.st_mtime = 10.0
+        return stat_obj
+
+    candidate.stat.side_effect = mock_stat
+
+    monkeypatch.setattr(Path, "exists", lambda _self: True)
+    monkeypatch.setattr(detector, "list_files", lambda _folder: [candidate])
+    monkeypatch.setattr(detector.time, "sleep", lambda _interval: None)
+
+    result = detector.wait_for_new_file(folder, 0.0, interval=0.01)
+    assert result == candidate
