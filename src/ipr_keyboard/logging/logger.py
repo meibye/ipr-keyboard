@@ -13,12 +13,15 @@ _LOGGER: Optional[logging.Logger] = None
 _LOG_FILE = project_root() / "logs" / "ipr_keyboard.log"
 
 
-def get_logger() -> logging.Logger:
+def get_logger(level: str = "INFO") -> logging.Logger:
     """Get or create the application logger.
-    
+
     Creates a logger with both file and console handlers on first call.
     The file handler uses rotation (max 256KB per file, 5 backups).
-    
+
+    Args:
+        level: Log level as a string (DEBUG, INFO, WARNING, ERROR).
+
     Returns:
         The configured Logger instance.
     """
@@ -28,7 +31,7 @@ def get_logger() -> logging.Logger:
 
     _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger("ipr_keyboard")
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.getLevelName(level.upper()))
 
     handler = RotatingFileHandler(
         _LOG_FILE, maxBytes=256 * 1024, backupCount=5, encoding="utf-8"
@@ -49,9 +52,22 @@ def get_logger() -> logging.Logger:
     return logger
 
 
+def set_log_level(level: str) -> None:
+    """Set the log level for the application logger.
+
+    Args:
+        level: Log level as a string (DEBUG, INFO, WARNING, ERROR).
+    """
+    global _LOGGER
+    if _LOGGER is None:
+        get_logger(level)
+    else:
+        _LOGGER.setLevel(logging.getLevelName(level.upper()))
+
+
 def log_path() -> Path:
     """Get the path to the log file.
-    
+
     Returns:
         Path to the application log file.
     """

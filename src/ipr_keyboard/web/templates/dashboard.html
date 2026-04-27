@@ -629,6 +629,13 @@
         <label for="cfg-read-timeout">Read timeout (seconds)</label>
         <input type="number" id="cfg-read-timeout" min="1" max="60" value="10" style="width:80px">
       </div>
+      <div class="settings-row">
+        <label for="cfg-pen-folder">Scan folder</label>
+        <div>
+          <select id="cfg-pen-folder" style="max-width:220px"></select>
+          <div id="cfg-pen-folder-da" style="font-size:12px;color:var(--color-text-muted);margin-top:3px"></div>
+        </div>
+      </div>
     </div>
 
     <div class="settings-section card">
@@ -1130,6 +1137,23 @@ async function loadSettings() {
     if (cfg.pen) {
       document.getElementById('cfg-auto-detect').checked = !!cfg.pen.auto_detect;
       document.getElementById('cfg-read-timeout').value = cfg.pen.read_timeout_seconds || 10;
+      if (cfg.pen.folder_options) {
+        const sel = document.getElementById('cfg-pen-folder');
+        sel.innerHTML = '';
+        cfg.pen.folder_options.forEach(opt => {
+          const el = document.createElement('option');
+          el.value = opt.path;
+          el.textContent = opt.label_en;
+          if (opt.path === cfg.pen.folder) el.selected = true;
+          sel.appendChild(el);
+        });
+        const updateDa = () => {
+          const chosen = cfg.pen.folder_options.find(o => o.path === sel.value);
+          document.getElementById('cfg-pen-folder-da').textContent = chosen ? chosen.label_da : '';
+        };
+        sel.addEventListener('change', updateDa);
+        updateDa();
+      }
     }
     if (cfg.diagnostics) {
       const sel = document.getElementById('cfg-log-level');
@@ -1161,6 +1185,7 @@ async function saveSettings() {
       pen: {
         auto_detect: document.getElementById('cfg-auto-detect').checked,
         read_timeout_seconds: parseInt(document.getElementById('cfg-read-timeout').value, 10),
+        folder: document.getElementById('cfg-pen-folder').value,
       },
       diagnostics: {
         log_level: document.getElementById('cfg-log-level').value,

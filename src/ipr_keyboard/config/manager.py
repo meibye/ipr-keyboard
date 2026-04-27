@@ -32,13 +32,15 @@ class AppConfig:
         Logging: Whether logging is enabled.
         MaxFileSize: Maximum file size in bytes to process (default: 1MB = 1048576 bytes).
         LogPort: Port number for the web/log server.
+        LogLevel: Logging level (DEBUG, INFO, WARNING, ERROR).
     """
 
-    IrisPenFolder: str = "/mnt/irispen"
+    IrisPenFolder: str = "/mnt/irispen/Intern delt lagerplads/Scan text and save"
     DeleteFiles: bool = True
     Logging: bool = True
     MaxFileSize: int = 1024 * 1024
     LogPort: int = 8080
+    LogLevel: str = "INFO"
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":

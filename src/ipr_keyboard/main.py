@@ -13,7 +13,7 @@ from .config.manager import ConfigManager, log_version_info
 from .config import manager as config_manager
 from .bluetooth.keyboard import BluetoothKeyboard
 from .bluetooth import keyboard as bt_keyboard
-from .logging.logger import get_logger
+from .logging.logger import get_logger, set_log_level
 from .usb import detector, reader, deleter
 from .usb import detector as usb_detector, reader as usb_reader, deleter as usb_deleter
 from .web.server import create_app
@@ -103,12 +103,13 @@ def run_usb_bt_loop():
 
 def main():
     """Main entry point for the ipr-keyboard application.
-    
+
     Initializes the configuration, starts the web server and USB monitoring
     threads, and keeps the application running until interrupted with Ctrl+C.
     """
     log_version_info()
     cfg = ConfigManager.instance().get()
+    set_log_level(cfg.LogLevel)
     logger.info("Starting ipr_keyboard with config: %s", cfg.to_dict())
 
     t_web = threading.Thread(target=run_web_server, daemon=True)

@@ -18,12 +18,25 @@ from typing import Any
 from flask import Blueprint, Response, jsonify, request, session, stream_with_context
 
 from ..config.manager import ConfigManager
-from ..logging.logger import get_logger
+from ..logging.logger import get_logger, set_log_level
 from .. import transmission
 from ..usb.detector import list_files
 from .auth import UserStore
 
 logger = get_logger()
+
+FOLDER_OPTIONS = [
+    {
+        "path": "/mnt/irispen/Intern delt lagerplads/Scan text and save",
+        "label_en": "Scan to Text & Save",
+        "label_da": "Scan til tekst og gem",
+    },
+    {
+        "path": "/mnt/irispen/Intern delt lagerplads/picture",
+        "label_en": "Photo OCR",
+        "label_da": "Foto OCR",
+    },
+]
 
 bp_api = Blueprint("api", __name__, url_prefix="/api")
 
@@ -346,6 +359,7 @@ def api_logs_raw():
 def api_config_get():
     try:
         cfg = ConfigManager.instance().get()
+        log_level = cfg.LogLevel if getattr(cfg, "Logging", True) else "OFF"
         return jsonify({
             "device_name": "IPR Pen Bridge",
             "ui_title": "IPR Pen Bridge",
@@ -356,9 +370,11 @@ def api_config_get():
             "pen": {
                 "auto_detect": True,
                 "read_timeout_seconds": 10,
+                "folder": cfg.IrisPenFolder,
+                "folder_options": FOLDER_OPTIONS,
             },
             "diagnostics": {
-                "log_level": "INFO" if getattr(cfg, "Logging", True) else "OFF",
+                "log_level": log_level,
             },
         })
     except Exception:
@@ -372,7 +388,16 @@ def api_config_post():
         cfg_mgr = ConfigManager.instance()
         update_kwargs: dict[str, Any] = {}
         if "diagnostics" in data and "log_level" in data["diagnostics"]:
-            update_kwargs["Logging"] = data["diagnostics"]["log_level"] != "OFF"
+            new_level = data["diagnostics"]["log_level"]
+            update_kwargs["Logging"] = new_level != "OFF"
+            if new_level in ("DEBUG", "INFO", "WARNING", "ERROR"):
+                update_kwargs["LogLevel"] = new_level
+                set_log_level(new_level)
+        if "pen" in data and "folder" in data["pen"]:
+            requested = data["pen"]["folder"]
+            allowed = [o["path"] for o in FOLDER_OPTIONS]
+            if requested in allowed:
+                update_kwargs["IrisPenFolder"] = requested
         if update_kwargs:
             cfg_mgr.update(**update_kwargs)
         return jsonify({"ok": True, "message": "Configuration updated."})
