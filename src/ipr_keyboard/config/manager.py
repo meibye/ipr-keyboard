@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..utils.helpers import config_path, load_json, save_json
 from ..logging.logger import get_logger
@@ -27,7 +27,7 @@ class AppConfig:
     """Application configuration dataclass.
 
     Attributes:
-        IrisPenFolder: Path to the folder containing scanned text files from IrisPen.
+        IrisPenFolders: List of folder paths to monitor for scanned text files from IrisPen.
         DeleteFiles: Whether to delete files after processing them.
         Logging: Whether logging is enabled.
         MaxFileSize: Maximum file size in bytes to process (default: 1MB = 1048576 bytes).
@@ -35,12 +35,18 @@ class AppConfig:
         LogLevel: Logging level (DEBUG, INFO, WARNING, ERROR).
     """
 
-    IrisPenFolder: str = "/mnt/irispen/Intern delt lagerplads/Scan text and save"
+    IrisPenFolders: List[str] = None  # type: ignore[assignment]
     DeleteFiles: bool = True
     Logging: bool = True
     MaxFileSize: int = 1024 * 1024
     LogPort: int = 8080
     LogLevel: str = "INFO"
+
+    def __post_init__(self) -> None:
+        if self.IrisPenFolders is None:
+            self.IrisPenFolders = [
+                "/mnt/irispen/Intern delt lagerplads/Scan text and save"
+            ]
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":
@@ -49,7 +55,9 @@ class AppConfig:
         for field in asdict(base).keys():
             if field in data:
                 setattr(base, field, data[field])
-
+        # Migrate legacy single-string IrisPenFolder key
+        if "IrisPenFolders" not in data and "IrisPenFolder" in data:
+            base.IrisPenFolders = [data["IrisPenFolder"]]
         return base
 
     def to_dict(self) -> Dict[str, Any]:

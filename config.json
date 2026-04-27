@@ -1,6 +1,6 @@
 {
   "DeleteFiles": true,
-  "IrisPenFolder": "/mnt/irispen/Intern delt lagerplads/Scan text and save",
+  "IrisPenFolders": ["/mnt/irispen/Intern delt lagerplads/Scan text and save"],
   "LogPort": 8080,
   "Logging": true,
   "LogLevel": "INFO",

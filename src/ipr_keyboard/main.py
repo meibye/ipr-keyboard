@@ -48,11 +48,11 @@ def run_web_server():
 
 def run_usb_bt_loop():
     """Main USB monitoring and Bluetooth forwarding loop.
-    
-    Continuously monitors the configured IrisPenFolder for new text files,
+
+    Continuously monitors all configured IrisPenFolders for new text files,
     reads their content, sends it via Bluetooth keyboard emulation, and
     optionally deletes the processed files.
-    
+
     This function runs indefinitely and should be executed in a separate thread.
     """
     cfg_mgr = ConfigManager.instance()
@@ -63,42 +63,62 @@ def run_usb_bt_loop():
             "Bluetooth helper not available; will still monitor files but not send text"
         )
 
-    last_mtime = 0.0
+    # Per-folder last-seen mtime so each folder is tracked independently.
+    last_mtime: dict = {}
 
     while True:
         cfg = cfg_mgr.get()
-        folder = Path(cfg.IrisPenFolder)
+        folders = [Path(p) for p in (cfg.IrisPenFolders or [])]
 
-        if not folder.exists():
-            logger.debug("IrisPenFolder does not exist yet: %s", folder)
+        if not folders:
+            logger.debug("No folders configured; sleeping")
             time.sleep(1.0)
             continue
 
-        logger.debug("Waiting for new file in %s", folder)
-        new_file = detector.wait_for_new_file(folder, last_mtime, interval=1.0)
-        if new_file is None:
+        found_file = None
+        for folder in folders:
+            if not folder.exists():
+                logger.debug("Folder does not exist yet: %s", folder)
+                continue
+
+            folder_key = str(folder)
+            files = detector.list_files(folder)
+            if not files:
+                continue
+
+            newest = files[-1]
+            try:
+                mtime = newest.stat().st_mtime
+            except OSError:
+                continue
+
+            if mtime > last_mtime.get(folder_key, 0.0):
+                last_mtime[folder_key] = mtime
+                found_file = newest
+                break
+
+        if found_file is None:
             time.sleep(1.0)
             continue
 
-        last_mtime = new_file.stat().st_mtime
-        logger.info("Detected new file: %s", new_file)
+        logger.info("Detected new file: %s", found_file)
 
-        text = reader.read_file(new_file, cfg.MaxFileSize)
+        text = reader.read_file(found_file, cfg.MaxFileSize)
         if text is None:
-            logger.warning("File %s is too large or unreadable", new_file)
+            logger.warning("File %s is too large or unreadable", found_file)
         else:
-            logger.info("Read %d bytes from %s", len(text), new_file)
+            logger.info("Read %d bytes from %s", len(text), found_file)
             if kb.is_available():
                 kb.send_text(text)
             else:
                 logger.info("BT not available; text would have been: %r", text[:100])
 
         if cfg.DeleteFiles:
-            ok = deleter.delete_file(new_file)
+            ok = deleter.delete_file(found_file)
             if ok:
-                logger.info("Deleted file after processing: %s", new_file)
+                logger.info("Deleted file after processing: %s", found_file)
             else:
-                logger.error("Failed to delete file: %s", new_file)
+                logger.error("Failed to delete file: %s", found_file)
 
 
 def main():

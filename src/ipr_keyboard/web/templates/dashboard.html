@@ -629,12 +629,9 @@
         <label for="cfg-read-timeout">Read timeout (seconds)</label>
         <input type="number" id="cfg-read-timeout" min="1" max="60" value="10" style="width:80px">
       </div>
-      <div class="settings-row">
-        <label for="cfg-pen-folder">Scan folder</label>
-        <div>
-          <select id="cfg-pen-folder" style="max-width:220px"></select>
-          <div id="cfg-pen-folder-da" style="font-size:12px;color:var(--color-text-muted);margin-top:3px"></div>
-        </div>
+      <div class="settings-row" style="align-items:flex-start">
+        <label>Scan folders</label>
+        <div id="cfg-pen-folders" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
 
@@ -1138,21 +1135,25 @@ async function loadSettings() {
       document.getElementById('cfg-auto-detect').checked = !!cfg.pen.auto_detect;
       document.getElementById('cfg-read-timeout').value = cfg.pen.read_timeout_seconds || 10;
       if (cfg.pen.folder_options) {
-        const sel = document.getElementById('cfg-pen-folder');
-        sel.innerHTML = '';
-        cfg.pen.folder_options.forEach(opt => {
-          const el = document.createElement('option');
-          el.value = opt.path;
-          el.textContent = opt.label_en;
-          if (opt.path === cfg.pen.folder) el.selected = true;
-          sel.appendChild(el);
+        const wrap = document.getElementById('cfg-pen-folders');
+        wrap.innerHTML = '';
+        const active = new Set(cfg.pen.folders || []);
+        cfg.pen.folder_options.forEach((opt, i) => {
+          const id = `cfg-pen-folder-${i}`;
+          const row = document.createElement('label');
+          row.style.cssText = 'display:flex;align-items:flex-start;gap:8px;cursor:pointer';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.id = id;
+          cb.value = opt.path;
+          cb.checked = active.has(opt.path);
+          cb.style.marginTop = '2px';
+          const text = document.createElement('div');
+          text.innerHTML = `<div style="font-size:14px">${opt.label_en}</div><div style="font-size:12px;color:var(--color-text-muted)">${opt.label_da}</div>`;
+          row.appendChild(cb);
+          row.appendChild(text);
+          wrap.appendChild(row);
         });
-        const updateDa = () => {
-          const chosen = cfg.pen.folder_options.find(o => o.path === sel.value);
-          document.getElementById('cfg-pen-folder-da').textContent = chosen ? chosen.label_da : '';
-        };
-        sel.addEventListener('change', updateDa);
-        updateDa();
       }
     }
     if (cfg.diagnostics) {
@@ -1185,7 +1186,7 @@ async function saveSettings() {
       pen: {
         auto_detect: document.getElementById('cfg-auto-detect').checked,
         read_timeout_seconds: parseInt(document.getElementById('cfg-read-timeout').value, 10),
-        folder: document.getElementById('cfg-pen-folder').value,
+        folders: Array.from(document.querySelectorAll('#cfg-pen-folders input[type=checkbox]:checked')).map(cb => cb.value),
       },
       diagnostics: {
         log_level: document.getElementById('cfg-log-level').value,

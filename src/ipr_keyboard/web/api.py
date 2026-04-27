@@ -370,7 +370,7 @@ def api_config_get():
             "pen": {
                 "auto_detect": True,
                 "read_timeout_seconds": 10,
-                "folder": cfg.IrisPenFolder,
+                "folders": list(cfg.IrisPenFolders or []),
                 "folder_options": FOLDER_OPTIONS,
             },
             "diagnostics": {
@@ -393,11 +393,10 @@ def api_config_post():
             if new_level in ("DEBUG", "INFO", "WARNING", "ERROR"):
                 update_kwargs["LogLevel"] = new_level
                 set_log_level(new_level)
-        if "pen" in data and "folder" in data["pen"]:
-            requested = data["pen"]["folder"]
-            allowed = [o["path"] for o in FOLDER_OPTIONS]
-            if requested in allowed:
-                update_kwargs["IrisPenFolder"] = requested
+        if "pen" in data and "folders" in data["pen"]:
+            allowed = {o["path"] for o in FOLDER_OPTIONS}
+            validated = [p for p in data["pen"]["folders"] if p in allowed]
+            update_kwargs["IrisPenFolders"] = validated
         if update_kwargs:
             cfg_mgr.update(**update_kwargs)
         return jsonify({"ok": True, "message": "Configuration updated."})
@@ -712,25 +711,28 @@ def api_debug_send_file():
 def api_debug_pen_files():
     try:
         cfg = ConfigManager.instance().get()
-        folder = Path(cfg.IrisPenFolder)
         files_result = []
-        for p in list_files(folder):
-            try:
-                stat = p.stat()
-                raw = p.read_bytes()
-                content = raw[:_PEN_FILES_CONTENT_CAP].decode("utf-8", errors="replace")
-                truncated = len(raw) > _PEN_FILES_CONTENT_CAP
-                files_result.append({
-                    "name": p.name,
-                    "path": str(p),
-                    "size_bytes": stat.st_size,
-                    "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "content": content,
-                    "truncated": truncated,
-                })
-            except OSError:
-                pass
-        return jsonify({"folder": str(folder), "files": files_result})
+        for folder_str in (cfg.IrisPenFolders or []):
+            folder = Path(folder_str)
+            for p in list_files(folder):
+                try:
+                    stat = p.stat()
+                    raw = p.read_bytes()
+                    content = raw[:_PEN_FILES_CONTENT_CAP].decode("utf-8", errors="replace")
+                    truncated = len(raw) > _PEN_FILES_CONTENT_CAP
+                    files_result.append({
+                        "name": p.name,
+                        "path": str(p),
+                        "folder": folder_str,
+                        "size_bytes": stat.st_size,
+                        "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "content": content,
+                        "truncated": truncated,
+                    })
+                except OSError:
+                    pass
+        folders = list(cfg.IrisPenFolders or [])
+        return jsonify({"folders": folders, "files": files_result})
     except Exception:
         logger.exception("API error")
         return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
