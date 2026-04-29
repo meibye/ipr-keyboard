@@ -116,7 +116,7 @@ if [[ -f "$DHCPCD_HELPER_SRC" ]]; then
   SUDOERS_TMP="$(mktemp)"
   cat > "$SUDOERS_TMP" <<SUDOERSEOF
 # Managed by provision/04_enable_services.sh — do not edit by hand.
-${APP_USER} ALL=(root) NOPASSWD: ${DHCPCD_HELPER_DST}
+${APP_USER} ALL=(root) NOPASSWD: ${DHCPCD_HELPER_DST}, /usr/bin/systemctl restart dhcpcd
 SUDOERSEOF
 
   if visudo -cf "$SUDOERS_TMP" 2>/dev/null; then

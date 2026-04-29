@@ -560,7 +560,7 @@ def api_network_post():
             iface = _get_network_interface()
             try:
                 _write_dhcpcd(iface, cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway)
-                dhcp_msg = "Network config saved. Changes take effect after reboot."
+                dhcp_msg = "Network config saved. Use 'Apply Network Settings' to activate without rebooting."
             except PermissionError:
                 dhcp_msg = "Settings saved, but could not write /etc/dhcpcd.conf (permission denied). Apply manually or run as root."
             except Exception as exc:
@@ -609,6 +609,32 @@ def api_action_reconnect_bluetooth():
         return jsonify({"ok": True, "message": "Bluetooth reconnect started."})
     except Exception:
         logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/actions/apply-network")
+def api_action_apply_network():
+    denied = _require_admin()
+    if denied:
+        return denied
+    data = request.get_json(force=True) or {}
+    if not data.get("confirm"):
+        return jsonify({"error": {"code": "confirmation_required", "message": "Set confirm=true to proceed. The connection will drop briefly if the IP address changes."}}), 400
+    try:
+        result = subprocess.run(
+            ["sudo", "systemctl", "restart", "dhcpcd"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            return jsonify({"ok": True, "message": "Network settings applied. If the IP address changed, reconnect at the new address."})
+        stderr = (result.stderr or "").strip()
+        return jsonify({"ok": False, "message": stderr or f"dhcpcd restart failed (exit {result.returncode})."}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "message": "Timed out waiting for dhcpcd to restart."}), 500
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
 
 
 @bp_api.post("/actions/reboot")
