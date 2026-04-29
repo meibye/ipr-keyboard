@@ -56,12 +56,30 @@ class UserStore:
     def _ensure_default(self) -> None:
         with self._lock:
             data = _load_raw()
+            dirty = False
+
             if not data["users"]:
                 data["users"]["admin"] = {
                     "password_hash": generate_password_hash("password"),
                     "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "is_admin": True,
                 }
+                dirty = True
+            else:
+                # Backfill is_admin on records created before the field existed.
+                for uname, udata in data["users"].items():
+                    if "is_admin" not in udata:
+                        udata["is_admin"] = (uname == "admin")
+                        dirty = True
+
+                # Guarantee at least one admin account exists.
+                has_admin = any(u.get("is_admin") for u in data["users"].values())
+                if not has_admin:
+                    first = next(iter(data["users"]))
+                    data["users"][first]["is_admin"] = True
+                    dirty = True
+
+            if dirty:
                 _save_raw(data)
 
     def verify(self, username: str, password: str) -> bool:
