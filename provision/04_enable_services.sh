@@ -105,30 +105,7 @@ fi
 
 # Install dhcpcd write helper and sudoers entry for APP_USER
 log "Installing dhcpcd write helper..."
-DHCPCD_HELPER_SRC="$REPO_DIR/scripts/service/ipr_write_dhcpcd.sh"
-DHCPCD_HELPER_DST="/usr/local/bin/ipr_write_dhcpcd.sh"
-SUDOERS_DST="/etc/sudoers.d/${APP_USER}-ipr"
-
-if [[ -f "$DHCPCD_HELPER_SRC" ]]; then
-  install -m 0755 -o root -g root "$DHCPCD_HELPER_SRC" "$DHCPCD_HELPER_DST"
-  log "Installed $DHCPCD_HELPER_DST"
-
-  SUDOERS_TMP="$(mktemp)"
-  cat > "$SUDOERS_TMP" <<SUDOERSEOF
-# Managed by provision/04_enable_services.sh — do not edit by hand.
-${APP_USER} ALL=(root) NOPASSWD: ${DHCPCD_HELPER_DST}, /usr/bin/systemctl restart dhcpcd
-SUDOERSEOF
-
-  if visudo -cf "$SUDOERS_TMP" 2>/dev/null; then
-    install -m 0440 -o root -g root "$SUDOERS_TMP" "$SUDOERS_DST"
-    log "Installed sudoers entry: $SUDOERS_DST"
-  else
-    warn "sudoers validation failed — dhcpcd writes will be permission-denied until fixed."
-  fi
-  rm -f "$SUDOERS_TMP"
-else
-  warn "dhcpcd helper not found: $DHCPCD_HELPER_SRC — skipping"
-fi
+bash "$REPO_DIR/scripts/service/install_network_helper.sh"
 
 # Wait for services to start
 sleep 3
