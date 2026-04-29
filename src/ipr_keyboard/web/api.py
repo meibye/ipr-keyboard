@@ -434,6 +434,7 @@ def api_config_post():
 # ---------------------------------------------------------------------------
 
 _DHCPCD_CONF = "/etc/dhcpcd.conf"
+_DHCPCD_WRITE_HELPER = "/usr/local/bin/ipr_write_dhcpcd.sh"
 
 
 def _get_current_ip() -> str:
@@ -491,8 +492,19 @@ def _write_dhcpcd(interface: str, mode: str, ip: str, netmask: str, gateway: str
             filtered.append(f"static routers={gateway}\n")
             filtered.append(f"static domain_name_servers={gateway}\n")
 
-    with open(_DHCPCD_CONF, "w") as f:
-        f.writelines(filtered)
+    content = "".join(filtered)
+    result = subprocess.run(
+        ["sudo", _DHCPCD_WRITE_HELPER],
+        input=content,
+        text=True,
+        capture_output=True,
+        timeout=10,
+    )
+    if result.returncode != 0:
+        stderr = result.stderr.strip()
+        if result.returncode == 1 and ("sudoers" in stderr or "not allowed" in stderr or not stderr):
+            raise PermissionError(stderr or "sudo not permitted for ipr_write_dhcpcd.sh")
+        raise RuntimeError(f"ipr_write_dhcpcd.sh failed (rc={result.returncode}): {stderr}")
 
 
 @bp_api.get("/network")
@@ -515,6 +527,9 @@ def api_network_get():
 
 @bp_api.post("/network")
 def api_network_post():
+    denied = _require_admin()
+    if denied:
+        return denied
     try:
         data = request.get_json(force=True) or {}
         cfg_mgr = ConfigManager.instance()
