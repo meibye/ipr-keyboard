@@ -117,6 +117,7 @@ STEP_NAMES=(
   "Enable Services: Systemd and BLE backends"
   "Copilot: debug tools"
   "Verify: System and service check"
+  "Device info: Post-provisioning summary"
 )
 
 # Offer to start over, resume, or select a step
@@ -162,7 +163,7 @@ fi
 
 # Step 1: Install git
 if [[ "$wizard_step" -le 1 ]]; then
-  step "[Step 1/12] Install git (required to clone the repository)"
+  step "[Step 1/13] Install git (required to clone the repository)"
   if sudo apt-get update && sudo apt-get install -y git; then
     success "Git installed successfully."
   else
@@ -216,7 +217,7 @@ fi
 # Step 4: Make scripts executable
 if [[ "$wizard_step" -le 4 ]]; then
   ensure_project_dir
-  step "[Step 4/10] Make provisioning scripts executable"
+  step "[Step 4/13] Make provisioning scripts executable"
   chmod +x ./provision/*.sh
   success "Scripts are now executable."
   echo "wizard_step=5" > "$STATE_FILE"
@@ -227,7 +228,7 @@ fi
 # Step 5: Run 00_bootstrap.sh
 if [[ "$wizard_step" -le 5 ]]; then
   ensure_project_dir
-  run_step "./provision/00_bootstrap.sh" "[Step 5/12] Bootstrap: Install base tools and clone repo" 6
+  run_step "./provision/00_bootstrap.sh" "[Step 5/13] Bootstrap: Install base tools and clone repo" 6
 
   # Check if a new SSH key was generated (look for id_ed25519.pub in /home/$SUDO_USER/.ssh/ or /root/.ssh/)
   SSH_KEY=""
@@ -319,41 +320,45 @@ fi
 # Step 7: Run 01_os_base.sh (reboot required)
 if [[ "$wizard_step" -le 7 ]]; then
   ensure_project_dir
-  run_step "./provision/01_os_base.sh" "[Step 7/12] OS Base: System packages and Bluetooth config" 8
+  run_step "./provision/01_os_base.sh" "[Step 7/13] OS Base: System packages and Bluetooth config" 8
   prompt_reboot 8
 fi
 
 # Step 8: Run 02_device_identity.sh (reboot required)
 if [[ "$wizard_step" -le 8 ]]; then
   ensure_project_dir
-  run_step "./provision/02_device_identity.sh" "[Step 8/12] Device Identity: Hostname and Bluetooth name" 9
+  run_step "./provision/02_device_identity.sh" "[Step 8/13] Device Identity: Hostname and Bluetooth name" 9
   prompt_reboot 9
 fi
 
 # Step 9: Run 03_app_install.sh
 if [[ "$wizard_step" -le 9 ]]; then
     ensure_project_dir
-    run_step "./provision/03_app_install.sh" "[Step 9/12] App Install: Python venv and dependencies" 10
+    run_step "./provision/03_app_install.sh" "[Step 9/13] App Install: Python venv and dependencies" 10
 fi
 
 # Step 10: Run 04_enable_services.sh
 if [[ "$wizard_step" -le 10 ]]; then
     ensure_project_dir
-    run_step "./provision/04_enable_services.sh" "[Step 10/12] Enable Services: Systemd and BLE backends" 11
+    run_step "./provision/04_enable_services.sh" "[Step 10/13] Enable Services: Systemd and BLE backends" 11
 fi
 
 # Step 11: Run 05_copilot_debug_tools.sh
 if [[ "$wizard_step" -le 11 ]]; then
     ensure_project_dir
-    run_step "./provision/05_copilot_debug_tools.sh" "[Step 11/12] Copilot: debug tools" 12
+    run_step "./provision/05_copilot_debug_tools.sh" "[Step 11/13] Copilot: debug tools" 12
 fi
 
 # Step 12: Run 06_verify.sh
 if [[ "$wizard_step" -le 12 ]]; then
     ensure_project_dir
-    run_step "./provision/06_verify.sh" "[Step 12/12] Verify: System and service check" 13
+    run_step "./provision/06_verify.sh" "[Step 12/13] Verify: System and service check" 13
+fi
+
+# Step 13: Show post-provisioning info (credentials, URLs, SSH)
+if [[ "$wizard_step" -le 13 ]]; then
+    ensure_project_dir
+    run_step "./provision/07_show_info.sh" "[Step 13/13] Device info: Post-provisioning summary" 14
 fi
 
 rm -f "$STATE_FILE"
-echo -e "${GREEN}All provisioning steps completed!${NC}"
-echo -e "${GREEN}Device is ready for use.${NC}"

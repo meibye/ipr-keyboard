@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional, List
 
 
-VERSION = '2026-04-12 19:41:30'
+VERSION = '2026-05-04 20:25:53'
 
 def log_version_info():
     import logging

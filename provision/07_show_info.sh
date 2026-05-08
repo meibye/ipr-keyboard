@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+#
+# 07_show_info.sh
+#
+# Purpose:
+#   Display the most important information the user needs after provisioning:
+#   hotspot SSID and password, web dashboard URL, SSH access, and Bluetooth name.
+#
+#   Hotspot credentials are derived from /etc/machine-id using the same formula
+#   as scripts/headless/net_provision_hotspot.sh, so this script can be re-run
+#   at any time to recover the credentials without connecting to the device first.
+#
+# Usage:
+#   sudo ./provision/07_show_info.sh
+#
+# Prerequisites:
+#   - /opt/ipr_common.env (populated by earlier provisioning steps)
+#
+# category: Provisioning
+# purpose: Display post-provisioning summary (credentials, URLs, SSH access)
+# sudo: recommended
+
+set -euo pipefail
+
+BOLD='\033[1m'
+GREEN='\033[0;32m'
+BLUE='\033[1;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+# Load environment (best-effort)
+ENV_FILE="/opt/ipr_common.env"
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+fi
+
+BT_DEVICE_NAME="${BT_DEVICE_NAME:-IPR Keyboard}"
+AP_SSID_PREFIX="${AP_SSID_PREFIX:-ipr-setup}"
+REPO_DIR="${REPO_DIR:-/home/meibye/dev/ipr-keyboard}"
+APP_USER="${APP_USER:-meibye}"
+
+# ── Hotspot credentials ───────────────────────────────────────────────────────
+# Derived from /etc/machine-id — same formula as net_provision_hotspot.sh.
+MACHINE_ID=$(cat /etc/machine-id 2>/dev/null | tr -d '[:space:]' \
+             || echo "00000000000000000000000000000000")
+HOTSPOT_SSID="${AP_SSID_PREFIX}-${MACHINE_ID:0:4}"
+HOTSPOT_PASS="ipr-${MACHINE_ID:0:12}"
+if [[ ${#HOTSPOT_PASS} -lt 10 ]]; then
+  HOTSPOT_PASS="ipr-setup-12345678"
+fi
+
+# ── Network ───────────────────────────────────────────────────────────────────
+DEVICE_HOSTNAME=$(hostname 2>/dev/null || echo "unknown")
+MDNS_NAME="${DEVICE_HOSTNAME}.local"
+CURRENT_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+
+# ── Dashboard port (read from config.json, fall back to default) ──────────────
+DASHBOARD_PORT=8080
+CONFIG_JSON="${REPO_DIR}/config.json"
+if [[ -f "$CONFIG_JSON" ]] && command -v python3 &>/dev/null; then
+  DASHBOARD_PORT=$(python3 -c \
+    "import json; d=json.load(open('${CONFIG_JSON}')); print(d.get('LogPort', 8080))" \
+    2>/dev/null || echo 8080)
+fi
+
+if [[ -n "$CURRENT_IP" ]]; then
+  DASHBOARD_URL="http://${CURRENT_IP}:${DASHBOARD_PORT}"
+else
+  DASHBOARD_URL="http://<device-ip>:${DASHBOARD_PORT}"
+fi
+DASHBOARD_MDNS_URL="http://${MDNS_NAME}:${DASHBOARD_PORT}"
+
+# ── Print summary ─────────────────────────────────────────────────────────────
+echo ""
+echo -e "${BLUE}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}${BOLD}║         IPR Keyboard — Device Information        ║${NC}"
+echo -e "${BLUE}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
+echo ""
+
+echo -e "${CYAN}${BOLD}── Bluetooth ──────────────────────────────────────────${NC}"
+echo -e "  Device name  : ${BOLD}${BT_DEVICE_NAME}${NC}"
+echo -e "  Pairing      : Search for '${BT_DEVICE_NAME}' on the host device"
+echo ""
+
+echo -e "${CYAN}${BOLD}── Wi-Fi Hotspot (when no known network is in range) ──${NC}"
+echo -e "  SSID         : ${BOLD}${HOTSPOT_SSID}${NC}"
+echo -e "  Password     : ${BOLD}${HOTSPOT_PASS}${NC}"
+echo -e "  Setup URL    : ${BOLD}http://10.42.0.1/${NC}"
+echo ""
+
+echo -e "${CYAN}${BOLD}── Web Dashboard ──────────────────────────────────────${NC}"
+echo -e "  By IP        : ${BOLD}${DASHBOARD_URL}${NC}"
+echo -e "  By mDNS      : ${BOLD}${DASHBOARD_MDNS_URL}${NC}"
+echo ""
+
+echo -e "${CYAN}${BOLD}── SSH Access ─────────────────────────────────────────${NC}"
+if [[ -n "$CURRENT_IP" ]]; then
+  echo -e "  By IP        : ${BOLD}ssh ${APP_USER}@${CURRENT_IP}${NC}"
+fi
+echo -e "  By mDNS      : ${BOLD}ssh ${APP_USER}@${MDNS_NAME}${NC}"
+echo ""
+
+echo -e "${CYAN}${BOLD}── Device ─────────────────────────────────────────────${NC}"
+echo -e "  Hostname     : ${BOLD}${DEVICE_HOSTNAME}${NC}"
+echo ""
+
+echo -e "${GREEN}${BOLD}Provisioning complete. Device is ready for use.${NC}"
+echo ""

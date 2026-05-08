@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "ipr-rpi-dev-ssh": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host",
+        "ipr-dev-pi4",
+        "--port",
+        "22",
+        "--username",
+        "meibye",
+        "--privateKey",
+        "~/.ssh/id_ed25519_ipr_kb",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*"
+      ]
+    }
+  }
+}

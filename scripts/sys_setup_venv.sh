@@ -281,7 +281,17 @@ else
     echo "[sys_setup_venv] debugpy not available or failed; installing without extras."
 fi
 
-# 6. Create/update ~/.bash_aliases for convenience
+# 6. Verify pytest is available in the venv (required for repo test workflow)
+echo "[sys_setup_venv] Verifying pytest installation..."
+if "$VENV_DIR/bin/python" -m pytest --version >/dev/null 2>&1 ; then
+    echo "[sys_setup_venv] pytest is installed and available."
+else
+    echo "[sys_setup_venv] ERROR: pytest is not available in $VENV_DIR."
+    echo "[sys_setup_venv] Ensure dev dependencies are installed (e.g. uv pip install -e '.[dev]')."
+    exit 1
+fi
+
+# 7. Create/update ~/.bash_aliases for convenience
 ALIASES_FILE="$HOME/.bash_aliases"
 
 echo "[sys_setup_venv] Adding/updating aliases in $ALIASES_FILE..."
