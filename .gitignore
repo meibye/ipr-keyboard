@@ -41,6 +41,8 @@ Thumbs.db
 
 # Device-specific configuration
 provision/common.env
+config.json
+users.json
 logs/
 *.log
 

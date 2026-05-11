@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..utils.helpers import config_path, load_json, save_json
+from ..utils.helpers import config_default_path, config_path, load_json, save_json, seed_from_default
 from ..logging.logger import get_logger
 
 logger = get_logger()
@@ -95,6 +95,7 @@ class ConfigManager:
         """Initialise the configuration manager."""
         self._path: Path = path or config_path()
         self._cfg_lock = threading.RLock()
+        seed_from_default(self._path, config_default_path())
         raw = load_json(self._path)
         self._cfg = AppConfig.from_dict(raw)
 

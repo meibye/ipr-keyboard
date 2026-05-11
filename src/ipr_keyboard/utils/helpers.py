@@ -3,6 +3,7 @@
 Provides path resolution and JSON file operations.
 """
 import json
+import shutil
 from pathlib import Path
 from typing import Any, Dict
 
@@ -21,12 +22,31 @@ def project_root() -> Path:
 
 def config_path() -> Path:
     """Get the path to the main configuration file.
-    
+
     Returns:
         Path to config.json in the project root.
     """
-    root = project_root()
-    return root / "config.json"
+    return project_root() / "config.json"
+
+
+def config_default_path() -> Path:
+    """Get the path to the factory-default configuration template.
+
+    Returns:
+        Path to config.default.json in the project root.
+    """
+    return project_root() / "config.default.json"
+
+
+def seed_from_default(live: Path, default: Path) -> None:
+    """Copy *default* to *live* if *live* does not exist yet.
+
+    Lets the live file be gitignored while still shipping sensible
+    factory defaults in the repository.
+    """
+    if not live.exists() and default.exists():
+        live.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(default, live)
 
 
 def load_json(path: Path) -> Dict[str, Any]:

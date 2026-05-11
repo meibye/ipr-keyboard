@@ -14,7 +14,7 @@ from typing import Optional
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..utils.helpers import load_json, project_root, save_json
+from ..utils.helpers import load_json, project_root, save_json, seed_from_default
 
 _USERNAME_RE = re.compile(r"[a-z0-9_]{3,32}")
 _MIN_PASSWORD_LEN = 8
@@ -24,7 +24,12 @@ def users_path() -> Path:
     return project_root() / "users.json"
 
 
+def users_default_path() -> Path:
+    return project_root() / "users.default.json"
+
+
 def _load_raw() -> dict:
+    seed_from_default(users_path(), users_default_path())
     data = load_json(users_path())
     if not data or "users" not in data:
         return {"users": {}, "version": 1}
