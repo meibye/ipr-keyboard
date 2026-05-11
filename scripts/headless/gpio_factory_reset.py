@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """
+DEPLOYMENT: optional/lab — not installed by default (04_enable_services.sh does not
+copy this file).  Intended for testing and emergency recovery in the lab.
+For production factory reset, use net_factory_reset.sh (marker-file triggered).
+
 GPIO-based factory reset trigger for ipr-keyboard
 
 This script monitors a GPIO pin for a reset trigger (jumper to ground).

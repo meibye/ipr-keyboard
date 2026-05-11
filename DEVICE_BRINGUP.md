@@ -35,7 +35,10 @@ sudo ./provision/06_verify.sh
 - `ipr_keyboard.service`
 - `bt_hid_ble.service`
 - `bt_hid_agent_unified.service`
-- `ipr-provision.service`
+- `ipr-provision.service` — permanent management hotspot on `wlan0` at `http://10.42.0.1/`
+
+After step 04, `/etc/ipr-hotspot.secret` is created with a random SSID and password.
+Run `sudo ./provision/07_show_info.sh` to display the hotspot credentials.
 
 ## Verification Checklist
 

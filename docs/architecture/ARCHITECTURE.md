@@ -53,7 +53,7 @@ Blueprint in `src/ipr_keyboard/web/api.py`. SVG assets live in `src/ipr_keyboard
 - `ipr_keyboard.service`
 - `bt_hid_agent_unified.service`
 - `bt_hid_ble.service`
-- `ipr-provision.service`
+- `ipr-provision.service` — permanent WPA3/WPA2 management hotspot on `wlan0`; Flask UI with HTTP Basic Auth at `http://10.42.0.1/`
 
 ### Not Shipped as Current Units
 
@@ -78,6 +78,7 @@ Defined by `AppConfig` in `src/ipr_keyboard/config/manager.py`:
 
 - `/opt/ipr_common.env` for service/env behavior
 - `/etc/default/bt_hid_agent_unified` managed by `scripts/lib/bt_agent_unified_env.sh`
+- `/etc/ipr-hotspot.secret` (mode 0600) — hotspot SSID and random password, written by `ipr-provision.sh` on first run; optional GPIO gate via `/etc/default/ipr-provision`
 
 ## 6. Legacy and Deprecated Patterns
 

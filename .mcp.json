@@ -12,7 +12,7 @@
         "--username",
         "meibye",
         "--privateKey",
-        "~/.ssh/id_ed25519_ipr_kb",
+        "C:/Users/micha/.ssh/id_ed25519_ipr_kb",
         "--blacklist",
         "^rm .*,^shutdown.*,^reboot.*"
       ]

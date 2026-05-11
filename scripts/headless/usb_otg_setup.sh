@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 #
+# DEPLOYMENT: dev/Zero2W-only — USB OTG postponed; not installed by 04_enable_services.sh.
+#   Requires a USB OTG cable and is specific to Pi Zero 2 W hardware.
+#   Full end-to-end test requires Zero 2 W; USB-C on RPi 4 is power-only.
+#
 # USB OTG (USB Gadget Ethernet) setup for Pi Zero 2 W
 # Enables USB OTG mode for direct laptop connection and SSH access
 #

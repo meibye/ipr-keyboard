@@ -1,39 +1,90 @@
 #!/usr/bin/env python3
 """
-IPR Wi-Fi Provisioning Web Interface
+IPR Keyboard Management Web Interface
 
-This Flask application provides a web-based interface for configuring Wi-Fi credentials
-on a Raspberry Pi via a hotspot connection. When the Pi cannot connect to a known Wi-Fi
-network, it creates a hotspot and this web interface allows users to scan for and connect
-to available networks.
+Serves the management UI at http://10.42.0.1/ while the permanent hotspot is
+active.  Allows scanning for Wi-Fi networks and saving credentials for cases
+where the Pi should also connect to a home network via wlan0.
 
-The interface runs on port 80 at http://10.42.0.1/ when the hotspot is active.
+Authentication: HTTP Basic Auth using the hotspot password from
+/etc/ipr-hotspot.secret.  The same password is used to join the hotspot SSID,
+so no extra credential is required.
 
 Installation:
     sudo cp scripts/headless/net_provision_web.py /usr/local/sbin/ipr-provision-web.py
     sudo chmod +x /usr/local/sbin/ipr-provision-web.py
 
 Service:
-    Managed by ipr-provision-web.service
+    Managed by ipr-provision.service (launched by ipr-provision.sh)
 
 category: Headless
-purpose: Wi-Fi provisioning web interface
+purpose: Permanent management web interface over hotspot
 sudo: yes (runs as root to bind port 80)
 """
 
-import html
 import subprocess
+import time
+from functools import wraps
+from pathlib import Path
 
 from flask import Flask, redirect, render_template_string, request
 
+SECRET_FILE = Path("/etc/ipr-hotspot.secret")
+HOTSPOT_CON = "ipr-hotspot"
+_AUTH_USER = "ipr"
+_AUTH_PASS: str = ""  # loaded at startup from secret file
+
+# Rate limiting: {ip: [attempt_count, window_start_epoch]}
+_rate: dict[str, list] = {}
+_RATE_MAX = 5
+_RATE_WINDOW = 60  # seconds
+
 app = Flask(__name__)
 
-# HTML template for provisioning interface
+
+def _load_secret() -> str:
+    """Return the PASS value from /etc/ipr-hotspot.secret."""
+    if not SECRET_FILE.exists():
+        return ""
+    for line in SECRET_FILE.read_text().splitlines():
+        if line.startswith("PASS="):
+            return line[5:].strip()
+    return ""
+
+
+def _require_auth(f):
+    """Decorator: HTTP Basic Auth using the hotspot password."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or auth.username != _AUTH_USER or auth.password != _AUTH_PASS:
+            return (
+                "Unauthorized",
+                401,
+                {"WWW-Authenticate": 'Basic realm="IPR Keyboard"'},
+            )
+        return f(*args, **kwargs)
+    return decorated
+
+
+def _check_rate_limit(ip: str) -> bool:
+    """Return True if the request is allowed, False if rate-limited."""
+    now = time.time()
+    entry = _rate.get(ip)
+    if entry is None or now - entry[1] > _RATE_WINDOW:
+        _rate[ip] = [1, now]
+        return True
+    if entry[0] >= _RATE_MAX:
+        return False
+    entry[0] += 1
+    return True
+
+
 PAGE_TEMPLATE = """<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>IPR Wi-Fi Provisioning</title>
+<title>IPR Keyboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:1.2rem;max-width:780px;background:#f5f5f5}
@@ -50,21 +101,23 @@ code{background:#e8e8e8;padding:.3rem .5rem;border-radius:6px}
 .ok{color:#27ae60;background:#d5f4e6;border-color:#2ecc71}
 label{display:block;margin-bottom:.3rem;font-weight:600;color:#2c3e50}
 .header-box{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none}
-.header-box h1{color:white}
+.header-box h1,.header-box p{color:white}
 </style>
 </head>
 <body>
 <div class="container">
 <div class="box header-box">
-<h1>IPR Keyboard Wi-Fi Setup</h1>
-<p class="small">Configure your Raspberry Pi Wi-Fi connection</p>
+<h1>IPR Keyboard</h1>
+<p class="small">You are connected directly to your IPR Keyboard device.
+No router needed — use this page to configure Wi-Fi or check device status.</p>
 </div>
 <div class="box">
-<p class="small">Connected to IPR provisioning hotspot<br>Access at <code>http://10.42.0.1/</code></p>
+<p class="small">Management address: <code>http://10.42.0.1/</code></p>
 </div>
 {% if msg %}<div class="box {% if ok %}ok{% else %}err{% endif %}">{{ msg }}</div>{% endif %}
 <div class="box">
-<h3 style="margin-top:0">Select Your Network</h3>
+<h3 style="margin-top:0">Connect to a Wi-Fi Network</h3>
+<p class="small">Optional — only needed if the Pi should also reach the internet via Wi-Fi.</p>
 <form method="post" action="/connect">
 <label>SSID</label>
 <select name="ssid" required>{% for s in ssids %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select>
@@ -72,7 +125,7 @@ label{display:block;margin-bottom:.3rem;font-weight:600;color:#2c3e50}
 <div><label>Password</label><input name="psk" type="password" placeholder="Wi-Fi password"></div>
 <div><label>Security</label><select name="security"><option value="auto">Auto</option><option value="open">Open</option></select></div>
 </div>
-<button type="submit">Save & Connect</button>
+<button type="submit">Save &amp; Connect</button>
 </form>
 </div>
 <div class="box">
@@ -84,22 +137,39 @@ label{display:block;margin-bottom:.3rem;font-weight:600;color:#2c3e50}
 
 
 def sh(cmd: list[str]) -> str:
-    """Execute shell command and return output"""
     return subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True).strip()
 
 
+def _hotspot_ssid() -> str:
+    """Return the SSID currently broadcast by the hotspot, or empty string."""
+    try:
+        out = sh(["nmcli", "-t", "-f", "GENERAL.CONNECTION", "dev", "show", "wlan0"])
+        con_name = ""
+        for line in out.splitlines():
+            if line.startswith("GENERAL.CONNECTION:"):
+                con_name = line.split(":", 1)[1].strip()
+                break
+        if not con_name or con_name == "--":
+            return ""
+        return sh(
+            ["nmcli", "-t", "-f", "802-11-wireless.ssid", "con", "show", con_name]
+        ).split(":", 1)[-1].strip()
+    except subprocess.CalledProcessError:
+        return ""
+
+
 def wifi_scan_ssids() -> list[str]:
-    """Scan for available Wi-Fi networks and return list of SSIDs"""
-    # Ensure Wi-Fi radio is on
     subprocess.run(["nmcli", "radio", "wifi", "on"], check=False)
     subprocess.run(["nmcli", "dev", "wifi", "rescan"], check=False)
+    time.sleep(2)  # rescan is async; wait for results
 
+    own_ssid = _hotspot_ssid()
     try:
         out = sh(["nmcli", "-t", "-f", "SSID", "dev", "wifi", "list"])
         ssids = []
         for line in out.splitlines():
             s = line.strip()
-            if s and s not in ssids:
+            if s and s not in ssids and s != own_ssid:
                 ssids.append(s)
         return ssids or ["(no networks found — try rescan)"]
     except subprocess.CalledProcessError:
@@ -107,15 +177,15 @@ def wifi_scan_ssids() -> list[str]:
 
 
 @app.get("/")
+@_require_auth
 def index():
-    """Main provisioning page"""
     ssids = wifi_scan_ssids()
     return render_template_string(PAGE_TEMPLATE, ssids=ssids, msg=None, ok=False)
 
 
 @app.post("/rescan")
+@_require_auth
 def rescan():
-    """Rescan for networks"""
     ssids = wifi_scan_ssids()
     return render_template_string(
         PAGE_TEMPLATE, ssids=ssids, msg="✓ Networks rescanned.", ok=True
@@ -123,8 +193,12 @@ def rescan():
 
 
 @app.post("/connect")
+@_require_auth
 def connect():
-    """Connect to selected Wi-Fi network"""
+    ip = request.remote_addr or "unknown"
+    if not _check_rate_limit(ip):
+        return "Too many attempts — wait 60 seconds and try again.", 429
+
     ssid = (request.form.get("ssid") or "").strip()
     psk = request.form.get("psk") or ""
     sec = request.form.get("security") or "auto"
@@ -137,66 +211,56 @@ def connect():
 
     try:
         if sec == "open" or (sec == "auto" and not psk):
-            # Open network
             sh(["nmcli", "dev", "wifi", "connect", ssid])
         else:
-            # Secured network
             sh(["nmcli", "dev", "wifi", "connect", ssid, "password", psk])
-
-        # Connection succeeded
         return redirect("/success")
     except subprocess.CalledProcessError as e:
+        import html as _html
         ssids = wifi_scan_ssids()
-        msg = f"❌ Connection failed:\n{html.escape(e.output[-800:])}"
+        msg = f"❌ Connection failed:\n{_html.escape(e.output[-800:])}"
         return render_template_string(PAGE_TEMPLATE, ssids=ssids, msg=msg, ok=False)
 
 
 @app.get("/success")
 def success():
-    """Success page after connection"""
-    return """
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Wi-Fi Connected</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            margin: 2rem;
-            text-align: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-          }
-          .box {
-            background: white;
-            color: #2c3e50;
-            padding: 3rem;
-            border-radius: 12px;
-            max-width: 500px;
-            margin: 4rem auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-          }
-          h2 { margin-top: 0; color: #27ae60; }
-        </style>
-      </head>
-      <body>
-        <div class="box">
-          <h2>✓ Wi-Fi Configured Successfully!</h2>
-          <p>The Raspberry Pi is attempting to connect to your network.</p>
-          <p>You can close this page. The Pi will exit hotspot mode shortly.</p>
-          <p style="margin-top: 2rem; font-size: 0.9rem; color: #7f8c8d;">
-            Access the Pi via SSH once connected:<br>
-            <code>ssh user@hostname.local</code>
-          </p>
-        </div>
-      </body>
-    </html>
-    """
+    return """<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>IPR Keyboard — Connected</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+         margin:2rem;text-align:center;
+         background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white}
+    .box{background:white;color:#2c3e50;padding:3rem;border-radius:12px;
+         max-width:500px;margin:4rem auto;box-shadow:0 10px 30px rgba(0,0,0,0.3)}
+    h2{margin-top:0;color:#27ae60}
+    code{background:#e8e8e8;padding:.2rem .4rem;border-radius:4px;font-size:.9rem}
+  </style>
+</head>
+<body>
+<div class="box">
+  <h2>✓ Credentials Saved</h2>
+  <p>Connecting — this may take a moment.</p>
+  <p>The hotspot stays active. Return to <code>http://10.42.0.1/</code> any time.</p>
+  <p style="margin-top:2rem;font-size:.9rem;color:#7f8c8d">
+    Once on your network, the Pi is also reachable via SSH:<br>
+    <code>ssh meibye@ipr-dev-pi4.local</code>
+  </p>
+</div>
+</body>
+</html>"""
 
 
 if __name__ == "__main__":
-    print("[ipr-provision-web] Starting Wi-Fi provisioning web interface...")
+    _AUTH_PASS = _load_secret()
+    if not _AUTH_PASS:
+        print(
+            "[ipr-provision-web] WARNING: /etc/ipr-hotspot.secret not found or empty — "
+            "authentication disabled. Run ipr-provision.sh first."
+        )
+    print("[ipr-provision-web] Starting management web interface...")
     print("[ipr-provision-web] Access at http://10.42.0.1/ when hotspot is active")
     app.run(host="0.0.0.0", port=80)

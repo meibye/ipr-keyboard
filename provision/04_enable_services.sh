@@ -115,6 +115,22 @@ else
   warn "Headless provisioning service unit not found: $PROVISION_SERVICE"
 fi
 
+# Initialise hotspot secret file before first boot so the password is stable.
+# The script generates it on first run, but doing it here ensures 07_show_info
+# can read it immediately after provisioning.
+SECRET_FILE="/etc/ipr-hotspot.secret"
+if [[ ! -f "$SECRET_FILE" ]]; then
+  log "Generating hotspot credentials in ${SECRET_FILE} ..."
+  MACHINE_SUFFIX=$(cat /etc/machine-id 2>/dev/null | head -c 4 || hostname | head -c 4)
+  HOTSPOT_SSID="ipr-setup-${MACHINE_SUFFIX}"
+  HOTSPOT_PASS="$(openssl rand -hex 16)"
+  install -m 0600 -o root -g root /dev/null "${SECRET_FILE}"
+  printf 'SSID=%s\nPASS=%s\n' "${HOTSPOT_SSID}" "${HOTSPOT_PASS}" >"${SECRET_FILE}"
+  log "Hotspot credentials written (SSID=${HOTSPOT_SSID})"
+else
+  log "Hotspot credentials already present in ${SECRET_FILE}"
+fi
+
 # Install dhcpcd write helper and sudoers entry for APP_USER
 log "Installing dhcpcd write helper..."
 bash "$REPO_DIR/scripts/service/install_network_helper.sh"

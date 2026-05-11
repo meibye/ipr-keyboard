@@ -1,5 +1,8 @@
 # Testing Plan: scripts/headless/ on Raspberry Pi 4
 
+> **Scope: development testing only — not deployed to the production device.**
+> This document covers lab validation on an RPi 4; production target is Raspberry Pi Zero 2 W.
+
 ## Context
 
 The `scripts/headless/` directory contains provisioning and recovery scripts intended for the Raspberry Pi Zero 2 W target device. This plan covers how to validate each script on a Raspberry Pi 4, noting where RPi 4 hardware differences affect behaviour.
