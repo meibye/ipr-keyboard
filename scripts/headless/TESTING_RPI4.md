@@ -77,7 +77,7 @@ printf "eth0: $(cat /sys/class/net/eth0/operstate 2>/dev/null || echo absent)  w
 
 **Steps:**
 ```bash
-sudo bash ~/headless-test/net_provision_hotspot.sh
+sudo bash ~/dev/ipr-keyboard/scripts/headless/net_provision_hotspot.sh
 ```
 - Wait up to 60 seconds for hotspot to activate
 
@@ -102,7 +102,7 @@ sudo bash ~/headless-test/net_provision_hotspot.sh
 
 **Steps:**
 ```bash
-sudo python3 ~/headless-test/net_provision_web.py
+sudo python3 ~/dev/ipr-keyboard/scripts/headless/net_provision_web.py
 ```
 - From the connected device, open `http://10.42.0.1/`
 
@@ -133,7 +133,7 @@ sudo python3 ~/headless-test/net_provision_web.py
 sudo nmcli con add type wifi con-name "test-wifi" ssid "TestSSID"
 
 # Run the script
-sudo python3 ~/headless-test/gpio_factory_reset.py &
+sudo python3 ~/dev/ipr-keyboard/scripts/headless/gpio_factory_reset.py &
 
 # Within a few seconds, ground GPIO 17 for ~3 seconds, then release
 ```
@@ -168,7 +168,7 @@ sudo touch /boot/firmware/IPR_RESET_WIFI
 
 **Steps:**
 ```bash
-sudo bash ~/headless-test/net_factory_reset.sh
+sudo bash ~/dev/ipr-keyboard/scripts/headless/net_factory_reset.sh
 ```
 
 **Expected outcome:**
@@ -198,7 +198,7 @@ sudo bash ~/headless-test/net_factory_reset.sh
 **Steps:**
 ```bash
 # Install script to expected path
-sudo cp ~/headless-test/net_provision_hotspot.sh /usr/local/sbin/ipr-provision.sh
+sudo cp ~/dev/ipr-keyboard/scripts/headless/net_provision_hotspot.sh /usr/local/sbin/ipr-provision.sh
 sudo chmod +x /usr/local/sbin/ipr-provision.sh
 
 # Install service

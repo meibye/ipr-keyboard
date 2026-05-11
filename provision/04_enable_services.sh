@@ -92,6 +92,18 @@ else
   warn "Headless provisioning script not found: $PROVISION_SCRIPT"
 fi
 
+# Install provisioning web UI (started automatically by ipr-provision.sh when hotspot activates)
+WEB_PROVISION_SCRIPT="scripts/headless/net_provision_web.py"
+WEB_PROVISION_TARGET="/usr/local/sbin/ipr-provision-web.py"
+
+if [[ -f "$WEB_PROVISION_SCRIPT" ]]; then
+  cp "$WEB_PROVISION_SCRIPT" "$WEB_PROVISION_TARGET"
+  chmod +x "$WEB_PROVISION_TARGET"
+  log "Installed $WEB_PROVISION_TARGET"
+else
+  warn "Provisioning web script not found: $WEB_PROVISION_SCRIPT"
+fi
+
 # Install systemd service unit if present
 if [[ -f "$PROVISION_SERVICE" ]]; then
   cp "$PROVISION_SERVICE" /etc/systemd/system/ipr-provision.service

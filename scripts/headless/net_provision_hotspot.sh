@@ -71,6 +71,8 @@ main() {
 
   log "No Wi-Fi connection detected, starting hotspot provisioning mode..."
   ensure_hotspot_connection
+  log "Starting provisioning web UI on http://10.42.0.1/ ..."
+  exec python3 /usr/local/sbin/ipr-provision-web.py
 }
 
 main "$@"
