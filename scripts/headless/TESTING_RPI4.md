@@ -24,7 +24,7 @@ The `scripts/headless/` directory contains provisioning and recovery scripts int
 
 - Raspberry Pi 4 running Raspberry Pi OS Bookworm (Lite recommended)
 - NetworkManager active (`sudo systemctl status NetworkManager`)
-- Packages installed: `python3-rpi.gpio`, `python3-flask`, `network-manager`
+- Packages installed: `python3-rpi.gpio`, `python3-flask`, `network-manager`, `raspi-gpio`, `openssl`
 - Scripts copied to RPi 4 (e.g. via `scp` or SD card mount):
   ```
   scripts/headless/ → ~/headless-test/
@@ -59,7 +59,7 @@ ip route show default
 iwconfig wlan0 2>/dev/null || iw dev wlan0 link
 
 # Ethernet link state
-cat /sys/class/net/eth0/operstate   # "up" or "down"
+cat /sys/class/net/eth0/operstate
 
 # Quick one-liner summary
 printf "eth0: $(cat /sys/class/net/eth0/operstate 2>/dev/null || echo absent)  wlan0: $(cat /sys/class/net/wlan0/operstate 2>/dev/null || echo absent)\n"
@@ -69,61 +69,99 @@ printf "eth0: $(cat /sys/class/net/eth0/operstate 2>/dev/null || echo absent)  w
 
 ## Test Cases
 
-### 1. `net_provision_hotspot.sh` — Hotspot Auto-Activation
+### 1. `net_provision_hotspot.sh` — Permanent Management Hotspot
 
-**Goal:** Verify hotspot `ipr-hotspot` is created when no known Wi-Fi is reachable.
+**Goal:** Verify the permanent management hotspot starts on wlan0 and the web UI is reachable.
+
+> The hotspot is **always-on** — it starts unconditionally at boot and is not gated on whether a known Wi-Fi is reachable. An optional GPIO gate (`HOTSPOT_GPIO_PIN` env var) can restrict startup to a held-low pin, but is not set by default.
 
 **Setup:**
-- Ensure no Wi-Fi connection is active: `sudo nmcli con delete <your-ssid>` (or test on a Pi with no saved networks). `<your-ssid>` is expected to be preconfigured, but the name can be obtained by `sudo nmcli con show --active`. I.e. the command is `sudo nmcli con delete preconfigured`
-
-- Remove any existing hotspot connection: `sudo nmcli con delete ipr-hotspot` (ignore error if not found)
+- Remove any existing hotspot connection to force a clean run:
+  ```bas
+  sudo nmcli con delete ipr-hotspot 2>/dev/null || true
+  ```
+- Remove any stale secret to force credential regeneration:
+  ```bash
+  sudo rm -f /etc/ipr-hotspot.secret
+  ```
 
 **Steps:**
 ```bash
 sudo bash ~/dev/ipr-keyboard/scripts/headless/net_provision_hotspot.sh
 ```
-- Wait up to 60 seconds for hotspot to activate
+
+The script will:
+1. Generate credentials in `/etc/ipr-hotspot.secret` (SSID and password)
+2. Create or update the `ipr-hotspot` NetworkManager connection
+3. Attempt WPA3-SAE first; fall back to WPA2-RSN+CCMP if unsupported
+4. `exec` the management web UI at `http://10.42.0.1/`
 
 **Expected outcome:**
-- Script prints SSID (`ipr-setup-XXXX`), password, and URL (`http://10.42.0.1`)
 - `sudo nmcli con show` lists `ipr-hotspot` as active
 - `ip addr show wlan0` shows `10.42.0.1/24`
-- A second device can see and join the hotspot SSID `ipr-setup-xxxx, where xxxx is 
+- `/etc/ipr-hotspot.secret` contains `SSID=ipr-setup-XXXX` and `PASS=<hex>`
+- A second device can see and join the hotspot SSID (`ipr-setup-<suffix>`)
+- After joining, `http://10.42.0.1/` serves the management web UI (HTTP Basic Auth required — see test 2)
 
-**Regression check:**
-- Run again with a known Wi-Fi saved — hotspot should NOT activate (script exits after 45s wait)
+**GPIO gate variant (optional):**
+```bash
+# Start with GPIO gate on pin 27 (hold pin 27 LOW for 2s before running)
+sudo HOTSPOT_GPIO_PIN=27 bash ~/dev/ipr-keyboard/scripts/headless/net_provision_hotspot.sh
+```
+- `raspi-gpio` must be installed; if absent the gate is bypassed and hotspot starts unconditionally.
+- GPIO 17 is reserved for factory reset — use pin 27 or 22 for the hotspot gate.
+
+**Re-run check:**
+- Running the script again with `/etc/ipr-hotspot.secret` present reuses the existing SSID/password.
+- If `ipr-hotspot` connection already exists, it is updated (not re-created).
+- If port 80 is already bound, the script skips launching the web UI and exits.
 
 ---
 
 ### 2. `net_provision_web.py` — Wi-Fi Provisioning UI
 
-**Goal:** Verify the Flask provisioning UI scans networks and can connect Pi to a known AP.
+**Goal:** Verify the management web UI scans networks and can connect the Pi to a known AP.
+
+> `net_provision_hotspot.sh` launches this script automatically via `exec` after the hotspot is up. In normal operation you do not run it separately. Run it manually only for isolated testing.
 
 **Setup:**
-- Hotspot must be active (run test 1 first)
+- Hotspot must be active (run test 1 first, or start hotspot manually)
 - Connect a laptop/phone to the hotspot
+- The script reads credentials from `/etc/ipr-hotspot.secret` — run test 1 first so this file exists
 
-**Steps:**
+**Running manually (for isolated testing):**
 ```bash
 sudo python3 ~/dev/ipr-keyboard/scripts/headless/net_provision_web.py
 ```
-- From the connected device, open `http://10.42.0.1/`
+From the connected device, open `http://10.42.0.1/`
+
+**Authentication:**
+The UI requires HTTP Basic Auth:
+- Username: `ipr`
+- Password: the value of `PASS` from `/etc/ipr-hotspot.secret`
+
+This is the same password used to join the hotspot SSID. A browser will prompt for credentials on first visit.
+
+If `/etc/ipr-hotspot.secret` is missing, auth is disabled and a warning is printed to stdout.
 
 **Expected outcome:**
-- Page loads with a dropdown of visible SSIDs
+- Page loads with a dropdown of visible SSIDs (own hotspot SSID is excluded from the list)
 - Rescan button triggers a fresh network scan
-- Entering valid credentials and submitting connects Pi to the target Wi-Fi
-- Success page shown with SSH instructions
+- Entering valid credentials and submitting connects the Pi to the target Wi-Fi
+- Success page shown with note that the hotspot remains active; SSH address shown as `ipr-dev-pi4.local`
 - `sudo nmcli con show` confirms new connection is active
 
 **Edge cases to verify:**
-- Submit with no password on a secured network → error shown
+- Submit with no password on a secured network → connection error displayed
 - Submit with wrong password → nmcli error displayed (HTML-escaped)
 - No networks found state → UI shows "(no networks found — try rescan)"
+- More than 5 failed connect attempts from the same IP within 60 seconds → HTTP 429 returned
 
 ---
 
 ### 3. `gpio_factory_reset.py` — GPIO-Triggered Wi-Fi Reset
+
+> **Deployment: optional/lab only.** This script is not installed by the default provisioning playbook (`04_enable_services.sh`). It is intended for lab testing and emergency recovery. For production factory reset, use `net_factory_reset.sh` (marker-file triggered).
 
 **Goal:** Verify grounding GPIO 17 for 2 seconds triggers Wi-Fi profile deletion and reboot.
 
@@ -143,13 +181,18 @@ sudo python3 ~/dev/ipr-keyboard/scripts/headless/gpio_factory_reset.py &
 
 **Expected outcome:**
 - Script detects pin LOW for ≥ 2 seconds
-- Logs indicate reset triggered
+- Logs indicate reset triggered (`[ipr-gpio-reset] ✓ GPIO17 held for 2s, factory reset triggered!`)
 - `test-wifi` connection is deleted; `ipr-hotspot` is preserved
 - Marker files created: `/var/run/ipr_gpio_reset_triggered` and `/boot/firmware/IPR_RESET_WIFI`
-- Pi reboots
+- Pi reboots after a 3-second delay
 
 **Safe test variant (no reboot):**
-- Comment out the `reboot` call in a local copy, verify all deletions and marker files without rebooting
+- Comment out the `subprocess.run(["reboot"], ...)` call in a local copy, verify all deletions and marker files without rebooting
+
+**Notes:**
+- `RPi.GPIO` must be installed (`sudo apt-get install python3-rpi.gpio`); if unavailable the script exits cleanly with a warning.
+- If `/var/run/ipr_gpio_reset_triggered` already exists (from a previous run this boot), the script skips immediately.
+- `RPi.GPIO` may emit hardware revision warnings on RPi 4 but should function correctly.
 
 **After reboot — verify marker cleanup (leads into test 4):**
 - `IPR_RESET_WIFI` file should be present on boot partition before test 4
@@ -169,6 +212,8 @@ sudo nmcli con add type wifi con-name "test-wifi" ssid "TestSSID"
 sudo touch /boot/firmware/IPR_RESET_WIFI
 ```
 
+> The boot partition at `/boot/firmware` (or `/boot`) must be a mounted filesystem. The script uses `mountpoint -q` to verify this — if the path exists but is not a mount point, the marker check is skipped.
+
 **Steps:**
 ```bash
 sudo bash ~/dev/ipr-keyboard/scripts/headless/net_factory_reset.sh
@@ -184,7 +229,7 @@ sudo bash ~/dev/ipr-keyboard/scripts/headless/net_factory_reset.sh
 - Comment out the `reboot` line in a local copy; verify deletions and marker removal manually
 
 **Negative test:**
-- Run without marker file present → script exits silently, no changes made
+- Run without marker file present → script exits silently (exit 0), no changes made
 
 ---
 
@@ -196,13 +241,17 @@ sudo bash ~/dev/ipr-keyboard/scripts/headless/net_factory_reset.sh
 
 ### 6. `ipr-provision.service` — systemd Service Unit
 
-**Goal:** Verify the service unit installs and activates `net_provision_hotspot.sh` correctly.
+**Goal:** Verify the service unit installs and keeps `net_provision_hotspot.sh` (and the web UI it launches) running correctly.
+
+> The service is `Type=simple` with `Restart=on-failure`. Because `net_provision_hotspot.sh` ends with `exec python3 /usr/local/sbin/ipr-provision-web.py`, the service process stays alive for as long as the web server runs — it is not a one-shot unit.
 
 **Steps:**
 ```bash
-# Install script to expected path
+# Install scripts to expected paths
 sudo cp ~/dev/ipr-keyboard/scripts/headless/net_provision_hotspot.sh /usr/local/sbin/ipr-provision.sh
 sudo chmod +x /usr/local/sbin/ipr-provision.sh
+sudo cp ~/dev/ipr-keyboard/scripts/headless/net_provision_web.py /usr/local/sbin/ipr-provision-web.py
+sudo chmod +x /usr/local/sbin/ipr-provision-web.py
 
 # Install service
 sudo cp ~/headless-test/ipr-provision.service /etc/systemd/system/
@@ -212,8 +261,9 @@ sudo systemctl start ipr-provision
 ```
 
 **Expected outcome:**
-- `systemctl status ipr-provision` shows `active (running)` or `active (exited)` depending on timing
-- Hotspot activates if no Wi-Fi is connected (same as test 1)
+- `systemctl status ipr-provision` shows `active (running)` while the web server is up
+- Hotspot activates (same as test 1)
+- Web UI is reachable at `http://10.42.0.1/` (same as test 2)
 - After reboot: `journalctl -u ipr-provision` shows service ran at boot
 
 ---
@@ -223,8 +273,8 @@ sudo systemctl start ipr-provision
 Run tests in this sequence to avoid conflicts:
 
 1. `net_provision_hotspot.sh` (standalone)
-2. `net_provision_web.py` (depends on hotspot from step 1)
-3. `gpio_factory_reset.py` (plants marker for step 4)
+2. `net_provision_web.py` (launched by step 1 automatically; test in isolation if needed)
+3. `gpio_factory_reset.py` (plants marker for step 4; optional/lab only)
 4. `net_factory_reset.sh` (consumes marker from step 3, or manually planted)
 5. `ipr-provision.service` (integration test, requires reboot)
 6. ~~`usb_otg_setup.sh`~~ — postponed (no USB OTG cable)

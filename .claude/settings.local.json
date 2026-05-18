@@ -33,7 +33,22 @@
       "Bash(powershell -NoProfile -Command '& {try { $w=[Console]::WindowWidth } catch { $w=0 }; if \\($w -le 0\\) { $w = if \\($env:COLUMNS -as [int]\\) { [int]$env:COLUMNS } else { 120 } }; $env:COLUMNS=[Math]::Max\\(1,$w-4\\); $claudeDir=if \\($env:CLAUDE_CONFIG_DIR\\) { $env:CLAUDE_CONFIG_DIR } else { Join-Path $HOME '\\\\''.claude'\\\\'' }; $p=\\(Get-ChildItem \\(Join-Path $claudeDir '\\\\''plugins\\\\cache\\\\*\\\\claude-hud\\\\*'\\\\''\\) -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '\\\\''^\\\\d+\\(\\\\.\\\\d+\\)+$'\\\\'' } | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1\\).FullName; if \\($p\\) { & '\\\\''C:\\\\Program Files\\\\nodejs\\\\node.exe'\\\\'' \\(Join-Path $p '\\\\''dist\\\\index.js'\\\\''\\) }}')",
       "Bash(Get-ChildItem -Path \"D:\\\\sandbox\\\\ipr-keyboard\" -Recurse -Directory)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "PowerShell(head *)"
+      "PowerShell(head *)",
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(git check-ignore *)",
+      "Bash(python -c ' *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "mcp__ipr-rpi-dev-ssh__list-servers",
+      "mcp__ipr-rpi-dev-ssh__execute-command",
+      "Bash(ssh *)",
+      "Bash(scp -i __TRACKED_VAR__/.ssh/id_ed25519_ipr_kb D:/sandbox/ipr-keyboard/scripts/headless/net_provision_hotspot.sh meibye@192.168.1.98:/tmp/net_provision_hotspot.sh)",
+      "Bash(scp *)",
+      "Bash(Get-ChildItem *)",
+      "PowerShell(Set-Location \"D:\\\\sandbox\\\\ipr-keyboard\"; Get-ChildItem -Path \"scripts\" -Recurse | Where-Object {$_.Name -match \"network|dhcp\"})",
+      "Bash(git checkout *)"
     ]
   },
   "enabledMcpjsonServers": [
