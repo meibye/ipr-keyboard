@@ -12,12 +12,15 @@ so no extra credential is required.
 
 HTTPS: A self-signed certificate is generated once at /etc/ipr-provision-ssl/
 and reused on subsequent starts.  Browsers will warn on first visit; tap
-"Advanced → Proceed" to continue.  This avoids the repeated iOS "not safe to
+"Advanced -> Proceed" to continue.  This avoids the repeated iOS "not safe to
 send password" prompt that occurs over plain HTTP.
 
 Wi-Fi connect: credentials are saved as a NetworkManager profile with
 autoconnect enabled but NOT immediately activated.  The hotspot (wlan0) stays
 up; the Pi connects to the saved network on next boot.
+
+Scan cache: Wi-Fi scanning runs in a background thread so page loads are
+instant.  A scan is triggered at startup and again when the user clicks Rescan.
 
 Installation:
     sudo cp scripts/headless/net_provision_web.py /usr/local/sbin/ipr-provision-web.py
@@ -33,6 +36,7 @@ sudo: yes (runs as root to bind port 443)
 
 import ssl
 import subprocess
+import threading
 import time
 from functools import wraps
 from pathlib import Path
@@ -51,6 +55,11 @@ _AUTH_PASS: str = ""  # loaded at startup from secret file
 _rate: dict[str, list] = {}
 _RATE_MAX = 5
 _RATE_WINDOW = 60  # seconds
+
+# Scan cache: background thread writes here; request handlers read without blocking
+_scan_cache: list[str] = ["(scanning — please wait)"]
+_scan_lock = threading.Lock()
+_scan_in_progress = False
 
 app = Flask(__name__)
 
@@ -146,7 +155,7 @@ label{display:block;margin-bottom:.3rem;font-weight:600;color:#2c3e50}
 <div class="box header-box">
 <h1>IPR Keyboard</h1>
 <p class="small">You are connected directly to your IPR Keyboard device.
-No router needed — use this page to configure Wi-Fi or check device status.</p>
+No router needed &mdash; use this page to configure Wi-Fi or check device status.</p>
 </div>
 <div class="box">
 <p class="small">Management address: <code>https://10.42.0.1/</code></p>
@@ -154,7 +163,7 @@ No router needed — use this page to configure Wi-Fi or check device status.</p
 {% if msg %}<div class="box {% if ok %}ok{% else %}err{% endif %}">{{ msg }}</div>{% endif %}
 <div class="box">
 <h3 style="margin-top:0">Connect to a Wi-Fi Network</h3>
-<p class="small">Optional — saves credentials so the Pi can also reach the internet via Wi-Fi.
+<p class="small">Optional &mdash; saves credentials so the Pi can also reach the internet via Wi-Fi.
 The hotspot stays active; the Pi connects to this network after reboot.</p>
 <form method="post" action="/connect">
 <label>SSID</label>
@@ -202,11 +211,11 @@ def _hotspot_ssid() -> str:
         return ""
 
 
-def wifi_scan_ssids() -> list[str]:
+def _do_scan() -> None:
+    global _scan_cache, _scan_in_progress
     subprocess.run(["nmcli", "radio", "wifi", "on"], check=False)
     subprocess.run(["nmcli", "dev", "wifi", "rescan"], check=False)
-    time.sleep(2)
-
+    time.sleep(3)  # rescan is async; give it time to populate
     own_ssid = _hotspot_ssid()
     try:
         out = sh(["nmcli", "-t", "-f", "SSID", "dev", "wifi", "list"])
@@ -215,21 +224,30 @@ def wifi_scan_ssids() -> list[str]:
             s = line.strip()
             if s and s not in ssids and s != own_ssid:
                 ssids.append(s)
-        return ssids or ["(no networks found — try rescan)"]
+        result = ssids or ["(no networks found — try rescan)"]
     except subprocess.CalledProcessError:
-        return ["(scan failed — try rescan)"]
+        result = ["(scan failed — try rescan)"]
+    with _scan_lock:
+        _scan_cache = result
+        _scan_in_progress = False
+
+
+def _trigger_scan_background() -> None:
+    global _scan_in_progress
+    with _scan_lock:
+        if _scan_in_progress:
+            return
+        _scan_in_progress = True
+    threading.Thread(target=_do_scan, daemon=True).start()
 
 
 def _save_wifi_profile(ssid: str, psk: str, sec: str) -> None:
     """Save credentials as a NetworkManager profile without activating it."""
     con_name = f"ipr-wifi-{ssid}"
-
-    # Remove existing profile for this SSID to avoid duplicates
     subprocess.run(
         ["nmcli", "con", "delete", con_name],
         check=False, capture_output=True,
     )
-
     if sec == "open" or (sec == "auto" and not psk):
         sh([
             "nmcli", "con", "add", "type", "wifi",
@@ -253,16 +271,21 @@ def _save_wifi_profile(ssid: str, psk: str, sec: str) -> None:
 @app.get("/")
 @_require_auth
 def index():
-    ssids = wifi_scan_ssids()
+    with _scan_lock:
+        ssids = list(_scan_cache)
     return render_template_string(PAGE_TEMPLATE, ssids=ssids, msg=None, ok=False)
 
 
 @app.post("/rescan")
 @_require_auth
 def rescan():
-    ssids = wifi_scan_ssids()
+    _trigger_scan_background()
+    with _scan_lock:
+        ssids = list(_scan_cache)
     return render_template_string(
-        PAGE_TEMPLATE, ssids=ssids, msg="✓ Networks rescanned.", ok=True
+        PAGE_TEMPLATE, ssids=ssids,
+        msg="Scanning in background &mdash; reload in a few seconds to see updated networks.",
+        ok=True,
     )
 
 
@@ -278,9 +301,10 @@ def connect():
     sec = request.form.get("security") or "auto"
 
     if not ssid or ssid.startswith("("):
-        ssids = wifi_scan_ssids()
+        with _scan_lock:
+            ssids = list(_scan_cache)
         return render_template_string(
-            PAGE_TEMPLATE, ssids=ssids, msg="❌ No SSID selected.", ok=False
+            PAGE_TEMPLATE, ssids=ssids, msg="No SSID selected.", ok=False
         )
 
     try:
@@ -288,8 +312,9 @@ def connect():
         return redirect("/success")
     except subprocess.CalledProcessError as e:
         import html as _html
-        ssids = wifi_scan_ssids()
-        msg = f"❌ Could not save credentials:\n{_html.escape(e.output[-800:])}"
+        with _scan_lock:
+            ssids = list(_scan_cache)
+        msg = f"Could not save credentials: {_html.escape(e.output[-800:])}"
         return render_template_string(PAGE_TEMPLATE, ssids=ssids, msg=msg, ok=False)
 
 
@@ -299,7 +324,7 @@ def success():
 <html>
 <head>
   <meta charset="utf-8">
-  <title>IPR Keyboard — Saved</title>
+  <title>IPR Keyboard &mdash; Saved</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -313,9 +338,9 @@ def success():
 </head>
 <body>
 <div class="box">
-  <h2>✓ Credentials Saved</h2>
+  <h2>Credentials Saved</h2>
   <p>Wi-Fi credentials saved. The Pi will connect to this network after the next reboot.</p>
-  <p>The hotspot remains active — you can return to <code>https://10.42.0.1/</code> at any time.</p>
+  <p>The hotspot remains active &mdash; return to <code>https://10.42.0.1/</code> at any time.</p>
   <p style="margin-top:2rem;font-size:.9rem;color:#7f8c8d">
     After reboot, the Pi is also reachable via SSH:<br>
     <code>ssh meibye@ipr-dev-pi4.local</code>
@@ -333,6 +358,8 @@ if __name__ == "__main__":
             "authentication disabled. Run ipr-provision.sh first."
         )
     ssl_ctx = _ensure_ssl_cert()
+    # Kick off initial background scan so results are ready when first user arrives
+    _trigger_scan_background()
     print("[ipr-provision-web] Starting management web interface...")
     print("[ipr-provision-web] Access at https://10.42.0.1/ when hotspot is active")
     app.run(host="0.0.0.0", port=443, ssl_context=ssl_ctx)
