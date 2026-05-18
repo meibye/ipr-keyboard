@@ -22,6 +22,11 @@
 
 set -euo pipefail
 
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "Error: this script must be run as root. Use: sudo $0" >&2
+  exit 1
+fi
+
 BOLD='\033[1m'
 GREEN='\033[0;32m'
 BLUE='\033[1;34m'
