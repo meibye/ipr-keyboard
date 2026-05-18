@@ -3,7 +3,7 @@
 # IPR Keyboard permanent management hotspot
 #
 # Purpose:
-#   - Always starts a WPA3/WPA2 secured Wi-Fi hotspot on wlan0 at boot
+#   - Always starts a WPA2-secured Wi-Fi hotspot on wlan0 at boot
 #   - Hotspot is permanent — users connect to it at any time to reach the
 #     management web UI at http://10.42.0.1/ (no cable required)
 #   - Credentials are generated once and stored in /etc/ipr-hotspot.secret
@@ -97,27 +97,19 @@ gpio_pin_held_low() {
 }
 
 # ---------------------------------------------------------------------------
-# Hotspot setup with WPA3-SAE → WPA2-RSN+CCMP fallback
+# Hotspot setup — WPA2-RSN+CCMP (maximum client compatibility)
 # ---------------------------------------------------------------------------
-
-apply_wpa3() {
-  # pmf=3 (required) is mandatory for WPA3-SAE
-  nmcli con modify "${HOTSPOT_CON}" \
-    wifi-sec.key-mgmt sae \
-    wifi-sec.pmf 3 \
-    wifi-sec.psk "${PASS}"
-}
 
 apply_wpa2_rsn() {
   # proto=rsn: WPA2 only (no legacy WPA/TKIP)
   # pairwise/group=ccmp: AES only
-  # pmf=2 (optional): enables 802.11w for clients that support it
+  # pmf=1 (disabled): avoids iOS/Android rejection on WPA2-only AP modes
   nmcli con modify "${HOTSPOT_CON}" \
     wifi-sec.key-mgmt wpa-psk \
     wifi-sec.proto rsn \
     wifi-sec.pairwise ccmp \
     wifi-sec.group ccmp \
-    wifi-sec.pmf 2 \
+    wifi-sec.pmf 1 \
     wifi-sec.psk "${PASS}"
 }
 
@@ -136,15 +128,6 @@ ensure_hotspot_connection() {
       ipv6.method ignore
   fi
 
-  # Attempt WPA3-SAE first; fall back to WPA2-RSN+CCMP if modify or activation fails.
-  # Suppress errors from apply_wpa3 so set -e does not abort before the fallback.
-  log "Activating hotspot (WPA3-SAE)…"
-  if apply_wpa3 2>/dev/null && nmcli con up "${HOTSPOT_CON}" 2>/dev/null; then
-    log "Hotspot up with WPA3-SAE. SSID=${SSID}  URL=http://10.42.0.1/"
-    return
-  fi
-
-  log "WPA3-SAE not supported — retrying with WPA2-RSN+CCMP."
   apply_wpa2_rsn
   nmcli con up "${HOTSPOT_CON}"
   log "Hotspot up with WPA2-RSN+CCMP. SSID=${SSID}  URL=http://10.42.0.1/"

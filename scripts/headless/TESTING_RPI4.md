@@ -93,7 +93,7 @@ sudo bash ~/dev/ipr-keyboard/scripts/headless/net_provision_hotspot.sh
 The script will:
 1. Generate credentials in `/etc/ipr-hotspot.secret` (SSID and password)
 2. Create or update the `ipr-hotspot` NetworkManager connection
-3. Attempt WPA3-SAE first; fall back to WPA2-RSN+CCMP if unsupported
+3. Configure WPA2-RSN+CCMP (maximum client compatibility — iOS, Android, all laptops)
 4. `exec` the management web UI at `http://10.42.0.1/`
 
 **Expected outcome:**
