@@ -94,6 +94,7 @@ echo -e "${CYAN}${BOLD}── Wi-Fi Management Hotspot (always active) ───
 echo -e "  SSID         : ${BOLD}${HOTSPOT_SSID}${NC}"
 echo -e "  Password     : ${BOLD}${HOTSPOT_PASS}${NC}"
 echo -e "  Setup URL    : ${BOLD}http://10.42.0.1/${NC}"
+echo -e "  Web UI login : ${BOLD}ipr${NC} / ${BOLD}${HOTSPOT_PASS}${NC}"
 echo ""
 
 echo -e "${CYAN}${BOLD}── Web Dashboard ──────────────────────────────────────${NC}"

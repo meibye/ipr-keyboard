@@ -57,7 +57,7 @@ load_or_generate_secret() {
 
   local ssid="${AP_SSID_PREFIX}-$(machine_suffix)"
   local pass
-  pass="$(openssl rand -hex 16)"
+  pass="$(python3 -c "import secrets,string; a=string.ascii_letters+string.digits+'!@#\$'; print(''.join(secrets.choice(a) for _ in range(12)))")"
 
   install -m 0600 -o root -g root /dev/null "${SECRET_FILE}"
   printf 'SSID=%s\nPASS=%s\n' "${ssid}" "${pass}" >"${SECRET_FILE}"
