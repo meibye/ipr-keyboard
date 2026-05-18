@@ -130,7 +130,7 @@ ensure_hotspot_connection() {
 
   apply_wpa2_rsn
   nmcli con up "${HOTSPOT_CON}"
-  log "Hotspot up with WPA2-RSN+CCMP. SSID=${SSID}  URL=http://10.42.0.1/"
+  log "Hotspot up with WPA2-RSN+CCMP. SSID=${SSID}  URL=https://10.42.0.1/"
 }
 
 # ---------------------------------------------------------------------------
@@ -148,9 +148,9 @@ main() {
 
   ensure_hotspot_connection
 
-  log "Starting management web UI on http://10.42.0.1/ ..."
-  if ss -tlnp 2>/dev/null | grep -q ':80 '; then
-    log "Web UI already running on port 80, skipping launch."
+  log "Starting management web UI on https://10.42.0.1/ ..."
+  if ss -tlnp 2>/dev/null | grep -q ':443 '; then
+    log "Web UI already running on port 443, skipping launch."
     exit 0
   fi
   exec python3 /usr/local/sbin/ipr-provision-web.py

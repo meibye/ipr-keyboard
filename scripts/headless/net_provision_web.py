@@ -2,13 +2,22 @@
 """
 IPR Keyboard Management Web Interface
 
-Serves the management UI at http://10.42.0.1/ while the permanent hotspot is
+Serves the management UI at https://10.42.0.1/ while the permanent hotspot is
 active.  Allows scanning for Wi-Fi networks and saving credentials for cases
 where the Pi should also connect to a home network via wlan0.
 
 Authentication: HTTP Basic Auth using the hotspot password from
 /etc/ipr-hotspot.secret.  The same password is used to join the hotspot SSID,
 so no extra credential is required.
+
+HTTPS: A self-signed certificate is generated once at /etc/ipr-provision-ssl/
+and reused on subsequent starts.  Browsers will warn on first visit; tap
+"Advanced → Proceed" to continue.  This avoids the repeated iOS "not safe to
+send password" prompt that occurs over plain HTTP.
+
+Wi-Fi connect: credentials are saved as a NetworkManager profile with
+autoconnect enabled but NOT immediately activated.  The hotspot (wlan0) stays
+up; the Pi connects to the saved network on next boot.
 
 Installation:
     sudo cp scripts/headless/net_provision_web.py /usr/local/sbin/ipr-provision-web.py
@@ -19,9 +28,10 @@ Service:
 
 category: Headless
 purpose: Permanent management web interface over hotspot
-sudo: yes (runs as root to bind port 80)
+sudo: yes (runs as root to bind port 443)
 """
 
+import ssl
 import subprocess
 import time
 from functools import wraps
@@ -31,6 +41,9 @@ from flask import Flask, redirect, render_template_string, request
 
 SECRET_FILE = Path("/etc/ipr-hotspot.secret")
 HOTSPOT_CON = "ipr-hotspot"
+SSL_DIR = Path("/etc/ipr-provision-ssl")
+CERT_FILE = SSL_DIR / "cert.pem"
+KEY_FILE = SSL_DIR / "key.pem"
 _AUTH_USER = "ipr"
 _AUTH_PASS: str = ""  # loaded at startup from secret file
 
@@ -43,7 +56,6 @@ app = Flask(__name__)
 
 
 def _load_secret() -> str:
-    """Return the PASS value from /etc/ipr-hotspot.secret."""
     if not SECRET_FILE.exists():
         return ""
     for line in SECRET_FILE.read_text().splitlines():
@@ -52,8 +64,31 @@ def _load_secret() -> str:
     return ""
 
 
+def _ensure_ssl_cert() -> ssl.SSLContext:
+    """Generate a persistent self-signed cert if absent, return SSLContext."""
+    SSL_DIR.mkdir(mode=0o700, exist_ok=True)
+    if not CERT_FILE.exists() or not KEY_FILE.exists():
+        print("[ipr-provision-web] Generating self-signed TLS certificate...")
+        subprocess.run(
+            [
+                "openssl", "req", "-x509", "-newkey", "rsa:2048",
+                "-keyout", str(KEY_FILE), "-out", str(CERT_FILE),
+                "-days", "3650", "-nodes",
+                "-subj", "/CN=IPR Keyboard",
+                "-addext", "subjectAltName=IP:10.42.0.1",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        KEY_FILE.chmod(0o600)
+        CERT_FILE.chmod(0o644)
+        print(f"[ipr-provision-web] Certificate written to {CERT_FILE}")
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
+    return ctx
+
+
 def _require_auth(f):
-    """Decorator: HTTP Basic Auth using the hotspot password."""
     @wraps(f)
     def decorated(*args, **kwargs):
         auth = request.authorization
@@ -68,7 +103,6 @@ def _require_auth(f):
 
 
 def _check_rate_limit(ip: str) -> bool:
-    """Return True if the request is allowed, False if rate-limited."""
     now = time.time()
     entry = _rate.get(ip)
     if entry is None or now - entry[1] > _RATE_WINDOW:
@@ -93,7 +127,7 @@ h1{color:#2c3e50;margin-top:0}
 input,select,button{font-size:1rem;padding:.8rem;width:100%;margin:.6rem 0;border-radius:8px;border:1px solid #ddd;box-sizing:border-box}
 button{background:#3498db;color:white;border:none;cursor:pointer;font-weight:600}
 button:hover{background:#2980b9}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.row{display:grid;grid-template-columns:1fr auto;gap:.8rem;align-items:end}
 .box{padding:1rem;border:1px solid #ddd;border-radius:10px;margin:1rem 0;background:#fafafa}
 code{background:#e8e8e8;padding:.3rem .5rem;border-radius:6px}
 .small{color:#555;font-size:.95rem}
@@ -102,6 +136,9 @@ code{background:#e8e8e8;padding:.3rem .5rem;border-radius:6px}
 label{display:block;margin-bottom:.3rem;font-weight:600;color:#2c3e50}
 .header-box{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none}
 .header-box h1,.header-box p{color:white}
+.show-btn{width:auto;padding:.8rem 1rem;margin:0;background:#e0e0e0;color:#333;border-color:#ccc}
+.show-btn:hover{background:#d0d0d0}
+.sec-row{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
 </style>
 </head>
 <body>
@@ -112,20 +149,28 @@ label{display:block;margin-bottom:.3rem;font-weight:600;color:#2c3e50}
 No router needed — use this page to configure Wi-Fi or check device status.</p>
 </div>
 <div class="box">
-<p class="small">Management address: <code>http://10.42.0.1/</code></p>
+<p class="small">Management address: <code>https://10.42.0.1/</code></p>
 </div>
 {% if msg %}<div class="box {% if ok %}ok{% else %}err{% endif %}">{{ msg }}</div>{% endif %}
 <div class="box">
 <h3 style="margin-top:0">Connect to a Wi-Fi Network</h3>
-<p class="small">Optional — only needed if the Pi should also reach the internet via Wi-Fi.</p>
+<p class="small">Optional — saves credentials so the Pi can also reach the internet via Wi-Fi.
+The hotspot stays active; the Pi connects to this network after reboot.</p>
 <form method="post" action="/connect">
 <label>SSID</label>
 <select name="ssid" required>{% for s in ssids %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select>
-<div class="row">
-<div><label>Password</label><input name="psk" type="password" placeholder="Wi-Fi password"></div>
-<div><label>Security</label><select name="security"><option value="auto">Auto</option><option value="open">Open</option></select></div>
+<div class="sec-row">
+<div>
+  <label>Security</label>
+  <select name="security"><option value="auto">Auto (WPA2)</option><option value="open">Open</option></select>
 </div>
-<button type="submit">Save &amp; Connect</button>
+</div>
+<label>Password</label>
+<div class="row">
+  <input id="psk" name="psk" type="password" placeholder="Wi-Fi password" autocomplete="new-password">
+  <button type="button" class="show-btn" onclick="var f=document.getElementById('psk');f.type=f.type==='password'?'text':'password'">Show</button>
+</div>
+<button type="submit">Save &amp; Connect on Reboot</button>
 </form>
 </div>
 <div class="box">
@@ -141,7 +186,6 @@ def sh(cmd: list[str]) -> str:
 
 
 def _hotspot_ssid() -> str:
-    """Return the SSID currently broadcast by the hotspot, or empty string."""
     try:
         out = sh(["nmcli", "-t", "-f", "GENERAL.CONNECTION", "dev", "show", "wlan0"])
         con_name = ""
@@ -161,7 +205,7 @@ def _hotspot_ssid() -> str:
 def wifi_scan_ssids() -> list[str]:
     subprocess.run(["nmcli", "radio", "wifi", "on"], check=False)
     subprocess.run(["nmcli", "dev", "wifi", "rescan"], check=False)
-    time.sleep(2)  # rescan is async; wait for results
+    time.sleep(2)
 
     own_ssid = _hotspot_ssid()
     try:
@@ -174,6 +218,36 @@ def wifi_scan_ssids() -> list[str]:
         return ssids or ["(no networks found — try rescan)"]
     except subprocess.CalledProcessError:
         return ["(scan failed — try rescan)"]
+
+
+def _save_wifi_profile(ssid: str, psk: str, sec: str) -> None:
+    """Save credentials as a NetworkManager profile without activating it."""
+    con_name = f"ipr-wifi-{ssid}"
+
+    # Remove existing profile for this SSID to avoid duplicates
+    subprocess.run(
+        ["nmcli", "con", "delete", con_name],
+        check=False, capture_output=True,
+    )
+
+    if sec == "open" or (sec == "auto" and not psk):
+        sh([
+            "nmcli", "con", "add", "type", "wifi",
+            "con-name", con_name,
+            "ssid", ssid,
+            "connection.autoconnect", "yes",
+            "connection.autoconnect-priority", "10",
+        ])
+    else:
+        sh([
+            "nmcli", "con", "add", "type", "wifi",
+            "con-name", con_name,
+            "ssid", ssid,
+            "wifi-sec.key-mgmt", "wpa-psk",
+            "wifi-sec.psk", psk,
+            "connection.autoconnect", "yes",
+            "connection.autoconnect-priority", "10",
+        ])
 
 
 @app.get("/")
@@ -210,15 +284,12 @@ def connect():
         )
 
     try:
-        if sec == "open" or (sec == "auto" and not psk):
-            sh(["nmcli", "dev", "wifi", "connect", ssid])
-        else:
-            sh(["nmcli", "dev", "wifi", "connect", ssid, "password", psk])
+        _save_wifi_profile(ssid, psk, sec)
         return redirect("/success")
     except subprocess.CalledProcessError as e:
         import html as _html
         ssids = wifi_scan_ssids()
-        msg = f"❌ Connection failed:\n{_html.escape(e.output[-800:])}"
+        msg = f"❌ Could not save credentials:\n{_html.escape(e.output[-800:])}"
         return render_template_string(PAGE_TEMPLATE, ssids=ssids, msg=msg, ok=False)
 
 
@@ -228,7 +299,7 @@ def success():
 <html>
 <head>
   <meta charset="utf-8">
-  <title>IPR Keyboard — Connected</title>
+  <title>IPR Keyboard — Saved</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -243,10 +314,10 @@ def success():
 <body>
 <div class="box">
   <h2>✓ Credentials Saved</h2>
-  <p>Connecting — this may take a moment.</p>
-  <p>The hotspot stays active. Return to <code>http://10.42.0.1/</code> any time.</p>
+  <p>Wi-Fi credentials saved. The Pi will connect to this network after the next reboot.</p>
+  <p>The hotspot remains active — you can return to <code>https://10.42.0.1/</code> at any time.</p>
   <p style="margin-top:2rem;font-size:.9rem;color:#7f8c8d">
-    Once on your network, the Pi is also reachable via SSH:<br>
+    After reboot, the Pi is also reachable via SSH:<br>
     <code>ssh meibye@ipr-dev-pi4.local</code>
   </p>
 </div>
@@ -261,6 +332,7 @@ if __name__ == "__main__":
             "[ipr-provision-web] WARNING: /etc/ipr-hotspot.secret not found or empty — "
             "authentication disabled. Run ipr-provision.sh first."
         )
+    ssl_ctx = _ensure_ssl_cert()
     print("[ipr-provision-web] Starting management web interface...")
-    print("[ipr-provision-web] Access at http://10.42.0.1/ when hotspot is active")
-    app.run(host="0.0.0.0", port=80)
+    print("[ipr-provision-web] Access at https://10.42.0.1/ when hotspot is active")
+    app.run(host="0.0.0.0", port=443, ssl_context=ssl_ctx)
