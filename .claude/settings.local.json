@@ -50,7 +50,9 @@
       "PowerShell(Set-Location \"D:\\\\sandbox\\\\ipr-keyboard\"; Get-ChildItem -Path \"scripts\" -Recurse | Where-Object {$_.Name -match \"network|dhcp\"})",
       "Bash(git checkout *)",
       "mcp__ipr-rpi-dev-ssh__upload",
-      "Bash(git update-index *)"
+      "Bash(git update-index *)",
+      "Skill(schedule)",
+      "Skill(schedule:*)"
     ]
   },
   "enabledMcpjsonServers": [
