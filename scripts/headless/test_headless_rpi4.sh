@@ -11,7 +11,10 @@
 # Safe variants: tests that would normally reboot are patched to suppress the reboot so
 # the SSH session stays alive throughout.
 
-SCRIPTS_DIR="${SCRIPTS_DIR:-$HOME/dev/ipr-keyboard/scripts/headless}"
+# When run via "sudo bash", $HOME becomes /root — resolve the invoking user's home instead.
+_INVOKING_USER="${SUDO_USER:-$USER}"
+_INVOKING_HOME=$(getent passwd "$_INVOKING_USER" | cut -d: -f6)
+SCRIPTS_DIR="${SCRIPTS_DIR:-$_INVOKING_HOME/dev/ipr-keyboard/scripts/headless}"
 
 # ── result tracking ────────────────────────────────────────────────────────────
 
@@ -176,7 +179,7 @@ info "Goal: web UI responds, authenticates, and serves a network scan page."
 info "Web server was already started by Test 1 via 'exec'."
 
 # Automated: unauthenticated request should return 401
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 http://127.0.0.1/ 2>/dev/null || echo "000")
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 http://127.0.0.1/ 2>/dev/null; true)
 if [[ "$HTTP_CODE" == "401" ]]; then
     record_pass 2.1 "Unauthenticated request returns 401 (auth enforced)"
 elif [[ "$HTTP_CODE" == "200" ]]; then
@@ -188,7 +191,7 @@ fi
 # Authenticated request
 if [[ -n "$HOTSPOT_PASS" && "$HOTSPOT_PASS" != "unknown" ]]; then
     AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 \
-        -u "ipr:$HOTSPOT_PASS" http://127.0.0.1/ 2>/dev/null || echo "000")
+        -u "ipr:$HOTSPOT_PASS" http://127.0.0.1/ 2>/dev/null; true)
     check 2.2 "Authenticated request returns 200" "[[ '$AUTH_CODE' == '200' ]]"
 
     PAGE=$(curl -s --max-time 8 -u "ipr:$HOTSPOT_PASS" http://127.0.0.1/ 2>/dev/null || echo "")
