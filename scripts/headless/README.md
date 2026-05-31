@@ -50,8 +50,8 @@ Generated once by `net_provision_hotspot.sh` or `provision/04_enable_services.sh
 and stored in `/etc/ipr-hotspot.secret` (mode 0600, root only):
 
 ```
-IPR_SSID=ipr-setup-XXXX
-IPR_PASS=<32-char random hex>
+SSID=ipr-setup-XXXX
+PASS=<12-char random password>
 ```
 
 Run `sudo provision/07_show_info.sh` to display the current SSID and password.

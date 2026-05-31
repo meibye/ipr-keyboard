@@ -52,8 +52,8 @@ SECRET_FILE="/etc/ipr-hotspot.secret"
 HOTSPOT_SSID=""
 HOTSPOT_PASS=""
 if [[ -f "$SECRET_FILE" ]]; then
-  HOTSPOT_SSID=$(grep '^IPR_SSID=' "$SECRET_FILE" | cut -d= -f2-)
-  HOTSPOT_PASS=$(grep '^IPR_PASS=' "$SECRET_FILE" | cut -d= -f2-)
+  HOTSPOT_SSID=$(grep '^SSID=' "$SECRET_FILE" | cut -d= -f2-)
+  HOTSPOT_PASS=$(grep '^PASS=' "$SECRET_FILE" | cut -d= -f2-)
 fi
 if [[ -z "$HOTSPOT_SSID" ]]; then
   HOTSPOT_SSID="(not yet generated — run ipr-provision.sh first)"
