@@ -3,10 +3,6 @@
 # Collect a comprehensive diagnostic bundle for Copilot/MCP Bluetooth troubleshooting
 #
 # Usage:
-
-# Source common environment
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/dbg_common.env"
 #   sudo dbg_diag_bundle.sh
 #
 # Prerequisites:
@@ -16,7 +12,12 @@ source "$SCRIPT_DIR/dbg_common.env"
 # category: Debug
 # purpose: Collect system and Bluetooth stack diagnostics for troubleshooting
 # sudo: yes
+
 set -euo pipefail
+
+# Source common environment
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/dbg_common.env"
 
 DBG_ENV="/etc/ipr_dbg.env"
 [[ -f "$DBG_ENV" ]] && source "$DBG_ENV"

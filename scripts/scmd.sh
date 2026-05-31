@@ -102,14 +102,20 @@ get_category() {
 get_subcategory() {
     script="$1"
     basename=$(basename "$script")
-    
-    # Handle subdirectories
-    if [[ "$script" == */service/* ]]; then
+
+    # Directory-based grouping takes priority over filename prefix
+    if [[ "$script" == */deploy/* ]]; then
+        echo "deploy"
+    elif [[ "$script" == */service/* ]]; then
         echo "service"
     elif [[ "$script" == */lib/* ]]; then
         echo "service"
     elif [[ "$script" == */extras/* ]]; then
         echo "extras"
+    elif [[ "$script" == */headless/* ]]; then
+        echo "headless"
+    elif [[ "$script" == */rpi-debug/* ]]; then
+        echo "rpi-debug"
     # Extract prefix before first underscore
     elif [[ "$basename" =~ ^([a-z]+)_ ]]; then
         echo "${BASH_REMATCH[1]}"
@@ -189,17 +195,20 @@ display_subcategory_menu() {
         # Convert subcategory name to display format
         display_name=""
         case "$subcat" in
-            ble) display_name="Bluetooth Configuration" ;;
-            dev) display_name="Development Tools" ;;
-            diag) display_name="Diagnostics" ;;
-            env) display_name="Environment Setup" ;;
-            sys) display_name="System Setup" ;;
-            test) display_name="Testing" ;;
-            usb) display_name="USB/MTP" ;;
-            service) display_name="Service Management" ;;
-            extras) display_name="BLE Extras" ;;
-            other) display_name="Other Scripts" ;;
-            *) display_name="$subcat" ;;
+            deploy)    display_name="Deploy / Update" ;;
+            ble)       display_name="Bluetooth Configuration" ;;
+            dev)       display_name="Development Tools" ;;
+            diag)      display_name="Diagnostics" ;;
+            env)       display_name="Environment Setup" ;;
+            headless)  display_name="Headless / Provisioning" ;;
+            rpi-debug) display_name="RPi Debug Tools" ;;
+            sys)       display_name="System Setup" ;;
+            test)      display_name="Testing" ;;
+            usb)       display_name="USB/MTP" ;;
+            service)   display_name="Service Management" ;;
+            extras)    display_name="BLE Extras" ;;
+            other)     display_name="Other Scripts" ;;
+            *)         display_name="$subcat" ;;
         esac
         printf "  %-5s %-40s (%d scripts)\n" "[$unique_number]:" "$display_name" "$count"
         subcategory_mapping["$unique_number"]="$subcat"
@@ -229,17 +238,20 @@ display_scripts_menu() {
     # Display menu
     local display_name=""
     case "$selected_subcat" in
-        ble) display_name="Bluetooth Configuration" ;;
-        dev) display_name="Development Tools" ;;
-        diag) display_name="Diagnostics" ;;
-        env) display_name="Environment Setup" ;;
-        sys) display_name="System Setup" ;;
-        test) display_name="Testing" ;;
-        usb) display_name="USB/MTP" ;;
-        service) display_name="Service Management" ;;
-        extras) display_name="BLE Extras" ;;
-        other) display_name="Other Scripts" ;;
-        *) display_name="$selected_subcat" ;;
+        deploy)    display_name="Deploy / Update" ;;
+        ble)       display_name="Bluetooth Configuration" ;;
+        dev)       display_name="Development Tools" ;;
+        diag)      display_name="Diagnostics" ;;
+        env)       display_name="Environment Setup" ;;
+        headless)  display_name="Headless / Provisioning" ;;
+        rpi-debug) display_name="RPi Debug Tools" ;;
+        sys)       display_name="System Setup" ;;
+        test)      display_name="Testing" ;;
+        usb)       display_name="USB/MTP" ;;
+        service)   display_name="Service Management" ;;
+        extras)    display_name="BLE Extras" ;;
+        other)     display_name="Other Scripts" ;;
+        *)         display_name="$selected_subcat" ;;
     esac
     
     echo -e "${BYellow}$display_name Scripts:${Color_Off}"
@@ -322,16 +334,32 @@ excluded_scripts=()
 #
 filtered_scripts=()
 for script in "${scripts[@]}"; do
-    if [[ ! " ${excluded_scripts[@]} " =~ " $script " ]] &&
-       [[ ! " ${scripts_to_exclude[@]} " =~ " $script " ]]; then
-        # Ensure absolute path
-        if [[ "$script" != /* ]]; then
-            abs_script="$SCRIPT_DIR/${script#./}"
-        else
-            abs_script="$script"
-        fi
-        filtered_scripts+=("$abs_script")
+    # Ensure absolute path first
+    if [[ "$script" != /* ]]; then
+        abs_script="$SCRIPT_DIR/${script#./}"
+    else
+        abs_script="$script"
     fi
+
+    # Skip scripts in the hardcoded exclusion list
+    if [[ " ${excluded_scripts[*]} " =~ " $script " ]]; then
+        continue
+    fi
+    # Skip scripts excluded via -e flag
+    if [[ " ${scripts_to_exclude[*]} " =~ " $script " ]]; then
+        continue
+    fi
+    # Skip scripts whose category matches one of the -c exclusion categories
+    if [[ ${#categories[@]} -gt 0 ]]; then
+        script_cat=$(get_category "$abs_script" | tr '[:upper:]' '[:lower:]' | xargs)
+        for excl_cat in "${categories[@]}"; do
+            if [[ "$script_cat" == "$excl_cat" ]]; then
+                continue 2
+            fi
+        done
+    fi
+
+    filtered_scripts+=("$abs_script")
 done
 
 

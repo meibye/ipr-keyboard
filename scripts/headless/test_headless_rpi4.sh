@@ -10,6 +10,10 @@
 #
 # Safe variants: tests that would normally reboot are patched to suppress the reboot so
 # the SSH session stays alive throughout.
+#
+# category: Headless
+# purpose: Automated and interactive test runner for headless provisioning scripts
+# sudo: yes
 
 # When run via "sudo bash", $HOME becomes /root — resolve the invoking user's home instead.
 _INVOKING_USER="${SUDO_USER:-$USER}"

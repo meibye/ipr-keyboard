@@ -33,8 +33,8 @@ Service:
     Managed by ipr-provision.service (launched by ipr-provision.sh)
 
 category: Headless
-purpose: Permanent management web interface over hotspot
-sudo: yes (runs as root to bind port 443)
+purpose: Permanent management web interface over hotspot (HTTPS port 443)
+sudo: yes
 """
 
 import html as _html
