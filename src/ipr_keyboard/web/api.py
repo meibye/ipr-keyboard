@@ -134,6 +134,54 @@ def _build_system_state(bt: dict[str, Any]) -> dict[str, Any]:
     return {"state": state, "label": label, "explanation": explanation}
 
 
+def _build_health_data() -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    try:
+        mem = {}
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            parts = line.split()
+            if len(parts) >= 2:
+                mem[parts[0].rstrip(":")] = int(parts[1])
+        total = mem.get("MemTotal", 0)
+        available = mem.get("MemAvailable", 0)
+        if total:
+            result["memory_percent"] = round((total - available) * 100 / total)
+            result["memory_used_mb"] = round((total - available) / 1024)
+            result["memory_total_mb"] = round(total / 1024)
+    except Exception:
+        pass
+    try:
+        load1 = float(Path("/proc/loadavg").read_text().split()[0])
+        result["cpu_load_1"] = load1
+    except Exception:
+        pass
+    try:
+        out = subprocess.check_output(["df", "-h", "/"], text=True, timeout=3)
+        lines = out.strip().splitlines()
+        if len(lines) >= 2:
+            parts = lines[1].split()
+            if len(parts) >= 5:
+                result["disk_used"] = parts[2]
+                result["disk_total"] = parts[1]
+                result["disk_percent"] = int(parts[4].rstrip("%"))
+    except Exception:
+        pass
+    try:
+        secs = float(Path("/proc/uptime").read_text().split()[0])
+        days, rem = divmod(int(secs), 86400)
+        hours, rem = divmod(rem, 3600)
+        mins = rem // 60
+        if days:
+            result["uptime"] = f"{days}d {hours}h {mins}m"
+        elif hours:
+            result["uptime"] = f"{hours}h {mins}m"
+        else:
+            result["uptime"] = f"{mins}m"
+    except Exception:
+        pass
+    return result
+
+
 def _build_overall_state(bt: dict, pen: dict, tx: dict, sys: dict) -> dict[str, Any]:
     states = [bt["state"], pen["state"], tx["state"], sys["state"]]
     if any(s == "error" for s in states) or tx["state"] == "failed":
@@ -277,6 +325,16 @@ def api_status_system():
         sys = _build_system_state({})
         sys["timestamp"] = _now()
         return jsonify(sys)
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.get("/status/health")
+def api_status_health():
+    try:
+        data = _build_health_data()
+        data["timestamp"] = _now()
+        return jsonify(data)
     except Exception:
         logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
 

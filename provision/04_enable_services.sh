@@ -115,6 +115,21 @@ else
   warn "Headless provisioning service unit not found: $PROVISION_SERVICE"
 fi
 
+IPR_PROVISION_DEFAULTS="/etc/default/ipr-provision"
+if [[ ! -f "$IPR_PROVISION_DEFAULTS" ]]; then
+  log "Creating ${IPR_PROVISION_DEFAULTS} ..."
+  install -d /etc/default
+  cat > "$IPR_PROVISION_DEFAULTS" <<'EOF'
+# Optional GPIO gate for hotspot startup.
+# Uncomment and set a BCM pin number to require that pin to be held LOW for
+# 2 seconds before the hotspot starts.
+# HOTSPOT_GPIO_PIN=27
+EOF
+  chmod 0644 "$IPR_PROVISION_DEFAULTS"
+else
+  log "Provisioning defaults already present in ${IPR_PROVISION_DEFAULTS}"
+fi
+
 # Initialise hotspot secret file before first boot so the password is stable.
 # The script generates it on first run, but doing it here ensures 07_show_info
 # can read it immediately after provisioning.

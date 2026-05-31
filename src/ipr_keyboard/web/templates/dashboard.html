@@ -265,10 +265,10 @@
   .event-list .ev-summary { font-weight: 500; }
   .event-list .ev-details { font-size: 12px; color: var(--color-text-muted); }
 
-  .raw-logs-wrap { margin-top: 12px; }
-  .raw-logs-toggle { font-size: 13px; font-weight: 600; color: var(--color-primary); cursor: pointer; background: none; border: none; padding: 0; }
+  .raw-logs-wrap { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .raw-logs-toggle { font-size: 13px; font-weight: 600; color: var(--color-primary); cursor: pointer; background: none; border: none; padding: 0; text-align: left; }
   #raw-log-area {
-    display: none; margin-top: 10px;
+    display: none;
     background: #1e272e; color: #dfe6e9;
     border-radius: 8px; padding: 12px;
     font-size: 11px; font-family: monospace;
@@ -374,6 +374,31 @@
     .service-grid { grid-template-columns: 1fr; }
   }
 
+  /* ---- Home health section ---- */
+  .home-health-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--color-text-muted); margin-bottom: 8px;
+  }
+  .health-metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; margin-bottom: 12px;
+  }
+  .health-metric {
+    text-align: center; padding: 10px 4px;
+    background: var(--color-bg); border-radius: 8px;
+  }
+  .hm-label { font-size: 11px; color: var(--color-text-muted); font-weight: 600; margin-bottom: 3px; }
+  .hm-value { font-size: 17px; font-weight: 700; }
+  .health-divider { border: none; border-top: 1px solid var(--color-border); margin: 10px 0 10px; }
+  .service-pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .svc-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+  }
+  .svc-pill.active  { background: #d5f5e3; color: var(--color-ready); }
+  .svc-pill.inactive { background: #fadbd8; color: var(--color-error); }
+  .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
   /* ---- Dialog overlay ---- */
   #dialog-overlay {
     display: none; position: fixed; inset: 0;
@@ -427,6 +452,7 @@
     .device-row { flex-direction: column; }
     .action-row { flex-direction: column; }
     .quick-links { flex-direction: column; }
+    .health-metrics { grid-template-columns: repeat(2, 1fr); }
   }
 
   @media (min-width: 641px) {
@@ -513,6 +539,34 @@
     <div class="quick-links">
       <a href="#activity" data-screen="activity">📊 View Activity</a>
       <a href="#settings" data-screen="settings">⚙️ Settings</a>
+    </div>
+
+    <!-- Device health -->
+    <div class="card" style="margin-top:4px">
+      <div class="home-health-title">Device Health</div>
+      <div class="health-metrics">
+        <div class="health-metric">
+          <div class="hm-label">CPU Load</div>
+          <div class="hm-value" id="hm-cpu-val">—</div>
+        </div>
+        <div class="health-metric">
+          <div class="hm-label">RAM</div>
+          <div class="hm-value" id="hm-ram-val">—</div>
+        </div>
+        <div class="health-metric">
+          <div class="hm-label">Disk</div>
+          <div class="hm-value" id="hm-disk-val">—</div>
+        </div>
+        <div class="health-metric">
+          <div class="hm-label">Uptime</div>
+          <div class="hm-value" id="hm-uptime-val" style="font-size:13px">—</div>
+        </div>
+      </div>
+      <div class="health-divider"></div>
+      <div class="home-health-title">Services</div>
+      <div class="service-pill-row" id="home-services-pills">
+        <span class="spinner"></span>
+      </div>
     </div>
   </section>
 
@@ -629,6 +683,11 @@
       <div class="settings-row">
         <label>Signed in as</label>
         <span class="setting-value" id="auth-current-user">—</span>
+      </div>
+
+      <div class="settings-row">
+        <label>Sign out</label>
+        <a href="/logout" class="btn btn-secondary" style="text-decoration:none;font-size:13px;padding:8px 16px">Sign out</a>
       </div>
 
       <div id="user-list-wrap" style="display:none">
@@ -899,6 +958,7 @@ function navigate(screen, pushState) {
   if (screen === 'settings') loadSettings();
   if (screen === 'connections') updateConnections();
   if (screen === 'debug') { loadDebugServices(); loadPenFiles(); }
+  if (screen === 'home') loadHomeHealth();
 }
 
 window.addEventListener('hashchange', () => {
@@ -1038,6 +1098,49 @@ async function refreshStatus() {
 // Auto-refresh every 10 seconds
 refreshStatus();
 setInterval(refreshStatus, 10000);
+
+// ---- Home health ----
+async function loadHomeHealth() {
+  try {
+    const data = await apiFetch('/api/status/health');
+    const cpuEl  = document.getElementById('hm-cpu-val');
+    const ramEl  = document.getElementById('hm-ram-val');
+    const diskEl = document.getElementById('hm-disk-val');
+    const uptEl  = document.getElementById('hm-uptime-val');
+    if (data.cpu_load_1 != null) {
+      cpuEl.textContent = data.cpu_load_1.toFixed(2);
+    }
+    if (data.memory_percent != null) {
+      ramEl.textContent = data.memory_percent + '%';
+      ramEl.className = 'hm-value ' + (data.memory_percent > 85 ? 'state-error' : data.memory_percent > 70 ? 'state-warning' : 'state-ready');
+    }
+    if (data.disk_percent != null) {
+      diskEl.textContent = data.disk_percent + '%';
+      diskEl.className = 'hm-value ' + (data.disk_percent > 90 ? 'state-error' : data.disk_percent > 75 ? 'state-warning' : 'state-ready');
+    }
+    if (data.uptime) {
+      uptEl.textContent = data.uptime;
+    }
+  } catch (_) {}
+
+  try {
+    const data = await apiFetch('/api/debug/services');
+    const row = document.getElementById('home-services-pills');
+    if (data.services && data.services.length > 0) {
+      row.innerHTML = data.services.map(s => `
+        <span class="svc-pill ${s.active ? 'active' : 'inactive'}">
+          <span class="pill-dot"></span>${s.label}
+        </span>
+      `).join('');
+    } else {
+      row.innerHTML = '<span style="color:var(--color-text-muted);font-size:13px">No service data.</span>';
+    }
+  } catch (_) {
+    const row = document.getElementById('home-services-pills');
+    if (row) row.innerHTML = '<span style="color:var(--color-text-muted);font-size:13px">Could not load services.</span>';
+  }
+}
+setInterval(() => { if (currentScreen === 'home') loadHomeHealth(); }, 30000);
 
 // ---- SSE live updates ----
 async function startSSE() {

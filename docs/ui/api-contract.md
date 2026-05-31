@@ -172,6 +172,26 @@ Example response
 }
 ```
 
+#### GET /api/status/health
+
+Returns device health metrics for display on the Home screen.
+
+Example response
+
+```json
+{
+  "timestamp": "2026-04-17T14:22:09Z",
+  "cpu_load_1": 0.42,
+  "memory_percent": 45,
+  "memory_used_mb": 183,
+  "memory_total_mb": 406,
+  "disk_percent": 61,
+  "disk_used": "3.7G",
+  "disk_total": "6.0G",
+  "uptime": "2d 3h 15m"
+}
+```
+
 ### Event endpoints
 #### GET /api/events
 

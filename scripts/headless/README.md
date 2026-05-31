@@ -5,12 +5,44 @@ Permanent management hotspot and factory-reset scripts for the IPR Keyboard devi
 ## How it works
 
 `ipr-provision.service` runs `net_provision_hotspot.sh` at every boot.  The script
-always activates a WPA3/WPA2 secured Wi-Fi hotspot on `wlan0` so the device is
-reachable without a cable.  The Flask management UI (`net_provision_web.py`) is
-started automatically and served at `http://10.42.0.1/`.
+activates a WPA2-secured Wi-Fi hotspot on `wlan0` and starts the Flask management UI
+(`net_provision_web.py`) at `https://10.42.0.1/`.
 
 On devices with a wired interface (e.g. dev RPi 4), `eth0` handles wired connectivity
 while `wlan0` runs the hotspot simultaneously.
+
+### Default behaviour — hotspot always on
+
+When `HOTSPOT_GPIO_PIN` is **not** set (the default after provisioning), the hotspot
+and management UI start unconditionally at every boot.  This is the safest default for
+accessibility: the device is always reachable without a cable, regardless of which
+network it is on or whether it has joined any network at all.
+
+### GPIO gate — hotspot on demand
+
+Setting `HOTSPOT_GPIO_PIN` in `/etc/default/ipr-provision` adds a physical security
+control.  The hotspot will **not** start unless the configured GPIO pin is held LOW for
+at least 2 seconds during boot.  This means:
+
+- Under normal operation the device broadcasts no management AP and the web UI is
+  unreachable from Wi-Fi.
+- To open the management interface, an admin must be physically present, hold the
+  button, and reboot the device.
+- On the next normal reboot (button not pressed) the hotspot stays dark again.
+
+This is useful when the device is deployed in a shared or semi-public space where an
+always-on AP is undesirable.
+
+**Recommended pin: GPIO 27 (Pin 13).**  GPIO 17 is already reserved for factory reset
+(`net_factory_reset.sh`) — use a separate button for each function.
+
+To enable the GPIO gate, edit `/etc/default/ipr-provision` and uncomment:
+
+```
+HOTSPOT_GPIO_PIN=27
+```
+
+To return to always-on behaviour, comment the line out again and reboot.
 
 ## Credentials
 
@@ -18,8 +50,8 @@ Generated once by `net_provision_hotspot.sh` or `provision/04_enable_services.sh
 and stored in `/etc/ipr-hotspot.secret` (mode 0600, root only):
 
 ```
-SSID=ipr-setup-XXXX
-PASS=<32-char random hex>
+IPR_SSID=ipr-setup-XXXX
+IPR_PASS=<32-char random hex>
 ```
 
 Run `sudo provision/07_show_info.sh` to display the current SSID and password.
@@ -31,10 +63,11 @@ Run `sudo provision/07_show_info.sh` to display the current SSID and password.
 - **Web UI**: HTTP Basic Auth — username `ipr`, password from secret file (same
   password used to join the hotspot SSID).
 - **Rate limiting**: max 5 `/connect` attempts per IP per 60 seconds.
-- **GPIO gate** (optional): set `HOTSPOT_GPIO_PIN=<BCM pin>` in
-  `/etc/default/ipr-provision` to require a physical button/jumper press before
-  the hotspot starts.  Recommended pin: GPIO 27 (Pin 13).  GPIO 17 is reserved
-  for factory reset.
+- **GPIO gate** (optional): when `HOTSPOT_GPIO_PIN` is unset the hotspot starts at
+  every boot.  Set it to a BCM pin number in `/etc/default/ipr-provision` to require
+  that pin held LOW for ≥ 2 s before the hotspot activates — see
+  [GPIO gate](#gpio-gate--hotspot-on-demand) above.  Recommended pin: GPIO 27 (Pin 13).
+  GPIO 17 is reserved for factory reset.
 
 ## Files
 
@@ -62,4 +95,5 @@ Run `sudo provision/07_show_info.sh` to display the current SSID and password.
 - `/usr/local/sbin/ipr-provision.sh` ← `net_provision_hotspot.sh`
 - `/usr/local/sbin/ipr-provision-web.py` ← `net_provision_web.py`
 - `/etc/systemd/system/ipr-provision.service` ← `ipr-provision.service`
+- `/etc/default/ipr-provision` — optional provisioning defaults with a commented `HOTSPOT_GPIO_PIN` example
 - `/etc/ipr-hotspot.secret` — generated with a random password on first run
