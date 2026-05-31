@@ -16,7 +16,7 @@
 #   - Agent and backend services must be installed
 #   - Bluetooth adapter must be available
 #
-# category: Testing
+# category: Bluetooth
 # purpose: Interactive Bluetooth pairing test for BLE backend
 # parameters:
 # sudo: no

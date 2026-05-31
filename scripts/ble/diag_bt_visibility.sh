@@ -9,7 +9,7 @@
 #   sudo ./diag_bt_visibility.sh --fix        # apply best-effort fixes + restart services
 #   sudo ./diag_bt_visibility.sh --fix --hci hci1
 #
-# category: Diagnostics
+# category: Bluetooth
 # purpose: Diagnose and optionally fix BLE visibility issues for ipr-keyboard
 # parameters: --fix,--hci
 # sudo: yes

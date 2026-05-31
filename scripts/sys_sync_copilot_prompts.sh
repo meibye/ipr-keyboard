@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# category: System Setup
+# category: System
 # purpose: Sync and verify no-drift prompt mirrors from docs/copilot
 # parameters: --sync,--check,--help
 

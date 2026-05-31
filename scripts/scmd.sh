@@ -116,6 +116,8 @@ get_subcategory() {
         echo "headless"
     elif [[ "$script" == */rpi-debug/* ]]; then
         echo "rpi-debug"
+    elif [[ "$script" == */ble/* ]]; then
+        echo "ble"
     # Extract prefix before first underscore
     elif [[ "$basename" =~ ^([a-z]+)_ ]]; then
         echo "${BASH_REMATCH[1]}"
@@ -196,17 +198,17 @@ display_subcategory_menu() {
         display_name=""
         case "$subcat" in
             deploy)    display_name="Deploy / Update" ;;
-            ble)       display_name="Bluetooth Configuration" ;;
-            dev)       display_name="Development Tools" ;;
+            ble)       display_name="Bluetooth" ;;
+            dev)       display_name="Development" ;;
             diag)      display_name="Diagnostics" ;;
-            env)       display_name="Environment Setup" ;;
+            env)       display_name="Configuration" ;;
             headless)  display_name="Headless / Provisioning" ;;
             rpi-debug) display_name="RPi Debug Tools" ;;
             sys)       display_name="System Setup" ;;
             test)      display_name="Testing" ;;
-            usb)       display_name="USB/MTP" ;;
+            usb)       display_name="USB / MTP" ;;
             service)   display_name="Service Management" ;;
-            extras)    display_name="BLE Extras" ;;
+            extras)    display_name="BLE Analysis Tools" ;;
             other)     display_name="Other Scripts" ;;
             *)         display_name="$subcat" ;;
         esac
@@ -322,7 +324,7 @@ while IFS= read -r -d '' script; do
         fi
         scripts+=("$script")
     fi
-done < <(find . -type f \( -name "*.sh" -o -name "*.py" \) ! -path "./.git*" ! -path "./.vscode/*" ! -path "./tmp/*" -print0)
+done < <(find . -type f \( -name "*.sh" -o -name "*.py" \) ! -path "./.git*" ! -path "./.vscode/*" ! -path "./tmp/*" ! -path "./service/bin/*" ! -path "./tests/*" -print0)
 
 #
 # Excluded scripts (if any specific ones need to be skipped)

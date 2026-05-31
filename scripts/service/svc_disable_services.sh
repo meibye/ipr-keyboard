@@ -1,5 +1,15 @@
 #!/bin/bash
-# Disable all ipr-keyboard related services
+#
+# svc_disable_services.sh
+#
+# Disable and stop all ipr-keyboard services.
+#
+# Usage:
+#   sudo ./scripts/service/svc_disable_services.sh
+#
+# category: Service
+# purpose: Disable and stop all ipr-keyboard services
+# sudo: yes
 
 set -euo pipefail
 

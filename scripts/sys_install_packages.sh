@@ -9,7 +9,10 @@
 # Usage:
 #   sudo ./scripts/sys_install_packages.sh
 #
-# Prerequisites:
+# category: System
+# purpose: Install all required system packages for ipr-keyboard
+# sudo: yes
+
 set -eo pipefail
 
 # Load environment variables

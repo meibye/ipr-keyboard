@@ -19,7 +19,7 @@
 #   - Must be run as root (requires bluetoothctl and systemctl access)
 #   - Bluetooth services should be installed
 #
-# category: Diagnostics
+# category: Bluetooth
 # purpose: Diagnose Bluetooth pairing issues for BLE backend
 # sudo: yes
 #

@@ -16,7 +16,7 @@
 #   - Must be run as root
 #   - BLE HID daemon must be running
 #
-# category: Diagnostics
+# category: Bluetooth
 # purpose: Monitor GATT characteristics and HID reports for debugging
 # sudo: yes
 #

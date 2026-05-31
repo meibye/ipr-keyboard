@@ -13,7 +13,7 @@
 #   - Must be run as root (uses sudo)
 #   - Bluetooth HID services must be installed
 #
-# category: Diagnostics
+# category: Bluetooth
 # purpose: Perform comprehensive BLE HID diagnostics
 
 set -eo pipefail

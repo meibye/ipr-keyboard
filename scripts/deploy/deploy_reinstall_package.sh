@@ -40,10 +40,12 @@ PIP_USER="${SUDO_USER:-$IPR_USER}"
 echo "[deploy] Reinstalling package as user '$PIP_USER'…"
 cd "$PROJECT_DIR"
 
-if command -v uv >/dev/null 2>&1; then
-    sudo -u "$PIP_USER" uv pip install -e .
+if [[ -x "$VENV_DIR/bin/uv" ]]; then
+    runuser -u "$PIP_USER" -- "$VENV_DIR/bin/uv" pip install -e .
+elif command -v uv >/dev/null 2>&1; then
+    runuser -u "$PIP_USER" -- "$(command -v uv)" pip install -e .
 else
-    sudo -u "$PIP_USER" "$VENV_DIR/bin/pip" install -e .
+    runuser -u "$PIP_USER" -- "$VENV_DIR/bin/pip" install -e .
 fi
 
 echo "[deploy] Restarting ipr_keyboard.service…"

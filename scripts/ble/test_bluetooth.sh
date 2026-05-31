@@ -19,7 +19,7 @@
 # Note:
 #   For manual, interactive testing only. Not used in automated workflows or CI.
 #
-# category: Testing
+# category: Bluetooth
 # purpose: Test Bluetooth keyboard emulation end-to-end
 # parameters: Test string (optional)
 # sudo: no
