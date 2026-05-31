@@ -3,7 +3,7 @@
 svc_status_monitor.py
 
 Interactive TUI for ipr-keyboard service/daemon status and control.
-Includes diagnostic information from diag_status.sh and diag_troubleshoot.sh.
+Covers systemd units, internal application threads, and runtime component checks.
 
 Usage:
   sudo ./scripts/service/svc_status_monitor.py
@@ -19,152 +19,359 @@ Requires: python3, curses, systemctl, journalctl
 """
 
 import curses
+import json
 import os
+import socket
 import subprocess
 import threading
 import time
 
-# Comprehensive list of all relevant ipr-keyboard and BLE GATT/agent services
-# (unit, description)
+# ---------------------------------------------------------------------------
+# Systemd service definitions  (unit name, short description)
+# ---------------------------------------------------------------------------
+
 SERVICES = [
-    ("ipr_keyboard.service", "Main app: USB→BT bridge, web API, config, logs"),
-    ("bt_hid_ble.service", "IPR Keyboard BLE HID Daemon"),
-    ("bt_hid_agent_unified.service", "IPR Keyboard Bluetooth Agent"),
-    # Standard Bluetooth stack services
-    ("bluetooth.service", "BlueZ Bluetooth stack daemon"),
-    ("dbus.service", "D-Bus system message bus"),
-    ("systemd-udevd.service", "Device event manager (udev)"),
+    # ---- core application stack ----
+    ("ipr_keyboard.service",         "Main app: USB→BT bridge, web API, config"),
+    ("bt_hid_ble.service",           "BLE HID GATT keyboard daemon"),
+    ("bt_hid_agent_unified.service", "Bluetooth pairing agent"),
+    # ---- headless / network ----
+    ("ipr-provision.service",        "Wi-Fi hotspot + headless provisioning"),
+    ("NetworkManager.service",       "Network Manager (hotspot/Wi-Fi via nmcli)"),
+    # ---- bluetooth stack ----
+    ("bluetooth.service",            "BlueZ Bluetooth stack daemon"),
+    ("dbus.service",                 "D-Bus system message bus"),
+    ("systemd-udevd.service",        "Device event manager (udev)"),
 ]
 
+# ---------------------------------------------------------------------------
+# Application component checks
+# These cover internal threads and sub-processes that run inside the systemd
+# services above.  Status is derived by probing ports or querying system state
+# rather than systemctl.
+# ---------------------------------------------------------------------------
 
-def get_service_status(svc):
-    try:
-        out = subprocess.check_output(
-            ["systemctl", "is-active", svc], text=True
-        ).strip()
-        return out
-    except subprocess.CalledProcessError:
-        # If service is not loaded, systemctl returns exit code 3 and prints 'inactive' or 'unknown'
-        # Check if the unit file exists
-        unit_paths = [
-            f"/etc/systemd/system/{svc}",
-            f"/lib/systemd/system/{svc}",
-            f"/usr/lib/systemd/system/{svc}",
-        ]
-        if not any(os.path.exists(p) for p in unit_paths):
-            return "not installed"
+def _config_path() -> str:
+    """Locate config.json relative to this script or in the default dev tree."""
+    candidates = [
+        os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__)))),
+            "config.json",
+        ),
+        os.path.expanduser("~/dev/ipr-keyboard/config.json"),
+        "/home/pi/dev/ipr-keyboard/config.json",
+    ]
+    for p in candidates:
+        if os.path.isfile(p):
+            return p
+    return ""
+
+
+def _get_web_port() -> int:
+    """Read web server port from config.json (default 8080)."""
+    p = _config_path()
+    if p:
         try:
-            out = subprocess.check_output(
-                ["systemctl", "is-active", svc], text=True
-            ).strip()
-            return out
-        except subprocess.CalledProcessError:
-            try:
-                loaded = subprocess.check_output(
-                    ["systemctl", "is-enabled", svc],
-                    text=True,
-                    stderr=subprocess.DEVNULL,
-                ).strip()
-                if loaded == "disabled":
-                    return "not loaded"
-            except Exception:
-                return "not found"
-            return "inactive"
+            with open(p) as f:
+                data = json.load(f)
+                return int(data.get("LogPort", data.get("port", 8080)))
         except Exception:
-            return "error"
+            pass
+    return 8080
 
 
-def status_color(status):
-    # Map status string to color pair index
-    if status in ("active", "running"):
-        return 2  # green
-    if status in ("failed", "inactive", "dead"):
-        return 1  # red
-    if status == "activating":
-        return 3  # yellow
-    if status in ("not loaded", "not installed", "not found", "error"):
-        return 4  # dim/gray
-    return 4  # dim/gray
-
-
-def get_bt_devices():
-    # Placeholder: should call bluetoothctl or similar
-    # (addr, name, connected, paired)
-    # Return empty list to simulate no devices (remove test devices)
-    return []
-
-
-def device_status_color(connected, paired):
-    if connected:
-        return 2  # green
-    elif paired:
-        return 3  # yellow
-    else:
-        return 1  # red
-
-
-def get_config_info():
-    import json
-    import os
-
-    config_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config.json"
-    )
+def _check_tcp(host: str, port: int, timeout: float = 1.0) -> str:
+    """Return 'listening' if the TCP port accepts a connection, else 'not reachable'."""
     try:
-        with open(config_path, "r") as f:
-            return json.load(f)
-    except Exception as e:
-        return {"error": f"Failed to read config.json: {e}"}
+        s = socket.create_connection((host, port), timeout=timeout)
+        s.close()
+        return "listening"
+    except OSError:
+        return "not reachable"
 
 
-def get_diag_info():
-    import subprocess
+def _svc_active(unit: str) -> bool:
+    try:
+        return subprocess.call(
+            ["systemctl", "is-active", "--quiet", unit],
+            timeout=3, stderr=subprocess.DEVNULL,
+        ) == 0
+    except Exception:
+        return False
 
+
+def _check_web_dashboard() -> str:
+    """Probe the Flask web server TCP port."""
+    return _check_tcp("127.0.0.1", _get_web_port())
+
+
+def _check_bt_forwarder() -> str:
+    """BT forwarder runs as a thread inside ipr_keyboard.service."""
+    return "running" if _svc_active("ipr_keyboard.service") else "stopped"
+
+
+def _check_hotspot() -> str:
+    """Query nmcli for the ipr-hotspot connection state."""
     try:
         out = subprocess.check_output(
-            [
-                os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)), "diag_status.sh"
-                )
-            ],
-            text=True,
-        )
-        return out.strip()
+            ["nmcli", "-t", "-f", "GENERAL.STATE", "con", "show", "ipr-hotspot"],
+            text=True, stderr=subprocess.DEVNULL, timeout=3,
+        ).strip()
+        return "active" if "activated" in out.lower() else "inactive"
+    except FileNotFoundError:
+        return "nmcli missing"
+    except subprocess.CalledProcessError:
+        return "not configured"
     except Exception:
-        try:
-            out = subprocess.check_output(
-                [
-                    os.path.join(
-                        os.path.dirname(os.path.dirname(__file__)),
-                        "diag_troubleshoot.sh",
-                    )
-                ],
-                text=True,
-            )
-            return out.strip()
-        except Exception as e:
-            return f"Diagnostics unavailable: {e}"
+        return "unknown"
 
 
-class StatusThread(threading.Thread):
+def _check_provision_web() -> str:
+    """Probe the provisioning HTTPS server on port 443."""
+    if not _svc_active("ipr-provision.service"):
+        return "service down"
+    return _check_tcp("127.0.0.1", 443)
+
+
+# (label, description, check_fn) — check_fn() returns a status string
+APP_COMPONENTS = [
+    ("Web Dashboard",   "Flask web UI + REST API (ipr_keyboard.svc)",  _check_web_dashboard),
+    ("BT Forwarder",    "USB→BLE keyboard forwarding loop",             _check_bt_forwarder),
+    ("Hotspot",         "Wi-Fi provisioning hotspot (nmcli)",           _check_hotspot),
+    ("Provision HTTPS", "Headless management web server (port 443)",    _check_provision_web),
+]
+
+# ---------------------------------------------------------------------------
+# Service status helpers
+# ---------------------------------------------------------------------------
+
+def get_service_status(svc: str) -> str:
+    """Return the systemctl is-active status string for a unit."""
+    try:
+        return subprocess.check_output(
+            ["systemctl", "is-active", svc],
+            text=True, stderr=subprocess.DEVNULL, timeout=5,
+        ).strip()
+    except subprocess.CalledProcessError as exc:
+        # is-active exits non-zero for inactive/failed but still prints the state
+        text = (exc.output or "").strip()
+        if text:
+            return text
+        # Distinguish "not installed" from genuinely inactive
+        unit_dirs = [
+            "/etc/systemd/system",
+            "/lib/systemd/system",
+            "/usr/lib/systemd/system",
+        ]
+        if not any(os.path.isfile(os.path.join(d, svc)) for d in unit_dirs):
+            return "not installed"
+        return "inactive"
+    except Exception:
+        return "unknown"
+
+
+def status_color(status: str) -> int:
+    """Map a status string to a curses colour-pair index (1–4)."""
+    if status in ("active", "running", "listening"):
+        return 2  # green
+    if status in ("failed", "dead", "not reachable", "stopped", "service down"):
+        return 1  # red
+    if status in ("activating", "inactive", "not configured"):
+        return 3  # yellow
+    # not installed, nmcli missing, unknown, error, not loaded …
+    return 4  # cyan/dim
+
+
+# ---------------------------------------------------------------------------
+# Background polling threads
+# ---------------------------------------------------------------------------
+
+class _ServicePoller(threading.Thread):
     def __init__(self, services):
         super().__init__(daemon=True)
         self.services = services
-        self.status = {svc[0]: "unknown" for svc in services}
+        self.status = {s[0]: "checking…" for s in services}
         self.running = True
 
     def run(self):
         while self.running:
-            for svc in self.services:
-                self.status[svc[0]] = get_service_status(svc[0])
+            for unit, _ in self.services:
+                self.status[unit] = get_service_status(unit)
             time.sleep(2)
 
     def stop(self):
         self.running = False
 
 
+class _AppPoller(threading.Thread):
+    """Polls application component checks at a slower rate (network probes)."""
+    def __init__(self, components):
+        super().__init__(daemon=True)
+        self.components = components
+        self.status = {c[0]: "checking…" for c in components}
+        self.running = True
+
+    def run(self):
+        while self.running:
+            for label, _, check_fn in self.components:
+                try:
+                    self.status[label] = check_fn()
+                except Exception:
+                    self.status[label] = "error"
+            time.sleep(5)
+
+    def stop(self):
+        self.running = False
+
+
+# ---------------------------------------------------------------------------
+# Bluetooth device helpers (unchanged)
+# ---------------------------------------------------------------------------
+
+def get_bt_devices():
+    return []
+
+
+def device_status_color(connected, paired):
+    if connected:
+        return 2
+    if paired:
+        return 3
+    return 1
+
+
+# ---------------------------------------------------------------------------
+# Config / diagnostic helpers (unchanged)
+# ---------------------------------------------------------------------------
+
+def get_config_info():
+    p = _config_path()
+    if not p:
+        return {"error": "config.json not found"}
+    try:
+        with open(p) as f:
+            return json.load(f)
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+def get_diag_info():
+    script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for name in ("diag_status.sh", "diag_troubleshoot.sh"):
+        path = os.path.join(script_dir, name)
+        if os.path.isfile(path):
+            try:
+                return subprocess.check_output(
+                    [path], text=True, timeout=10,
+                ).strip()
+            except Exception:
+                pass
+    return "Diagnostics unavailable"
+
+
+# ---------------------------------------------------------------------------
+# Helper: safe addstr (clamps to terminal bounds)
+# ---------------------------------------------------------------------------
+
+def _addstr(stdscr, row, col, text, attr=curses.A_NORMAL):
+    max_row, max_col = stdscr.getmaxyx()
+    if row < 0 or row >= max_row - 1:
+        return
+    if col >= max_col:
+        return
+    available = max_col - col - 1
+    if available <= 0:
+        return
+    try:
+        stdscr.addstr(row, col, text[:available], attr)
+    except curses.error:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Detail views (Enter key on a row)
+# ---------------------------------------------------------------------------
+
+def _show_service_detail(stdscr, svc, has_colors):
+    _addstr(stdscr, 0, 2, f"Service: {svc}", curses.A_BOLD)
+    _addstr(stdscr, 2, 2,
+            "Actions: [S]tart  s[T]op  [R]estart  [J]ournal  [E]nable  [D]isable",
+            curses.A_DIM)
+    _addstr(stdscr, curses.LINES - 1, 2, "Press key for action or any other key to return…")
+    stdscr.refresh()
+    action = stdscr.getch()
+    if action in (ord("s"), ord("S")):
+        subprocess.run(["sudo", "systemctl", "start", svc])
+    elif action in (ord("t"), ord("T")):
+        subprocess.run(["sudo", "systemctl", "stop", svc])
+    elif action in (ord("r"), ord("R")):
+        subprocess.run(["sudo", "systemctl", "restart", svc])
+    elif action in (ord("e"), ord("E")):
+        subprocess.run(["systemctl", "enable", svc])
+    elif action in (ord("d"), ord("D")):
+        subprocess.run(["systemctl", "disable", svc])
+    elif action in (ord("j"), ord("J")):
+        stdscr.clear()
+        _addstr(stdscr, 0, 2, f"Journal: {svc}", curses.A_BOLD)
+        try:
+            out = subprocess.check_output(
+                ["journalctl", "-u", svc, "-n", "20", "--no-pager"], text=True,
+            )
+            for idx, line in enumerate(out.splitlines()[: curses.LINES - 3]):
+                _addstr(stdscr, 2 + idx, 2, line)
+        except Exception as exc:
+            err_attr = curses.color_pair(1) if has_colors else 0
+            _addstr(stdscr, 2, 2, f"Error: {exc}", curses.A_BOLD | err_attr)
+        _addstr(stdscr, curses.LINES - 1, 2, "Press any key to return…")
+        stdscr.refresh()
+        stdscr.getch()
+
+
+def _show_app_detail(stdscr, label, desc, status):
+    _addstr(stdscr, 0, 2, f"Component: {label}", curses.A_BOLD)
+    _addstr(stdscr, 1, 2, desc, curses.A_DIM)
+    _addstr(stdscr, 3, 2, f"Status: {status}")
+
+    row = 5
+    if label == "Web Dashboard":
+        port = _get_web_port()
+        _addstr(stdscr, row, 2, f"URL: http://<device-ip>:{port}/")
+        row += 1
+        _addstr(stdscr, row, 2, f"Local: http://127.0.0.1:{port}/health")
+    elif label == "Hotspot":
+        secret = "/etc/ipr-hotspot.secret"
+        if os.path.isfile(secret):
+            try:
+                lines = open(secret).read().splitlines()
+                for i, line in enumerate(lines[:6]):
+                    _addstr(stdscr, row + i, 2, line)
+                row += len(lines[:6]) + 1
+            except Exception as exc:
+                _addstr(stdscr, row, 2, f"Could not read secret: {exc}")
+        else:
+            _addstr(stdscr, row, 2, "Secret file not found: " + secret)
+        row += 1
+        _addstr(stdscr, row, 2, "Admin UI: https://10.42.0.1/")
+    elif label == "Provision HTTPS":
+        _addstr(stdscr, row, 2, "URL: https://10.42.0.1/")
+        row += 1
+        _addstr(stdscr, row, 2, "Managed by: ipr-provision.service")
+    elif label == "BT Forwarder":
+        _addstr(stdscr, row, 2, "Thread inside ipr_keyboard.service.")
+        row += 1
+        _addstr(stdscr, row, 2, "Control via the ipr_keyboard.service entry above.")
+
+    _addstr(stdscr, curses.LINES - 1, 2, "Press any key to return…")
+    stdscr.refresh()
+    stdscr.getch()
+
+
+# ---------------------------------------------------------------------------
+# Main TUI
+# ---------------------------------------------------------------------------
+
 def main(stdscr, delay):
-    # Color pairs: 1=red, 2=green, 3=yellow, 4=dim/gray
     has_colors = False
     if curses.has_colors():
         try:
@@ -176,186 +383,187 @@ def main(stdscr, delay):
             curses.init_pair(4, curses.COLOR_CYAN, -1)
             has_colors = True
         except Exception:
-            has_colors = False
+            pass
 
+    svc_poller = _ServicePoller(SERVICES)
+    app_poller = _AppPoller(APP_COMPONENTS)
+    svc_poller.start()
+    app_poller.start()
+
+    # sel_type: "service" | "app"
     sel_type = "service"
     sel_idx = 0
-    status_thread = StatusThread(SERVICES)
-    status_thread.start()
+
+    def clamp():
+        nonlocal sel_idx
+        limit = len(SERVICES) if sel_type == "service" else len(APP_COMPONENTS)
+        sel_idx = max(0, min(sel_idx, limit - 1))
+
     while True:
         stdscr.clear()
-        stdscr.addstr(0, 2, "IPR Service Monitor", curses.A_BOLD)
-        stdscr.addstr(
-            1, 2, "Navigate: ↑↓  Select: Enter  Refresh: r  Quit: q", curses.A_DIM
-        )
-        stdscr.addstr(2, 2, f"Delay: {delay}s (+/-)", curses.A_DIM)
-        # Service table headers
-        stdscr.addstr(4, 2, "Services:", curses.A_UNDERLINE)
-        stdscr.addstr(5, 4, "Status", curses.A_BOLD | curses.A_UNDERLINE)
-        stdscr.addstr(5, 18, "Service", curses.A_BOLD | curses.A_UNDERLINE)
-        stdscr.addstr(5, 48, "Description", curses.A_BOLD | curses.A_UNDERLINE)
-        for i, svc in enumerate(SERVICES):
-            status = status_thread.status.get(svc[0], "unknown")
+        row = 0
+
+        _addstr(stdscr, row, 2, "IPR Service Monitor", curses.A_BOLD)
+        row += 1
+        _addstr(stdscr, row, 2,
+                "Navigate: ↑↓  Tab: switch section  Enter: details  r: refresh  q: quit",
+                curses.A_DIM)
+        row += 1
+        _addstr(stdscr, row, 2, f"Poll delay: {delay}s  (+/-)", curses.A_DIM)
+        row += 2
+
+        # ---- Systemd Services ----
+        _addstr(stdscr, row, 2, "── Systemd Services " + "─" * 58, curses.A_BOLD)
+        row += 1
+        _addstr(stdscr, row, 4, f"{'Status':<14}", curses.A_BOLD | curses.A_UNDERLINE)
+        _addstr(stdscr, row, 18, f"{'Unit':<30}", curses.A_BOLD | curses.A_UNDERLINE)
+        _addstr(stdscr, row, 49, "Description", curses.A_BOLD | curses.A_UNDERLINE)
+        row += 1
+
+        for i, (unit, desc) in enumerate(SERVICES):
+            status = svc_poller.status.get(unit, "checking…")
             color = status_color(status)
             attr = curses.A_NORMAL
             if has_colors:
                 attr |= curses.color_pair(color)
             if sel_type == "service" and sel_idx == i:
                 attr |= curses.A_REVERSE
-            stdscr.addstr(6 + i, 4, f"{status:14}", attr)  # 14 chars for status
-            stdscr.addstr(6 + i, 18, f"{svc[0]:28}", attr)
-            stdscr.addstr(6 + i, 48, f"{svc[1]}", attr)
+            _addstr(stdscr, row, 4,  f"{status:<14}", attr)
+            _addstr(stdscr, row, 18, f"{unit:<30}", attr)
+            _addstr(stdscr, row, 49, desc, attr)
+            row += 1
 
-        dev_start = 6 + len(SERVICES) + 2
-        stdscr.addstr(dev_start, 2, "Bluetooth Devices:", curses.A_UNDERLINE)
+        row += 1
+
+        # ---- Application Components ----
+        _addstr(stdscr, row, 2, "── Application Components " + "─" * 52, curses.A_BOLD)
+        row += 1
+        _addstr(stdscr, row, 4, f"{'Status':<14}", curses.A_BOLD | curses.A_UNDERLINE)
+        _addstr(stdscr, row, 18, f"{'Component':<30}", curses.A_BOLD | curses.A_UNDERLINE)
+        _addstr(stdscr, row, 49, "Description", curses.A_BOLD | curses.A_UNDERLINE)
+        row += 1
+
+        for i, (label, desc, _) in enumerate(APP_COMPONENTS):
+            status = app_poller.status.get(label, "checking…")
+            color = status_color(status)
+            attr = curses.A_NORMAL
+            if has_colors:
+                attr |= curses.color_pair(color)
+            if sel_type == "app" and sel_idx == i:
+                attr |= curses.A_REVERSE
+            _addstr(stdscr, row, 4,  f"{status:<14}", attr)
+            _addstr(stdscr, row, 18, f"{label:<30}", attr)
+            _addstr(stdscr, row, 49, desc, attr)
+            row += 1
+
+        row += 1
+
+        # ---- Bluetooth Devices ----
+        _addstr(stdscr, row, 2, "── Bluetooth Devices " + "─" * 57, curses.A_BOLD)
+        row += 1
         devices = get_bt_devices()
         if devices:
-            for i, dev in enumerate(devices):
-                label = f"{dev[1]} ({dev[0]}) [{'Connected' if dev[2] else 'Disconnected'}{'/Paired' if dev[3] else '/Unpaired'}]"
+            for dev in devices:
+                label = (f"{dev[1]} ({dev[0]}) "
+                         f"[{'Connected' if dev[2] else 'Disconnected'}"
+                         f"{'/Paired' if dev[3] else '/Unpaired'}]")
                 color = device_status_color(dev[2], dev[3])
-                attr = curses.A_NORMAL
-                if has_colors:
-                    attr |= curses.color_pair(color)
-                if sel_type == "device" and sel_idx == i:
-                    attr |= curses.A_REVERSE
-                stdscr.addstr(dev_start + 1 + i, 4, label, attr)
-            device_lines = len(devices)
+                attr = curses.color_pair(color) if has_colors else curses.A_NORMAL
+                _addstr(stdscr, row, 4, label, attr)
+                row += 1
         else:
-            stdscr.addstr(dev_start + 1, 4, "No devices", curses.A_DIM)
-            device_lines = 1
-        # Config groups below device list
-        cfg_start = dev_start + 2 + device_lines
-        stdscr.addstr(cfg_start, 2, "Config Groups:", curses.A_UNDERLINE)
-        cfg = get_config_info()
-        for j, (k, v) in enumerate(cfg.items()):
-            stdscr.addstr(cfg_start + 1 + j, 4, f"{k}: {v}", curses.A_DIM)
-        diag_start = cfg_start + 2 + len(cfg)
-        stdscr.addstr(diag_start, 2, "Diagnostics: c", curses.A_DIM)
-        stdscr.refresh()
-        c = stdscr.getch()
-        if c in (ord("r"), ord("R")):
-            # Immediate refresh: update all service statuses
-            for svc in SERVICES:
-                status_thread.status[svc[0]] = get_service_status(svc[0])
-            continue
-        if c == curses.KEY_UP:
-            sel_idx = max(sel_idx - 1, 0)
-        elif c == curses.KEY_DOWN:
-            if sel_type == "service":
-                sel_idx = min(sel_idx + 1, len(SERVICES) - 1)
-            else:
-                sel_idx = min(sel_idx + 1, len(devices) - 1)
-        elif c == ord("q"):
-            status_thread.stop()
-            break
-        elif c == ord("c"):
-            stdscr.clear()
-            stdscr.addstr(0, 2, "Config/Diagnostics", curses.A_BOLD)
+            _addstr(stdscr, row, 4, "No devices", curses.A_DIM)
+            row += 1
+
+        row += 1
+
+        # ---- Config summary ----
+        if row < curses.LINES - 5:
+            _addstr(stdscr, row, 2, "── Config " + "─" * 68, curses.A_BOLD)
+            row += 1
             cfg = get_config_info()
-            diag = get_diag_info()
-            stdscr.addstr(2, 2, f"Config: {cfg}", curses.A_DIM)
-            stdscr.addstr(3, 2, f"Diagnostics: {diag}", curses.A_DIM)
-            stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
-            stdscr.refresh()
-            stdscr.getch()
-        elif c == curses.KEY_RIGHT or c == curses.KEY_LEFT:
-            if sel_type == "service" and devices:
-                sel_type = "device"
-                sel_idx = 0
-            elif sel_type == "device":
-                sel_type = "service"
-                sel_idx = 0
+            for k, v in list(cfg.items())[:4]:
+                if row >= curses.LINES - 3:
+                    break
+                _addstr(stdscr, row, 4, f"{k}: {v}", curses.A_DIM)
+                row += 1
+
+        if row < curses.LINES - 2:
+            _addstr(stdscr, row, 2,
+                    "Press [c] for full config/diagnostics", curses.A_DIM)
+
+        stdscr.refresh()
+
+        # ---- Input handling ----
+        c = stdscr.getch()
+
+        if c in (ord("q"), ord("Q")):
+            break
+
+        elif c in (ord("r"), ord("R")):
+            for unit, _ in SERVICES:
+                svc_poller.status[unit] = get_service_status(unit)
+            for label, _, fn in APP_COMPONENTS:
+                try:
+                    app_poller.status[label] = fn()
+                except Exception:
+                    app_poller.status[label] = "error"
+
+        elif c == ord("\t"):  # Tab: switch between sections
+            sel_type = "app" if sel_type == "service" else "service"
+            sel_idx = 0
+
+        elif c == curses.KEY_UP:
+            sel_idx = max(sel_idx - 1, 0)
+
+        elif c == curses.KEY_DOWN:
+            limit = len(SERVICES) if sel_type == "service" else len(APP_COMPONENTS)
+            sel_idx = min(sel_idx + 1, limit - 1)
+
         elif c == ord("+"):
             delay = min(delay + 1, 30)
+
         elif c == ord("-"):
             delay = max(delay - 1, 1)
 
-        elif c == curses.KEY_ENTER or c == 10 or c == 13:
+        elif c in (curses.KEY_ENTER, 10, 13):
             stdscr.clear()
             if sel_type == "service":
-                svc, svc_desc = SERVICES[sel_idx]
-                stdscr.addstr(0, 2, f"Service: {svc}", curses.A_BOLD)
-                stdscr.addstr(
-                    2,
-                    2,
-                    "Actions: [S]tart s[T]op [R]estart [J]ournal [E]nable [D]isable",
-                    curses.A_DIM,
-                )
-                stdscr.addstr(
-                    curses.LINES - 1, 2, "Press key for action or any key to return..."
-                )
-                stdscr.refresh()
-                action = stdscr.getch()
-                # Implement service actions
-                if action in (ord("s"), ord("S")):
-                    subprocess.run(["sudo", "systemctl", "start", svc])
-                elif action in (ord("t"), ord("T")):
-                    subprocess.run(["sudo", "systemctl", "stop", svc])
-                elif action in (ord("r"), ord("R")):
-                    subprocess.run(["sudo", "systemctl", "restart", svc])
-                elif action in (ord("j"), ord("J")):
-                    stdscr.clear()
-                    stdscr.addstr(0, 2, f"Journal for {svc}", curses.A_BOLD)
-                    try:
-                        out = subprocess.check_output(
-                            ["journalctl", "-u", svc, "-n", "20", "--no-pager"],
-                            text=True,
-                        )
-                        for idx, line in enumerate(
-                            out.splitlines()[: curses.LINES - 3]
-                        ):
-                            stdscr.addstr(2 + idx, 2, line[: curses.COLS - 4])
-                    except Exception as e:
-                        stdscr.addstr(
-                            2,
-                            2,
-                            f"Error: {e}",
-                            curses.A_BOLD | (curses.color_pair(1) if has_colors else 0),
-                        )
-                    stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
-                    stdscr.refresh()
-                    stdscr.getch()
-                elif action in (ord("e"), ord("E")):
-                    subprocess.run(["systemctl", "enable", svc])
-                elif action in (ord("d"), ord("D")):
-                    subprocess.run(["systemctl", "disable", svc])
-            elif sel_type == "device" and devices:
-                dev = devices[sel_idx]
-                stdscr.addstr(0, 2, f"Bluetooth Device: {dev[1]}", curses.A_BOLD)
-                stdscr.addstr(
-                    2,
-                    2,
-                    "Actions: [C]onnect [D]isconnect [R]emove [I]nfo [P]air [U]ntrust",
-                    curses.A_DIM,
-                )
-                stdscr.addstr(
-                    curses.LINES - 1, 2, "Press key for action or any key to return..."
-                )
-                stdscr.refresh()
-                action = stdscr.getch()
-                # Implement Bluetooth device actions (placeholders)
-                addr = dev[0]
-                if action in (ord("c"), ord("C")):
-                    subprocess.run(["bluetoothctl", "connect", addr])
-                elif action in (ord("d"), ord("D")):
-                    subprocess.run(["bluetoothctl", "disconnect", addr])
-                elif action in (ord("r"), ord("R")):
-                    subprocess.run(["bluetoothctl", "remove", addr])
-                elif action in (ord("i"), ord("I")):
-                    stdscr.clear()
-                    stdscr.addstr(0, 2, f"Device Info: {dev[1]}", curses.A_BOLD)
-                    stdscr.addstr(2, 2, f"Address: {dev[0]}")
-                    stdscr.addstr(3, 2, f"Connected: {dev[2]}")
-                    stdscr.addstr(4, 2, f"Paired: {dev[3]}")
-                    stdscr.addstr(curses.LINES - 1, 2, "Press any key to return...")
-                    stdscr.refresh()
-                    stdscr.getch()
-                elif action in (ord("p"), ord("P")):
-                    subprocess.run(["bluetoothctl", "pair", addr])
-                elif action in (ord("u"), ord("U")):
-                    subprocess.run(["bluetoothctl", "untrust", addr])
+                svc, _ = SERVICES[sel_idx]
+                _show_service_detail(stdscr, svc, has_colors)
+            elif sel_type == "app":
+                label, desc, _ = APP_COMPONENTS[sel_idx]
+                status = app_poller.status.get(label, "unknown")
+                _show_app_detail(stdscr, label, desc, status)
+
+        elif c == ord("c"):
+            stdscr.clear()
+            _addstr(stdscr, 0, 2, "Config / Diagnostics", curses.A_BOLD)
+            cfg = get_config_info()
+            for j, (k, v) in enumerate(cfg.items()):
+                if 2 + j >= curses.LINES - 4:
+                    break
+                _addstr(stdscr, 2 + j, 2, f"{k}: {v}", curses.A_DIM)
+            diag = get_diag_info()
+            diag_row = 2 + min(len(cfg), curses.LINES - 8) + 2
+            _addstr(stdscr, diag_row, 2, "Diagnostics:", curses.A_BOLD)
+            for j, line in enumerate(diag.splitlines()[:6]):
+                if diag_row + 1 + j >= curses.LINES - 2:
+                    break
+                _addstr(stdscr, diag_row + 1 + j, 2, line, curses.A_DIM)
+            _addstr(stdscr, curses.LINES - 1, 2, "Press any key to return…")
+            stdscr.refresh()
+            stdscr.getch()
+
+    svc_poller.stop()
+    app_poller.stop()
 
 
-delay = 5
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+_delay = 5
+
 if __name__ == "__main__":
-    curses.wrapper(main, delay)
+    curses.wrapper(main, _delay)
