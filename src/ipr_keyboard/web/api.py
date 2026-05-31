@@ -1063,17 +1063,29 @@ def api_auth_users_create():
 @bp_api.put("/auth/users/<username>")
 def api_auth_users_update(username: str):
     caller = session.get("username")
-    is_admin = bool(session.get("is_admin"))
-    if caller != username and not is_admin:
-        return _err("forbidden", "Admin access required to change another user's password.", 403)
+    caller_is_admin = bool(session.get("is_admin"))
+    if caller != username and not caller_is_admin:
+        return _err("forbidden", "Admin access required.", 403)
     body = request.get_json(silent=True) or {}
-    password = str(body.get("password", ""))
-    try:
-        UserStore.instance().change_password(username, password)
-    except KeyError:
-        return _err("not_found", f"User '{username}' not found.", 404)
-    except ValueError as exc:
-        return _err("bad_request", str(exc), 400)
+
+    if body.get("password"):
+        try:
+            UserStore.instance().change_password(username, str(body["password"]))
+        except KeyError:
+            return _err("not_found", f"User '{username}' not found.", 404)
+        except ValueError as exc:
+            return _err("bad_request", str(exc), 400)
+
+    if "is_admin" in body:
+        if not caller_is_admin:
+            return _err("forbidden", "Admin access required to change admin status.", 403)
+        if caller == username and not bool(body["is_admin"]):
+            return _err("bad_request", "You cannot remove your own admin status.", 400)
+        try:
+            UserStore.instance().set_admin(username, bool(body["is_admin"]))
+        except (KeyError, ValueError) as exc:
+            return _err("bad_request", str(exc), 400)
+
     return jsonify({"ok": True})
 
 

@@ -148,11 +148,27 @@ class UserStore:
             data["users"][username]["password_hash"] = generate_password_hash(new_password)
             _save_raw(data)
 
+    def set_admin(self, username: str, is_admin: bool) -> None:
+        with self._lock:
+            data = _load_raw()
+            if username not in data["users"]:
+                raise KeyError(f"User not found: {username}")
+            if not is_admin and data["users"][username].get("is_admin", False):
+                admin_count = sum(
+                    1 for u in data["users"].values() if u.get("is_admin", False)
+                )
+                if admin_count <= 1:
+                    raise ValueError("Cannot remove admin status from the last admin account.")
+            data["users"][username]["is_admin"] = is_admin
+            _save_raw(data)
+
     def delete_user(self, username: str) -> None:
         with self._lock:
             data = _load_raw()
             if username not in data["users"]:
                 raise KeyError(f"User not found: {username}")
+            if username == "admin":
+                raise ValueError("The default admin account cannot be deleted.")
             if data["users"][username].get("is_admin", False):
                 admin_count = sum(
                     1 for u in data["users"].values() if u.get("is_admin", False)

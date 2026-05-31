@@ -476,6 +476,7 @@
   <a href="#activity" data-screen="activity">Activity</a>
   <a href="#events" data-screen="events">Events</a>
   <a href="#settings" data-screen="settings">Settings</a>
+  <a href="#users" data-screen="users">Users</a>
   <a href="#debug" id="nav-debug" data-screen="debug">Debug</a>
 </nav>
 
@@ -486,7 +487,7 @@
   <a href="#activity" data-screen="activity"><span class="nav-icon">📊</span>Activity</a>
   <a href="#events" data-screen="events"><span class="nav-icon">📋</span>Events</a>
   <a href="#settings" data-screen="settings"><span class="nav-icon">⚙️</span>Settings</a>
-  <a href="#debug" data-screen="debug"><span class="nav-icon">🔧</span>Debug</a>
+  <a href="#users" data-screen="users"><span class="nav-icon">👤</span>Users</a>
 </nav>
 
 <!-- Main content -->
@@ -678,55 +679,15 @@
 
     <!-- User accounts -->
     <div class="settings-section card" id="user-mgmt-section">
-      <h2>User Accounts</h2>
-
+      <h2>Account</h2>
       <div class="settings-row">
         <label>Signed in as</label>
         <span class="setting-value" id="auth-current-user">—</span>
       </div>
-
       <div class="settings-row">
-        <label>Sign out</label>
-        <a href="/logout" class="btn btn-secondary" style="text-decoration:none;font-size:13px;padding:8px 16px">Sign out</a>
-      </div>
-
-      <div id="user-list-wrap" style="display:none">
-        <div style="font-size:13px;font-weight:600;margin:14px 0 6px">All users</div>
-        <table style="width:100%;font-size:13px;border-collapse:collapse">
-          <thead>
-            <tr>
-              <th style="text-align:left;padding:6px 0;border-bottom:1px solid var(--color-border)">Username</th>
-              <th style="text-align:left;padding:6px 0;border-bottom:1px solid var(--color-border)">Role</th>
-              <th style="padding:6px 0;border-bottom:1px solid var(--color-border)"></th>
-            </tr>
-          </thead>
-          <tbody id="user-table-body"></tbody>
-        </table>
-      </div>
-
-      <div style="margin-top:16px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Change password</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input type="password" id="new-password" placeholder="New password"
-                 style="flex:1;min-width:140px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
-          <input type="password" id="new-password-confirm" placeholder="Confirm"
-                 style="flex:1;min-width:140px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
-          <button class="btn btn-secondary" onclick="changeOwnPassword()">Update</button>
-        </div>
-      </div>
-
-      <div id="add-user-wrap" style="display:none;margin-top:16px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Add user</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input type="text" id="new-username" placeholder="Username"
-                 style="flex:1;min-width:120px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
-          <input type="password" id="new-user-password" placeholder="Password"
-                 style="flex:1;min-width:120px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
-          <label style="display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap">
-            <input type="checkbox" id="new-user-admin"> Admin
-          </label>
-          <button class="btn btn-primary" onclick="addUser()">Add</button>
-        </div>
+        <label>User management</label>
+        <a href="#users" data-screen="users" class="btn btn-secondary"
+           style="text-decoration:none;font-size:13px;padding:8px 16px">Manage users</a>
       </div>
     </div>
 
@@ -849,6 +810,70 @@
   </section>
 
 
+  <!-- USERS SCREEN -->
+  <section id="screen-users" class="screen">
+
+    <!-- My account -->
+    <div class="card">
+      <div class="settings-section" style="margin-bottom:0">
+        <h2 style="font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--color-text-muted);margin-bottom:10px">My Account</h2>
+        <div class="settings-row">
+          <label>Signed in as</label>
+          <span class="setting-value" id="users-current-user">—</span>
+        </div>
+        <div style="margin-top:16px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">Change my password</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input type="password" id="users-new-password" placeholder="New password"
+                   style="flex:1;min-width:140px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
+            <input type="password" id="users-new-password-confirm" placeholder="Confirm"
+                   style="flex:1;min-width:140px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
+            <button class="btn btn-secondary" onclick="changeOwnPasswordUsers()">Update</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin-only sections -->
+    <div id="users-admin-section" style="display:none">
+
+      <!-- User list -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:14px;font-weight:700">All users</div>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="refreshUsersTable()">↺ Refresh</button>
+        </div>
+        <table style="width:100%;font-size:13px;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 0;border-bottom:1px solid var(--color-border)">Username</th>
+              <th style="text-align:left;padding:6px 0;border-bottom:1px solid var(--color-border)">Role</th>
+              <th style="padding:6px 0;border-bottom:1px solid var(--color-border);text-align:right"></th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Add user -->
+      <div class="card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px">Add user</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input type="text" id="users-new-username" placeholder="Username"
+                 style="flex:1;min-width:120px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
+          <input type="password" id="users-new-user-password" placeholder="Password"
+                 style="flex:1;min-width:120px;border:1px solid var(--color-border);border-radius:6px;padding:8px 10px;font-size:14px">
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap">
+            <input type="checkbox" id="users-new-user-admin"> Admin
+          </label>
+          <button class="btn btn-primary" onclick="addUserFromUsers()">Add</button>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
   <!-- DEBUG SCREEN -->
   <section id="screen-debug" class="screen">
 
@@ -959,6 +984,7 @@ function navigate(screen, pushState) {
   if (screen === 'connections') updateConnections();
   if (screen === 'debug') { loadDebugServices(); loadPenFiles(); }
   if (screen === 'home') loadHomeHealth();
+  if (screen === 'users') loadUsersScreen();
 }
 
 window.addEventListener('hashchange', () => {
@@ -1298,7 +1324,7 @@ function _initNetworkModeToggle() {
 }
 
 async function loadSettings() {
-  initAuthUI();
+  await initAuthUI();
   _initNetworkModeToggle();
   try {
     const cfg = await apiFetch('/api/config');
@@ -1491,38 +1517,59 @@ async function initAuthUI() {
     const me = await apiFetch('/api/auth/me');
     _currentUsername = me.username;
     _currentIsAdmin = !!me.is_admin;
-    document.getElementById('auth-current-user').textContent =
-      me.username + (me.is_admin ? ' (admin)' : '');
+    const label = me.username + (me.is_admin ? ' (admin)' : '');
+    const el = document.getElementById('auth-current-user');
+    if (el) el.textContent = label;
+  } catch (_) {}
+}
+
+// ---- Users screen ----
+async function loadUsersScreen() {
+  try {
+    const me = await apiFetch('/api/auth/me');
+    _currentUsername = me.username;
+    _currentIsAdmin = !!me.is_admin;
+    const label = me.username + (me.is_admin ? ' (admin)' : '');
+    document.getElementById('users-current-user').textContent = label;
+    const el = document.getElementById('auth-current-user');
+    if (el) el.textContent = label;
     if (_currentIsAdmin) {
-      document.getElementById('user-list-wrap').style.display = '';
-      document.getElementById('add-user-wrap').style.display = '';
-      refreshUserList();
+      document.getElementById('users-admin-section').style.display = '';
+      refreshUsersTable();
     }
   } catch (_) {}
 }
 
-async function refreshUserList() {
+async function refreshUsersTable() {
   try {
     const data = await apiFetch('/api/auth/users');
-    const tbody = document.getElementById('user-table-body');
-    tbody.innerHTML = (data.users || []).map(u => `
-      <tr>
-        <td style="padding:6px 0">${u.username}</td>
-        <td style="padding:6px 0">${u.is_admin ? 'Admin' : 'User'}</td>
-        <td style="padding:6px 0;text-align:right">
-          <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px"
-                  onclick="resetUserPassword('${u.username}')">Reset pw</button>
-          <button class="btn btn-danger" style="padding:4px 10px;font-size:12px;margin-left:4px"
-                  onclick="deleteUser('${u.username}')">Delete</button>
-        </td>
-      </tr>
-    `).join('');
+    const tbody = document.getElementById('users-table-body');
+    tbody.innerHTML = (data.users || []).map(u => {
+      const isSelf = u.username === _currentUsername;
+      const isDefault = u.username === 'admin';
+      const adminBtn = isSelf ? '' :
+        `<button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;margin-left:4px"
+                 onclick="toggleAdmin('${u.username}', ${u.is_admin})">${u.is_admin ? 'Remove admin' : 'Make admin'}</button>`;
+      const deleteBtn = (isSelf || isDefault) ? '' :
+        `<button class="btn btn-danger" style="padding:4px 8px;font-size:11px;margin-left:4px"
+                 onclick="deleteUserFromUsers('${u.username}')">Delete</button>`;
+      return `
+        <tr>
+          <td style="padding:6px 0">${u.username}${isSelf ? ' <span style="font-size:11px;color:var(--color-text-muted)">(you)</span>' : ''}</td>
+          <td style="padding:6px 0">${u.is_admin ? 'Admin' : 'User'}</td>
+          <td style="padding:6px 0;text-align:right;white-space:nowrap">
+            <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px"
+                    onclick="resetUserPasswordFromUsers('${u.username}')">Reset pw</button>
+            ${adminBtn}${deleteBtn}
+          </td>
+        </tr>`;
+    }).join('');
   } catch (_) { showToast('Failed to load users.'); }
 }
 
-async function changeOwnPassword() {
-  const pw = document.getElementById('new-password').value;
-  const confirm = document.getElementById('new-password-confirm').value;
+async function changeOwnPasswordUsers() {
+  const pw = document.getElementById('users-new-password').value;
+  const confirm = document.getElementById('users-new-password-confirm').value;
   if (!pw) { showToast('Enter a new password.'); return; }
   if (pw !== confirm) { showToast('Passwords do not match.'); return; }
   try {
@@ -1531,16 +1578,16 @@ async function changeOwnPassword() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({password: pw}),
     });
-    document.getElementById('new-password').value = '';
-    document.getElementById('new-password-confirm').value = '';
+    document.getElementById('users-new-password').value = '';
+    document.getElementById('users-new-password-confirm').value = '';
     showToast('Password updated.');
   } catch (_) { showToast('Failed to update password.'); }
 }
 
-async function addUser() {
-  const username = document.getElementById('new-username').value.trim().toLowerCase();
-  const password = document.getElementById('new-user-password').value;
-  const isAdmin = document.getElementById('new-user-admin').checked;
+async function addUserFromUsers() {
+  const username = document.getElementById('users-new-username').value.trim().toLowerCase();
+  const password = document.getElementById('users-new-user-password').value;
+  const isAdmin = document.getElementById('users-new-user-admin').checked;
   if (!username || !password) { showToast('Username and password are required.'); return; }
   try {
     await apiFetch('/api/auth/users', {
@@ -1548,15 +1595,15 @@ async function addUser() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({username, password, is_admin: isAdmin}),
     });
-    document.getElementById('new-username').value = '';
-    document.getElementById('new-user-password').value = '';
-    document.getElementById('new-user-admin').checked = false;
+    document.getElementById('users-new-username').value = '';
+    document.getElementById('users-new-user-password').value = '';
+    document.getElementById('users-new-user-admin').checked = false;
     showToast('User added.');
-    refreshUserList();
+    refreshUsersTable();
   } catch (_) { showToast('Failed to add user.'); }
 }
 
-async function resetUserPassword(username) {
+async function resetUserPasswordFromUsers(username) {
   const pw = prompt('New password for ' + username + ' (min 8 characters):');
   if (!pw) return;
   try {
@@ -1569,12 +1616,26 @@ async function resetUserPassword(username) {
   } catch (_) { showToast('Failed to reset password.'); }
 }
 
-async function deleteUser(username) {
+async function toggleAdmin(username, currentlyAdmin) {
+  const action = currentlyAdmin ? 'remove admin from' : 'make admin';
+  if (!confirm(`Are you sure you want to ${action} "${username}"?`)) return;
+  try {
+    await apiFetch('/api/auth/users/' + username, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({is_admin: !currentlyAdmin}),
+    });
+    showToast(currentlyAdmin ? 'Admin removed.' : 'User is now admin.');
+    refreshUsersTable();
+  } catch (_) { showToast('Failed to update admin status.'); }
+}
+
+async function deleteUserFromUsers(username) {
   if (!confirm('Delete user "' + username + '"? This cannot be undone.')) return;
   try {
     await apiFetch('/api/auth/users/' + username, {method: 'DELETE'});
     showToast('User deleted.');
-    refreshUserList();
+    refreshUsersTable();
   } catch (_) { showToast('Failed to delete user.'); }
 }
 

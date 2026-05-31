@@ -78,7 +78,8 @@
     margin-bottom: 6px;
   }
 
-  .field-group input {
+  .field-group input[type="text"],
+  .field-group input[type="password"] {
     width: 100%;
     border: 1px solid var(--color-border);
     border-radius: 8px;
@@ -96,9 +97,34 @@
     box-shadow: 0 0 0 3px rgba(41,128,185,0.12);
   }
 
+  .password-wrap {
+    position: relative;
+  }
+
+  .password-wrap input {
+    padding-right: 44px;
+  }
+
+  .pw-toggle {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--color-text-muted); font-size: 18px; line-height: 1;
+    padding: 4px;
+    transition: color 0.15s;
+  }
+  .pw-toggle:hover { color: var(--color-primary); }
+
+  .remember-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 20px; margin-top: -4px;
+  }
+  .remember-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+  .remember-row label {
+    font-size: 13px; color: var(--color-text-muted); cursor: pointer;
+  }
+
   .btn-login {
     width: 100%;
-    margin-top: 8px;
     padding: 12px;
     background: var(--color-primary);
     color: #fff;
@@ -124,7 +150,7 @@
   <div class="login-error">{{ error }}</div>
   {% endif %}
 
-  <form method="POST" action="{{ url_for('login') }}{% if request.args.get('next') %}?next={{ request.args.get('next') | urlencode }}{% endif %}">
+  <form method="POST" action="{{ url_for('login') }}{% if request.args.get('next') %}?next={{ request.args.get('next') | urlencode }}{% endif %}" id="login-form">
     <div class="field-group">
       <label for="username">Username</label>
       <input type="text" id="username" name="username"
@@ -133,11 +159,57 @@
     </div>
     <div class="field-group">
       <label for="password">Password</label>
-      <input type="password" id="password" name="password"
-             autocomplete="current-password" required>
+      <div class="password-wrap">
+        <input type="password" id="password" name="password"
+               autocomplete="current-password" required>
+        <button type="button" class="pw-toggle" id="pw-toggle" title="Show/hide password" aria-label="Show/hide password">
+          👁
+        </button>
+      </div>
+    </div>
+    <div class="remember-row">
+      <input type="checkbox" id="remember-me" name="remember_me">
+      <label for="remember-me">Remember username</label>
     </div>
     <button type="submit" class="btn-login">Sign in</button>
   </form>
 </div>
+
+<script>
+(function () {
+  var STORAGE_KEY = 'ipr_remembered_username';
+
+  // Restore remembered username
+  var stored = localStorage.getItem(STORAGE_KEY);
+  var usernameField = document.getElementById('username');
+  var rememberBox = document.getElementById('remember-me');
+
+  if (stored && !usernameField.value) {
+    usernameField.value = stored;
+    rememberBox.checked = true;
+  }
+
+  // Save/clear on submit
+  document.getElementById('login-form').addEventListener('submit', function () {
+    if (rememberBox.checked) {
+      localStorage.setItem(STORAGE_KEY, usernameField.value);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  });
+
+  // Password visibility toggle
+  var pwInput = document.getElementById('password');
+  document.getElementById('pw-toggle').addEventListener('click', function () {
+    if (pwInput.type === 'password') {
+      pwInput.type = 'text';
+      this.textContent = '🙈';
+    } else {
+      pwInput.type = 'password';
+      this.textContent = '👁';
+    }
+  });
+})();
+</script>
 </body>
 </html>
