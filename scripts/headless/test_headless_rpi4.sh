@@ -16,6 +16,10 @@ _INVOKING_USER="${SUDO_USER:-$USER}"
 _INVOKING_HOME=$(getent passwd "$_INVOKING_USER" | cut -d: -f6)
 SCRIPTS_DIR="${SCRIPTS_DIR:-$_INVOKING_HOME/dev/ipr-keyboard/scripts/headless}"
 
+# --auto / -y: skip all manual steps (used when running non-interactively via MCP).
+AUTO=0
+for _arg in "$@"; do [[ "$_arg" == "--auto" || "$_arg" == "-y" ]] && AUTO=1; done
+
 # ── result tracking ────────────────────────────────────────────────────────────
 
 PASS_COUNT=0
@@ -86,7 +90,10 @@ manual_step() {
         echo -e "  ${YELLOW}▸${RESET} $line"
     done
     echo ""
-    if [ -t 0 ]; then
+    if [[ "$AUTO" -eq 1 ]]; then
+        echo -e "  ${YELLOW}(--auto mode — manual step skipped)${RESET}"
+        return 1
+    elif [ -t 0 ]; then
         printf "  Press ENTER when done, or type 'skip' to skip: "
         read -r _resp
         [[ "$_resp" == "skip" ]] && return 1
@@ -144,6 +151,10 @@ info "The script ends with 'exec python3 ...' so we run it in background and"
 info "check state after it has had time to set up the hotspot and start the web UI."
 
 info "Cleaning prior state..."
+sudo systemctl stop ipr-provision 2>/dev/null && info "Stopped ipr-provision service" || true
+sudo fuser -k 443/tcp 2>/dev/null && info "Killed existing process on port 443" || true
+sudo fuser -k 80/tcp  2>/dev/null && info "Killed existing process on port 80"  || true
+sleep 2
 sudo nmcli con delete ipr-hotspot >/dev/null 2>&1 && info "Deleted existing ipr-hotspot" || true
 sudo rm -f /etc/ipr-hotspot.secret && info "Removed stale /etc/ipr-hotspot.secret" || true
 
@@ -158,7 +169,7 @@ check 1.2 "wlan0 has address 10.42.0.1"                 "ip addr show wlan0 | gr
 check 1.3 "/etc/ipr-hotspot.secret created"             "[ -f /etc/ipr-hotspot.secret ]"
 check 1.4 "SSID starts with 'ipr-setup-'"               "grep -q 'SSID=ipr-setup-' /etc/ipr-hotspot.secret"
 check 1.5 "PASS field present in secret"                "grep -q 'PASS=' /etc/ipr-hotspot.secret"
-check 1.6 "Web UI listening on port 80"                 "ss -tlnp | grep -q ':80 '"
+check 1.6 "Web UI listening on port 443"                "ss -tlnp | grep -q ':443 '"
 
 net_status
 
@@ -178,23 +189,23 @@ section "TEST 2 — net_provision_web.py: Wi-Fi Provisioning UI"
 info "Goal: web UI responds, authenticates, and serves a network scan page."
 info "Web server was already started by Test 1 via 'exec'."
 
-# Automated: unauthenticated request should return 401
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 http://127.0.0.1/ 2>/dev/null; true)
+# Automated: unauthenticated request should return 401 (web UI is HTTPS on port 443)
+HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 8 https://10.42.0.1/ 2>/dev/null; true)
 if [[ "$HTTP_CODE" == "401" ]]; then
     record_pass 2.1 "Unauthenticated request returns 401 (auth enforced)"
 elif [[ "$HTTP_CODE" == "200" ]]; then
     record_pass 2.1 "Unauthenticated request returns 200 (auth disabled — secret missing?)"
 else
-    record_fail 2.1 "HTTP server unreachable or unexpected code: $HTTP_CODE"
+    record_fail 2.1 "HTTPS server unreachable or unexpected code: $HTTP_CODE"
 fi
 
 # Authenticated request
 if [[ -n "$HOTSPOT_PASS" && "$HOTSPOT_PASS" != "unknown" ]]; then
-    AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 \
-        -u "ipr:$HOTSPOT_PASS" http://127.0.0.1/ 2>/dev/null; true)
+    AUTH_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 8 \
+        -u "ipr:$HOTSPOT_PASS" https://10.42.0.1/ 2>/dev/null; true)
     check 2.2 "Authenticated request returns 200" "[[ '$AUTH_CODE' == '200' ]]"
 
-    PAGE=$(curl -s --max-time 8 -u "ipr:$HOTSPOT_PASS" http://127.0.0.1/ 2>/dev/null || echo "")
+    PAGE=$(curl -sk --max-time 8 -u "ipr:$HOTSPOT_PASS" https://10.42.0.1/ 2>/dev/null || echo "")
     if echo "$PAGE" | grep -qi "ssid\|network\|scan\|wifi"; then
         record_pass 2.3 "Page body references networks/SSID"
     else
@@ -209,7 +220,8 @@ fi
 if manual_step \
     "Connect a phone or laptop to Wi-Fi SSID: ${BOLD}${HOTSPOT_SSID}${RESET}" \
     "Password: ${BOLD}${HOTSPOT_PASS}${RESET}" \
-    "Open http://10.42.0.1/ in a browser — enter username 'ipr' and the password above." \
+    "Open https://10.42.0.1/ in a browser (accept the self-signed cert warning)." \
+    "Enter username 'ipr' and the password above." \
     "Verify: page loads, shows a dropdown of visible networks, Rescan button is present."; then
     record_pass 2.4 "Manual: web UI visible and functional from connected device"
 else
@@ -338,12 +350,16 @@ section "TEST 6 — ipr-provision.service: systemd Service Unit"
 info "Goal: service unit installs, enables, and keeps the hotspot + web UI alive."
 info "Boot persistence requires a manual reboot — that step is optional."
 
-# Stop any running instance of the service or previous web server before installing
+# Stop any running instance of the service or previous web server before installing.
+# Also kill any direct (non-service) background processes from Test 1 that may hold port 443.
 sudo systemctl stop ipr-provision 2>/dev/null || true
-sleep 2
-# Also kill any leftover process on port 80
-sudo fuser -k 80/tcp 2>/dev/null || true
-sleep 1
+sudo fuser -k 443/tcp 2>/dev/null || true
+sudo fuser -k 80/tcp  2>/dev/null || true
+# reset-failed clears the failed state, but systemd's StartLimitBurst window (default 10s)
+# must also expire before a new start is allowed.
+sudo systemctl reset-failed ipr-provision 2>/dev/null || true
+info "Waiting 15s for systemd StartLimitIntervalSec window to expire..."
+sleep 15
 
 # Install scripts to the expected system paths
 sudo cp "$SCRIPTS_DIR/net_provision_hotspot.sh" /usr/local/sbin/ipr-provision.sh
@@ -364,11 +380,11 @@ check 6.3 "Service unit installed and enabled"  "systemctl is-enabled ipr-provis
 
 info "Starting ipr-provision service..."
 sudo systemctl start ipr-provision
-info "Waiting 12s for hotspot + web UI to come up..."
-sleep 12
+info "Waiting 18s for hotspot + web UI to come up..."
+sleep 18
 
 check 6.4 "Service is active (running)"         "systemctl is-active ipr-provision"
-check 6.5 "Web UI listening on port 80"          "ss -tlnp | grep -q ':80 '"
+check 6.5 "Web UI listening on port 443"         "ss -tlnp | grep -q ':443 '"
 check 6.6 "wlan0 has 10.42.0.1 address"         "ip addr show wlan0 | grep -q '10\.42\.0\.1'"
 
 net_status

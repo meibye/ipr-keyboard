@@ -45,7 +45,7 @@ TMUX_CONF="$HOME/.config/tmux/tmux.conf"
 rm -f "$TMUX_CONF"
 if [[ ! -f "$TMUX_CONF" ]]; then
   echo "[sys_setup_venv] Creating default tmux.conf at $TMUX_CONF..."
-  cat <<EOF > "$TMUX_CONF"
+  cat <<'TMUX_CONF_EOF' > "$TMUX_CONF"
 # Use bash as default
 set -g default-shell /usr/bin/bash
 
@@ -211,7 +211,7 @@ set -g @continuum-restore 'on'    # Last saved environment is automatically rest
 
 # Initialize TMUX plugin manager (keep this line at the very bottom of tmux.conf)
 run '~/.config/tmux/plugins/tpm/tpm'
-EOF
+TMUX_CONF_EOF
 else
   echo "[sys_setup_venv] tmux.conf already exists at $TMUX_CONF."
 fi
@@ -291,7 +291,91 @@ else
     exit 1
 fi
 
-# 7. Create/update ~/.bash_aliases for convenience
+# 7. Create/update ~/.bashrc for convenience functions
+BASHRC_FILE="$HOME/.bashrc"
+BASHRC_MANAGED_START="# >>> ipr-keyboard grestore_ipr >>>"
+BASHRC_MANAGED_END="# <<< ipr-keyboard grestore_ipr <<<"
+
+echo "[sys_setup_venv] Adding/updating grestore_ipr in $BASHRC_FILE..."
+{
+  echo "$BASHRC_MANAGED_START"
+  cat <<'GRESTORE_IPR_EOF'
+# Function to restore all files in the ipr-keyboard repo
+grestore_ipr() {
+  local repo="$HOME/dev/ipr-keyboard"
+
+  if [[ ! -d "$repo/.git" ]]; then
+    echo "Not a git repo: $repo"
+    return 1
+  fi
+
+  # Restore only files with unstaged changes (equivalent to "Changes not staged for commit")
+  git -C "$repo" status --porcelain -z \
+    | while IFS= read -r -d '' entry; do
+        # Porcelain format: XY<space>path
+        # X = staged status, Y = unstaged status
+        local x="${entry:0:1}"
+        local y="${entry:1:1}"
+        local path="${entry:3}"
+
+        if [[ "$y" != " " ]]; then
+          git -C "$repo" restore -- "$path"
+          echo "restored: $path"
+        fi
+      done
+}
+GRESTORE_IPR_EOF
+  echo "$BASHRC_MANAGED_END"
+  echo
+} > "$BASHRC_FILE.tmp"
+
+# Append only non-duplicate lines from existing bashrc file
+if [[ -f "$BASHRC_FILE" ]]; then
+  awk -v start="$BASHRC_MANAGED_START" -v end="$BASHRC_MANAGED_END" '
+    $0 == start { in_managed_block = 1; next }
+    $0 == end { in_managed_block = 0; next }
+    in_managed_block { next }
+
+    pending_restore_comment && $0 ~ /^grestore_cmentor\(\)[[:space:]]*\{$/ {
+      in_restore_function = 1
+      pending_restore_comment = 0
+      next
+    }
+
+    in_restore_function {
+      if ($0 == "}") {
+        in_restore_function = 0
+      }
+      next
+    }
+
+    pending_restore_comment {
+      print "# Function to restore all files in the cmentor repo"
+      pending_restore_comment = 0
+    }
+
+    $0 == "# Function to restore all files in the cmentor repo" {
+      pending_restore_comment = 1
+      next
+    }
+
+    $0 ~ /^grestore_cmentor\(\)[[:space:]]*\{$/ {
+      in_restore_function = 1
+      next
+    }
+
+    { print }
+
+    END {
+      if (pending_restore_comment) {
+        print "# Function to restore all files in the cmentor repo"
+      }
+    }
+  ' "$BASHRC_FILE" >> "$BASHRC_FILE.tmp"
+fi
+mv "$BASHRC_FILE.tmp" "$BASHRC_FILE"
+
+# 8. Create/update ~/.bash_aliases for convenience
 ALIASES_FILE="$HOME/.bash_aliases"
 
 echo "[sys_setup_venv] Adding/updating aliases in $ALIASES_FILE..."
@@ -300,15 +384,25 @@ echo "[sys_setup_venv] Adding/updating aliases in $ALIASES_FILE..."
   echo "alias ll='ls -al'"
   echo "alias activate='source $IPR_PROJECT_ROOT/ipr-keyboard/.venv/bin/activate'"
   echo "alias ipr='cd $IPR_PROJECT_ROOT/ipr-keyboard && activate'"
+  echo "alias sbrc='source ~/.bashrc; source ~/.bash_aliases'"
+  echo "alias monitor='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/service/svc_status_monitor.py'"
+  echo "alias logs='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/service/svc_tail_all_logs.sh'"
+  echo "alias scmd='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/scmd.sh'"
+  echo "alias grestore='grestore_ipr'"
 } > "$ALIASES_FILE.tmp"
 
 # Append only non-duplicate lines from existing aliases file
 if [[ -f "$ALIASES_FILE" ]]; then
   grep -v "^alias ll='ls -al'" "$ALIASES_FILE" | \
   grep -v "^alias activate='source $IPR_PROJECT_ROOT/ipr-keyboard/.venv/bin/activate'" | \
-  grep -v "^alias ipr='cd $IPR_PROJECT_ROOT/ipr-keyboard && activate'" >> "$ALIASES_FILE.tmp" || true
+  grep -v "^alias ipr='cd $IPR_PROJECT_ROOT/ipr-keyboard && activate'" | \
+  grep -v "^alias sbrc='source ~/.bashrc; source ~/.bash_aliases'" | \
+  grep -v "^alias monitor='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/service/svc_status_monitor.py'" | \
+  grep -v "^alias logs='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/service/svc_tail_all_logs.sh'" | \
+  grep -v "^alias scmd='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/scmd.sh'" | \
+  grep -v "^alias grestore='grestore_ipr'" >> "$ALIASES_FILE.tmp" || true
 fi
 mv "$ALIASES_FILE.tmp" "$ALIASES_FILE"
-echo "[sys_setup_venv] Aliases 'll', 'activate', and 'ipr' are now available in $ALIASES_FILE."
+echo "[sys_setup_venv] Aliases 'll', 'activate', 'ipr', 'sbrc', 'monitor', 'logs', 'scmd', and 'grestore' plus function 'grestore_ipr' are now available in $ALIASES_FILE and $BASHRC_FILE."
 
 echo "[sys_setup_venv] Virtualenv created at $VENV_DIR and dependencies installed via uv."
