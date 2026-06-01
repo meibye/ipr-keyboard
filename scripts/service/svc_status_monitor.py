@@ -21,10 +21,13 @@ Requires: python3, curses, systemctl, journalctl
 import curses
 import json
 import os
+import re
 import socket
 import subprocess
 import threading
 import time
+
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 # ---------------------------------------------------------------------------
 # Systemd service definitions  (unit name, short description)
@@ -262,9 +265,11 @@ def get_diag_info():
         path = os.path.join(script_dir, name)
         if os.path.isfile(path):
             try:
-                return subprocess.check_output(
+                raw = subprocess.check_output(
                     [path], text=True, timeout=10,
+                    env={**os.environ, "TERM": "dumb", "NO_COLOR": "1"},
                 ).strip()
+                return _ANSI_ESCAPE.sub("", raw)
             except Exception:
                 pass
     return "Diagnostics unavailable"
@@ -438,6 +443,73 @@ def _show_app_detail(stdscr, label, desc, status):
 
 
 # ---------------------------------------------------------------------------
+# Config / diagnostics scrollable view
+# ---------------------------------------------------------------------------
+
+def _show_config_diag(stdscr):
+    """Scrollable config + diagnostics viewer."""
+    import textwrap
+
+    cfg = get_config_info()
+    cfg_lines = ["── Config ──"] + [f"  {k}: {v}" for k, v in cfg.items()]
+    diag_raw = get_diag_info()
+    diag_lines = ["", "── Diagnostics ──"] + diag_raw.splitlines()
+    all_lines = cfg_lines + diag_lines
+
+    stdscr.nodelay(False)
+    offset = 0
+
+    while True:
+        max_rows, max_cols = stdscr.getmaxyx()
+        content_width = max(max_cols - 4, 10)
+        content_rows = max_rows - 2  # title row + status bar
+
+        # Wrap lines to terminal width
+        display: list[str] = []
+        for line in all_lines:
+            if not line:
+                display.append("")
+            elif line.startswith("──"):
+                display.append(line)
+            else:
+                display.extend(textwrap.wrap(line, width=content_width) or [""])
+        total = len(display)
+        offset = max(0, min(offset, total - content_rows))
+
+        stdscr.clear()
+        _addstr(stdscr, 0, 2, "Config / Diagnostics", curses.A_BOLD)
+
+        for idx, line in enumerate(display[offset: offset + content_rows]):
+            bold = line.startswith("──")
+            attr = curses.A_BOLD if bold else curses.A_DIM
+            _addstr(stdscr, 1 + idx, 2, line, attr)
+
+        pct = int(100 * (offset + content_rows) / total) if total else 100
+        status = (
+            f"Lines {offset + 1}–{min(offset + content_rows, total)}/{total}"
+            f"  ({min(pct, 100)}%)  ↑↓ PgUp/PgDn  q/Esc return"
+        )
+        _addstr(stdscr, max_rows - 1, 2, status, curses.A_DIM)
+        stdscr.refresh()
+
+        key = stdscr.getch()
+        if key in (ord("q"), ord("Q"), ord("c"), ord("C"), 27, curses.KEY_BACKSPACE):
+            break
+        elif key == curses.KEY_UP:
+            offset = max(offset - 1, 0)
+        elif key == curses.KEY_DOWN:
+            offset = min(offset + 1, max(0, total - content_rows))
+        elif key == curses.KEY_PPAGE:
+            offset = max(offset - content_rows, 0)
+        elif key == curses.KEY_NPAGE:
+            offset = min(offset + content_rows, max(0, total - content_rows))
+        elif key == curses.KEY_HOME:
+            offset = 0
+        elif key == curses.KEY_END:
+            offset = max(0, total - content_rows)
+
+
+# ---------------------------------------------------------------------------
 # Main TUI
 # ---------------------------------------------------------------------------
 
@@ -607,23 +679,7 @@ def main(stdscr, delay):
                 _show_app_detail(stdscr, label, desc, status)
 
         elif c == ord("c"):
-            stdscr.clear()
-            _addstr(stdscr, 0, 2, "Config / Diagnostics", curses.A_BOLD)
-            cfg = get_config_info()
-            for j, (k, v) in enumerate(cfg.items()):
-                if 2 + j >= curses.LINES - 4:
-                    break
-                _addstr(stdscr, 2 + j, 2, f"{k}: {v}", curses.A_DIM)
-            diag = get_diag_info()
-            diag_row = 2 + min(len(cfg), curses.LINES - 8) + 2
-            _addstr(stdscr, diag_row, 2, "Diagnostics:", curses.A_BOLD)
-            for j, line in enumerate(diag.splitlines()[:6]):
-                if diag_row + 1 + j >= curses.LINES - 2:
-                    break
-                _addstr(stdscr, diag_row + 1 + j, 2, line, curses.A_DIM)
-            _addstr(stdscr, curses.LINES - 1, 2, "Press any key to return…")
-            stdscr.refresh()
-            stdscr.getch()
+            _show_config_diag(stdscr)
 
     svc_poller.stop()
     app_poller.stop()
