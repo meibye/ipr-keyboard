@@ -294,10 +294,8 @@ def _addstr(stdscr, row, col, text, attr=curses.A_NORMAL):
 # ---------------------------------------------------------------------------
 
 def _show_journal(stdscr, svc, has_colors):
-    """Scrollable journal viewer with line wrapping."""
-    max_rows, max_cols = stdscr.getmaxyx()
-    content_width = max(max_cols - 4, 10)
-    content_rows = max_rows - 3  # header row + blank + status bar
+    """Scrollable journal viewer with toggleable line wrapping (w key)."""
+    import textwrap
 
     try:
         raw = subprocess.check_output(
@@ -310,17 +308,24 @@ def _show_journal(stdscr, svc, has_colors):
     except Exception as exc:
         raw_lines = [f"Error: {exc}"]
 
-    # Wrap every raw line to content_width
-    wrapped: list[str] = []
-    import textwrap
-    for raw_line in raw_lines:
-        if not raw_line:
-            wrapped.append("")
-        else:
-            wrapped.extend(textwrap.wrap(raw_line, width=content_width) or [""])
+    wrap_enabled = True
 
-    total = len(wrapped)
-    offset = max(0, total - content_rows)  # start scrolled to bottom
+    def build_display(width: int) -> list[str]:
+        if not wrap_enabled:
+            return list(raw_lines)
+        lines: list[str] = []
+        for raw_line in raw_lines:
+            if not raw_line:
+                lines.append("")
+            else:
+                lines.extend(textwrap.wrap(raw_line, width=width) or [""])
+        return lines
+
+    max_rows, max_cols = stdscr.getmaxyx()
+    content_rows = max_rows - 3
+    display = build_display(max(max_cols - 4, 10))
+    total = len(display)
+    offset = max(0, total - content_rows)  # start at bottom
 
     stdscr.nodelay(False)
     while True:
@@ -331,16 +336,17 @@ def _show_journal(stdscr, svc, has_colors):
         stdscr.clear()
         _addstr(stdscr, 0, 2, f"Journal: {svc}", curses.A_BOLD)
 
-        visible = wrapped[offset: offset + content_rows]
+        visible = display[offset: offset + content_rows]
         for idx, line in enumerate(visible):
             _addstr(stdscr, 2 + idx, 2, line)
 
         # Status bar
         pct = int(100 * (offset + content_rows) / total) if total else 100
         pct = min(pct, 100)
+        wrap_label = "wrap:ON" if wrap_enabled else "wrap:OFF"
         status = (
-            f"Lines {offset + 1}–{min(offset + content_rows, total)}/{total}  "
-            f"({pct}%)  ↑↓ scroll  PgUp/PgDn  q/Esc return"
+            f"Lines {offset + 1}–{min(offset + content_rows, total)}/{total}"
+            f"  ({pct}%)  ↑↓ PgUp/PgDn  w:{wrap_label}  q/Esc return"
         )
         _addstr(stdscr, max_rows - 1, 2, status, curses.A_DIM)
         stdscr.refresh()
@@ -356,10 +362,17 @@ def _show_journal(stdscr, svc, has_colors):
             offset = max(offset - content_rows, 0)
         elif key == curses.KEY_NPAGE:
             offset = min(offset + content_rows, max(0, total - content_rows))
-        elif key in (curses.KEY_HOME,):
+        elif key == curses.KEY_HOME:
             offset = 0
-        elif key in (curses.KEY_END,):
+        elif key == curses.KEY_END:
             offset = max(0, total - content_rows)
+        elif key in (ord("w"), ord("W")):
+            # Toggle wrap; preserve approximate scroll position by percent
+            pct_pos = offset / total if total else 0
+            wrap_enabled = not wrap_enabled
+            display = build_display(content_width)
+            total = len(display)
+            offset = max(0, min(int(pct_pos * total), total - content_rows))
 
 
 def _show_service_detail(stdscr, svc, has_colors):
