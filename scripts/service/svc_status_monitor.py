@@ -39,7 +39,8 @@ SERVICES = [
     ("bt_hid_ble.service",           "BLE HID GATT keyboard daemon"),
     ("bt_hid_agent_unified.service", "Bluetooth pairing agent"),
     # ---- headless / network ----
-    ("ipr-provision.service",        "Wi-Fi hotspot + headless provisioning"),
+    ("ipr-provision.service",        "Wi-Fi hotspot setup (oneshot)"),
+    ("ipr-cert-renew.timer",         "TLS cert auto-renewal timer (daily)"),
     ("NetworkManager.service",       "Network Manager (hotspot/Wi-Fi via nmcli)"),
     # ---- bluetooth stack ----
     ("bluetooth.service",            "BlueZ Bluetooth stack daemon"),
@@ -130,11 +131,38 @@ def _check_hotspot() -> str:
         return "unknown"
 
 
-def _check_provision_web() -> str:
-    """Probe the provisioning HTTPS server on port 443."""
-    if not _svc_active("ipr-provision.service"):
+def _check_setup_https() -> str:
+    """Probe the /setup/ HTTPS endpoint served by ipr_keyboard.service on port 443."""
+    if not _svc_active("ipr_keyboard.service"):
         return "service down"
     return _check_tcp("127.0.0.1", 443)
+
+
+def _check_cert_renewal() -> str:
+    """Report days remaining on the server TLS certificate."""
+    cert = "/etc/ipr-ssl/server.crt"
+    if not os.path.isfile(cert):
+        return "cert missing"
+    try:
+        import ssl as _ssl
+        ctx = _ssl.create_default_context()
+        # Use openssl to get the expiry without needing a live connection
+        import datetime
+        out = subprocess.check_output(
+            ["openssl", "x509", "-in", cert, "-noout", "-enddate"],
+            text=True, stderr=subprocess.DEVNULL, timeout=3,
+        ).strip()
+        # notAfter=Jul  3 18:04:37 2027 GMT
+        date_str = out.split("=", 1)[-1].strip()
+        expiry = datetime.datetime.strptime(date_str, "%b %d %H:%M:%S %Y %Z")
+        days = (expiry - datetime.datetime.utcnow()).days
+        if days < 0:
+            return "EXPIRED"
+        if days <= 30:
+            return f"expires in {days}d !"
+        return f"ok ({days}d left)"
+    except Exception:
+        return "unknown"
 
 
 # (label, description, check_fn) — check_fn() returns a status string
@@ -142,7 +170,8 @@ APP_COMPONENTS = [
     ("Web Dashboard",   "Flask web UI + REST API (ipr_keyboard.svc)",  _check_web_dashboard),
     ("BT Forwarder",    "USB→BLE keyboard forwarding loop",             _check_bt_forwarder),
     ("Hotspot",         "Wi-Fi provisioning hotspot (nmcli)",           _check_hotspot),
-    ("Provision HTTPS", "Headless management web server (port 443)",    _check_provision_web),
+    ("Setup HTTPS",     "Provisioning UI at /setup/ (port 443)",        _check_setup_https),
+    ("TLS Cert",        "Server cert validity (auto-renews at 30 days)", _check_cert_renewal),
 ]
 
 # ---------------------------------------------------------------------------
@@ -176,13 +205,15 @@ def get_service_status(svc: str) -> str:
 
 def status_color(status: str) -> int:
     """Map a status string to a curses colour-pair index (1–4)."""
-    if status in ("active", "running", "listening"):
+    s = status.lower()
+    if s in ("active", "running", "listening") or s.startswith("ok ("):
         return 2  # green
-    if status in ("failed", "dead", "not reachable", "stopped", "service down"):
+    if s in ("failed", "dead", "not reachable", "stopped", "service down",
+             "expired", "cert missing"):
         return 1  # red
-    if status in ("activating", "inactive", "not configured"):
+    if s in ("activating", "inactive", "not configured") or "expires in" in s:
         return 3  # yellow
-    # not installed, nmcli missing, unknown, error, not loaded …
+    # not installed, nmcli missing, unknown, error, checking… …
     return 4  # cyan/dim
 
 
@@ -411,9 +442,9 @@ def _show_app_detail(stdscr, label, desc, status):
     row = 5
     if label == "Web Dashboard":
         port = _get_web_port()
-        _addstr(stdscr, row, 2, f"URL: http://<device-ip>:{port}/")
+        _addstr(stdscr, row, 2, f"URL: https://<device-ip>:{port}/")
         row += 1
-        _addstr(stdscr, row, 2, f"Local: http://127.0.0.1:{port}/health")
+        _addstr(stdscr, row, 2, f"Setup: https://10.42.0.1/setup/")
     elif label == "Hotspot":
         secret = "/etc/ipr-hotspot.secret"
         if os.path.isfile(secret):
@@ -427,11 +458,17 @@ def _show_app_detail(stdscr, label, desc, status):
         else:
             _addstr(stdscr, row, 2, "Secret file not found: " + secret)
         row += 1
-        _addstr(stdscr, row, 2, "Admin UI: https://10.42.0.1/")
-    elif label == "Provision HTTPS":
-        _addstr(stdscr, row, 2, "URL: https://10.42.0.1/")
+        _addstr(stdscr, row, 2, "Setup UI: https://10.42.0.1/setup/")
+    elif label == "Setup HTTPS":
+        _addstr(stdscr, row, 2, "URL: https://10.42.0.1/setup/")
         row += 1
-        _addstr(stdscr, row, 2, "Managed by: ipr-provision.service")
+        _addstr(stdscr, row, 2, "Managed by: ipr_keyboard.service (Flask /setup/ Blueprint)")
+    elif label == "TLS Cert":
+        _addstr(stdscr, row, 2, "Cert: /etc/ipr-ssl/server.crt")
+        row += 1
+        _addstr(stdscr, row, 2, "Auto-renewal: ipr-cert-renew.timer (daily, renews at ≤30 days)")
+        row += 1
+        _addstr(stdscr, row, 2, "Manual: https://10.42.0.1/setup/system → Renew Certificate")
     elif label == "BT Forwarder":
         _addstr(stdscr, row, 2, "Thread inside ipr_keyboard.service.")
         row += 1

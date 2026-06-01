@@ -5,6 +5,8 @@ along with a web server for configuration and log viewing.
 """
 from __future__ import annotations
 
+import os
+import signal
 import ssl as _ssl
 import threading
 import time
@@ -35,12 +37,19 @@ def log_version_info():
     usb_deleter.log_version_info()
     web_server.log_version_info()
 
+_WEB_RETRY_COUNT = 5
+_WEB_RETRY_DELAY = 3  # seconds between bind retries
+
+
 def run_web_server():
     """Run the Flask web server for configuration and log viewing.
 
     Uses HTTPS when /etc/ipr-ssl/server.crt and server.key are present
     (installed by gen_ipr_ssl_cert.sh).  Falls back to plain HTTP so
     development machines without certs continue to work.
+
+    Retries up to _WEB_RETRY_COUNT times on OSError (e.g. port already in use)
+    then terminates the whole process so systemd can restart the service.
     """
     cfg = ConfigManager.instance().get()
     app = create_app()
@@ -50,18 +59,38 @@ def run_web_server():
         # /etc/ipr-ssl/ directory not yet accessible to this user
         tls_ready = False
 
+    ssl_ctx = None
     if tls_ready:
-        ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
-        ctx.load_cert_chain(str(_TLS_CERT), str(_TLS_KEY))
-        logger.info("Starting HTTPS server on port %d", cfg.LogPort)
-        app.run(host="0.0.0.0", port=cfg.LogPort, debug=False,
-                use_reloader=False, ssl_context=ctx)
+        ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
+        ssl_ctx.load_cert_chain(str(_TLS_CERT), str(_TLS_KEY))
     else:
         logger.warning(
             "TLS cert not accessible at %s — falling back to HTTP on port %d",
             _TLS_CERT, cfg.LogPort,
         )
-        app.run(host="0.0.0.0", port=cfg.LogPort, debug=False, use_reloader=False)
+
+    for attempt in range(1, _WEB_RETRY_COUNT + 1):
+        try:
+            logger.info("Starting %s server on port %d (attempt %d/%d)",
+                        "HTTPS" if ssl_ctx else "HTTP",
+                        cfg.LogPort, attempt, _WEB_RETRY_COUNT)
+            app.run(host="0.0.0.0", port=cfg.LogPort, debug=False,
+                    use_reloader=False,
+                    ssl_context=ssl_ctx if ssl_ctx else None)
+            return  # clean exit
+        except OSError as exc:
+            if attempt < _WEB_RETRY_COUNT:
+                logger.warning(
+                    "Web server failed to bind port %d (attempt %d/%d): %s — retrying in %ds",
+                    cfg.LogPort, attempt, _WEB_RETRY_COUNT, exc, _WEB_RETRY_DELAY,
+                )
+                time.sleep(_WEB_RETRY_DELAY)
+            else:
+                logger.critical(
+                    "Web server could not bind port %d after %d attempts: %s — terminating",
+                    cfg.LogPort, _WEB_RETRY_COUNT, exc,
+                )
+                os.kill(os.getpid(), signal.SIGTERM)
 
 
 def run_usb_bt_loop():

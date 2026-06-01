@@ -65,7 +65,8 @@ load_or_generate_secret() {
   local pass
   pass="$(python3 -c "import secrets,string; a=string.ascii_letters+string.digits+'!@#\$'; print(''.join(secrets.choice(a) for _ in range(12)))")"
 
-  install -m 0600 -o root -g root /dev/null "${SECRET_FILE}"
+  # 0640 + ipr-ssl group: root writes, app user reads (group set by gen_ipr_ssl_cert.sh)
+  install -m 0640 -o root -g ipr-ssl /dev/null "${SECRET_FILE}"
   printf 'SSID=%s\nPASS=%s\n' "${ssid}" "${pass}" >"${SECRET_FILE}"
   log "Generated new credentials in ${SECRET_FILE}"
 

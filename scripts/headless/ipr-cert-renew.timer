@@ -1,0 +1,12 @@
+[Unit]
+Description=IPR Keyboard TLS Certificate Auto-Renewal (daily check)
+Documentation=https://github.com/anthropics/ipr-keyboard
+
+[Timer]
+# Run once a day at 03:15; Persistent=true means it catches up if the
+# device was off at that time (e.g. runs at next boot if missed).
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

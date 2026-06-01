@@ -1,0 +1,11 @@
+[Unit]
+Description=IPR Keyboard TLS Certificate Renewal
+After=network.target ipr_keyboard.service
+Documentation=https://github.com/anthropics/ipr-keyboard
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ipr-cert-renew.sh
+User=root
+StandardOutput=journal
+StandardError=journal

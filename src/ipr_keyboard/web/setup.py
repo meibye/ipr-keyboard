@@ -30,6 +30,8 @@ bp_setup = Blueprint("setup", __name__, url_prefix="/setup")
 
 _SECRET_FILE = Path("/etc/ipr-hotspot.secret")
 _CA_CERT_FILE = Path("/etc/ipr-ssl/ca.crt")
+_SERVER_CERT_FILE = Path("/etc/ipr-ssl/server.crt")
+_CERT_RENEW_SCRIPT = Path("/usr/local/sbin/ipr-cert-renew.sh")
 _BASIC_AUTH_USER = "ipr"
 
 _LOG_UNITS = [
@@ -66,11 +68,14 @@ def _check_rate(ip: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def _load_hotspot_password() -> str:
-    if not _SECRET_FILE.exists():
-        return ""
-    for line in _SECRET_FILE.read_text().splitlines():
-        if line.startswith("PASS="):
-            return line[5:].strip()
+    try:
+        if not _SECRET_FILE.exists():
+            return ""
+        for line in _SECRET_FILE.read_text().splitlines():
+            if line.startswith("PASS="):
+                return line[5:].strip()
+    except OSError:
+        pass
     return ""
 
 
@@ -109,12 +114,15 @@ def _run(cmd: list[str]) -> str:
 
 def _read_hotspot_secret() -> tuple[str, str]:
     ssid = pass_ = ""
-    if _SECRET_FILE.exists():
-        for line in _SECRET_FILE.read_text().splitlines():
-            if line.startswith("SSID="):
-                ssid = line[5:].strip()
-            elif line.startswith("PASS="):
-                pass_ = line[5:].strip()
+    try:
+        if _SECRET_FILE.exists():
+            for line in _SECRET_FILE.read_text().splitlines():
+                if line.startswith("SSID="):
+                    ssid = line[5:].strip()
+                elif line.startswith("PASS="):
+                    pass_ = line[5:].strip()
+    except OSError:
+        pass
     return ssid, pass_
 
 
@@ -143,6 +151,18 @@ def _home_network_ip() -> str:
     except Exception:
         pass
     return ""
+
+
+def _cert_expiry() -> str:
+    """Return the server cert expiry date as a plain string, or '' if unreadable."""
+    try:
+        out = subprocess.check_output(
+            ["openssl", "x509", "-in", str(_SERVER_CERT_FILE), "-noout", "-enddate"],
+            text=True, stderr=subprocess.DEVNULL,
+        ).strip()
+        return out.split("=", 1)[-1].strip() if "=" in out else out
+    except Exception:
+        return ""
 
 
 def _service_status(name: str) -> str:
@@ -425,11 +445,68 @@ def logs():
 @require_basic_auth
 def system():
     msg = request.args.get("msg", "")
+    ok = request.args.get("ok", "0") == "1"
     return render_template(
         "setup/system.html",
         page="system",
-        msg=msg, ok=False,
+        msg=msg, ok=ok,
+        cert_expiry=_cert_expiry(),
+        cert_renew_available=_CERT_RENEW_SCRIPT.exists(),
     )
+
+
+@bp_setup.post("/renew-cert")
+@require_basic_auth
+def renew_cert():
+    if not _CERT_RENEW_SCRIPT.exists():
+        return render_template(
+            "setup/system.html",
+            page="system",
+            msg="Certificate renewal script not installed. Run install_provision_service.sh first.",
+            ok=False,
+            cert_expiry=_cert_expiry(),
+            cert_renew_available=False,
+        )
+    try:
+        subprocess.check_output(
+            ["sudo", str(_CERT_RENEW_SCRIPT), "--force"],
+            text=True, stderr=subprocess.STDOUT, timeout=60,
+        )
+        # Service restart happens inside the renew script; give it a moment then
+        # schedule a second restart in case the first one races with this response.
+        subprocess.Popen(
+            ["sudo", "bash", "-c", "sleep 4 && systemctl restart ipr_keyboard.service"],
+        )
+        return render_template(
+            "setup/system.html",
+            page="system",
+            msg=(
+                "Certificate renewed. The service is restarting — "
+                "this page will reload in 10 seconds."
+            ),
+            ok=True,
+            cert_expiry=_cert_expiry(),
+            cert_renew_available=True,
+            auto_reload=10,
+        )
+    except subprocess.TimeoutExpired:
+        return render_template(
+            "setup/system.html",
+            page="system",
+            msg="Certificate renewal timed out. Check the journal for details.",
+            ok=False,
+            cert_expiry=_cert_expiry(),
+            cert_renew_available=True,
+        )
+    except subprocess.CalledProcessError as e:
+        return render_template(
+            "setup/system.html",
+            page="system",
+            msg=f"Certificate renewal failed: {e.output.strip()[-400:] if e.output else str(e)}",
+            ok=False,
+            cert_expiry=_cert_expiry(),
+            cert_renew_available=True,
+        )
 
 
 @bp_setup.post("/reboot")
@@ -441,6 +518,8 @@ def reboot():
         page="system",
         msg="Reboot initiated. Reconnect to the hotspot in about 30 seconds.",
         ok=True,
+        cert_expiry=_cert_expiry(),
+        cert_renew_available=_CERT_RENEW_SCRIPT.exists(),
     )
 
 
@@ -453,4 +532,6 @@ def shutdown():
         page="system",
         msg="Shutdown initiated. Remove power after the LED stops blinking.",
         ok=True,
+        cert_expiry=_cert_expiry(),
+        cert_renew_available=_CERT_RENEW_SCRIPT.exists(),
     )

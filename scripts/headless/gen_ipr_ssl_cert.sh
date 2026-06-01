@@ -15,6 +15,9 @@
 #
 # Options:
 #   --force           Regenerate all certificate files even if they already exist.
+#   --renew           Renew the server cert only — keeps the existing CA key and cert
+#                     so clients that installed the CA do not need to reinstall it.
+#                     Used by ipr-cert-renew.service for annual rotation.
 #   --hostname NAME   Override the device hostname used in the SAN list.
 #                     Defaults to $(hostname -s).
 #   --user USER       App user who needs read access to server.key.
@@ -41,6 +44,7 @@ CSR_TMP="/tmp/ipr-server.csr"
 EXT_TMP="/tmp/ipr-server.ext"
 
 FORCE=false
+RENEW=false
 DEVICE_HOSTNAME=""
 APP_USER="${IPR_USER:-meibye}"
 
@@ -50,6 +54,7 @@ APP_USER="${IPR_USER:-meibye}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --force)    FORCE=true; shift ;;
+        --renew)    RENEW=true; shift ;;
         --hostname) DEVICE_HOSTNAME="$2"; shift 2 ;;
         --user)     APP_USER="$2"; shift 2 ;;
         *) echo "Unknown argument: $1"; exit 1 ;;
@@ -87,7 +92,19 @@ chown root:ipr-ssl "$SSL_DIR"
 chmod 0750 "$SSL_DIR"
 
 # ---------------------------------------------------------------------------
-# Skip if files exist and --force not set
+# --renew: re-sign server cert only, keep existing CA
+# ---------------------------------------------------------------------------
+if [[ "$RENEW" == true ]]; then
+    if [[ ! -f "$CA_KEY" || ! -f "$CA_CRT" ]]; then
+        log "ERROR: CA key/cert not found — run without --renew first to generate them."
+        exit 1
+    fi
+    log "Renewing server certificate only (CA unchanged) ..."
+    # fall through — CA generation block is skipped, only Steps 2-4 run
+else
+
+# ---------------------------------------------------------------------------
+# Skip if files exist and --force not set (full generation path only)
 # ---------------------------------------------------------------------------
 if [[ "$FORCE" == false ]] && \
    [[ -f "$CA_KEY" && -f "$CA_CRT" && -f "$SRV_KEY" && -f "$SRV_CRT" ]]; then
@@ -112,6 +129,8 @@ openssl req -x509 -new -nodes \
     2>/dev/null
 chmod 0644 "$CA_CRT"
 log "  CA cert: $CA_CRT"
+
+fi  # end of full-generation-only block
 
 # ---------------------------------------------------------------------------
 # Step 2: Server key and CSR
@@ -139,14 +158,17 @@ EXTEOF
 # ---------------------------------------------------------------------------
 # Step 4: Sign server cert with CA
 # ---------------------------------------------------------------------------
-log "Signing server certificate (hostname: ${DEVICE_HOSTNAME}.local) ..."
+# 397 days: iOS 13+, Android 11+, and Chrome enforce a ≤398-day limit on server
+# certificates even when issued by a privately-trusted CA.  The CA cert can be
+# long-lived (users install it once); the server cert must be renewed annually.
+log "Signing server certificate (hostname: ${DEVICE_HOSTNAME}.local, validity: 397 days) ..."
 openssl x509 -req \
     -in "$CSR_TMP" \
     -CA "$CA_CRT" \
     -CAkey "$CA_KEY" \
     -CAcreateserial \
     -out "$SRV_CRT" \
-    -days 3650 \
+    -days 397 \
     -sha256 \
     -extensions SAN \
     -extfile "$EXT_TMP" \

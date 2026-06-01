@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Configuration - IPR Keyboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='ipr.css') }}">
 </head>
@@ -14,14 +15,14 @@
                 <tr><th>Parameter</th><th>Value</th></tr>
                 {% for key, value in config.items() %}
                 <tr>
-                    <td>{{ key }}</td>
+                    <td><label for="field-{{ key }}">{{ key }}</label></td>
                     <td>
                         {% if value is boolean %}
-                            <input type="checkbox" name="{{ key }}" {% if value %}checked{% endif %} />
+                            <input type="checkbox" id="field-{{ key }}" name="{{ key }}" title="{{ key }}" {% if value %}checked{% endif %} />
                         {% elif value is number %}
-                            <input type="number" name="{{ key }}" value="{{ value }}" />
+                            <input type="number" id="field-{{ key }}" name="{{ key }}" title="{{ key }}" value="{{ value }}" />
                         {% else %}
-                            <input type="text" name="{{ key }}" value="{{ value }}" />
+                            <input type="text" id="field-{{ key }}" name="{{ key }}" title="{{ key }}" value="{{ value }}" />
                         {% endif %}
                     </td>
                 </tr>
@@ -30,11 +31,11 @@
             <button class="btn" type="submit">Save All</button>
         </form>
     </div>
-    <div class="section">
-        <form method="post" style="display:inline;">
+    <div class="section config-actions">
+        <form method="post">
             <button class="btn fail" type="submit" name="restart" value="1">Restart Machine</button>
         </form>
-        <form method="post" style="display:inline; margin-left:1em;">
+        <form method="post">
             <button class="btn fail" type="submit" name="shutdown" value="1">Shutdown Machine</button>
         </form>
     </div>
