@@ -389,6 +389,7 @@ echo "[sys_setup_venv] Adding/updating aliases in $ALIASES_FILE..."
   echo "alias logs='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/service/svc_tail_all_logs.sh'"
   echo "alias scmd='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/scmd.sh'"
   echo "alias grestore='grestore_ipr'"
+  echo "alias tests='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/dev_run_tests.sh'"
 } > "$ALIASES_FILE.tmp"
 
 # Append only non-duplicate lines from existing aliases file
@@ -400,9 +401,10 @@ if [[ -f "$ALIASES_FILE" ]]; then
   grep -v "^alias monitor='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/service/svc_status_monitor.py'" | \
   grep -v "^alias logs='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/service/svc_tail_all_logs.sh'" | \
   grep -v "^alias scmd='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/scmd.sh'" | \
-  grep -v "^alias grestore='grestore_ipr'" >> "$ALIASES_FILE.tmp" || true
+  grep -v "^alias grestore='grestore_ipr'" | \
+  grep -v "^alias tests='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/dev_run_tests.sh'" >> "$ALIASES_FILE.tmp" || true
 fi
 mv "$ALIASES_FILE.tmp" "$ALIASES_FILE"
-echo "[sys_setup_venv] Aliases 'll', 'activate', 'ipr', 'sbrc', 'monitor', 'logs', 'scmd', and 'grestore' plus function 'grestore_ipr' are now available in $ALIASES_FILE and $BASHRC_FILE."
+echo "[sys_setup_venv] Aliases 'll', 'activate', 'ipr', 'sbrc', 'monitor', 'logs', 'scmd', 'grestore', and 'tests' plus function 'grestore_ipr' are now available in $ALIASES_FILE and $BASHRC_FILE."
 
 echo "[sys_setup_venv] Virtualenv created at $VENV_DIR and dependencies installed via uv."

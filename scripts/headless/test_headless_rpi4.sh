@@ -160,7 +160,8 @@ sudo fuser -k 443/tcp 2>/dev/null && info "Killed existing process on port 443" 
 sudo fuser -k 80/tcp  2>/dev/null && info "Killed existing process on port 80"  || true
 sleep 2
 sudo nmcli con delete ipr-hotspot >/dev/null 2>&1 && info "Deleted existing ipr-hotspot" || true
-sudo rm -f /etc/ipr-hotspot.secret && info "Removed stale /etc/ipr-hotspot.secret" || true
+# Credentials in /etc/ipr-hotspot.secret are intentionally preserved so the hotspot
+# SSID/password stays consistent across test runs and service restarts.
 
 info "Starting net_provision_hotspot.sh in background..."
 sudo bash "$SCRIPTS_DIR/net_provision_hotspot.sh" &
