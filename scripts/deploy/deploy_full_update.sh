@@ -8,7 +8,7 @@
 # unclear which parts changed, or when doing a first-time install after cloning.
 #
 # Steps performed:
-#   1. Reinstall Python package in editable mode  (picks up dep / entry-point changes)
+#   1. Reinstall Python package in editable mode  (only with --install-python)
 #   2. Install BLE daemon binaries and service files
 #   3. Install Bluetooth keyboard helpers
 #   4. Reload systemd unit files
@@ -18,13 +18,26 @@
 # scripts instead to avoid unnecessary restarts.
 #
 # Usage:
-#   sudo ./scripts/deploy/deploy_full_update.sh
+#   sudo ./scripts/deploy/deploy_full_update.sh [--install-python]
+#
+#   --install-python   Also reinstall the Python package in editable mode.
+#                      Needed when pyproject.toml, entry points, or
+#                      dependencies changed.
 #
 # category: Deploy
-# purpose: Full post-git-pull update — package, daemons, helpers, all services
+# purpose: Full post-git-pull update — daemons, helpers, all services (Python install optional)
+# parameters: --install-python
 # sudo: yes
 
 set -euo pipefail
+
+INSTALL_PYTHON=false
+for arg in "$@"; do
+    case "$arg" in
+        --install-python) INSTALL_PYTHON=true ;;
+        *) echo "[deploy] Unknown argument: $arg"; exit 1 ;;
+    esac
+done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
@@ -38,29 +51,32 @@ if [[ ! -d "$PROJECT_DIR" ]]; then
     exit 1
 fi
 
-if [[ ! -d "$VENV_DIR" ]]; then
-    echo "[deploy] ERROR: Virtualenv not found: $VENV_DIR"
-    echo "         Run scripts/sys_setup_venv.sh first."
-    exit 1
-fi
-
 echo "========================================================"
 echo " Full update — $(date '+%Y-%m-%d %H:%M:%S')"
 echo "========================================================"
 echo ""
 
-# ---- 1. Reinstall Python package ----
-echo "[1/5] Reinstalling Python package…"
-PIP_USER="${SUDO_USER:-$IPR_USER}"
-cd "$PROJECT_DIR"
-if [[ -x "$VENV_DIR/bin/uv" ]]; then
-    runuser -u "$PIP_USER" -- "$VENV_DIR/bin/uv" pip install -e .
-elif command -v uv >/dev/null 2>&1; then
-    runuser -u "$PIP_USER" -- "$(command -v uv)" pip install -e .
+# ---- 1. Reinstall Python package (optional) ----
+if [[ "$INSTALL_PYTHON" == true ]]; then
+    if [[ ! -d "$VENV_DIR" ]]; then
+        echo "[deploy] ERROR: Virtualenv not found: $VENV_DIR"
+        echo "         Run scripts/sys_setup_venv.sh first."
+        exit 1
+    fi
+    echo "[1/5] Reinstalling Python package…"
+    PIP_USER="${SUDO_USER:-$IPR_USER}"
+    cd "$PROJECT_DIR"
+    if [[ -x "$VENV_DIR/bin/uv" ]]; then
+        runuser -u "$PIP_USER" -- "$VENV_DIR/bin/uv" pip install -e .
+    elif command -v uv >/dev/null 2>&1; then
+        runuser -u "$PIP_USER" -- "$(command -v uv)" pip install -e .
+    else
+        runuser -u "$PIP_USER" -- "$VENV_DIR/bin/pip" install -e .
+    fi
+    echo "      OK"
 else
-    runuser -u "$PIP_USER" -- "$VENV_DIR/bin/pip" install -e .
+    echo "[1/5] Skipping Python package install (pass --install-python to enable)."
 fi
-echo "      OK"
 echo ""
 
 # ---- 2. Install BLE daemons ----
