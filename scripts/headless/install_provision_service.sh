@@ -6,12 +6,11 @@
 #
 # Installs:
 #   - net_provision_hotspot.sh  → /usr/local/sbin/ipr-provision.sh
-#   - net_provision_web.py      → /usr/local/sbin/ipr-provision-web.py
 #   - ipr-provision.service     → /etc/systemd/system/
+#   - TLS certificates          → /etc/ipr-ssl/ (via gen_ipr_ssl_cert.sh)
 #
-# The service starts the management hotspot at boot and launches the
-# provisioning web UI on https://10.42.0.1/ so the device can be
-# configured without a keyboard or display.
+# The service configures the Wi-Fi hotspot at boot.
+# The management web UI is served by ipr_keyboard.service on HTTPS port 443.
 #
 # Usage:
 #   sudo ./scripts/headless/install_provision_service.sh
@@ -30,40 +29,49 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 SRC_HOTSPOT="$SCRIPT_DIR/net_provision_hotspot.sh"
-SRC_WEB="$SCRIPT_DIR/net_provision_web.py"
 SRC_SERVICE="$SCRIPT_DIR/ipr-provision.service"
+SRC_CERT_SCRIPT="$SCRIPT_DIR/gen_ipr_ssl_cert.sh"
 
 DEST_HOTSPOT="/usr/local/sbin/ipr-provision.sh"
-DEST_WEB="/usr/local/sbin/ipr-provision-web.py"
 DEST_SERVICE="/etc/systemd/system/ipr-provision.service"
 
 echo "=== [install_provision_service] Installing ipr-provision service ==="
 echo ""
 
 # Verify source files exist
-for src in "$SRC_HOTSPOT" "$SRC_WEB" "$SRC_SERVICE"; do
+for src in "$SRC_HOTSPOT" "$SRC_SERVICE" "$SRC_CERT_SCRIPT"; do
     if [[ ! -f "$src" ]]; then
         echo "ERROR: Source file not found: $src"
         exit 1
     fi
 done
 
-# Install scripts
-echo "[1/3] Installing scripts to /usr/local/sbin/ ..."
+# Remove retired provisioning web server if present
+if [[ -f /usr/local/sbin/ipr-provision-web.py ]]; then
+    echo "[pre] Removing retired ipr-provision-web.py ..."
+    rm -f /usr/local/sbin/ipr-provision-web.py
+    echo "      OK"
+fi
+
+# Install hotspot script
+echo "[1/4] Installing hotspot script to /usr/local/sbin/ ..."
 cp "$SRC_HOTSPOT" "$DEST_HOTSPOT"
 chmod +x "$DEST_HOTSPOT"
-cp "$SRC_WEB" "$DEST_WEB"
-chmod +x "$DEST_WEB"
+echo "      OK"
+
+# Generate TLS certificates
+echo "[2/4] Generating TLS certificates ..."
+bash "$SRC_CERT_SCRIPT"
 echo "      OK"
 
 # Install service unit
-echo "[2/3] Installing systemd unit ..."
+echo "[3/4] Installing systemd unit ..."
 cp "$SRC_SERVICE" "$DEST_SERVICE"
 systemctl daemon-reload
 echo "      OK"
 
 # Enable and start
-echo "[3/3] Enabling and starting ipr-provision.service ..."
+echo "[4/4] Enabling and starting ipr-provision.service ..."
 systemctl enable ipr-provision.service
 systemctl restart ipr-provision.service
 echo "      OK"
@@ -75,3 +83,4 @@ echo "Status:"
 systemctl --no-pager -l status ipr-provision.service || true
 echo ""
 echo "Hotspot credentials (once running): cat /etc/ipr-hotspot.secret"
+echo "CA certificate for browser trust:   https://10.42.0.1/setup/ca.crt"

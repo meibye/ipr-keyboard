@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>IPR Keyboard – Setup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='setup.css') }}">
+</head>
+<body>
+<nav>
+  <span class="brand">IPR Keyboard</span>
+  <a href="{{ url_for('setup.home') }}"   {% if page=='home'   %}class="active"{% endif %}>Home</a>
+  <a href="{{ url_for('setup.status') }}" {% if page=='status' %}class="active"{% endif %}>Status</a>
+  <a href="{{ url_for('setup.wifi') }}"   {% if page=='wifi'   %}class="active"{% endif %}>Wi-Fi</a>
+  <a href="{{ url_for('setup.logs') }}"   {% if page=='logs'   %}class="active"{% endif %}>Logs</a>
+  <a href="{{ url_for('setup.system') }}" {% if page=='system' %}class="active"{% endif %}>System</a>
+</nav>
+<div class="page">
+  {% if msg %}
+  <div class="msg {% if ok %}ok{% else %}err{% endif %}">{{ msg | safe }}</div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</div>
+</body>
+</html>

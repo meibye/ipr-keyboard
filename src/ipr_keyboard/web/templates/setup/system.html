@@ -1,0 +1,25 @@
+{% extends "setup/base.html" %}
+{% block content %}
+<div class="card">
+  <h2>System Actions</h2>
+  <p style="color:#666;font-size:.88rem;margin-top:0">
+    These actions affect the device immediately.
+  </p>
+  <div class="two-col" style="margin-top:1rem">
+    <form method="post" action="{{ url_for('setup.reboot') }}"
+          onsubmit="return confirm('Reboot the device now?')">
+      <button type="submit" class="btn btn-warn">Reboot</button>
+      <p style="color:#888;font-size:.82rem;margin:.3rem 0 0">
+        Restarts the Pi. Reconnect to the hotspot after ~30 s.
+      </p>
+    </form>
+    <form method="post" action="{{ url_for('setup.shutdown') }}"
+          onsubmit="return confirm('Shut down the device now?')">
+      <button type="submit" class="btn btn-danger">Shutdown</button>
+      <p style="color:#888;font-size:.82rem;margin:.3rem 0 0">
+        Powers off the Pi safely. Remove power after the LED stops.
+      </p>
+    </form>
+  </div>
+</div>
+{% endblock %}

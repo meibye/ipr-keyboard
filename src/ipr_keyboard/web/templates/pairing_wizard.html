@@ -4,16 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>IPR Keyboard – Pairing Wizard</title>
-  <style>
-    body { background:#111; color:#eee; font-family:sans-serif; margin:0; padding:20px; }
-    h1 { margin-top:0; }
-    .card { background:#222; padding:15px 18px; border-radius:8px; margin-bottom:18px; border:1px solid #333; }
-    button { background:#3b82f6; border:none; padding:8px 14px; color:white; border-radius:6px; cursor:pointer; font-size:0.9rem; }
-    button:hover { background:#2563eb; }
-    pre { background:#000; padding:8px 10px; border-radius:6px; font-size:0.8rem; max-height:260px; overflow:auto; }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='ipr.css') }}">
 </head>
-<body>
+<body class="pairing-wizard">
   <h1>IPR Keyboard – Pairing Wizard</h1>
 
   <div class="card">

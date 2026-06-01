@@ -69,13 +69,14 @@ def _service_status(name: str) -> str:
         return "unknown"
 
 
-_PUBLIC_PATHS = {"/health", "/login", "/logout", "/api/auth/login"}
+_PUBLIC_PATHS = {"/health", "/login", "/logout", "/api/auth/login", "/setup"}
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
 
     app.config["SECRET_KEY"] = _resolve_secret_key()
+    app.config["SESSION_COOKIE_SECURE"] = True
     app.permanent_session_lifetime = timedelta(days=7)
     UserStore.instance()  # bootstrap default admin user on first run
 
@@ -85,6 +86,9 @@ def create_app() -> Flask:
 
     from .api import bp_api
     app.register_blueprint(bp_api)
+
+    from .setup import bp_setup
+    app.register_blueprint(bp_setup)
 
     @app.before_request
     def _require_login():

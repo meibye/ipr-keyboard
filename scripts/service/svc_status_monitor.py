@@ -293,6 +293,75 @@ def _addstr(stdscr, row, col, text, attr=curses.A_NORMAL):
 # Detail views (Enter key on a row)
 # ---------------------------------------------------------------------------
 
+def _show_journal(stdscr, svc, has_colors):
+    """Scrollable journal viewer with line wrapping."""
+    max_rows, max_cols = stdscr.getmaxyx()
+    content_width = max(max_cols - 4, 10)
+    content_rows = max_rows - 3  # header row + blank + status bar
+
+    try:
+        raw = subprocess.check_output(
+            ["journalctl", "-u", svc, "-n", "300", "--no-pager"], text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        raw_lines = raw.splitlines()
+    except subprocess.CalledProcessError as exc:
+        raw_lines = (exc.output or "").splitlines() or [f"Error: {exc}"]
+    except Exception as exc:
+        raw_lines = [f"Error: {exc}"]
+
+    # Wrap every raw line to content_width
+    wrapped: list[str] = []
+    import textwrap
+    for raw_line in raw_lines:
+        if not raw_line:
+            wrapped.append("")
+        else:
+            wrapped.extend(textwrap.wrap(raw_line, width=content_width) or [""])
+
+    total = len(wrapped)
+    offset = max(0, total - content_rows)  # start scrolled to bottom
+
+    stdscr.nodelay(False)
+    while True:
+        max_rows, max_cols = stdscr.getmaxyx()
+        content_width = max(max_cols - 4, 10)
+        content_rows = max_rows - 3
+
+        stdscr.clear()
+        _addstr(stdscr, 0, 2, f"Journal: {svc}", curses.A_BOLD)
+
+        visible = wrapped[offset: offset + content_rows]
+        for idx, line in enumerate(visible):
+            _addstr(stdscr, 2 + idx, 2, line)
+
+        # Status bar
+        pct = int(100 * (offset + content_rows) / total) if total else 100
+        pct = min(pct, 100)
+        status = (
+            f"Lines {offset + 1}–{min(offset + content_rows, total)}/{total}  "
+            f"({pct}%)  ↑↓ scroll  PgUp/PgDn  q/Esc return"
+        )
+        _addstr(stdscr, max_rows - 1, 2, status, curses.A_DIM)
+        stdscr.refresh()
+
+        key = stdscr.getch()
+        if key in (ord("q"), ord("Q"), 27, curses.KEY_BACKSPACE):
+            break
+        elif key == curses.KEY_UP:
+            offset = max(offset - 1, 0)
+        elif key == curses.KEY_DOWN:
+            offset = min(offset + 1, max(0, total - content_rows))
+        elif key == curses.KEY_PPAGE:
+            offset = max(offset - content_rows, 0)
+        elif key == curses.KEY_NPAGE:
+            offset = min(offset + content_rows, max(0, total - content_rows))
+        elif key in (curses.KEY_HOME,):
+            offset = 0
+        elif key in (curses.KEY_END,):
+            offset = max(0, total - content_rows)
+
+
 def _show_service_detail(stdscr, svc, has_colors):
     _addstr(stdscr, 0, 2, f"Service: {svc}", curses.A_BOLD)
     _addstr(stdscr, 2, 2,
@@ -313,19 +382,7 @@ def _show_service_detail(stdscr, svc, has_colors):
         subprocess.run(["systemctl", "disable", svc])
     elif action in (ord("j"), ord("J")):
         stdscr.clear()
-        _addstr(stdscr, 0, 2, f"Journal: {svc}", curses.A_BOLD)
-        try:
-            out = subprocess.check_output(
-                ["journalctl", "-u", svc, "-n", "20", "--no-pager"], text=True,
-            )
-            for idx, line in enumerate(out.splitlines()[: curses.LINES - 3]):
-                _addstr(stdscr, 2 + idx, 2, line)
-        except Exception as exc:
-            err_attr = curses.color_pair(1) if has_colors else 0
-            _addstr(stdscr, 2, 2, f"Error: {exc}", curses.A_BOLD | err_attr)
-        _addstr(stdscr, curses.LINES - 1, 2, "Press any key to return…")
-        stdscr.refresh()
-        stdscr.getch()
+        _show_journal(stdscr, svc, has_colors)
 
 
 def _show_app_detail(stdscr, label, desc, status):

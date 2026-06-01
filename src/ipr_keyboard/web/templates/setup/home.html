@@ -1,0 +1,56 @@
+{% extends "setup/base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Device</h2>
+  <div class="row">
+    <span class="lbl">Hostname</span>
+    <span class="val">{{ hostname }}</span>
+  </div>
+  <div class="row">
+    <span class="lbl">SSH (mDNS)</span>
+    <span class="val"><code>ssh {{ ssh_user }}@{{ hostname }}.local</code></span>
+  </div>
+  {% if home_ip %}
+  <div class="row">
+    <span class="lbl">Home network IP</span>
+    <span class="val">{{ home_ip }} <span class="badge badge-green">connected</span></span>
+  </div>
+  {% else %}
+  <div class="row">
+    <span class="lbl">Home network</span>
+    <span class="val"><span class="badge badge-grey">not connected</span></span>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Management Hotspot</h2>
+  <div class="row">
+    <span class="lbl">SSID</span>
+    <span class="val">{{ hotspot_ssid or "(not generated)" }}</span>
+  </div>
+  <div class="row">
+    <span class="lbl">Password</span>
+    <span class="val"><code>{{ hotspot_pass or "(unknown)" }}</code></span>
+  </div>
+  <div class="row">
+    <span class="lbl">Web UI</span>
+    <span class="val"><code>https://10.42.0.1/</code></span>
+  </div>
+  <div class="row">
+    <span class="lbl">Login</span>
+    <span class="val"><code>ipr</code> / hotspot password above</span>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Trust Certificate</h2>
+  <p style="color:#666;font-size:.88rem;margin-top:0;margin-bottom:.8rem">
+    Install the device CA certificate once to remove browser security warnings.
+  </p>
+  <a href="{{ url_for('setup.download_ca_cert') }}" class="btn btn-secondary btn-sm"
+     style="text-decoration:none;display:inline-block">
+    ⬇ Download CA Certificate
+  </a>
+</div>
+{% endblock %}

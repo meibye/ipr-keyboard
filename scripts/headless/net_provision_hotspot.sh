@@ -154,12 +154,7 @@ main() {
 
   ensure_hotspot_connection
 
-  log "Starting management web UI on https://10.42.0.1/ ..."
-  if ss -tlnp 2>/dev/null | grep -q ':443 '; then
-    log "Web UI already running on port 443, skipping launch."
-    exit 0
-  fi
-  exec python3 /usr/local/sbin/ipr-provision-web.py
+  log "Hotspot active. Management UI served by ipr_keyboard.service at https://10.42.0.1/"
 }
 
 main "$@"

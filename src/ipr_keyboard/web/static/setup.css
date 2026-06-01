@@ -1,0 +1,209 @@
+/* =============================================================
+   setup.css — styles for the /setup/ provisioning UI
+   Scoped to the setup pages; not used by the main dashboard.
+   ============================================================= */
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 0;
+  background: #f0f2f5;
+  min-height: 100vh;
+}
+
+/* ---- Top nav ---- */
+nav {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: .7rem 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.brand {
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-right: auto;
+  white-space: nowrap;
+}
+nav a {
+  color: rgba(255,255,255,.85);
+  text-decoration: none;
+  padding: .4rem .85rem;
+  border-radius: 20px;
+  font-size: .9rem;
+  white-space: nowrap;
+}
+nav a:hover, nav a.active {
+  background: rgba(255,255,255,.25);
+  color: white;
+}
+
+/* ---- Page wrapper ---- */
+.page {
+  max-width: 780px;
+  margin: 1.4rem auto;
+  padding: 0 1rem;
+}
+
+/* ---- Cards ---- */
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.4rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  margin-bottom: 1.2rem;
+}
+.card h2 {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  color: #2c3e50;
+  font-weight: 700;
+}
+
+/* ---- Info rows ---- */
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: .45rem 0;
+  border-bottom: 1px solid #f2f2f2;
+}
+.row:last-child { border-bottom: none; }
+.lbl { color: #666; font-size: .88rem; }
+.val {
+  font-weight: 600;
+  color: #2c3e50;
+  text-align: right;
+  word-break: break-all;
+  font-size: .93rem;
+}
+
+/* ---- Inline code ---- */
+code {
+  background: #eef;
+  padding: .15rem .4rem;
+  border-radius: 4px;
+  font-size: .85rem;
+}
+
+/* ---- Form controls ---- */
+input, select {
+  font-size: 1rem;
+  padding: .72rem;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  margin: .4rem 0;
+}
+label {
+  display: block;
+  margin: .75rem 0 .15rem;
+  font-weight: 600;
+  color: #444;
+  font-size: .9rem;
+}
+.pw-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .5rem;
+  align-items: center;
+  margin: .4rem 0;
+}
+.pw-row input { margin: 0; }
+
+/* ---- Buttons ---- */
+.btn {
+  font-size: .95rem;
+  padding: .75rem 1.1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  width: 100%;
+  margin: .4rem 0;
+  display: block;
+}
+.btn-primary   { background: #3498db; color: white; }
+.btn-primary:hover { background: #2980b9; }
+.btn-secondary { background: #95a5a6; color: white; }
+.btn-secondary:hover { background: #7f8c8d; }
+.btn-warn      { background: #e67e22; color: white; }
+.btn-warn:hover { background: #d35400; }
+.btn-danger    { background: #e74c3c; color: white; }
+.btn-danger:hover { background: #c0392b; }
+.btn-sm {
+  display: inline-block;
+  width: auto;
+  padding: .65rem 1rem;
+  margin: 0;
+}
+
+/* ---- Flash messages ---- */
+.msg {
+  padding: .85rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: .92rem;
+}
+.msg.ok  { background: #d5f4e6; color: #1e7e46; border: 1px solid #a3e4bf; }
+.msg.err { background: #fadbd8; color: #922b21; border: 1px solid #f1a8a0; }
+
+/* ---- Badges ---- */
+.badge {
+  display: inline-block;
+  border-radius: 12px;
+  padding: .15rem .65rem;
+  font-size: .82rem;
+  font-weight: 600;
+}
+.badge-green { background: #d5f4e6; color: #1e7e46; }
+.badge-red   { background: #fadbd8; color: #922b21; }
+.badge-grey  { background: #eee;    color: #666; }
+.badge-blue  { background: #d6eaf8; color: #1a5276; }
+
+/* ---- Log / pre blocks ---- */
+pre {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: .78rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 500px;
+  overflow-y: auto;
+  margin: .5rem 0;
+}
+
+/* ---- Unit selector (logs page) ---- */
+.unit-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: .75rem 0;
+}
+.unit-list label {
+  margin: 0;
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  background: #f5f5f5;
+  padding: .4rem .7rem;
+  border-radius: 8px;
+  font-size: .88rem;
+}
+
+/* ---- Two-column layout (system page) ---- */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 520px) {
+  .two-col { grid-template-columns: 1fr; }
+}

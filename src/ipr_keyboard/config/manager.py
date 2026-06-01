@@ -47,7 +47,7 @@ class AppConfig:
     DeleteFiles: bool = True
     Logging: bool = True
     MaxFileSize: int = 1024 * 1024
-    LogPort: int = 8080
+    LogPort: int = 443
     LogLevel: str = "INFO"
     PairingTimeoutSeconds: int = 120
     ReadTimeoutSeconds: int = 10
@@ -57,6 +57,9 @@ class AppConfig:
     StaticIP: str = ""
     StaticNetmask: str = "255.255.255.0"
     StaticGateway: str = ""
+    # TLS certificate paths — read by main.py; not surfaced via the config API.
+    TlsCertFile: str = "/etc/ipr-ssl/server.crt"
+    TlsKeyFile: str = "/etc/ipr-ssl/server.key"
 
     def __post_init__(self) -> None:
         if self.IrisPenFolders is None:

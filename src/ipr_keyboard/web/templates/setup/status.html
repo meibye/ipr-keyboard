@@ -1,0 +1,53 @@
+{% extends "setup/base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Services</h2>
+  {% for svc in services %}
+  <div class="row">
+    <span class="lbl">{{ svc.label }}</span>
+    <span class="val">
+      {% if svc.status == 'active' %}
+        <span class="badge badge-green">active</span>
+      {% else %}
+        <span class="badge badge-red">{{ svc.status }}</span>
+      {% endif %}
+    </span>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>Bluetooth</h2>
+  <div class="row">
+    <span class="lbl">Adapter</span>
+    <span class="val">
+      {% if bt_powered %}
+        <span class="badge badge-green">powered on</span>
+      {% else %}
+        <span class="badge badge-red">powered off</span>
+      {% endif %}
+    </span>
+  </div>
+  {% if bt_devices %}
+    {% for dev in bt_devices %}
+    <div class="row">
+      <span class="lbl">{{ dev.name }}<br>
+        <span style="font-size:.8rem;color:#aaa">{{ dev.mac }}</span>
+      </span>
+      <span class="val">
+        {% if dev.connected %}
+          <span class="badge badge-green">connected</span>
+        {% else %}
+          <span class="badge badge-grey">paired, not connected</span>
+        {% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="row">
+      <span class="lbl">Paired devices</span>
+      <span class="val"><span class="badge badge-grey">none</span></span>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

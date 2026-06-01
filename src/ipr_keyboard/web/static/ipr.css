@@ -1,6 +1,8 @@
 /* =========================================================
    ipr.css — shared stylesheet for IPR Pen Bridge web UI
-   Generated from: dashboard.html, login.html, logs_select.html
+   Covers: dashboard, login, logs_select (no body class needed)
+           index, status, config, logs, pairing  (body.legacy-page)
+           pairing_wizard                         (body.pairing-wizard)
    ========================================================= */
 
   :root {
@@ -629,4 +631,57 @@
       max-height: 60vh;
       min-height: 120px;
     }
-  
+
+
+/* ---- Legacy admin pages (index, status, config, logs, pairing) ---- */
+/* Scoped to body.legacy-page so these rules don't bleed into the dashboard. */
+body.legacy-page {
+  margin: 2em;
+}
+body.legacy-page h1 { font-size: 1.4rem; color: var(--color-text); margin-bottom: 0.5em; }
+body.legacy-page a { display: inline-block; margin-bottom: 1em; color: var(--color-primary); }
+body.legacy-page .section { margin-bottom: 2em; }
+body.legacy-page pre { background: #f8f8f8; padding: 1em; border-radius: 4px; }
+body.legacy-page .ok  { color: var(--color-ready); }
+body.legacy-page .fail { color: var(--color-error); }
+body.legacy-page table { border-collapse: collapse; margin-bottom: 2em; }
+body.legacy-page th,
+body.legacy-page td { border: 1px solid #ccc; padding: 0.5em 1em; }
+body.legacy-page th { background: #f4f4f4; }
+body.legacy-page .btn {
+  background: var(--color-primary); color: #fff;
+  border: none; padding: 0.4em 1em; border-radius: 4px;
+  cursor: pointer; font-size: 1em;
+}
+body.legacy-page .btn:disabled { background: #aaa; }
+body.legacy-page .result { margin-top: 1em; color: var(--color-ready); }
+body.legacy-page .error { color: var(--color-error); }
+body.legacy-page .log-container {
+  border: 1px solid #ccc; background: #f8f8f8;
+  padding: 1em; height: 500px;
+  overflow-y: scroll; font-family: monospace; white-space: pre-wrap;
+}
+body.legacy-page .desc { color: #555; font-size: 0.95em; }
+body.legacy-page .endpoint { font-family: monospace; color: var(--color-primary); }
+
+
+/* ---- Pairing wizard page ---- */
+/* Dark-themed standalone page, scoped to body.pairing-wizard. */
+body.pairing-wizard {
+  background: #111; color: #eee;
+  font-family: sans-serif; padding: 20px; margin: 0;
+}
+body.pairing-wizard h1 { margin-top: 0; }
+body.pairing-wizard .card {
+  background: #222; padding: 15px 18px;
+  border-radius: 8px; margin-bottom: 18px; border: 1px solid #333;
+}
+body.pairing-wizard button {
+  background: #3b82f6; border: none; padding: 8px 14px;
+  color: white; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+}
+body.pairing-wizard button:hover { background: #2563eb; }
+body.pairing-wizard pre {
+  background: #000; padding: 8px 10px; border-radius: 6px;
+  font-size: 0.8rem; max-height: 260px; overflow: auto;
+}

@@ -1,0 +1,39 @@
+{% extends "setup/base.html" %}
+{% block content %}
+<div class="card">
+  <h2>Connect to a Wi-Fi Network</h2>
+  <p style="color:#666;font-size:.88rem;margin-top:0">
+    Optional &mdash; saves credentials so the Pi can also reach the internet.
+    The hotspot stays active; the Pi connects to this network after reboot.
+  </p>
+  <form method="post" action="{{ url_for('setup.connect') }}">
+    <label>Network</label>
+    <select name="ssid" required>
+      {% for ssid in ssids %}
+      <option value="{{ ssid }}">{{ ssid }}</option>
+      {% endfor %}
+    </select>
+    <label>Security</label>
+    <select name="security">
+      <option value="auto">Auto (WPA2)</option>
+      <option value="open">Open</option>
+    </select>
+    <label>Password</label>
+    <div class="pw-row">
+      <input id="psk" name="psk" type="password"
+             placeholder="Wi-Fi password" autocomplete="new-password">
+      <button type="button" class="btn btn-secondary btn-sm"
+        onclick="var f=document.getElementById('psk');f.type=f.type==='password'?'text':'password'">Show</button>
+    </div>
+    <button type="submit" class="btn btn-primary" style="margin-top:.8rem">
+      Save &amp; Connect on Reboot
+    </button>
+  </form>
+</div>
+
+<div class="card">
+  <form method="post" action="{{ url_for('setup.rescan') }}">
+    <button type="submit" class="btn btn-secondary">Rescan Networks</button>
+  </form>
+</div>
+{% endblock %}

@@ -49,12 +49,26 @@ if [[ ! -d "$VENV_DIR" ]]; then
   exit 1
 fi
 
+# Ensure TLS certificates exist before installing the service
+echo "[svc_install_systemd] Ensuring TLS certificates ..."
+CERT_SCRIPT="$SCRIPT_DIR/../headless/gen_ipr_ssl_cert.sh"
+if [[ ! -f /etc/ipr-ssl/server.crt ]]; then
+    if [[ -f "$CERT_SCRIPT" ]]; then
+        bash "$CERT_SCRIPT" --user "$IPR_USER"
+    else
+        echo "WARNING: $CERT_SCRIPT not found — skipping cert generation."
+        echo "         The web server will fall back to plain HTTP on port 443."
+    fi
+else
+    echo "      TLS certificates already present, skipping generation."
+fi
+
 cat <<EOF > "$SERVICE_FILE"
 
 [Unit]
 Description=IrisPen to Bluetooth Keyboard Bridge
-After=network.target bluetooth.target bt_hid_agent_unified.service
-Requires=bt_hid_agent_unified.service
+After=network.target bluetooth.target bt_hid_agent_unified.service ipr-provision.service
+Wants=bt_hid_agent_unified.service
 
 [Service]
 Type=simple
@@ -63,6 +77,8 @@ WorkingDirectory=$PROJECT_DIR
 ExecStart=$VENV_DIR/bin/python -m ipr_keyboard.main
 Restart=on-failure
 RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target
@@ -72,5 +88,7 @@ systemctl daemon-reload
 systemctl enable ipr_keyboard.service
 
 echo "[svc_install_systemd] Service installed and enabled."
-echo "     Start now:   sudo systemctl start ipr_keyboard"
+echo "     Start now:    sudo systemctl start ipr_keyboard"
 echo "     Check status: sudo systemctl status ipr_keyboard"
+echo "     Dashboard:    https://$(hostname -s).local/"
+echo "     Setup UI:     https://10.42.0.1/setup/"

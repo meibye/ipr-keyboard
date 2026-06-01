@@ -3,15 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>IPR Keyboard Web Server</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 2em; }
-        h1 { color: #2c3e50; }
-        ul { line-height: 1.7; }
-        .desc { color: #555; font-size: 0.95em; }
-        .endpoint { font-family: monospace; color: #2980b9; }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='ipr.css') }}">
 </head>
-<body>
+<body class="legacy-page">
     <h1>IPR Keyboard Web Server</h1>
     <p>Welcome! This server provides the following endpoints and features:</p>
     <ul>

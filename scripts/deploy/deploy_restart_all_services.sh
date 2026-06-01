@@ -12,8 +12,8 @@
 #   2. bluetooth (base BT stack, depends on networking)
 #   3. bt_hid_agent_unified (pairing agent, depends on bluetooth)
 #   4. bt_hid_ble (BLE HID daemon, depends on agent)
-#   5. ipr_keyboard (main app, depends on agent)
-#   6. ipr-provision (provisioning service)
+#   5. ipr-provision (hotspot — must be up before ipr_keyboard binds 10.42.0.1)
+#   6. ipr_keyboard (main app + HTTPS web server on port 443)
 #
 # Usage:
 #   sudo ./scripts/deploy/deploy_restart_all_services.sh
@@ -42,11 +42,11 @@ systemctl start bt_hid_agent_unified.service
 echo "[deploy] Starting BLE HID daemon…"
 systemctl start bt_hid_ble.service
 
-echo "[deploy] Starting main application…"
-systemctl start ipr_keyboard.service
-
-echo "[deploy] Starting provisioning service…"
+echo "[deploy] Starting provisioning hotspot…"
 systemctl start ipr-provision.service
+
+echo "[deploy] Starting main application (HTTPS web server)…"
+systemctl start ipr_keyboard.service
 
 echo ""
 echo "[deploy] Status summary:"

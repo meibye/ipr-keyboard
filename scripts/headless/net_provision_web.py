@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# RETIRED — superseded by src/ipr_keyboard/web/setup.py (Flask Blueprint at /setup/).
+# Kept for one release cycle as reference only.  Do not install or run directly.
 """
 IPR Keyboard Management Web Interface
 

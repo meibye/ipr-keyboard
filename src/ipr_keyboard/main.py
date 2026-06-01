@@ -5,9 +5,13 @@ along with a web server for configuration and log viewing.
 """
 from __future__ import annotations
 
+import ssl as _ssl
 import threading
 import time
 from pathlib import Path
+
+_TLS_CERT = Path("/etc/ipr-ssl/server.crt")
+_TLS_KEY  = Path("/etc/ipr-ssl/server.key")
 
 from .config.manager import ConfigManager, log_version_info
 from .config import manager as config_manager
@@ -33,17 +37,25 @@ def log_version_info():
 
 def run_web_server():
     """Run the Flask web server for configuration and log viewing.
-    
-    Starts the web server on the port specified in the configuration,
-    binding to all interfaces (0.0.0.0) to allow remote access.
-    """
-    from .config.manager import ConfigManager
 
+    Uses HTTPS when /etc/ipr-ssl/server.crt and server.key are present
+    (installed by gen_ipr_ssl_cert.sh).  Falls back to plain HTTP so
+    development machines without certs continue to work.
+    """
     cfg = ConfigManager.instance().get()
     app = create_app()
-    logger.info("Starting web server on port %d", cfg.LogPort)
-    # use 0.0.0.0 so you can reach it from your PC
-    app.run(host="0.0.0.0", port=cfg.LogPort, debug=False, use_reloader=False)
+    if _TLS_CERT.exists() and _TLS_KEY.exists():
+        ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(str(_TLS_CERT), str(_TLS_KEY))
+        logger.info("Starting HTTPS server on port %d", cfg.LogPort)
+        app.run(host="0.0.0.0", port=cfg.LogPort, debug=False,
+                use_reloader=False, ssl_context=ctx)
+    else:
+        logger.warning(
+            "TLS cert not found at %s — falling back to HTTP on port %d",
+            _TLS_CERT, cfg.LogPort,
+        )
+        app.run(host="0.0.0.0", port=cfg.LogPort, debug=False, use_reloader=False)
 
 
 def run_usb_bt_loop():

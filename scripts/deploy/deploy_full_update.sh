@@ -12,6 +12,7 @@
 #   2. Install BLE daemon binaries and service files
 #   3. Install Bluetooth keyboard helpers
 #   4. Reload systemd unit files
+#   4b. Generate TLS certificates if not present
 #   5. Restart all services in dependency order
 #
 # For targeted updates (only some parts changed) use the individual deploy_*
@@ -97,12 +98,31 @@ systemctl daemon-reload
 echo "      OK"
 echo ""
 
+# ---- 4b. TLS certificates ----
+CERT_SCRIPT="$SCRIPT_DIR/../headless/gen_ipr_ssl_cert.sh"
+if [[ ! -f /etc/ipr-ssl/server.crt ]]; then
+    echo "[4b/5] Generating TLS certificates…"
+    if [[ -f "$CERT_SCRIPT" ]]; then
+        bash "$CERT_SCRIPT"
+        echo "       OK"
+    else
+        echo "       WARNING: $CERT_SCRIPT not found — skipping."
+    fi
+else
+    echo "[4b/5] TLS certificates already present, skipping generation."
+fi
+echo ""
+
 # ---- 5. Restart services ----
 echo "[5/5] Restarting all services in dependency order…"
 bash "$SCRIPT_DIR/deploy_restart_all_services.sh"
 
+HOSTNAME="$(hostname -s)"
 echo ""
 echo "========================================================"
 echo " Update complete."
+echo " Dashboard:  https://${HOSTNAME}.local/"
+echo " Setup UI:   https://10.42.0.1/setup/"
+echo " CA cert:    https://10.42.0.1/setup/ca.crt"
 echo " Hard-refresh your browser to clear cached dashboard pages."
 echo "========================================================"

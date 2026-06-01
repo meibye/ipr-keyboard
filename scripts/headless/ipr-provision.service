@@ -1,11 +1,11 @@
 [Unit]
-Description=IPR Keyboard Headless Wi-Fi Provisioning Hotspot
-After=network.target
+Description=IPR Keyboard Headless Wi-Fi Hotspot
+After=network.target NetworkManager.service
 
 [Service]
-Type=simple
+Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/local/sbin/ipr-provision.sh
-Restart=on-failure
 User=root
 
 [Install]
