@@ -44,7 +44,13 @@ def run_web_server():
     """
     cfg = ConfigManager.instance().get()
     app = create_app()
-    if _TLS_CERT.exists() and _TLS_KEY.exists():
+    try:
+        tls_ready = _TLS_CERT.exists() and _TLS_KEY.exists()
+    except OSError:
+        # /etc/ipr-ssl/ directory not yet accessible to this user
+        tls_ready = False
+
+    if tls_ready:
         ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(str(_TLS_CERT), str(_TLS_KEY))
         logger.info("Starting HTTPS server on port %d", cfg.LogPort)
@@ -52,7 +58,7 @@ def run_web_server():
                 use_reloader=False, ssl_context=ctx)
     else:
         logger.warning(
-            "TLS cert not found at %s — falling back to HTTP on port %d",
+            "TLS cert not accessible at %s — falling back to HTTP on port %d",
             _TLS_CERT, cfg.LogPort,
         )
         app.run(host="0.0.0.0", port=cfg.LogPort, debug=False, use_reloader=False)

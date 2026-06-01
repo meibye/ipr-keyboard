@@ -73,9 +73,6 @@ log() { echo "[gen_ipr_ssl_cert] $*"; }
 # Directory and group setup
 # ---------------------------------------------------------------------------
 log "Setting up $SSL_DIR ..."
-mkdir -p "$SSL_DIR"
-chmod 0700 "$SSL_DIR"
-
 groupadd -f ipr-ssl
 if id "$APP_USER" &>/dev/null; then
     usermod -aG ipr-ssl "$APP_USER"
@@ -83,6 +80,11 @@ if id "$APP_USER" &>/dev/null; then
 else
     log "WARNING: user '$APP_USER' not found — skipping group membership."
 fi
+
+mkdir -p "$SSL_DIR"
+chown root:ipr-ssl "$SSL_DIR"
+# 0750: root can read/write/list; ipr-ssl group can traverse and read files
+chmod 0750 "$SSL_DIR"
 
 # ---------------------------------------------------------------------------
 # Skip if files exist and --force not set
