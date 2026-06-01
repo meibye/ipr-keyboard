@@ -71,13 +71,15 @@ printf "eth0: $(cat /sys/class/net/eth0/operstate 2>/dev/null || echo absent)  w
 
 ### 1. `net_provision_hotspot.sh` — Permanent Management Hotspot
 
-**Goal:** Verify the permanent management hotspot starts on wlan0 and the web UI is reachable.
+**Goal:** Verify the permanent management hotspot starts on wlan0 and `/etc/ipr-hotspot.secret` is generated.
 
 > The hotspot is **always-on** — it starts unconditionally at boot and is not gated on whether a known Wi-Fi is reachable. An optional GPIO gate (`HOTSPOT_GPIO_PIN` env var) can restrict startup to a held-low pin, but is not set by default.
+>
+> **Architecture note:** `net_provision_hotspot.sh` is a oneshot script — it sets up the NM hotspot connection and exits. Port 443 is served by `ipr_keyboard.service` (the main Flask app, which includes the `/setup/` Blueprint). `ipr-provision.service` is `Type=oneshot`/`RemainAfterExit`.
 
 **Setup:**
 - Remove any existing hotspot connection to force a clean run:
-  ```bas
+  ```bash
   sudo nmcli con delete ipr-hotspot 2>/dev/null || true
   ```
 - Remove any stale secret to force credential regeneration:
@@ -94,14 +96,14 @@ The script will:
 1. Generate credentials in `/etc/ipr-hotspot.secret` (SSID and password)
 2. Create or update the `ipr-hotspot` NetworkManager connection
 3. Configure WPA2-RSN+CCMP (maximum client compatibility — iOS, Android, all laptops)
-4. `exec` the management web UI at `http://10.42.0.1/`
+4. Exit (hotspot stays up via NetworkManager; web UI served by `ipr_keyboard.service`)
 
 **Expected outcome:**
 - `sudo nmcli con show` lists `ipr-hotspot` as active
 - `ip addr show wlan0` shows `10.42.0.1/24`
 - `/etc/ipr-hotspot.secret` contains `SSID=ipr-setup-XXXX` and `PASS=<hex>`
 - A second device can see and join the hotspot SSID (`ipr-setup-<suffix>`)
-- After joining, `http://10.42.0.1/` serves the management web UI (HTTP Basic Auth required — see test 2)
+- After joining, `https://10.42.0.1/setup/` serves the management web UI when `ipr_keyboard.service` is running
 
 **GPIO gate variant (optional):**
 ```bash
@@ -118,22 +120,16 @@ sudo HOTSPOT_GPIO_PIN=27 bash ~/dev/ipr-keyboard/scripts/headless/net_provision_
 
 ---
 
-### 2. `net_provision_web.py` — Wi-Fi Provisioning UI
+### 2. Provisioning Web UI (`/setup/` in `ipr_keyboard.service`)
 
-**Goal:** Verify the management web UI scans networks and can connect the Pi to a known AP.
+**Goal:** Verify the management web UI at `https://10.42.0.1/setup/` scans networks and can connect the Pi to a known AP.
 
-> `net_provision_hotspot.sh` launches this script automatically via `exec` after the hotspot is up. In normal operation you do not run it separately. Run it manually only for isolated testing.
+> **Architecture:** `net_provision_web.py` is **retired** — superseded by the `/setup/` Blueprint in `src/ipr_keyboard/web/setup.py`. The web UI is now served by `ipr_keyboard.service` (the main Flask app) on port 443. `ipr-provision.service` only sets up the hotspot; it does not run a web server.
 
-**Setup:**
+**Prerequisites:**
 - Hotspot must be active (run test 1 first, or start hotspot manually)
+- `ipr_keyboard.service` must be running (`sudo systemctl start ipr_keyboard`)
 - Connect a laptop/phone to the hotspot
-- The script reads credentials from `/etc/ipr-hotspot.secret` — run test 1 first so this file exists
-
-**Running manually (for isolated testing):**
-```bash
-sudo python3 ~/dev/ipr-keyboard/scripts/headless/net_provision_web.py
-```
-From the connected device, open `http://10.42.0.1/`
 
 **Authentication:**
 The UI requires HTTP Basic Auth:
@@ -142,20 +138,20 @@ The UI requires HTTP Basic Auth:
 
 This is the same password used to join the hotspot SSID. A browser will prompt for credentials on first visit.
 
-If `/etc/ipr-hotspot.secret` is missing, auth is disabled and a warning is printed to stdout.
+**URL:** `https://10.42.0.1/setup/` (accept the self-signed cert warning)
 
 **Expected outcome:**
-- Page loads with a dropdown of visible SSIDs (own hotspot SSID is excluded from the list)
+- Unauthenticated request to `/setup/` returns 401
+- Authenticated request returns 200
+- Page loads with a dropdown of visible SSIDs (own hotspot SSID is excluded)
 - Rescan button triggers a fresh network scan
-- Entering valid credentials and submitting connects the Pi to the target Wi-Fi
-- Success page shown with note that the hotspot remains active; SSH address shown as `ipr-dev-pi4.local`
-- `sudo nmcli con show` confirms new connection is active
+- Entering valid credentials and submitting saves the Wi-Fi profile for next boot
+- `sudo nmcli con show` confirms new connection profile was created
 
 **Edge cases to verify:**
 - Submit with no password on a secured network → connection error displayed
 - Submit with wrong password → nmcli error displayed (HTML-escaped)
-- No networks found state → UI shows "(no networks found — try rescan)"
-- More than 5 failed connect attempts from the same IP within 60 seconds → HTTP 429 returned
+- No networks found state → UI shows appropriate message
 
 ---
 
@@ -241,29 +237,27 @@ sudo bash ~/dev/ipr-keyboard/scripts/headless/net_factory_reset.sh
 
 ### 6. `ipr-provision.service` — systemd Service Unit
 
-**Goal:** Verify the service unit installs and keeps `net_provision_hotspot.sh` (and the web UI it launches) running correctly.
+**Goal:** Verify the service unit installs, enables, and sets up the hotspot at boot.
 
-> The service is `Type=simple` with `Restart=on-failure`. Because `net_provision_hotspot.sh` ends with `exec python3 /usr/local/sbin/ipr-provision-web.py`, the service process stays alive for as long as the web server runs — it is not a one-shot unit.
+> **Architecture:** `ipr-provision.service` is `Type=oneshot`/`RemainAfterExit`. It runs `net_provision_hotspot.sh` once at boot to configure the NM hotspot, then exits. systemd reports the service as `active` after exit because of `RemainAfterExit=yes`. Port 443 is served by `ipr_keyboard.service` (which starts after this service completes), not by this unit.
 
 **Steps:**
 ```bash
-# Install scripts to expected paths
+# Install script to expected path
 sudo cp ~/dev/ipr-keyboard/scripts/headless/net_provision_hotspot.sh /usr/local/sbin/ipr-provision.sh
 sudo chmod +x /usr/local/sbin/ipr-provision.sh
-sudo cp ~/dev/ipr-keyboard/scripts/headless/net_provision_web.py /usr/local/sbin/ipr-provision-web.py
-sudo chmod +x /usr/local/sbin/ipr-provision-web.py
 
 # Install service
-sudo cp ~/headless-test/ipr-provision.service /etc/systemd/system/
+sudo cp ~/dev/ipr-keyboard/scripts/headless/ipr-provision.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable ipr-provision
 sudo systemctl start ipr-provision
 ```
 
 **Expected outcome:**
-- `systemctl status ipr-provision` shows `active (running)` while the web server is up
-- Hotspot activates (same as test 1)
-- Web UI is reachable at `http://10.42.0.1/` (same as test 2)
+- `systemctl status ipr-provision` shows `active` (RemainAfterExit)
+- Hotspot activates — `wlan0` has `10.42.0.1`, `ipr-hotspot` NM connection is active
+- Port 443 is **not** served by this service (see `ipr_keyboard.service` for web UI)
 - After reboot: `journalctl -u ipr-provision` shows service ran at boot
 
 ---

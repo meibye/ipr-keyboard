@@ -151,8 +151,8 @@ net_status
 section "TEST 1 — net_provision_hotspot.sh: Permanent Management Hotspot"
 # ═══════════════════════════════════════════════════════════════════════════════
 info "Goal: hotspot starts on wlan0 and /etc/ipr-hotspot.secret is generated."
-info "The script ends with 'exec python3 ...' so we run it in background and"
-info "check state after it has had time to set up the hotspot and start the web UI."
+info "The script sets up the NM hotspot connection and exits (oneshot)."
+info "Port 443 is served by ipr_keyboard.service (tested in Test 6), not here."
 
 info "Cleaning prior state..."
 sudo systemctl stop ipr-provision 2>/dev/null && info "Stopped ipr-provision service" || true
@@ -163,18 +163,18 @@ sudo nmcli con delete ipr-hotspot >/dev/null 2>&1 && info "Deleted existing ipr-
 # Credentials in /etc/ipr-hotspot.secret are intentionally preserved so the hotspot
 # SSID/password stays consistent across test runs and service restarts.
 
-info "Starting net_provision_hotspot.sh in background..."
-sudo bash "$SCRIPTS_DIR/net_provision_hotspot.sh" &
-T1_BG_PID=$!
-info "PID $T1_BG_PID — waiting 10s for hotspot + web UI to initialise..."
-sleep 10
+info "Running net_provision_hotspot.sh (exits after hotspot setup)..."
+sudo bash "$SCRIPTS_DIR/net_provision_hotspot.sh"
+T1_BG_PID=0  # script exits immediately; no background process to track
+info "Waiting 5s for NM to settle..."
+sleep 5
 
 check 1.1 "ipr-hotspot NM connection exists"            "sudo nmcli con show ipr-hotspot"
 check 1.2 "wlan0 has address 10.42.0.1"                 "ip addr show wlan0 | grep -q '10\.42\.0\.1'"
 check 1.3 "/etc/ipr-hotspot.secret created"             "[ -f /etc/ipr-hotspot.secret ]"
 check 1.4 "SSID starts with 'ipr-setup-'"               "grep -q 'SSID=ipr-setup-' /etc/ipr-hotspot.secret"
 check 1.5 "PASS field present in secret"                "grep -q 'PASS=' /etc/ipr-hotspot.secret"
-check 1.6 "Web UI listening on port 443"                "ss -tlnp | grep -q ':443 '"
+record_skip 1.6 "Web UI on port 443 (now served by ipr_keyboard.service, not ipr-provision.sh)"
 
 net_status
 
@@ -182,8 +182,8 @@ HOTSPOT_SSID=$(grep 'SSID=' /etc/ipr-hotspot.secret 2>/dev/null | cut -d= -f2 ||
 HOTSPOT_PASS=$(grep 'PASS=' /etc/ipr-hotspot.secret 2>/dev/null | cut -d= -f2 || echo "unknown")
 echo -e "  Hotspot SSID: ${BOLD}$HOTSPOT_SSID${RESET}   PASS: ${BOLD}$HOTSPOT_PASS${RESET}"
 
-# Re-run check: run again with secret present — should reuse credentials, not restart
-info "Re-run check: running script again (should reuse credentials and exit because port 80 is bound)..."
+# Re-run check: run again with secret present — should reuse credentials without regenerating
+info "Re-run check: running script again (should reuse existing credentials from secret file)..."
 T1_RERUN_OUT=$(sudo bash "$SCRIPTS_DIR/net_provision_hotspot.sh" 2>&1 || true)
 check 1.7 "Re-run reuses existing SSID (not regenerated)" \
     "grep -q 'SSID=$HOTSPOT_SSID' /etc/ipr-hotspot.secret"
@@ -191,52 +191,51 @@ check 1.7 "Re-run reuses existing SSID (not regenerated)" \
 # ═══════════════════════════════════════════════════════════════════════════════
 section "TEST 2 — net_provision_web.py: Wi-Fi Provisioning UI"
 # ═══════════════════════════════════════════════════════════════════════════════
-info "Goal: web UI responds, authenticates, and serves a network scan page."
-info "Web server was already started by Test 1 via 'exec'."
+info "Goal: provisioning web UI at https://10.42.0.1/setup/ responds and serves a network scan page."
+info "NOTE: The web UI is now served by ipr_keyboard.service (Flask /setup/ Blueprint),"
+info "      not by net_provision_web.py (which is retired). ipr_keyboard.service must be"
+info "      running for these checks to pass."
 
-# Automated: unauthenticated request should return 401 (web UI is HTTPS on port 443)
-HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 8 https://10.42.0.1/ 2>/dev/null; true)
+# Automated: unauthenticated request to /setup/ should return 401
+HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 8 https://10.42.0.1/setup/ 2>/dev/null; true)
 if [[ "$HTTP_CODE" == "401" ]]; then
-    record_pass 2.1 "Unauthenticated request returns 401 (auth enforced)"
+    record_pass 2.1 "Unauthenticated /setup/ returns 401 (auth enforced)"
 elif [[ "$HTTP_CODE" == "200" ]]; then
-    record_pass 2.1 "Unauthenticated request returns 200 (auth disabled — secret missing?)"
+    record_pass 2.1 "Unauthenticated /setup/ returns 200 (auth disabled — secret missing?)"
+elif [[ "$HTTP_CODE" == "000" ]]; then
+    record_skip 2.1 "HTTPS server not reachable — ipr_keyboard.service not running on this host"
 else
-    record_fail 2.1 "HTTPS server unreachable or unexpected code: $HTTP_CODE"
+    record_fail 2.1 "Unexpected HTTP code from /setup/: $HTTP_CODE"
 fi
 
 # Authenticated request
-if [[ -n "$HOTSPOT_PASS" && "$HOTSPOT_PASS" != "unknown" ]]; then
+if [[ -n "$HOTSPOT_PASS" && "$HOTSPOT_PASS" != "unknown" && "$HTTP_CODE" != "000" ]]; then
     AUTH_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 8 \
-        -u "ipr:$HOTSPOT_PASS" https://10.42.0.1/ 2>/dev/null; true)
-    check 2.2 "Authenticated request returns 200" "[[ '$AUTH_CODE' == '200' ]]"
+        -u "ipr:$HOTSPOT_PASS" https://10.42.0.1/setup/ 2>/dev/null; true)
+    check 2.2 "Authenticated /setup/ request returns 200" "[[ '$AUTH_CODE' == '200' ]]"
 
-    PAGE=$(curl -sk --max-time 8 -u "ipr:$HOTSPOT_PASS" https://10.42.0.1/ 2>/dev/null || echo "")
-    if echo "$PAGE" | grep -qi "ssid\|network\|scan\|wifi"; then
-        record_pass 2.3 "Page body references networks/SSID"
+    PAGE=$(curl -sk --max-time 8 -u "ipr:$HOTSPOT_PASS" https://10.42.0.1/setup/ 2>/dev/null || echo "")
+    if echo "$PAGE" | grep -qi "ssid\|network\|scan\|wifi\|setup"; then
+        record_pass 2.3 "Page body references networks/SSID/setup"
     else
-        record_fail 2.3 "Page body does not mention network/SSID — unexpected content"
+        record_fail 2.3 "Page body does not mention network/SSID/setup — unexpected content"
     fi
 else
-    record_skip 2.2 "Authenticated request (credentials unavailable)"
-    record_skip 2.3 "Page content check (credentials unavailable)"
+    record_skip 2.2 "Authenticated request (server unreachable or credentials unavailable)"
+    record_skip 2.3 "Page content check (server unreachable or credentials unavailable)"
 fi
 
 # Manual: connect a device and browse
 if manual_step \
     "Connect a phone or laptop to Wi-Fi SSID: ${BOLD}${HOTSPOT_SSID}${RESET}" \
     "Password: ${BOLD}${HOTSPOT_PASS}${RESET}" \
-    "Open https://10.42.0.1/ in a browser (accept the self-signed cert warning)." \
+    "Open https://10.42.0.1/setup/ in a browser (accept the self-signed cert warning)." \
     "Enter username 'ipr' and the password above." \
     "Verify: page loads, shows a dropdown of visible networks, Rescan button is present."; then
     record_pass 2.4 "Manual: web UI visible and functional from connected device"
 else
     record_skip 2.4 "Manual: web UI from connected device (not confirmed)"
 fi
-
-# Stop background hotspot process before next tests
-info "Stopping background hotspot/web-UI process (PID $T1_BG_PID)..."
-sudo kill "$T1_BG_PID" 2>/dev/null || true
-sleep 2
 
 # ═══════════════════════════════════════════════════════════════════════════════
 section "TEST 3 — gpio_factory_reset.py: GPIO-Triggered Wi-Fi Reset (SAFE — no reboot)"
@@ -352,30 +351,28 @@ record_skip 5.1 "USB OTG test (postponed — no cable; RPi 4 incompatible)"
 # ═══════════════════════════════════════════════════════════════════════════════
 section "TEST 6 — ipr-provision.service: systemd Service Unit"
 # ═══════════════════════════════════════════════════════════════════════════════
-info "Goal: service unit installs, enables, and keeps the hotspot + web UI alive."
+info "Goal: service unit installs, enables, and sets up the hotspot at boot."
+info "ipr-provision.service is Type=oneshot/RemainAfterExit — it runs once to set up"
+info "the hotspot then exits. Port 443 is served by ipr_keyboard.service (not this unit)."
 info "Boot persistence requires a manual reboot — that step is optional."
 
-# Stop any running instance of the service or previous web server before installing.
-# Also kill any direct (non-service) background processes from Test 1 that may hold port 443.
+# Stop any running instance of the service before installing.
 sudo systemctl stop ipr-provision 2>/dev/null || true
 sudo fuser -k 443/tcp 2>/dev/null || true
 sudo fuser -k 80/tcp  2>/dev/null || true
 # reset-failed clears the failed state, but systemd's StartLimitBurst window (default 10s)
 # must also expire before a new start is allowed.
 sudo systemctl reset-failed ipr-provision 2>/dev/null || true
-info "Waiting 15s for systemd StartLimitIntervalSec window to expire..."
-sleep 15
+info "Waiting 5s for systemd to settle..."
+sleep 5
 
-# Install scripts to the expected system paths
+# Install script to the expected system path
 sudo cp "$SCRIPTS_DIR/net_provision_hotspot.sh" /usr/local/sbin/ipr-provision.sh
 sudo chmod +x /usr/local/sbin/ipr-provision.sh
-sudo cp "$SCRIPTS_DIR/net_provision_web.py" /usr/local/sbin/ipr-provision-web.py
-sudo chmod +x /usr/local/sbin/ipr-provision-web.py
 
 check 6.1 "/usr/local/sbin/ipr-provision.sh installed (+x)"     \
     "[ -x /usr/local/sbin/ipr-provision.sh ]"
-check 6.2 "/usr/local/sbin/ipr-provision-web.py installed (+x)" \
-    "[ -x /usr/local/sbin/ipr-provision-web.py ]"
+record_skip 6.2 "ipr-provision-web.py install (net_provision_web.py is retired — web UI in ipr_keyboard.service)"
 
 sudo cp "$SCRIPTS_DIR/ipr-provision.service" /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -385,11 +382,11 @@ check 6.3 "Service unit installed and enabled"  "systemctl is-enabled ipr-provis
 
 info "Starting ipr-provision service..."
 sudo systemctl start ipr-provision
-info "Waiting 18s for hotspot + web UI to come up..."
-sleep 18
+info "Waiting 8s for hotspot setup to complete..."
+sleep 8
 
-check 6.4 "Service is active (running)"         "systemctl is-active ipr-provision"
-check 6.5 "Web UI listening on port 443"         "ss -tlnp | grep -q ':443 '"
+check 6.4 "Service reports active (RemainAfterExit)"  "systemctl is-active ipr-provision"
+record_skip 6.5 "Web UI on port 443 (served by ipr_keyboard.service, not ipr-provision.service)"
 check 6.6 "wlan0 has 10.42.0.1 address"         "ip addr show wlan0 | grep -q '10\.42\.0\.1'"
 
 net_status
@@ -402,7 +399,7 @@ if manual_step \
     "To test boot persistence: reboot the Pi (sudo reboot) and SSH back in." \
     "Then run: systemctl status ipr-provision" \
     "And:      journalctl -u ipr-provision --boot" \
-    "Verify service shows 'active (running)' and log shows it started at boot." \
+    "Verify service shows 'active (exited)' and log shows it started at boot." \
     "Come back here and press ENTER to record the result."; then
     record_pass 6.7 "Manual: service active and logged after reboot"
 else

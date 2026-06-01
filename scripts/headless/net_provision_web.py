@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # RETIRED — superseded by src/ipr_keyboard/web/setup.py (Flask Blueprint at /setup/).
-# Kept for one release cycle as reference only.  Do not install or run directly.
+# The provisioning web UI is now served by ipr_keyboard.service on port 443 at https://10.42.0.1/setup/.
+# ipr-provision.service is now Type=oneshot and does not run a web server.
+# Kept as reference only.  Do not install or run directly.
 """
 IPR Keyboard Management Web Interface
 
