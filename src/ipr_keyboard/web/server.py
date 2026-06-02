@@ -100,6 +100,10 @@ def create_app() -> Flask:
         if not session.get("username"):
             if path.startswith("/api/"):
                 return jsonify({"error": {"code": "unauthenticated", "message": "Login required."}}), 401
+            # Clients on the management hotspot (10.42.0.x) should use the
+            # setup login, not the main dashboard login.
+            if (request.remote_addr or "").startswith("10.42.0."):
+                return redirect(url_for("setup.login_page"))
             return redirect(url_for("login"))
 
     @app.route("/login", methods=["GET", "POST"])

@@ -195,37 +195,51 @@ info "Goal: provisioning web UI at https://10.42.0.1/setup/ responds and serves 
 info "NOTE: The web UI is now served by ipr_keyboard.service (Flask /setup/ Blueprint),"
 info "      not by net_provision_web.py (which is retired). ipr_keyboard.service must be"
 info "      running for these checks to pass."
-info "NOTE: HTTP Basic Auth credentials are cached by the browser per origin per session."
-info "      A fresh device connecting for the first time will always see a login prompt."
-info "      To simulate a first-time login, use a private/incognito tab or visit /setup/logout."
+info "NOTE: Auth is form-based (POST to /setup/login, session cookie). Not HTTP Basic Auth."
 
-# Automated: unauthenticated request to /setup/ should return 401
-HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 8 https://10.42.0.1/setup/ 2>/dev/null; true)
-if [[ "$HTTP_CODE" == "401" ]]; then
-    record_pass 2.1 "Unauthenticated /setup/ returns 401 (auth enforced)"
-elif [[ "$HTTP_CODE" == "200" ]]; then
-    record_pass 2.1 "Unauthenticated /setup/ returns 200 (auth disabled — secret missing?)"
+_T2_COOKIE_JAR=$(mktemp /tmp/ipr_t2_cookies_XXXX.txt)
+_cleanup_t2() { rm -f "$_T2_COOKIE_JAR"; }
+trap _cleanup_t2 EXIT
+
+# 2.1 — unauthenticated /setup/ must redirect to /setup/login (302)
+HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 8 \
+    https://10.42.0.1/setup/ 2>/dev/null; true)
+if [[ "$HTTP_CODE" == "302" ]]; then
+    record_pass 2.1 "Unauthenticated /setup/ returns 302 (redirects to /setup/login)"
 elif [[ "$HTTP_CODE" == "000" ]]; then
     record_skip 2.1 "HTTPS server not reachable — ipr_keyboard.service not running on this host"
 else
-    record_fail 2.1 "Unexpected HTTP code from /setup/: $HTTP_CODE"
+    record_fail 2.1 "Unexpected HTTP code from /setup/: $HTTP_CODE (expected 302 redirect)"
 fi
 
-# Authenticated request
+# 2.2/2.3/2.4 — form login then authenticated requests
 if [[ -n "$HOTSPOT_PASS" && "$HOTSPOT_PASS" != "unknown" && "$HTTP_CODE" != "000" ]]; then
-    AUTH_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 8 \
-        -u "ipr:$HOTSPOT_PASS" https://10.42.0.1/setup/ 2>/dev/null; true)
-    check 2.2 "Authenticated /setup/ request returns 200" "[[ '$AUTH_CODE' == '200' ]]"
+    # POST login form; server sets session cookie and returns 302 on success
+    LOGIN_CODE=$(curl -sk -c "$_T2_COOKIE_JAR" -o /dev/null -w "%{http_code}" --max-time 8 \
+        -X POST \
+        --data-urlencode "username=ipr" \
+        --data-urlencode "password=$HOTSPOT_PASS" \
+        https://10.42.0.1/setup/login 2>/dev/null; true)
+    check 2.2 "Login POST to /setup/login returns 302 (session cookie set)" \
+        "[[ '$LOGIN_CODE' == '302' ]]"
 
-    PAGE=$(curl -sk --max-time 8 -u "ipr:$HOTSPOT_PASS" https://10.42.0.1/setup/ 2>/dev/null || echo "")
-    if echo "$PAGE" | grep -qi "ssid\|network\|scan\|wifi\|setup"; then
-        record_pass 2.3 "Page body references networks/SSID/setup"
+    # Follow up with session cookie — /setup/ should now return 200
+    AUTH_CODE=$(curl -sk -b "$_T2_COOKIE_JAR" -o /dev/null -w "%{http_code}" --max-time 8 \
+        https://10.42.0.1/setup/ 2>/dev/null; true)
+    check 2.3 "Authenticated /setup/ returns 200 (session accepted)" \
+        "[[ '$AUTH_CODE' == '200' ]]"
+
+    PAGE=$(curl -sk -b "$_T2_COOKIE_JAR" --max-time 8 \
+        https://10.42.0.1/setup/ 2>/dev/null || echo "")
+    if echo "$PAGE" | grep -qi "ssid\|network\|scan\|wifi\|setup\|hotspot"; then
+        record_pass 2.4 "Page body references networks/SSID/setup/hotspot"
     else
-        record_fail 2.3 "Page body does not mention network/SSID/setup — unexpected content"
+        record_fail 2.4 "Page body does not mention network/SSID/setup — unexpected content"
     fi
 else
-    record_skip 2.2 "Authenticated request (server unreachable or credentials unavailable)"
-    record_skip 2.3 "Page content check (server unreachable or credentials unavailable)"
+    record_skip 2.2 "Login POST (server unreachable or credentials unavailable)"
+    record_skip 2.3 "Authenticated request (server unreachable or credentials unavailable)"
+    record_skip 2.4 "Page content check (server unreachable or credentials unavailable)"
 fi
 
 # Manual: connect a device and browse
@@ -233,13 +247,13 @@ if manual_step \
     "Connect a phone or laptop to Wi-Fi SSID: ${BOLD}${HOTSPOT_SSID}${RESET}" \
     "Password: ${BOLD}${HOTSPOT_PASS}${RESET}" \
     "Open https://10.42.0.1/setup/ in a browser (accept the self-signed cert warning)." \
-    "You should be redirected to https://10.42.0.1/setup/login (form-based sign in)." \
+    "You will be redirected to https://10.42.0.1/setup/login (form-based sign in)." \
     "Username is pre-filled as 'ipr'. Enter the hotspot password above and sign in." \
     "If already signed in from a previous session, visit /setup/logout first to clear it." \
     "Verify: after login, shows device info; nav bar has Home/Status/Wi-Fi/Logs/System/Sign out."; then
-    record_pass 2.4 "Manual: web UI visible and functional from connected device"
+    record_pass 2.5 "Manual: web UI visible and functional from connected device"
 else
-    record_skip 2.4 "Manual: web UI from connected device (not confirmed)"
+    record_skip 2.5 "Manual: web UI from connected device (not confirmed)"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════

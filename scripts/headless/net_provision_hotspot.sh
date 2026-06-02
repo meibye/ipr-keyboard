@@ -55,6 +55,10 @@ machine_suffix() {
 
 load_or_generate_secret() {
   if [[ -f "${SECRET_FILE}" ]]; then
+    # Ensure correct ownership/permissions in case file was created by an older version
+    # (old default was root:root 0600; Flask app needs group-read via ipr-ssl).
+    chown root:ipr-ssl "${SECRET_FILE}" 2>/dev/null || true
+    chmod 0640 "${SECRET_FILE}" 2>/dev/null || true
     # shellcheck source=/dev/null
     source "${SECRET_FILE}"
     [[ -n "${SSID:-}" && -n "${PASS:-}" ]] && return
@@ -137,7 +141,7 @@ ensure_hotspot_connection() {
 
   apply_wpa2_rsn
   nmcli con up "${HOTSPOT_CON}"
-  log "Hotspot up with WPA2-RSN+CCMP. SSID=${SSID}  URL=https://10.42.0.1/"
+  log "Hotspot up with WPA2-RSN+CCMP. SSID=${SSID}  URL=https://10.42.0.1/setup/"
 }
 
 # ---------------------------------------------------------------------------
