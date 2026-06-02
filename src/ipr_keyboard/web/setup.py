@@ -2,8 +2,8 @@
 Setup / provisioning Blueprint  (/setup/)
 
 Provides a simple management interface accessible via the Wi-Fi hotspot.
-Authentication uses HTTP Basic Auth with the hotspot password from
-/etc/ipr-hotspot.secret.  All routes except /setup/ca.crt require auth.
+Authentication uses a form-based session login (username "ipr", password from
+/etc/ipr-hotspot.secret).  Login is at /setup/login; /setup/ca.crt is public.
 
 This blueprint supersedes scripts/headless/net_provision_web.py.
 """
@@ -23,6 +23,7 @@ from flask import (
     render_template,
     request,
     send_file,
+    session,
     url_for,
 )
 
@@ -32,7 +33,8 @@ _SECRET_FILE = Path("/etc/ipr-hotspot.secret")
 _CA_CERT_FILE = Path("/etc/ipr-ssl/ca.crt")
 _SERVER_CERT_FILE = Path("/etc/ipr-ssl/server.crt")
 _CERT_RENEW_SCRIPT = Path("/usr/local/sbin/ipr-cert-renew.sh")
-_BASIC_AUTH_USER = "ipr"
+_SETUP_USER = "ipr"
+_SESSION_KEY = "setup_ok"
 
 _LOG_UNITS = [
     "ipr_keyboard.service",
@@ -64,7 +66,7 @@ def _check_rate(ip: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# HTTP Basic Auth
+# Auth helpers
 # ---------------------------------------------------------------------------
 
 def _load_hotspot_password() -> str:
@@ -79,20 +81,11 @@ def _load_hotspot_password() -> str:
     return ""
 
 
-def require_basic_auth(f):
+def require_login(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        ip = request.remote_addr or "unknown"
-        if not _check_rate(ip):
-            return "Too many attempts — wait 60 seconds and try again.", 429
-        auth = request.authorization
-        password = _load_hotspot_password()
-        if not auth or auth.username != _BASIC_AUTH_USER or auth.password != password:
-            return (
-                "Unauthorized",
-                401,
-                {"WWW-Authenticate": 'Basic realm="IPR Keyboard"'},
-            )
+        if not session.get(_SESSION_KEY):
+            return redirect(url_for("setup.login_page", next=request.path))
         return f(*args, **kwargs)
     return decorated
 
@@ -295,17 +288,37 @@ def _save_wifi_profile(ssid: str, psk: str, sec: str) -> None:
 # Routes
 # ---------------------------------------------------------------------------
 
-@bp_setup.get("/logout")
+@bp_setup.get("/login")
+def login_page():
+    if session.get(_SESSION_KEY):
+        return redirect(url_for("setup.home"))
+    return render_template("setup/login.html", error=None)
+
+
+@bp_setup.post("/login")
+def login_submit():
+    ip = request.remote_addr or "unknown"
+    if not _check_rate(ip):
+        return render_template(
+            "setup/login.html",
+            error="Too many attempts — wait 60 seconds and try again.",
+        ), 429
+    username = (request.form.get("username") or "").strip()
+    password = request.form.get("password") or ""
+    expected = _load_hotspot_password()
+    if username == _SETUP_USER and expected and password == expected:
+        session[_SESSION_KEY] = True
+        next_url = request.args.get("next", "")
+        if next_url and next_url.startswith("/setup/") and ".." not in next_url:
+            return redirect(next_url)
+        return redirect(url_for("setup.home"))
+    return render_template("setup/login.html", error="Invalid username or password."), 401
+
+
+@bp_setup.route("/logout")
 def logout():
-    """Clear Basic Auth credentials by returning 401 with the same realm."""
-    return (
-        render_template("setup/logout.html"),
-        401,
-        {
-            "WWW-Authenticate": 'Basic realm="IPR Keyboard"',
-            "Cache-Control": "no-store",
-        },
-    )
+    session.pop(_SESSION_KEY, None)
+    return redirect(url_for("setup.login_page"))
 
 
 @bp_setup.get("/ca.crt")
@@ -322,7 +335,7 @@ def download_ca_cert():
 
 
 @bp_setup.get("/")
-@require_basic_auth
+@require_login
 def home():
     hotspot_ssid, hotspot_pass = _read_hotspot_secret()
     msg, ok = "", False
@@ -347,7 +360,7 @@ def home():
 
 
 @bp_setup.get("/status")
-@require_basic_auth
+@require_login
 def status():
     services = [
         {"label": "IPR Keyboard",   "status": _service_status("ipr_keyboard.service")},
@@ -367,7 +380,7 @@ def status():
 
 
 @bp_setup.get("/wifi")
-@require_basic_auth
+@require_login
 def wifi():
     _trigger_scan_background()
     with _scan_lock:
@@ -381,7 +394,7 @@ def wifi():
 
 
 @bp_setup.post("/rescan")
-@require_basic_auth
+@require_login
 def rescan():
     _trigger_scan_background()
     with _scan_lock:
@@ -396,12 +409,8 @@ def rescan():
 
 
 @bp_setup.post("/connect")
-@require_basic_auth
+@require_login
 def connect():
-    ip = request.remote_addr or "unknown"
-    if not _check_rate(ip):
-        return "Too many attempts — wait 60 seconds and try again.", 429
-
     ssid = (request.form.get("ssid") or "").strip()
     psk = request.form.get("psk") or ""
     sec = request.form.get("security") or "auto"
@@ -430,7 +439,7 @@ def connect():
 
 
 @bp_setup.get("/logs")
-@require_basic_auth
+@require_login
 def logs():
     selected = request.args.getlist("unit") or ["ipr_keyboard.service"]
     cmd = ["journalctl", "-n", "200", "-o", "short", "--no-pager"]
@@ -455,7 +464,7 @@ def logs():
 
 
 @bp_setup.get("/system")
-@require_basic_auth
+@require_login
 def system():
     msg = request.args.get("msg", "")
     ok = request.args.get("ok", "0") == "1"
@@ -469,7 +478,7 @@ def system():
 
 
 @bp_setup.post("/renew-cert")
-@require_basic_auth
+@require_login
 def renew_cert():
     if not _CERT_RENEW_SCRIPT.exists():
         return render_template(
@@ -523,7 +532,7 @@ def renew_cert():
 
 
 @bp_setup.post("/reboot")
-@require_basic_auth
+@require_login
 def reboot():
     subprocess.Popen(["sudo", "reboot"])
     return render_template(
@@ -537,7 +546,7 @@ def reboot():
 
 
 @bp_setup.post("/shutdown")
-@require_basic_auth
+@require_login
 def shutdown():
     subprocess.Popen(["sudo", "shutdown", "-h", "now"])
     return render_template(

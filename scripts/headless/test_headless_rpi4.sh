@@ -233,10 +233,10 @@ if manual_step \
     "Connect a phone or laptop to Wi-Fi SSID: ${BOLD}${HOTSPOT_SSID}${RESET}" \
     "Password: ${BOLD}${HOTSPOT_PASS}${RESET}" \
     "Open https://10.42.0.1/setup/ in a browser (accept the self-signed cert warning)." \
-    "If the page loads without a login prompt, open https://10.42.0.1/setup/logout first" \
-    "  (or use a private/incognito tab) to clear cached credentials." \
-    "Enter username 'ipr' and the hotspot password above when prompted." \
-    "Verify: page loads, shows device info, nav bar shows Home/Status/Wi-Fi/Logs/System/Sign out."; then
+    "You should be redirected to https://10.42.0.1/setup/login (form-based sign in)." \
+    "Username is pre-filled as 'ipr'. Enter the hotspot password above and sign in." \
+    "If already signed in from a previous session, visit /setup/logout first to clear it." \
+    "Verify: after login, shows device info; nav bar has Home/Status/Wi-Fi/Logs/System/Sign out."; then
     record_pass 2.4 "Manual: web UI visible and functional from connected device"
 else
     record_skip 2.4 "Manual: web UI from connected device (not confirmed)"
