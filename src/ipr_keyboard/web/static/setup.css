@@ -40,6 +40,16 @@ nav a:hover, nav a.active {
   background: rgba(255,255,255,.25);
   color: white;
 }
+nav a.nav-signout {
+  margin-left: .5rem;
+  opacity: .75;
+  font-size: .82rem;
+  border: 1px solid rgba(255,255,255,.35);
+}
+nav a.nav-signout:hover {
+  opacity: 1;
+  background: rgba(255,255,255,.15);
+}
 
 /* ---- Page wrapper ---- */
 .page {

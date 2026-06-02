@@ -295,6 +295,19 @@ def _save_wifi_profile(ssid: str, psk: str, sec: str) -> None:
 # Routes
 # ---------------------------------------------------------------------------
 
+@bp_setup.get("/logout")
+def logout():
+    """Clear Basic Auth credentials by returning 401 with the same realm."""
+    return (
+        render_template("setup/logout.html"),
+        401,
+        {
+            "WWW-Authenticate": 'Basic realm="IPR Keyboard"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
 @bp_setup.get("/ca.crt")
 def download_ca_cert():
     """Serve the CA certificate for download — no auth required."""

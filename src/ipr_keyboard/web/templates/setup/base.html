@@ -14,6 +14,7 @@
   <a href="{{ url_for('setup.wifi') }}"   {% if page=='wifi'   %}class="active"{% endif %}>Wi-Fi</a>
   <a href="{{ url_for('setup.logs') }}"   {% if page=='logs'   %}class="active"{% endif %}>Logs</a>
   <a href="{{ url_for('setup.system') }}" {% if page=='system' %}class="active"{% endif %}>System</a>
+  <a href="{{ url_for('setup.logout') }}" class="nav-signout">Sign out</a>
 </nav>
 <div class="page">
   {% if msg %}

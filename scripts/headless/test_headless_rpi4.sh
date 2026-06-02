@@ -195,6 +195,9 @@ info "Goal: provisioning web UI at https://10.42.0.1/setup/ responds and serves 
 info "NOTE: The web UI is now served by ipr_keyboard.service (Flask /setup/ Blueprint),"
 info "      not by net_provision_web.py (which is retired). ipr_keyboard.service must be"
 info "      running for these checks to pass."
+info "NOTE: HTTP Basic Auth credentials are cached by the browser per origin per session."
+info "      A fresh device connecting for the first time will always see a login prompt."
+info "      To simulate a first-time login, use a private/incognito tab or visit /setup/logout."
 
 # Automated: unauthenticated request to /setup/ should return 401
 HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" --max-time 8 https://10.42.0.1/setup/ 2>/dev/null; true)
@@ -230,8 +233,10 @@ if manual_step \
     "Connect a phone or laptop to Wi-Fi SSID: ${BOLD}${HOTSPOT_SSID}${RESET}" \
     "Password: ${BOLD}${HOTSPOT_PASS}${RESET}" \
     "Open https://10.42.0.1/setup/ in a browser (accept the self-signed cert warning)." \
-    "Enter username 'ipr' and the password above." \
-    "Verify: page loads, shows a dropdown of visible networks, Rescan button is present."; then
+    "If the page loads without a login prompt, open https://10.42.0.1/setup/logout first" \
+    "  (or use a private/incognito tab) to clear cached credentials." \
+    "Enter username 'ipr' and the hotspot password above when prompted." \
+    "Verify: page loads, shows device info, nav bar shows Home/Status/Wi-Fi/Logs/System/Sign out."; then
     record_pass 2.4 "Manual: web UI visible and functional from connected device"
 else
     record_skip 2.4 "Manual: web UI from connected device (not confirmed)"
