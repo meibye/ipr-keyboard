@@ -17,7 +17,13 @@
         Download CA cert
       </a>
       <span style="color:#888;font-size:.82rem;display:block;margin-top:.2rem">
-        Install once on each device to eliminate browser warnings.
+        Install once per device to remove the browser warning permanently.<br>
+        <strong>iOS:</strong> install the profile, then enable trust in
+        Settings → General → About → Certificate Trust Settings.<br>
+        <strong>Android:</strong> Settings → Security → Install CA certificate.<br>
+        <strong>Mac:</strong> add to System keychain, then set to Always Trust.<br>
+        <strong>Windows:</strong> install to Trusted Root Certification Authorities.<br>
+        Full instructions are on the <a href="{{ url_for('setup.home') }}" style="color:#3498db">Home</a> page.
       </span>
     </span>
   </div>

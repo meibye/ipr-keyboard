@@ -217,3 +217,8 @@ pre {
 @media (max-width: 520px) {
   .two-col { grid-template-columns: 1fr; }
 }
+
+
+/* ---- Certificate instructions toggle ---- */
+details > summary { user-select: none; }
+details[open] > summary span:first-child { transform: rotate(90deg); display: inline-block; }

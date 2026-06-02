@@ -46,11 +46,65 @@
 <div class="card">
   <h2>Trust Certificate</h2>
   <p style="color:#666;font-size:.88rem;margin-top:0;margin-bottom:.8rem">
-    Install the device CA certificate once to remove browser security warnings.
+    Download and install this certificate once on each device you use here.
+    After installing it, the browser warning disappears permanently — you will
+    not need to do this again unless you reset the device.
   </p>
   <a href="{{ url_for('setup.download_ca_cert') }}" class="btn btn-secondary btn-sm"
      style="text-decoration:none;display:inline-block">
     ⬇ Download CA Certificate
   </a>
+
+  <details style="margin-top:1.1rem">
+    <summary style="cursor:pointer;font-size:.88rem;font-weight:600;color:#555;
+                    list-style:none;display:flex;align-items:center;gap:.4rem">
+      <span style="font-size:.75rem">▶</span> How to install on your device
+    </summary>
+    <div style="margin-top:.8rem;font-size:.84rem;color:#555;line-height:1.6">
+
+      <p style="font-weight:700;margin:.8rem 0 .3rem">iPhone &amp; iPad (iOS / iPadOS)</p>
+      <ol style="margin:0 0 0 1.2rem;padding:0">
+        <li>Tap <strong>Download CA Certificate</strong> above. Safari will say <em>"Profile Downloaded"</em>.</li>
+        <li>Open <strong>Settings</strong> and tap <strong>Profile Downloaded</strong> near the top.</li>
+        <li>Tap <strong>Install</strong> (top right), enter your device passcode, then tap <strong>Install</strong> again.</li>
+        <li>Go to <strong>Settings → General → About → Certificate Trust Settings</strong>.</li>
+        <li>Turn on the toggle next to <em>IPR Keyboard CA</em> and confirm.</li>
+      </ol>
+      <p style="color:#888;font-size:.8rem;margin:.3rem 0 .8rem">
+        Steps 4–5 are required on iOS — without them the cert is installed but not trusted.
+      </p>
+
+      <p style="font-weight:700;margin:.8rem 0 .3rem">Android</p>
+      <ol style="margin:0 0 0 1.2rem;padding:0">
+        <li>Tap <strong>Download CA Certificate</strong> above. The file saves to Downloads.</li>
+        <li>Open <strong>Settings → Security</strong> (or <em>Biometrics and Security</em>).</li>
+        <li>Tap <strong>Install from device storage</strong> (or <em>Install a certificate</em>)
+            and choose <strong>CA certificate</strong>.</li>
+        <li>Select the downloaded file. Name it <em>IPR Keyboard CA</em> when prompted.</li>
+      </ol>
+      <p style="color:#888;font-size:.8rem;margin:.3rem 0 .8rem">
+        The exact menu path varies by manufacturer — search "install CA certificate" in Settings if you cannot find it.
+      </p>
+
+      <p style="font-weight:700;margin:.8rem 0 .3rem">Mac</p>
+      <ol style="margin:0 0 0 1.2rem;padding:0">
+        <li>Download the file and double-click it — <strong>Keychain Access</strong> opens.</li>
+        <li>Choose the <strong>System</strong> keychain and click <strong>Add</strong>.</li>
+        <li>Find <em>IPR Keyboard CA</em> in the list, double-click it.</li>
+        <li>Expand <strong>Trust</strong>, set <em>When using this certificate</em> to
+            <strong>Always Trust</strong>, then close the window (enter your password to save).</li>
+      </ol>
+
+      <p style="font-weight:700;margin:.8rem 0 .3rem">Windows</p>
+      <ol style="margin:0 0 0 1.2rem;padding:0">
+        <li>Download the file and double-click it.</li>
+        <li>Click <strong>Install Certificate…</strong> → select <strong>Local Machine</strong> → Next.</li>
+        <li>Choose <strong>Place all certificates in the following store</strong>,
+            click <strong>Browse</strong> and select <strong>Trusted Root Certification Authorities</strong>.</li>
+        <li>Click Next → Finish. Confirm the security prompt.</li>
+      </ol>
+
+    </div>
+  </details>
 </div>
 {% endblock %}
