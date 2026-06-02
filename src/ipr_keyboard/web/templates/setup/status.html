@@ -1,13 +1,13 @@
 {% extends "setup/base.html" %}
 {% block content %}
 <div class="card">
-  <h2>Services</h2>
+  <h2>{{ t['status_services'] }}</h2>
   {% for svc in services %}
   <div class="row">
     <span class="lbl">{{ svc.label }}</span>
     <span class="val">
       {% if svc.status == 'active' %}
-        <span class="badge badge-green">active</span>
+        <span class="badge badge-green">{{ t['status_active'] }}</span>
       {% else %}
         <span class="badge badge-red">{{ svc.status }}</span>
       {% endif %}
@@ -17,14 +17,14 @@
 </div>
 
 <div class="card">
-  <h2>Bluetooth</h2>
+  <h2>{{ t['status_bluetooth'] }}</h2>
   <div class="row">
-    <span class="lbl">Adapter</span>
+    <span class="lbl">{{ t['status_adapter'] }}</span>
     <span class="val">
       {% if bt_powered %}
-        <span class="badge badge-green">powered on</span>
+        <span class="badge badge-green">{{ t['status_powered_on'] }}</span>
       {% else %}
-        <span class="badge badge-red">powered off</span>
+        <span class="badge badge-red">{{ t['status_powered_off'] }}</span>
       {% endif %}
     </span>
   </div>
@@ -36,17 +36,17 @@
       </span>
       <span class="val">
         {% if dev.connected %}
-          <span class="badge badge-green">connected</span>
+          <span class="badge badge-green">{{ t['status_connected'] }}</span>
         {% else %}
-          <span class="badge badge-grey">paired, not connected</span>
+          <span class="badge badge-grey">{{ t['status_paired'] }}</span>
         {% endif %}
       </span>
     </div>
     {% endfor %}
   {% else %}
     <div class="row">
-      <span class="lbl">Paired devices</span>
-      <span class="val"><span class="badge badge-grey">none</span></span>
+      <span class="lbl">{{ t['status_paired_devs'] }}</span>
+      <span class="val"><span class="badge badge-grey">{{ t['status_none'] }}</span></span>
     </div>
   {% endif %}
 </div>

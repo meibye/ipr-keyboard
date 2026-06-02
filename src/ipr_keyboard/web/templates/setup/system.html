@@ -5,60 +5,52 @@
 {% endif %}
 
 <div class="card">
-  <h2>Certificate</h2>
+  <h2>{{ t['sys_cert_title'] }}</h2>
   <div class="row">
-    <span class="lbl">Expires</span>
+    <span class="lbl">{{ t['sys_cert_expires'] }}</span>
     <span class="val">{{ cert_expiry if cert_expiry else '—' }}</span>
   </div>
   <div class="row">
-    <span class="lbl">Trust store</span>
+    <span class="lbl">{{ t['sys_cert_trust'] }}</span>
     <span class="val">
       <a href="{{ url_for('setup.download_ca_cert') }}" style="color:#3498db">
-        Download CA cert
+        {{ t['sys_cert_download'] }}
       </a>
       <span style="color:#888;font-size:.82rem;display:block;margin-top:.2rem">
-        Install once per device to remove the browser warning permanently.<br>
-        <strong>iOS:</strong> install the profile, then enable trust in
-        Settings → General → About → Certificate Trust Settings.<br>
-        <strong>Android:</strong> Settings → Security → Install CA certificate.<br>
-        <strong>Mac:</strong> add to System keychain, then set to Always Trust.<br>
-        <strong>Windows:</strong> install to Trusted Root Certification Authorities.<br>
-        Full instructions are on the <a href="{{ url_for('setup.home') }}" style="color:#3498db">Home</a> page.
+        {{ t['sys_cert_hint'] | safe }}
       </span>
     </span>
   </div>
   {% if cert_renew_available %}
   <form method="post" action="{{ url_for('setup.renew_cert') }}"
-        onsubmit="return confirm('Renew the certificate now? The service will restart briefly.')"
+        onsubmit='return confirm({{ t["sys_cert_renew_confirm"] | tojson }})'
         style="margin-top:1rem">
-    <button type="submit" class="btn btn-secondary">Renew Certificate</button>
+    <button type="submit" class="btn btn-secondary">{{ t['sys_cert_renew_btn'] }}</button>
   </form>
   <p style="color:#888;font-size:.82rem;margin:.4rem 0 0">
-    Generates a new 397-day certificate using the same CA.
-    Clients that installed the CA cert do not need to reinstall it.
-    Auto-renewal runs daily in the background.
+    {{ t['sys_cert_renew_desc'] }}
   </p>
   {% endif %}
 </div>
 
 <div class="card">
-  <h2>System Actions</h2>
+  <h2>{{ t['sys_actions_title'] }}</h2>
   <p style="color:#666;font-size:.88rem;margin-top:0">
-    These actions affect the device immediately.
+    {{ t['sys_actions_desc'] }}
   </p>
   <div class="two-col" style="margin-top:1rem">
     <form method="post" action="{{ url_for('setup.reboot') }}"
-          onsubmit="return confirm('Reboot the device now?')">
-      <button type="submit" class="btn btn-warn">Reboot</button>
+          onsubmit='return confirm({{ t["sys_reboot_confirm"] | tojson }})'>
+      <button type="submit" class="btn btn-warn">{{ t['sys_reboot_btn'] }}</button>
       <p style="color:#888;font-size:.82rem;margin:.3rem 0 0">
-        Restarts the Pi. Reconnect to the hotspot after ~30 s.
+        {{ t['sys_reboot_desc'] }}
       </p>
     </form>
     <form method="post" action="{{ url_for('setup.shutdown') }}"
-          onsubmit="return confirm('Shut down the device now?')">
-      <button type="submit" class="btn btn-danger">Shutdown</button>
+          onsubmit='return confirm({{ t["sys_shutdown_confirm"] | tojson }})'>
+      <button type="submit" class="btn btn-danger">{{ t['sys_shutdown_btn'] }}</button>
       <p style="color:#888;font-size:.82rem;margin:.3rem 0 0">
-        Powers off the Pi safely. Remove power after the LED stops.
+        {{ t['sys_shutdown_desc'] }}
       </p>
     </form>
   </div>

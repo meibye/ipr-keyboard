@@ -1,109 +1,65 @@
 {% extends "setup/base.html" %}
 {% block content %}
 <div class="card">
-  <h2>Device</h2>
+  <h2>{{ t['home_device_title'] }}</h2>
   <div class="row">
-    <span class="lbl">Hostname</span>
+    <span class="lbl">{{ t['home_hostname'] }}</span>
     <span class="val">{{ hostname }}</span>
   </div>
   <div class="row">
-    <span class="lbl">SSH (mDNS)</span>
+    <span class="lbl">{{ t['home_ssh_mdns'] }}</span>
     <span class="val"><code>ssh {{ ssh_user }}@{{ hostname }}.local</code></span>
   </div>
   {% if home_ip %}
   <div class="row">
-    <span class="lbl">Home network IP</span>
-    <span class="val">{{ home_ip }} <span class="badge badge-green">connected</span></span>
+    <span class="lbl">{{ t['home_net_ip'] }}</span>
+    <span class="val">{{ home_ip }} <span class="badge badge-green">{{ t['home_badge_on'] }}</span></span>
   </div>
   {% else %}
   <div class="row">
-    <span class="lbl">Home network</span>
-    <span class="val"><span class="badge badge-grey">not connected</span></span>
+    <span class="lbl">{{ t['home_net'] }}</span>
+    <span class="val"><span class="badge badge-grey">{{ t['home_badge_off'] }}</span></span>
   </div>
   {% endif %}
 </div>
 
 <div class="card">
-  <h2>Management Hotspot</h2>
+  <h2>{{ t['home_hotspot_title'] }}</h2>
   <div class="row">
-    <span class="lbl">SSID</span>
+    <span class="lbl">{{ t['home_ssid'] }}</span>
     <span class="val">{{ hotspot_ssid or "(not generated)" }}</span>
   </div>
   <div class="row">
-    <span class="lbl">Password</span>
+    <span class="lbl">{{ t['home_password'] }}</span>
     <span class="val"><code>{{ hotspot_pass or "(unknown)" }}</code></span>
   </div>
   <div class="row">
-    <span class="lbl">Web UI</span>
+    <span class="lbl">{{ t['home_web_ui'] }}</span>
     <span class="val"><code>https://10.42.0.1/setup/</code></span>
   </div>
   <div class="row">
-    <span class="lbl">Login</span>
-    <span class="val"><code>ipr</code> / hotspot password above</span>
+    <span class="lbl">{{ t['home_login_lbl'] }}</span>
+    <span class="val">{{ t['home_login_val'] }}</span>
   </div>
 </div>
 
 <div class="card">
-  <h2>Trust Certificate</h2>
+  <h2>{{ t['home_cert_title'] }}</h2>
   <p style="color:#666;font-size:.88rem;margin-top:0;margin-bottom:.8rem">
-    Download and install this certificate once on each device you use here.
-    After installing it, the browser warning disappears permanently — you will
-    not need to do this again unless you reset the device.
+    {{ t['home_cert_desc'] }}
   </p>
   <a href="{{ url_for('setup.download_ca_cert') }}" class="btn btn-secondary btn-sm"
      style="text-decoration:none;display:inline-block">
-    ⬇ Download CA Certificate
+    {{ t['home_cert_download'] }}
   </a>
 
   <details style="margin-top:1.1rem">
     <summary style="cursor:pointer;font-size:.88rem;font-weight:600;color:#555;
                     list-style:none;display:flex;align-items:center;gap:.4rem">
-      <span style="font-size:.75rem">▶</span> How to install on your device
+      <span style="font-size:.75rem">▶</span> {{ t['home_cert_toggle'] }}
     </summary>
     <div style="margin-top:.8rem;font-size:.84rem;color:#555;line-height:1.6">
-
-      <p style="font-weight:700;margin:.8rem 0 .3rem">iPhone &amp; iPad (iOS / iPadOS)</p>
-      <ol style="margin:0 0 0 1.2rem;padding:0">
-        <li>Tap <strong>Download CA Certificate</strong> above. Safari will say <em>"Profile Downloaded"</em>.</li>
-        <li>Open <strong>Settings</strong> and tap <strong>Profile Downloaded</strong> near the top.</li>
-        <li>Tap <strong>Install</strong> (top right), enter your device passcode, then tap <strong>Install</strong> again.</li>
-        <li>Go to <strong>Settings → General → About → Certificate Trust Settings</strong>.</li>
-        <li>Turn on the toggle next to <em>IPR Keyboard CA</em> and confirm.</li>
-      </ol>
-      <p style="color:#888;font-size:.8rem;margin:.3rem 0 .8rem">
-        Steps 4–5 are required on iOS — without them the cert is installed but not trusted.
-      </p>
-
-      <p style="font-weight:700;margin:.8rem 0 .3rem">Android</p>
-      <ol style="margin:0 0 0 1.2rem;padding:0">
-        <li>Tap <strong>Download CA Certificate</strong> above. The file saves to Downloads.</li>
-        <li>Open <strong>Settings → Security</strong> (or <em>Biometrics and Security</em>).</li>
-        <li>Tap <strong>Install from device storage</strong> (or <em>Install a certificate</em>)
-            and choose <strong>CA certificate</strong>.</li>
-        <li>Select the downloaded file. Name it <em>IPR Keyboard CA</em> when prompted.</li>
-      </ol>
-      <p style="color:#888;font-size:.8rem;margin:.3rem 0 .8rem">
-        The exact menu path varies by manufacturer — search "install CA certificate" in Settings if you cannot find it.
-      </p>
-
-      <p style="font-weight:700;margin:.8rem 0 .3rem">Mac</p>
-      <ol style="margin:0 0 0 1.2rem;padding:0">
-        <li>Download the file and double-click it — <strong>Keychain Access</strong> opens.</li>
-        <li>Choose the <strong>System</strong> keychain and click <strong>Add</strong>.</li>
-        <li>Find <em>IPR Keyboard CA</em> in the list, double-click it.</li>
-        <li>Expand <strong>Trust</strong>, set <em>When using this certificate</em> to
-            <strong>Always Trust</strong>, then close the window (enter your password to save).</li>
-      </ol>
-
-      <p style="font-weight:700;margin:.8rem 0 .3rem">Windows</p>
-      <ol style="margin:0 0 0 1.2rem;padding:0">
-        <li>Download the file and double-click it.</li>
-        <li>Click <strong>Install Certificate…</strong> → select <strong>Local Machine</strong> → Next.</li>
-        <li>Choose <strong>Place all certificates in the following store</strong>,
-            click <strong>Browse</strong> and select <strong>Trusted Root Certification Authorities</strong>.</li>
-        <li>Click Next → Finish. Confirm the security prompt.</li>
-      </ol>
-
+      {{ t['home_cert_instructions'] | safe }}
     </div>
   </details>
 </div>

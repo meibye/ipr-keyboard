@@ -222,3 +222,20 @@ pre {
 /* ---- Certificate instructions toggle ---- */
 details > summary { user-select: none; }
 details[open] > summary span:first-child { transform: rotate(90deg); display: inline-block; }
+
+/* ---- Language toggle ---- */
+.nav-lang-group { margin-left: .25rem; display: flex; gap: .15rem; }
+.nav-lang {
+  font-size: .78rem;
+  padding: .25rem .5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.3);
+  color: rgba(255,255,255,.75);
+  text-decoration: none;
+}
+.nav-lang.active {
+  background: rgba(255,255,255,.3);
+  color: white;
+  font-weight: 700;
+}
+.nav-lang:hover { background: rgba(255,255,255,.2); color: white; }

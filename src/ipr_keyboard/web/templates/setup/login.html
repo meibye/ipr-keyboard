@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
-<title>Sign in – IPR Keyboard Setup</title>
+<title>{{ t['login_title'] }} – IPR Keyboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/static/setup.css">
 <style>
@@ -42,9 +42,7 @@
   font-size: .9rem;
   margin-bottom: 1.1rem;
 }
-.field-group {
-  margin-bottom: 1rem;
-}
+.field-group { margin-bottom: 1rem; }
 .field-group label {
   display: block;
   font-size: .85rem;
@@ -100,14 +98,38 @@
   color: #999;
   text-align: center;
   margin-top: 1rem;
+  white-space: pre-line;
+}
+.login-lang {
+  text-align: right;
+  font-size: .8rem;
+  margin-bottom: .8rem;
+}
+.login-lang a {
+  color: #888;
+  text-decoration: none;
+  padding: .2rem .4rem;
+  border-radius: 4px;
+}
+.login-lang a.active {
+  background: #f0eaff;
+  color: #764ba2;
+  font-weight: 700;
 }
 </style>
 </head>
 <body>
 <div class="login-wrap">
   <div class="login-card">
-    <div class="login-brand">IPR Keyboard</div>
-    <h1 class="login-title">Setup sign in</h1>
+    <div class="login-lang">
+      <a href="{{ url_for('setup.set_lang', code='en') }}"
+         class="{% if lang=='en' %}active{% endif %}">EN</a>
+      <a href="{{ url_for('setup.set_lang', code='da') }}"
+         class="{% if lang=='da' %}active{% endif %}">DA</a>
+    </div>
+
+    <div class="login-brand">{{ t['login_brand'] }}</div>
+    <h1 class="login-title">{{ t['login_title'] }}</h1>
 
     {% if error %}
     <div class="login-error" role="alert">{{ error }}</div>
@@ -117,7 +139,7 @@
           action="{{ url_for('setup.login_submit') }}{% if request.args.get('next') %}?next={{ request.args.get('next') }}{% endif %}"
           autocomplete="on">
       <div class="field-group">
-        <label for="setup-username">Username</label>
+        <label for="setup-username">{{ t['login_username_label'] }}</label>
         <input type="text" id="setup-username" name="username"
                autocomplete="username"
                value="ipr"
@@ -125,22 +147,19 @@
                required>
       </div>
       <div class="field-group">
-        <label for="setup-password">Password</label>
+        <label for="setup-password">{{ t['login_password_label'] }}</label>
         <div class="pw-wrap">
           <input type="password" id="setup-password" name="password"
                  autocomplete="current-password"
                  autofocus required>
           <button type="button" class="pw-toggle" id="pw-toggle"
-                  aria-label="Show or hide password">👁</button>
+                  aria-label="{{ t['login_toggle_pw'] }}">👁</button>
         </div>
       </div>
-      <button type="submit" class="btn-login">Sign in</button>
+      <button type="submit" class="btn-login">{{ t['login_submit'] }}</button>
     </form>
 
-    <p class="login-hint">
-      Use the Wi-Fi password shown on the device label,<br>
-      or check <code>https://10.42.0.1/setup/</code> after connecting.
-    </p>
+    <p class="login-hint">{{ t['login_hint'] }}</p>
   </div>
 </div>
 

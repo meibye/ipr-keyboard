@@ -1,20 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
-<title>IPR Keyboard – Setup</title>
+<title>{{ t['page_title'] }}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="{{ url_for('static', filename='setup.css') }}">
 </head>
 <body>
 <nav>
   <span class="brand">IPR Keyboard</span>
-  <a href="{{ url_for('setup.home') }}"   {% if page=='home'   %}class="active"{% endif %}>Home</a>
-  <a href="{{ url_for('setup.status') }}" {% if page=='status' %}class="active"{% endif %}>Status</a>
-  <a href="{{ url_for('setup.wifi') }}"   {% if page=='wifi'   %}class="active"{% endif %}>Wi-Fi</a>
-  <a href="{{ url_for('setup.logs') }}"   {% if page=='logs'   %}class="active"{% endif %}>Logs</a>
-  <a href="{{ url_for('setup.system') }}" {% if page=='system' %}class="active"{% endif %}>System</a>
-  <a href="{{ url_for('setup.logout') }}" class="nav-signout">Sign out</a>
+  <a href="{{ url_for('setup.home') }}"   {% if page=='home'   %}class="active"{% endif %}>{{ t['nav_home'] }}</a>
+  <a href="{{ url_for('setup.status') }}" {% if page=='status' %}class="active"{% endif %}>{{ t['nav_status'] }}</a>
+  <a href="{{ url_for('setup.wifi') }}"   {% if page=='wifi'   %}class="active"{% endif %}>{{ t['nav_wifi'] }}</a>
+  <a href="{{ url_for('setup.logs') }}"   {% if page=='logs'   %}class="active"{% endif %}>{{ t['nav_logs'] }}</a>
+  <a href="{{ url_for('setup.system') }}" {% if page=='system' %}class="active"{% endif %}>{{ t['nav_system'] }}</a>
+  <a href="{{ url_for('setup.logout') }}" class="nav-signout">{{ t['nav_signout'] }}</a>
+  <span class="nav-lang-group">
+    <a href="{{ url_for('setup.set_lang', code='en') }}" class="nav-lang {% if lang=='en' %}active{% endif %}">EN</a>
+    <a href="{{ url_for('setup.set_lang', code='da') }}" class="nav-lang {% if lang=='da' %}active{% endif %}">DA</a>
+  </span>
 </nav>
 <div class="page">
   {% if msg %}

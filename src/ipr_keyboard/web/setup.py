@@ -27,6 +27,8 @@ from flask import (
     url_for,
 )
 
+from .setup_i18n import SUPPORTED_LANGS, get_translations
+
 bp_setup = Blueprint("setup", __name__, url_prefix="/setup")
 
 _SECRET_FILE = Path("/etc/ipr-hotspot.secret")
@@ -35,6 +37,17 @@ _SERVER_CERT_FILE = Path("/etc/ipr-ssl/server.crt")
 _CERT_RENEW_SCRIPT = Path("/usr/local/sbin/ipr-cert-renew.sh")
 _SETUP_USER = "ipr"
 _SESSION_KEY = "setup_ok"
+
+
+@bp_setup.context_processor
+def _inject_lang() -> dict:
+    lang = session.get("setup_lang", "en")
+    return {"t": get_translations(lang), "lang": lang}
+
+
+def _t() -> dict:
+    """Return the current language's translation dict for use in route handlers."""
+    return get_translations(session.get("setup_lang", "en"))
 
 _LOG_UNITS = [
     "ipr_keyboard.service",
@@ -321,6 +334,16 @@ def logout():
     return redirect(url_for("setup.login_page"))
 
 
+@bp_setup.get("/lang/<code>")
+def set_lang(code: str):
+    if code in SUPPORTED_LANGS:
+        session["setup_lang"] = code
+    ref = request.referrer or ""
+    if "/setup/" in ref:
+        return redirect(ref)
+    return redirect(url_for("setup.home"))
+
+
 @bp_setup.get("/ca.crt")
 def download_ca_cert():
     """Serve the CA certificate for download — no auth required."""
@@ -342,10 +365,7 @@ def home():
     msg_key = request.args.get("msg", "")
     ssid_saved = request.args.get("ssid", "")
     if msg_key == "saved" and ssid_saved:
-        msg = (
-            f"Wi-Fi credentials saved for <strong>{ssid_saved}</strong>. "
-            "The Pi will connect after reboot. The hotspot remains active."
-        )
+        msg = _t()["wifi_saved"].format(ssid=ssid_saved)
         ok = True
     return render_template(
         "setup/home.html",
@@ -484,7 +504,7 @@ def renew_cert():
         return render_template(
             "setup/system.html",
             page="system",
-            msg="Certificate renewal script not installed. Run install_provision_service.sh first.",
+            msg=_t()["msg_cert_no_script"],
             ok=False,
             cert_expiry=_cert_expiry(),
             cert_renew_available=False,
@@ -502,10 +522,7 @@ def renew_cert():
         return render_template(
             "setup/system.html",
             page="system",
-            msg=(
-                "Certificate renewed. The service is restarting — "
-                "this page will reload in 10 seconds."
-            ),
+            msg=_t()["msg_cert_ok"],
             ok=True,
             cert_expiry=_cert_expiry(),
             cert_renew_available=True,
@@ -515,7 +532,7 @@ def renew_cert():
         return render_template(
             "setup/system.html",
             page="system",
-            msg="Certificate renewal timed out. Check the journal for details.",
+            msg=_t()["msg_cert_timeout"],
             ok=False,
             cert_expiry=_cert_expiry(),
             cert_renew_available=True,
@@ -538,7 +555,7 @@ def reboot():
     return render_template(
         "setup/system.html",
         page="system",
-        msg="Reboot initiated. Reconnect to the hotspot in about 30 seconds.",
+        msg=_t()["msg_reboot"],
         ok=True,
         cert_expiry=_cert_expiry(),
         cert_renew_available=_CERT_RENEW_SCRIPT.exists(),
@@ -552,7 +569,7 @@ def shutdown():
     return render_template(
         "setup/system.html",
         page="system",
-        msg="Shutdown initiated. Remove power after the LED stops blinking.",
+        msg=_t()["msg_shutdown"],
         ok=True,
         cert_expiry=_cert_expiry(),
         cert_renew_available=_CERT_RENEW_SCRIPT.exists(),
