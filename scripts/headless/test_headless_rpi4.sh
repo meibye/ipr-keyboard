@@ -293,8 +293,14 @@ else
     if manual_step \
         "Connect GPIO 17 (Pin 11) to GND (Pin 9 or 14) using a jumper." \
         "Hold for at least 3 seconds, then remove the jumper." \
-        "Watch the terminal for: [ipr-gpio-reset] ✓ GPIO17 held for 2s, factory reset triggered!"; then
-        sleep 3  # allow script to complete deletions
+        "Wait until you see: [ipr-gpio-reset] ✓ GPIO17 held for 2s, factory reset triggered!" \
+        "THEN press ENTER — the marker file must exist before the checks run."; then
+        # Poll for the marker file instead of a fixed sleep; timeout after 20s.
+        _T3_WAIT=0
+        while [[ ! -f /var/run/ipr_gpio_reset_triggered ]] && [[ $_T3_WAIT -lt 20 ]]; do
+            sleep 1
+            _T3_WAIT=$((_T3_WAIT + 1))
+        done
         sudo kill "$T3_PID" 2>/dev/null || true
         wait "$T3_PID" 2>/dev/null || true
 
