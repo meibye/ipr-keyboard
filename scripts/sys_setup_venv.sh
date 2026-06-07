@@ -300,29 +300,76 @@ echo "[sys_setup_venv] Adding/updating grestore_ipr in $BASHRC_FILE..."
 {
   echo "$BASHRC_MANAGED_START"
   cat <<'GRESTORE_IPR_EOF'
-# Function to restore all files in the ipr-keyboard repo
-grestore_ipr() {
+# Internal helper: collect unstaged tracked files and untracked files.
+_ipr_collect_changes() {
   local repo="$HOME/dev/ipr-keyboard"
+  local tracked_name="$1"
+  local untracked_name="$2"
 
   if [[ ! -d "$repo/.git" ]]; then
     echo "Not a git repo: $repo"
     return 1
   fi
 
-  # Restore only files with unstaged changes (equivalent to "Changes not staged for commit")
-  git -C "$repo" status --porcelain -z \
-    | while IFS= read -r -d '' entry; do
-        # Porcelain format: XY<space>path
-        # X = staged status, Y = unstaged status
-        local x="${entry:0:1}"
-        local y="${entry:1:1}"
-        local path="${entry:3}"
+  local -n tracked_ref="$tracked_name"
+  local -n untracked_ref="$untracked_name"
 
-        if [[ "$y" != " " ]]; then
-          git -C "$repo" restore -- "$path"
-          echo "restored: $path"
-        fi
-      done
+  tracked_ref=()
+  untracked_ref=()
+
+  while IFS= read -r -d '' path; do
+    tracked_ref+=("$path")
+  done < <(git -C "$repo" diff --name-only -z)
+
+  while IFS= read -r -d '' path; do
+    untracked_ref+=("$path")
+  done < <(git -C "$repo" ls-files -o --exclude-standard -z)
+}
+
+# Function to restore all tracked files with unstaged changes in the ipr-keyboard repo
+grestore_ipr() {
+  local repo="$HOME/dev/ipr-keyboard"
+  local -a tracked_files=()
+  local -a untracked_files=()
+  local path
+
+  _ipr_collect_changes tracked_files untracked_files || return 1
+
+  if [[ ${#tracked_files[@]} -eq 0 ]]; then
+    echo "No modified tracked files to restore in: $repo"
+    return 0
+  fi
+
+  for path in "${tracked_files[@]}"; do
+    git -C "$repo" restore -- "$path"
+    echo "restored: $path"
+  done
+}
+
+# Function to stash tracked files with unstaged changes and untracked files in the ipr-keyboard repo
+gstash_ipr() {
+  local repo="$HOME/dev/ipr-keyboard"
+  local -a tracked_files=()
+  local -a untracked_files=()
+  local -a paths=()
+  local path
+
+  _ipr_collect_changes tracked_files untracked_files || return 1
+  paths=("${tracked_files[@]}" "${untracked_files[@]}")
+
+  if [[ ${#paths[@]} -eq 0 ]]; then
+    echo "No modified or untracked files to stash in: $repo"
+    return 0
+  fi
+
+  for path in "${paths[@]}"; do
+    echo "stashing: $path"
+  done
+
+  git -C "$repo" stash push \
+    --keep-index \
+    --include-untracked \
+    -m "gstash_ipr"
 }
 GRESTORE_IPR_EOF
   echo "$BASHRC_MANAGED_END"
@@ -389,6 +436,7 @@ echo "[sys_setup_venv] Adding/updating aliases in $ALIASES_FILE..."
   echo "alias logs='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/service/svc_tail_all_logs.sh'"
   echo "alias scmd='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/scmd.sh'"
   echo "alias grestore='grestore_ipr'"
+  echo "alias gstash='gstash_ipr'"
   echo "alias tests='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/dev_run_tests.sh'"
 } > "$ALIASES_FILE.tmp"
 
@@ -402,9 +450,10 @@ if [[ -f "$ALIASES_FILE" ]]; then
   grep -v "^alias logs='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/service/svc_tail_all_logs.sh'" | \
   grep -v "^alias scmd='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/scmd.sh'" | \
   grep -v "^alias grestore='grestore_ipr'" | \
+  grep -v "^alias gstash='gstash_ipr'" | \
   grep -v "^alias tests='$IPR_PROJECT_ROOT/ipr-keyboard/scripts/dev_run_tests.sh'" >> "$ALIASES_FILE.tmp" || true
 fi
 mv "$ALIASES_FILE.tmp" "$ALIASES_FILE"
-echo "[sys_setup_venv] Aliases 'll', 'activate', 'ipr', 'sbrc', 'monitor', 'logs', 'scmd', 'grestore', and 'tests' plus function 'grestore_ipr' are now available in $ALIASES_FILE and $BASHRC_FILE."
+echo "[sys_setup_venv] Aliases 'll', 'activate', 'ipr', 'sbrc', 'monitor', 'logs', 'scmd', 'grestore', 'gstash', and 'tests' plus functions '_ipr_collect_changes', 'grestore_ipr', and 'gstash_ipr' are now available in $ALIASES_FILE and $BASHRC_FILE."
 
 echo "[sys_setup_venv] Virtualenv created at $VENV_DIR and dependencies installed via uv."
