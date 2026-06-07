@@ -285,24 +285,21 @@ else
     sudo nmcli con add type wifi con-name "test-wifi" ssid "TestSSID" >/dev/null 2>&1
     check 3.1 "test-wifi dummy profile created" "sudo nmcli con show test-wifi"
 
-    info "Starting GPIO monitor in background..."
-    sudo python3 "$SAFE_GPIO" &
-    T3_PID=$!
-    info "PID $T3_PID — monitor running."
-
+    # The GPIO script is a boot-time oneshot: it reads the pin immediately on startup
+    # and exits if the pin is not already LOW. The jumper must be in place BEFORE
+    # the script runs, so prompt the user to connect it first.
     if manual_step \
-        "Connect GPIO 17 (Pin 11) to GND (Pin 9 or 14) using a jumper." \
-        "Hold for at least 3 seconds, then remove the jumper." \
-        "Wait until you see: [ipr-gpio-reset] ✓ GPIO17 held for 2s, factory reset triggered!" \
-        "THEN press ENTER — the marker file must exist before the checks run."; then
-        # Poll for the marker file instead of a fixed sleep; timeout after 20s.
-        _T3_WAIT=0
-        while [[ ! -f /var/run/ipr_gpio_reset_triggered ]] && [[ $_T3_WAIT -lt 20 ]]; do
-            sleep 1
-            _T3_WAIT=$((_T3_WAIT + 1))
-        done
-        sudo kill "$T3_PID" 2>/dev/null || true
-        wait "$T3_PID" 2>/dev/null || true
+        "Connect GPIO 17 (Pin 11) to GND (Pin 9 or 14) using a jumper NOW." \
+        "Keep the jumper in place — do NOT remove it yet." \
+        "Press ENTER once the jumper is connected and you are ready."; then
+
+        info "Starting GPIO monitor (jumper should be in place)..."
+        sudo python3 "$SAFE_GPIO"
+        T3_EXIT=$?
+        info "GPIO script exited (code $T3_EXIT)."
+
+        info "Waiting 2s for NM profile deletion to settle..."
+        sleep 2
 
         check 3.2 "GPIO script detected held pin (marker created)"  \
             "[ -f /var/run/ipr_gpio_reset_triggered ]"
@@ -315,8 +312,6 @@ else
         check 3.6 "/boot/firmware/IPR_RESET_WIFI exists"             \
             "[ -f /boot/firmware/IPR_RESET_WIFI ]"
     else
-        sudo kill "$T3_PID" 2>/dev/null || true
-        wait "$T3_PID" 2>/dev/null || true
         for sub in 3.2 3.3 3.4 3.5 3.6; do
             record_skip "$sub" "GPIO trigger step skipped"
         done
