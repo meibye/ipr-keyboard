@@ -92,14 +92,19 @@ def check_reset_pin(pin, hold_time, wait_seconds=0):
         log(f"Pin must be grounded for {hold_time} seconds to trigger reset")
 
         # Wait for pin to go LOW, up to wait_seconds (0 = check once and exit).
+        # Countdown messages go to stderr so they don't pollute captured stdout.
         deadline = time.time() + wait_seconds
+        _last_tick = -1
         while GPIO.input(pin) != GPIO.LOW:
             remaining = int(deadline - time.time())
             if remaining <= 0:
                 log(f"GPIO{pin} is not grounded, normal boot continues")
                 GPIO.cleanup()
                 return False
-            log(f"Waiting for GPIO{pin} to be grounded... ({remaining}s left)")
+            if remaining != _last_tick:
+                print(f"[ipr-gpio-reset] Waiting for GPIO{pin} to be grounded... ({remaining}s left)",
+                      file=sys.stderr, flush=True)
+                _last_tick = remaining
             time.sleep(0.25)
 
         log(f"GPIO{pin} is grounded, verifying hold time...")

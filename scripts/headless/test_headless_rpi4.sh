@@ -289,7 +289,7 @@ else
     # 60 seconds; this lets the manual_step run first and gives the user time to
     # connect the jumper while the script is already watching.
     info "Starting GPIO monitor in background (--wait 60)..."
-    sudo python3 "$SAFE_GPIO" --wait 60 &
+    sudo python3 "$SAFE_GPIO" --wait 60 2>/dev/null &
     T3_PID=$!
     info "PID $T3_PID — monitor running, waiting up to 60s for jumper."
 
