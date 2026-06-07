@@ -285,18 +285,21 @@ else
     sudo nmcli con add type wifi con-name "test-wifi" ssid "TestSSID" >/dev/null 2>&1
     check 3.1 "test-wifi dummy profile created" "sudo nmcli con show test-wifi"
 
-    # The GPIO script is a boot-time oneshot: it reads the pin immediately on startup
-    # and exits if the pin is not already LOW. The jumper must be in place BEFORE
-    # the script runs, so prompt the user to connect it first.
-    if manual_step \
-        "Connect GPIO 17 (Pin 11) to GND (Pin 9 or 14) using a jumper NOW." \
-        "Keep the jumper in place — do NOT remove it yet." \
-        "Press ENTER once the jumper is connected and you are ready."; then
+    # Start the script with --wait 60 so it polls for the pin going LOW for up to
+    # 60 seconds; this lets the manual_step run first and gives the user time to
+    # connect the jumper while the script is already watching.
+    info "Starting GPIO monitor in background (--wait 60)..."
+    sudo python3 "$SAFE_GPIO" --wait 60 &
+    T3_PID=$!
+    info "PID $T3_PID — monitor running, waiting up to 60s for jumper."
 
-        info "Starting GPIO monitor (jumper should be in place)..."
-        sudo python3 "$SAFE_GPIO"
-        T3_EXIT=$?
-        info "GPIO script exited (code $T3_EXIT)."
+    if manual_step \
+        "Connect GPIO 17 (Pin 11) to GND (Pin 9 or 14) using a jumper." \
+        "Hold for 2 s until you see: [ipr-gpio-reset] ✓ GPIO17 held for 2s, factory reset triggered!" \
+        "Then press ENTER."; then
+
+        sudo kill "$T3_PID" 2>/dev/null || true
+        wait "$T3_PID" 2>/dev/null || true
 
         info "Waiting 2s for NM profile deletion to settle..."
         sleep 2
@@ -312,6 +315,8 @@ else
         check 3.6 "/boot/firmware/IPR_RESET_WIFI exists"             \
             "[ -f /boot/firmware/IPR_RESET_WIFI ]"
     else
+        sudo kill "$T3_PID" 2>/dev/null || true
+        wait "$T3_PID" 2>/dev/null || true
         for sub in 3.2 3.3 3.4 3.5 3.6; do
             record_skip "$sub" "GPIO trigger step skipped"
         done

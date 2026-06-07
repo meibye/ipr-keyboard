@@ -36,6 +36,7 @@ purpose: GPIO-based factory reset trigger
 sudo: yes
 """
 
+import argparse
 import subprocess
 import sys
 import time
@@ -72,45 +73,49 @@ def check_gpio_available():
         return False
 
 
-def check_reset_pin(pin, hold_time):
+def check_reset_pin(pin, hold_time, wait_seconds=0):
     """
     Check if the specified GPIO pin is grounded for the required hold time.
+
+    wait_seconds: poll for up to this many seconds for the pin to go LOW before
+                  giving up (0 = boot-time oneshot, check immediately and exit).
     Returns True if reset should be triggered.
     """
     try:
         import RPi.GPIO as GPIO
 
-        # Set up GPIO
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
-
-        # Configure pin as input with pull-up resistor
-        # Pin will read HIGH normally, LOW when grounded
         GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
         log(f"Monitoring GPIO{pin} for factory reset trigger...")
         log(f"Pin must be grounded for {hold_time} seconds to trigger reset")
 
-        # Check if pin is currently grounded
-        if GPIO.input(pin) == GPIO.LOW:
-            log(f"GPIO{pin} is grounded, verifying hold time...")
+        # Wait for pin to go LOW, up to wait_seconds (0 = check once and exit).
+        deadline = time.time() + wait_seconds
+        while GPIO.input(pin) != GPIO.LOW:
+            remaining = int(deadline - time.time())
+            if remaining <= 0:
+                log(f"GPIO{pin} is not grounded, normal boot continues")
+                GPIO.cleanup()
+                return False
+            log(f"Waiting for GPIO{pin} to be grounded... ({remaining}s left)")
+            time.sleep(0.25)
 
-            # Verify pin stays grounded for the hold time
-            start_time = time.time()
-            while time.time() - start_time < hold_time:
-                if GPIO.input(pin) == GPIO.HIGH:
-                    log("Pin released before hold time elapsed, reset cancelled")
-                    GPIO.cleanup()
-                    return False
-                time.sleep(0.1)
+        log(f"GPIO{pin} is grounded, verifying hold time...")
 
-            log(f"✓ GPIO{pin} held for {hold_time}s, factory reset triggered!")
-            GPIO.cleanup()
-            return True
-        else:
-            log(f"GPIO{pin} is not grounded, normal boot continues")
-            GPIO.cleanup()
-            return False
+        # Verify pin stays grounded for the full hold time.
+        start_time = time.time()
+        while time.time() - start_time < hold_time:
+            if GPIO.input(pin) == GPIO.HIGH:
+                log("Pin released before hold time elapsed, reset cancelled")
+                GPIO.cleanup()
+                return False
+            time.sleep(0.1)
+
+        log(f"✓ GPIO{pin} held for {hold_time}s, factory reset triggered!")
+        GPIO.cleanup()
+        return True
 
     except Exception as e:
         error(f"GPIO error: {e}")
@@ -187,6 +192,17 @@ def delete_wifi_profiles():
 
 def main():
     """Main entry point"""
+    parser = argparse.ArgumentParser(description="GPIO factory reset trigger")
+    parser.add_argument(
+        "--wait",
+        type=int,
+        default=0,
+        metavar="SECONDS",
+        help="poll for up to SECONDS waiting for the pin to be grounded "
+             "(0 = boot-time oneshot, default)",
+    )
+    args = parser.parse_args()
+
     # Check if already triggered in this boot
     if Path(MARKER_FILE).exists():
         log("Reset already triggered in this boot session, skipping")
@@ -199,7 +215,7 @@ def main():
         return 0  # Not an error, just unavailable
 
     # Check for reset trigger
-    if check_reset_pin(GPIO_RESET_PIN, HOLD_TIME_SECONDS):
+    if check_reset_pin(GPIO_RESET_PIN, HOLD_TIME_SECONDS, wait_seconds=args.wait):
         # Create marker file to prevent repeated triggers
         Path(MARKER_FILE).touch()
 
