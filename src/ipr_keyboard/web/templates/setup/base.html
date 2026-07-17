@@ -14,7 +14,11 @@
   <a href="{{ url_for('setup.wifi') }}"   {% if page=='wifi'   %}class="active"{% endif %}>{{ t['nav_wifi'] }}</a>
   <a href="{{ url_for('setup.logs') }}"   {% if page=='logs'   %}class="active"{% endif %}>{{ t['nav_logs'] }}</a>
   <a href="{{ url_for('setup.system') }}" {% if page=='system' %}class="active"{% endif %}>{{ t['nav_system'] }}</a>
+  {% if from_dashboard %}
+  <a href="/" class="nav-back">← Dashboard</a>
+  {% else %}
   <a href="{{ url_for('setup.logout') }}" class="nav-signout">{{ t['nav_signout'] }}</a>
+  {% endif %}
   <span class="nav-lang-group">
     <a href="{{ url_for('setup.set_lang', code='en') }}" class="nav-lang {% if lang=='en' %}active{% endif %}">EN</a>
     <a href="{{ url_for('setup.set_lang', code='da') }}" class="nav-lang {% if lang=='da' %}active{% endif %}">DA</a>

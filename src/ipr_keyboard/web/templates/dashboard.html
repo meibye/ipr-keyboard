@@ -24,6 +24,7 @@
   <a href="#settings" data-screen="settings">Settings</a>
   <a href="#users" data-screen="users">Users</a>
   <a href="#debug" id="nav-debug" data-screen="debug">Debug</a>
+  {% if is_admin %}<a href="/setup/" id="nav-setup">Setup</a>{% endif %}
 </nav>
 
 <!-- Mobile navigation -->
@@ -34,6 +35,7 @@
   <a href="#events" data-screen="events"><span class="nav-icon">📋</span>Events</a>
   <a href="#settings" data-screen="settings"><span class="nav-icon">⚙️</span>Settings</a>
   <a href="#users" data-screen="users"><span class="nav-icon">👤</span>Users</a>
+  {% if is_admin %}<a href="/setup/" id="mob-nav-setup"><span class="nav-icon">🔧</span>Setup</a>{% endif %}
 </nav>
 
 <!-- Main content -->

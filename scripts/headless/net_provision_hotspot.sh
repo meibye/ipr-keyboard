@@ -1,30 +1,36 @@
 #!/usr/bin/env bash
 #
-# IPR Keyboard permanent management hotspot
+# IPR Keyboard on-demand management hotspot
 #
 # Purpose:
-#   - Always starts a WPA2-secured Wi-Fi hotspot on wlan0 at boot
-#   - Hotspot is permanent — users connect to it at any time to reach the
-#     management web UI at http://10.42.0.1/ (no cable required)
-#   - Credentials are generated once and stored in /etc/ipr-hotspot.secret
-#   - On devices with eth0 (dev Pi), eth0 handles wired connectivity while
-#     wlan0 runs the management hotspot simultaneously
+#   Starts a WPA2-secured Wi-Fi hotspot on wlan0 when triggered by one of:
+#     1. Reed switch held ≥ 3 s (handled by gpio_monitor in ipr_keyboard.service)
+#        This script is called via: systemctl start ipr-provision.service
+#     2. Triple power-cycle: power off/on 3× within 120 s at boot
+#     3. Boot marker file: create file named IPR_SETUP on /boot/firmware (FAT32)
+#     4. GPIO gate (optional legacy): set HOTSPOT_GPIO_PIN in /etc/default/ipr-provision
+#     5. HOTSPOT_MODE=always (legacy): always start at boot (backwards compatible)
 #
-# GPIO gate (optional):
-#   Set HOTSPOT_GPIO_PIN (e.g. in /etc/default/ipr-provision) to a BCM GPIO
-#   pin number.  The hotspot only starts when that pin is held LOW for ≥ 2 s
-#   at script start.  Recommended: GPIO 27 (Pin 13).  GPIO 17 is reserved for
-#   factory reset.  Leave unset (default) for always-on behaviour.
+#   Hotspot is stopped by calling: systemctl stop ipr-provision.service
+#   Or by holding the reed switch ≥ 3 s again (toggles off).
+#
+#   Credentials are generated once and stored in /etc/ipr-hotspot.secret
+#   Management web UI: https://10.42.0.1/setup/
+#
+# Configuration (/etc/default/ipr-provision):
+#   HOTSPOT_MODE=on-demand   # default for Pi Zero 2 W (hotspot only when triggered)
+#   HOTSPOT_MODE=always      # legacy / dev Pi (always start at boot)
+#   HOTSPOT_GPIO_PIN=27      # optional BCM pin for hardware GPIO gate
 #
 # Installation:
 #   sudo cp scripts/headless/net_provision_hotspot.sh /usr/local/sbin/ipr-provision.sh
 #   sudo chmod +x /usr/local/sbin/ipr-provision.sh
 #
 # Service:
-#   Managed by ipr-provision.service
+#   Managed by ipr-provision.service (Type=oneshot RemainAfterExit=yes)
 #
 # category: Headless
-# purpose: Permanent management hotspot for headless Pi
+# purpose: On-demand management hotspot for Pi Zero 2 W
 # sudo: yes
 
 set -euo pipefail
@@ -35,13 +41,25 @@ AP_SSID_PREFIX="ipr-setup"
 SECRET_FILE="/etc/ipr-hotspot.secret"
 DEFAULTS_FILE="/etc/default/ipr-provision"
 
+# Boot-counter state file (persistent across reboots, lives in /var/lib)
+BOOT_COUNT_FILE="/var/lib/ipr-keyboard/boot-count"
+BOOT_COUNT_WINDOW=120   # seconds — window within which reboots are counted
+BOOT_COUNT_TRIGGER=3    # number of rapid reboots that triggers the hotspot
+
+# Boot marker files (FAT32 boot partition, writable from any PC/Mac)
+BOOT_MARKERS=("/boot/firmware/IPR_SETUP" "/boot/IPR_SETUP")
+
 # Optional env override — defaults can be set in /etc/default/ipr-provision
 ENV_HOTSPOT_GPIO_PIN="${HOTSPOT_GPIO_PIN-}"
+ENV_HOTSPOT_MODE="${HOTSPOT_MODE-}"
 if [[ -r "${DEFAULTS_FILE}" ]]; then
   # shellcheck source=/dev/null
   source "${DEFAULTS_FILE}"
 fi
 HOTSPOT_GPIO_PIN="${ENV_HOTSPOT_GPIO_PIN:-${HOTSPOT_GPIO_PIN:-}}"
+# Default mode: on-demand (hotspot only when explicitly triggered).
+# Set HOTSPOT_MODE=always in /etc/default/ipr-provision for legacy always-on behaviour.
+HOTSPOT_MODE="${ENV_HOTSPOT_MODE:-${HOTSPOT_MODE:-on-demand}}"
 
 log() { echo "[ipr-provision] $*"; }
 
@@ -79,7 +97,57 @@ load_or_generate_secret() {
 }
 
 # ---------------------------------------------------------------------------
-# Optional GPIO gate
+# Trigger 1: boot-partition marker file
+# ---------------------------------------------------------------------------
+
+check_boot_marker() {
+  for marker in "${BOOT_MARKERS[@]}"; do
+    if [[ -f "${marker}" ]]; then
+      log "Boot marker found: ${marker} — starting hotspot"
+      rm -f "${marker}" 2>/dev/null || true
+      return 0
+    fi
+  done
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# Trigger 2: triple power-cycle counter
+# ---------------------------------------------------------------------------
+
+check_boot_count() {
+  mkdir -p "$(dirname "${BOOT_COUNT_FILE}")"
+
+  local count=1
+  local now
+  now=$(date +%s)
+
+  if [[ -f "${BOOT_COUNT_FILE}" ]]; then
+    local stored_count stored_time
+    read -r stored_count stored_time < "${BOOT_COUNT_FILE}" 2>/dev/null || true
+    stored_count="${stored_count:-0}"
+    stored_time="${stored_time:-0}"
+    local age=$(( now - stored_time ))
+
+    if (( age < BOOT_COUNT_WINDOW )); then
+      count=$(( stored_count + 1 ))
+    fi
+    # age >= window: reset to 1 (too long since last boot)
+  fi
+
+  if (( count >= BOOT_COUNT_TRIGGER )); then
+    log "Triple power-cycle detected (${count}/${BOOT_COUNT_TRIGGER} within ${BOOT_COUNT_WINDOW}s) — starting hotspot"
+    printf '%s %s\n' "0" "${now}" > "${BOOT_COUNT_FILE}"  # reset counter
+    return 0
+  fi
+
+  log "Boot count: ${count}/${BOOT_COUNT_TRIGGER} (window ${BOOT_COUNT_WINDOW}s). Power-cycle ${BOOT_COUNT_TRIGGER} times rapidly to trigger hotspot."
+  printf '%s %s\n' "${count}" "${now}" > "${BOOT_COUNT_FILE}"
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# Optional GPIO gate (legacy hardware trigger)
 # ---------------------------------------------------------------------------
 
 gpio_pin_held_low() {
@@ -151,15 +219,31 @@ ensure_hotspot_connection() {
 main() {
   nmcli radio wifi on || true
 
-  if [[ -n "${HOTSPOT_GPIO_PIN}" ]]; then
-    gpio_pin_held_low "${HOTSPOT_GPIO_PIN}" || exit 0
+  # Determine whether to start the hotspot.
+  # Evaluation order: marker file > boot counter > GPIO gate > mode setting.
+  local should_start=0
+
+  if check_boot_marker; then
+    should_start=1
+  elif check_boot_count; then
+    should_start=1
+  elif [[ -n "${HOTSPOT_GPIO_PIN}" ]]; then
+    gpio_pin_held_low "${HOTSPOT_GPIO_PIN}" && should_start=1
+  elif [[ "${HOTSPOT_MODE}" == "always" ]]; then
+    log "HOTSPOT_MODE=always — starting hotspot unconditionally"
+    should_start=1
+  else
+    log "HOTSPOT_MODE=on-demand and no trigger detected — hotspot not started"
+    log "Trigger options: reed switch (hold 3 s), triple power-cycle, or create IPR_SETUP on /boot/firmware"
+  fi
+
+  if [[ ${should_start} -eq 0 ]]; then
+    exit 0
   fi
 
   load_or_generate_secret
-
   ensure_hotspot_connection
-
-  log "Hotspot active. Management UI served by ipr_keyboard.service at https://10.42.0.1/"
+  log "Hotspot active. Management UI: https://10.42.0.1/setup/"
 }
 
 main "$@"

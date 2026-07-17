@@ -42,7 +42,10 @@ _SESSION_KEY = "setup_ok"
 @bp_setup.context_processor
 def _inject_lang() -> dict:
     lang = session.get("setup_lang", "en")
-    return {"t": get_translations(lang), "lang": lang}
+    # from_dashboard is True when the user arrived via the main-dashboard admin
+    # session rather than through the hotspot login — used to show a back link.
+    from_dashboard = bool(session.get("username") and not session.get(_SESSION_KEY))
+    return {"t": get_translations(lang), "lang": lang, "from_dashboard": from_dashboard}
 
 
 def _t() -> dict:
@@ -97,9 +100,14 @@ def _load_hotspot_password() -> str:
 def require_login(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get(_SESSION_KEY):
-            return redirect(url_for("setup.login_page", next=request.path))
-        return f(*args, **kwargs)
+        # Hotspot session (ipr user logged in via /setup/login)
+        if session.get(_SESSION_KEY):
+            return f(*args, **kwargs)
+        # Main-dashboard admin session also grants access to setup pages,
+        # allowing navigation from the dashboard without a second login.
+        if session.get("username") and session.get("is_admin"):
+            return f(*args, **kwargs)
+        return redirect(url_for("setup.login_page", next=request.path))
     return decorated
 
 

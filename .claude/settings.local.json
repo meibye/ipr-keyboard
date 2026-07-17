@@ -52,7 +52,8 @@
       "mcp__ipr-rpi-dev-ssh__upload",
       "Bash(git update-index *)",
       "Skill(schedule)",
-      "Skill(schedule:*)"
+      "Skill(schedule:*)",
+      "Bash(python *)"
     ]
   },
   "enabledMcpjsonServers": [

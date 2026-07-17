@@ -42,6 +42,7 @@ def test_blueprints_registered(temp_config):
     assert "config" in app.blueprints
     assert "logs" in app.blueprints
     assert "api" in app.blueprints
+    assert "setup" in app.blueprints
 
 
 def test_config_endpoint_registered(flask_client):

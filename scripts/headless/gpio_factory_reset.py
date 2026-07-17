@@ -231,8 +231,8 @@ def main():
         create_reset_marker()
 
         # Delete Wi-Fi profiles directly
-        delete_wifi_profiles()
-
+        
+        
         log("Factory reset complete, rebooting in 3 seconds...")
         time.sleep(3)
 

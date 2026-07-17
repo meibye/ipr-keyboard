@@ -131,7 +131,7 @@ def create_app() -> Flask:
 
     @app.route("/")
     def index():
-        return render_template("dashboard.html")
+        return render_template("dashboard.html", is_admin=bool(session.get("is_admin")))
 
     @app.get("/health")
     def health():

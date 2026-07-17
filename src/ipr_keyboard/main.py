@@ -24,6 +24,7 @@ from .usb import detector, reader, deleter
 from .usb import detector as usb_detector, reader as usb_reader, deleter as usb_deleter
 from .web.server import create_app
 from .web import server as web_server
+from .gpio_monitor import GpioMonitor, gpio_available
 
 logger = get_logger()
 
@@ -172,8 +173,8 @@ def run_usb_bt_loop():
 def main():
     """Main entry point for the ipr-keyboard application.
 
-    Initializes the configuration, starts the web server and USB monitoring
-    threads, and keeps the application running until interrupted with Ctrl+C.
+    Initializes the configuration, starts the web server, USB monitoring,
+    and GPIO monitor threads, then keeps the main thread alive.
     """
     log_version_info()
     cfg = ConfigManager.instance().get()
@@ -187,12 +188,27 @@ def main():
     t_main = threading.Thread(target=run_usb_bt_loop, daemon=True)
     t_main.start()
 
+    # GPIO monitor — reed switch trigger and RGB LED status indicator.
+    # Starts only when GpioEnabled is True and RPi.GPIO is available.
+    gpio_monitor: GpioMonitor | None = None
+    if cfg.GpioEnabled:
+        gpio_monitor = GpioMonitor(
+            reed_pin=cfg.GpioReedPin,
+            led_r_pin=cfg.GpioLedRPin,
+            led_g_pin=cfg.GpioLedGPin,
+            led_b_pin=cfg.GpioLedBPin,
+            led_idle_timeout=cfg.GpioLedIdleSeconds,
+        )
+        gpio_monitor.start()
+
     # Keep the main thread alive
     try:
         while True:
             time.sleep(10)
     except KeyboardInterrupt:
         logger.info("Shutting down ipr_keyboard")
+        if gpio_monitor:
+            gpio_monitor.stop()
 
 
 if __name__ == "__main__":

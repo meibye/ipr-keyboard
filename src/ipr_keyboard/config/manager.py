@@ -60,6 +60,14 @@ class AppConfig:
     # TLS certificate paths — read by main.py; not surfaced via the config API.
     TlsCertFile: str = "/etc/ipr-ssl/server.crt"
     TlsKeyFile: str = "/etc/ipr-ssl/server.key"
+    # GPIO — reed switch and RGB LED (BCM pin numbers).
+    # Set GpioEnabled: false to disable on non-Pi hosts or when no hardware is wired.
+    GpioEnabled: bool = True
+    GpioReedPin: int = 27
+    GpioLedRPin: int = 22
+    GpioLedGPin: int = 23
+    GpioLedBPin: int = 24
+    GpioLedIdleSeconds: int = 30
 
     def __post_init__(self) -> None:
         if self.IrisPenFolders is None:
