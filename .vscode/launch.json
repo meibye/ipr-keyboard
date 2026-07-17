@@ -34,6 +34,49 @@
       "request": "attach",
       "port": 9229,
       "restart": true
+    },
+    {
+      "name": "pytest: all tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["tests/", "-v", "--tb=long", "--no-header"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "pytest: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-v", "--tb=long", "-s"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "pytest: with coverage",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "tests/", "-v", "--tb=short",
+        "--cov=src/ipr_keyboard",
+        "--cov-report=term-missing"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Flask: run dev server",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ipr_keyboard.web.server",
+      "env": {
+        "FLASK_ENV": "development",
+        "FLASK_DEBUG": "1"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
     }
   ]
 }

@@ -1,0 +1,51 @@
+{
+  "name": "ipr-keyboard dev",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bullseye",
+
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "postCreateCommand": "pip install -e '.[dev]' && pip install ruff",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylance",
+        "ms-python.debugpy",
+        "charliermarsh.ruff",
+        "ms-python.vscode-pylance",
+        "littlefoxteam.vscode-python-test-adapter",
+        "hbenl.vscode-test-explorer"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["tests", "-v"],
+        "[python]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+          }
+        },
+        "ruff.enable": true
+      }
+    }
+  },
+
+  "remoteEnv": {
+    "IPR_GPIO_ENABLED": "false"
+  },
+
+  "forwardPorts": [8080, 443],
+  "portsAttributes": {
+    "8080": { "label": "Flask dev (HTTP)" },
+    "443":  { "label": "Flask dev (HTTPS)" }
+  },
+
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspaces/ipr-keyboard,type=bind,consistency=cached"
+  ]
+}

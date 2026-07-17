@@ -46,6 +46,108 @@
                 "panel": "dedicated",
                 "focus": true
             }
+        },
+        {
+            "label": "test: run all",
+            "type": "shell",
+            "command": "pytest",
+            "args": ["tests/", "-v", "--tb=short"],
+            "group": { "kind": "test", "isDefault": true },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "pytest",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(FAILED|ERROR)\\s+(.+)::(\\S+)",
+                    "file": 2,
+                    "message": 3
+                }
+            }
+        },
+        {
+            "label": "test: with coverage",
+            "type": "shell",
+            "command": "pytest",
+            "args": [
+                "tests/", "-v", "--tb=short",
+                "--cov=src/ipr_keyboard",
+                "--cov-report=term-missing",
+                "--cov-report=html:htmlcov"
+            ],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "test: current file",
+            "type": "shell",
+            "command": "pytest",
+            "args": ["${file}", "-v", "--tb=long"],
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "lint: ruff check",
+            "type": "shell",
+            "command": "ruff",
+            "args": ["check", "src/", "tests/"],
+            "group": { "kind": "build", "isDefault": true },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "ruff",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^(.+):(\\d+):(\\d+):\\s+(\\w+)\\s+(.+)$",
+                    "file": 1,
+                    "line": 2,
+                    "column": 3,
+                    "severity": 4,
+                    "message": 5
+                }
+            }
+        },
+        {
+            "label": "lint: ruff format check",
+            "type": "shell",
+            "command": "ruff",
+            "args": ["format", "--check", "src/", "tests/"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "lint: ruff format fix",
+            "type": "shell",
+            "command": "ruff",
+            "args": ["format", "src/", "tests/"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": []
         }
     ]
 }
