@@ -291,22 +291,37 @@ if [[ "$HAS_GPIO" -eq 0 ]]; then
         record_skip "$sub" "RPi.GPIO unavailable"
     done
 else
-    # B.1 — Pin reads HIGH without magnet
+    # B.1 — Pin reads HIGH without magnet (warn and retry once if LOW — magnet may be nearby)
     REED_NO_MAGNET=$(gpio_py "
-import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO, time
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup($REED_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-import time; time.sleep(0.1)
+time.sleep(0.2)
 val = GPIO.input($REED_PIN)
 GPIO.cleanup()
 print(val)
 " 2>/dev/null)
 
+    if [[ "$REED_NO_MAGNET" == "0" ]]; then
+        warn "B.1: reed reads LOW — magnet may be too close. Waiting 3 s and retrying..."
+        sleep 3
+        REED_NO_MAGNET=$(gpio_py "
+import RPi.GPIO as GPIO, time
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup($REED_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+time.sleep(0.2)
+val = GPIO.input($REED_PIN)
+GPIO.cleanup()
+print(val)
+" 2>/dev/null)
+    fi
+
     if [[ "$REED_NO_MAGNET" == "1" ]]; then
         record_pass B.1 "Reed switch reads HIGH (open) without magnet — pull-up OK"
     elif [[ "$REED_NO_MAGNET" == "0" ]]; then
-        record_fail B.1 "Reed switch reads LOW without magnet — check wiring or magnet too close"
+        record_fail B.1 "Reed switch reads LOW without magnet after retry — magnet too close or switch stuck closed"
     else
         record_fail B.1 "Could not read reed switch pin — GPIO error"
     fi
@@ -440,29 +455,30 @@ DRIVER_EOF
     sudo kill "$_MON_PID" 2>/dev/null; wait "$_MON_PID" 2>/dev/null || true
     sleep 1
 
-    # C.3 — Hold ≥ 10 s (factory reset arm): LED shows red fast blink; release is SAFE here
-    #        We patch GpioMonitor so it never reboots in this test.
-    _SAFE_MONITOR=$(mktemp /tmp/gpio_monitor_safe_XXXX.py)
-    sed 's/subprocess\.run(\[.*reboot.*\][^)]*)/print("[test] reboot suppressed")/' \
-        "$SRC_MONITOR" > "$_SAFE_MONITOR"
-    # Also strip nmcli profile deletes to avoid accidental damage
-    sed -i 's/subprocess\.run(\[.nmcli., .con., .delete./print("[test] nmcli delete suppressed") #/' \
-        "$_SAFE_MONITOR"
-
-    # Driver using patched copy
+    # C.3 — Hold ≥ 10 s (factory reset arm): LED shows red fast blink; release is SAFE here.
+    #        Monkeypatch subprocess at the package level so relative imports work normally.
     _SAFE_DRIVER=$(mktemp /tmp/gpio_monitor_safe_driver_XXXX.py)
     cat > "$_SAFE_DRIVER" <<SAFE_DRIVER_EOF
-import sys, time
-# Use patched monitor file directly
-import importlib.util, types
+import sys, time, subprocess
+sys.path.insert(0, "$PROJECT_SRC")
 
-spec = importlib.util.spec_from_file_location("gpio_monitor_safe", "$_SAFE_MONITOR")
-mod  = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(mod)
+# Patch subprocess before importing the module so reboot and nmcli deletes are suppressed.
+_real_run = subprocess.run
+def _safe_run(cmd, **kw):
+    cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+    if "reboot" in cmd_str:
+        print("[test] reboot suppressed", flush=True)
+        return
+    if "nmcli" in cmd_str and "delete" in cmd_str:
+        print(f"[test] nmcli delete suppressed: {cmd_str}", flush=True)
+        return
+    return _real_run(cmd, **kw)
+subprocess.run = _safe_run
 
-mon = mod.GpioMonitor()
+from ipr_keyboard.gpio_monitor import GpioMonitor
+mon = GpioMonitor()
 mon.start()
-print("Safe GpioMonitor running (reboot/nmcli suppressed)", flush=True)
+print("Safe GpioMonitor running (reboot/nmcli delete suppressed)", flush=True)
 try:
     time.sleep(60)
 except KeyboardInterrupt:
@@ -490,7 +506,7 @@ SAFE_DRIVER_EOF
     fi
 
     sudo kill "$_MON_PID" 2>/dev/null; wait "$_MON_PID" 2>/dev/null || true
-    rm -f "$_SAFE_MONITOR" "$_SAFE_DRIVER"
+    rm -f "$_SAFE_DRIVER"
 
     # C.4 — State colour accuracy: check that _state_color() returns a sensible tuple
     C4_OUT=$(sudo python3 - <<PYEOF 2>/dev/null
