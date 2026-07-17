@@ -3,6 +3,9 @@ import subprocess
 
 import pytest
 
+# Clearly-labelled placeholder; not a real credential.
+_FAKE_HOTSPOT_PWD = "test-hotspot-placeholder"
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -90,11 +93,11 @@ def test_setup_login_post_valid_creds(anon_client, monkeypatch):
     """POST /setup/login with correct credentials sets setup_ok and redirects."""
     import ipr_keyboard.web.setup as setup_mod
 
-    monkeypatch.setattr(setup_mod, "_load_hotspot_password", lambda: "s3cret")
+    monkeypatch.setattr(setup_mod, "_load_hotspot_password", lambda: _FAKE_HOTSPOT_PWD)
 
     res = anon_client.post(
         "/setup/login",
-        data={"username": "ipr", "password": "s3cret"},
+        data={"username": "ipr", "password": _FAKE_HOTSPOT_PWD},
         follow_redirects=False,
     )
     assert res.status_code == 302
@@ -105,7 +108,7 @@ def test_setup_login_post_invalid_creds(anon_client, monkeypatch):
     """POST /setup/login with wrong password returns 401."""
     import ipr_keyboard.web.setup as setup_mod
 
-    monkeypatch.setattr(setup_mod, "_load_hotspot_password", lambda: "s3cret")
+    monkeypatch.setattr(setup_mod, "_load_hotspot_password", lambda: _FAKE_HOTSPOT_PWD)
 
     res = anon_client.post(
         "/setup/login",
@@ -143,7 +146,7 @@ def test_setup_accessible_via_dashboard_admin_session(temp_config, monkeypatch, 
     app = create_app()
     app.config["TESTING"] = True
 
-    monkeypatch.setattr(setup_mod, "_read_hotspot_secret", lambda: ("TestSSID", "pass"))
+    monkeypatch.setattr(setup_mod, "_read_hotspot_secret", lambda: ("TestSSID", _FAKE_HOTSPOT_PWD))
     monkeypatch.setattr(setup_mod, "_bt_info", lambda: {"powered": False, "devices": []})
 
     def mock_check_output(cmd, **kwargs):
@@ -196,7 +199,7 @@ def test_setup_home_renders(setup_client, monkeypatch):
     import ipr_keyboard.web.setup as setup_mod
 
     _mock_subprocess(monkeypatch)
-    monkeypatch.setattr(setup_mod, "_read_hotspot_secret", lambda: ("TestSSID", "pass"))
+    monkeypatch.setattr(setup_mod, "_read_hotspot_secret", lambda: ("TestSSID", _FAKE_HOTSPOT_PWD))
 
     res = setup_client.get("/setup/")
     assert res.status_code == 200
@@ -246,7 +249,7 @@ def test_setup_connect_saves_profile(setup_client, monkeypatch):
 
     res = setup_client.post(
         "/setup/connect",
-        data={"ssid": "HomeNetwork", "psk": "password", "security": "auto"},
+        data={"ssid": "HomeNetwork", "psk": _FAKE_HOTSPOT_PWD, "security": "auto"},
         follow_redirects=False,
     )
     assert res.status_code == 302

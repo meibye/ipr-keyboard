@@ -7,6 +7,7 @@ Passwords are hashed with werkzeug's pbkdf2:sha256.
 from __future__ import annotations
 
 import re
+import secrets
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,9 @@ from ..utils.helpers import load_json, project_root, save_json, seed_from_defaul
 
 _USERNAME_RE = re.compile(r"[a-z0-9_]{3,32}")
 _MIN_PASSWORD_LEN = 8
+
+
+_INITIAL_PWD_FILE = "admin_initial_password.txt"
 
 
 def users_path() -> Path:
@@ -64,8 +68,11 @@ class UserStore:
             dirty = False
 
             if not data["users"]:
+                pwd = secrets.token_urlsafe(16)
+                pwd_file = project_root() / _INITIAL_PWD_FILE
+                pwd_file.write_text(pwd)
                 data["users"]["admin"] = {
-                    "password_hash": generate_password_hash("password"),
+                    "password_hash": generate_password_hash(pwd),
                     "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "is_admin": True,
                 }
