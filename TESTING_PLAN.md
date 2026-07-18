@@ -13,7 +13,8 @@ hardware-dependent GPIO and Bluetooth testable only on a Raspberry Pi.
 | 2 — Integration | Local Win11 / Dev container / CI | Every commit | pytest |
 | 3 — Headless RPi | Dev RPi via MCP SSH | Before merge | bash + pytest |
 | 4 — Hardware | Dev RPi (hands-on) | Before release | Manual checklist |
-| 5 — Acceptance | Prod RPi | Release gate | Manual checklist |
+| 5 — Post-provision | New RPi Zero W via MCP SSH | After provisioning a new device | `test_provision.sh` |
+| 6 — Acceptance | Prod RPi | Release gate | Manual checklist |
 
 ---
 
@@ -209,7 +210,82 @@ sudo bash scripts/headless/test_gpio_led_reed.sh
 
 ---
 
-## Tier 5 — Production acceptance
+## Tier 5 — Post-provision validation (new RPi Zero W)
+
+Run immediately after completing the full provisioning sequence on a new device.
+Uses the `/test-new-rpi` skill and `scripts/headless/test_provision.sh` via MCP SSH.
+
+### Provisioning sequence (must complete before testing)
+
+```bash
+# 1. System packages (as root)
+sudo ./scripts/sys_install_packages.sh
+
+# 2. Python venv (as user)
+./scripts/sys_setup_venv.sh
+
+# 3. BLE services (as root)
+sudo ./scripts/service/svc_install_bt_gatt_hid.sh
+
+# 4. BT keyboard helper (as root)
+sudo ./scripts/ble/ble_install_helper.sh
+
+# 5. Hotspot + TLS certs (as root)
+sudo ./scripts/headless/install_provision_service.sh
+
+# 6. Full update — starts all services (as root)
+sudo ./scripts/deploy/deploy_full_update.sh --install-python
+```
+
+### 5a — Automated validation via MCP SSH
+
+Invoke the `test-new-rpi` skill, or run manually:
+
+```bash
+# Via ipr-rpi-dev-ssh MCP execute-command:
+sudo bash /home/meibye/dev/ipr-keyboard/scripts/headless/test_provision.sh --auto
+```
+
+The script validates all provisioning artifacts in phases:
+
+| Phase | What is checked | Provisioning step |
+|-------|----------------|-------------------|
+| **A — System packages** | git, python3-venv, bluez, nmcli, jmtpfs, uv, /mnt/irispen, Bluetooth experimental mode | `sys_install_packages.sh` |
+| **B — Python venv** | .venv exists, ipr_keyboard importable, pytest passes | `sys_setup_venv.sh` |
+| **C — BLE services** | bt_hid_agent_unified.py, bt_hid_ble_daemon.py installed + executable, service units, /opt/ipr_common.env | `svc_install_bt_gatt_hid.sh` |
+| **D — BT helper** | bt_kb_send, bt_kb_send_file installed + executable | `ble_install_helper.sh` |
+| **E — Provision service** | ipr-provision.sh, ipr-cert-gen.sh, ipr-cert-renew.sh installed, service units registered, renewal timer enabled | `install_provision_service.sh` |
+| **F — TLS certificates** | /etc/ipr-ssl/{ca,server}.{crt,key} present, server.key at 0640, server.crt not expired, covers 10.42.0.1 and .local hostname | `gen_ipr_ssl_cert.sh` |
+| **G — Service health** | NetworkManager, bluetooth, bt_hid_agent_unified, bt_hid_ble, ipr_keyboard all active | `deploy_full_update.sh` |
+| **H — Application health** | /health returns ok, config.json and users.json seeded, admin_initial_password.txt written | First start of ipr_keyboard |
+| **I — Script permissions** | All .sh and .py under scripts/ have executable flag | `fix-script-permissions` skill |
+
+**Pass criteria:** 0 failures in phases A–I.
+
+### 5b — Manual validation (J phase)
+
+After the automated run, perform the J-phase checks interactively (run without `--auto`):
+
+| Check | What to verify |
+|-------|---------------|
+| J.1 | Hotspot SSID `ipr-setup-XXXX` visible in Wi-Fi scan on a phone/laptop |
+| J.2 | Browser reaches `https://10.42.0.1/setup/` (may warn about cert) |
+| J.3 | Login with hotspot credentials from `/etc/ipr-hotspot.secret` succeeds |
+| J.4 | CA cert downloaded from `https://10.42.0.1/setup/ca.crt` and trusted; HTTPS no longer warns |
+| J.5 | Main dashboard at `https://<hostname>.local/` accessible and shows correct status |
+| J.6 | BT pairing with a host device completes (device appears in host BT list) |
+
+### 5c — GPIO hardware (if reed switch + LED wired)
+
+```bash
+sudo bash /home/meibye/dev/ipr-keyboard/scripts/headless/test_gpio_led_reed.sh --auto
+```
+
+See Tier 4a for the manual LED visual confirmation steps.
+
+---
+
+## Tier 6 — Production acceptance
 
 After deploying to `ipr-prod-zero2`, run via `ipr-rpi-prod-ssh` (whitelist-only):
 
@@ -219,6 +295,8 @@ dbg_diag_bundle.sh | head -100
 ```
 
 Then repeat Tiers 4a (LED visual), 4b (BT pairing), 4c (USB) with the production device.
+
+For a freshly imaged production device, run Tier 5 (post-provision) first.
 
 ---
 
