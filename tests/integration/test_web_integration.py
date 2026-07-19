@@ -71,14 +71,14 @@ def test_multiple_config_updates(flask_client):
         {"DeleteFiles": False},
         {"MaxFileSize": 1000},
         {"MaxFileSize": 2000},
-        {"IrisPenFolder": "/path/a"},
-        {"IrisPenFolder": "/path/b"},
+        {"IrisPenFolders": ["/path/a"]},
+        {"IrisPenFolders": ["/path/b"]},
     ]
-    
+
     for update in updates:
         response = flask_client.post("/config/", json=update)
         assert response.status_code == 200
-        
+
         # Verify the update took effect
         data = response.get_json()
         for key, value in update.items():
@@ -92,7 +92,7 @@ def test_config_endpoint_shape(flask_client):
     assert response.status_code == 200
     data = response.get_json()
 
-    assert "IrisPenFolder" in data
+    assert "IrisPenFolders" in data
     assert "DeleteFiles" in data
     assert "Logging" in data
     assert "MaxFileSize" in data

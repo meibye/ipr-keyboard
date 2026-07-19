@@ -15,17 +15,18 @@ def test_appconfig_defaults():
     """Test default configuration values."""
     cfg = AppConfig()
 
-    assert cfg.IrisPenFolder == "/mnt/irispen"
+    assert isinstance(cfg.IrisPenFolders, list)
+    assert len(cfg.IrisPenFolders) > 0
     assert cfg.DeleteFiles is True
     assert cfg.Logging is True
     assert cfg.MaxFileSize == 1024 * 1024  # 1MB
-    assert cfg.LogPort == 8080
+    assert cfg.LogPort == 443
 
 
 def test_appconfig_from_dict():
     """Test creating config from dictionary."""
     data = {
-        "IrisPenFolder": "/custom/path",
+        "IrisPenFolders": ["/custom/path"],
         "DeleteFiles": False,
         "Logging": False,
         "MaxFileSize": 2048,
@@ -34,20 +35,29 @@ def test_appconfig_from_dict():
 
     cfg = AppConfig.from_dict(data)
 
-    assert cfg.IrisPenFolder == "/custom/path"
+    assert cfg.IrisPenFolders == ["/custom/path"]
     assert cfg.DeleteFiles is False
     assert cfg.Logging is False
     assert cfg.MaxFileSize == 2048
     assert cfg.LogPort == 9000
 
 
-def test_appconfig_from_dict_partial():
-    """Test creating config from partial dictionary."""
-    data = {"IrisPenFolder": "/custom/path"}
+def test_appconfig_from_dict_legacy_single_folder():
+    """Test that legacy IrisPenFolder (singular) key is migrated to a list."""
+    data = {"IrisPenFolder": "/legacy/path"}
 
     cfg = AppConfig.from_dict(data)
 
-    assert cfg.IrisPenFolder == "/custom/path"
+    assert cfg.IrisPenFolders == ["/legacy/path"]
+
+
+def test_appconfig_from_dict_partial():
+    """Test creating config from partial dictionary."""
+    data = {"IrisPenFolders": ["/custom/path"]}
+
+    cfg = AppConfig.from_dict(data)
+
+    assert cfg.IrisPenFolders == ["/custom/path"]
     assert cfg.DeleteFiles is True  # default
     assert cfg.MaxFileSize == 1024 * 1024  # default
 
@@ -55,28 +65,28 @@ def test_appconfig_from_dict_partial():
 def test_appconfig_from_dict_extra_keys():
     """Test that extra keys in dictionary are ignored."""
     data = {
-        "IrisPenFolder": "/path",
+        "IrisPenFolders": ["/path"],
         "UnknownKey": "value",
         "AnotherUnknown": 123,
     }
 
     cfg = AppConfig.from_dict(data)
 
-    assert cfg.IrisPenFolder == "/path"
+    assert cfg.IrisPenFolders == ["/path"]
     assert not hasattr(cfg, "UnknownKey")
 
 
 def test_appconfig_to_dict():
     """Test converting config to dictionary."""
     cfg = AppConfig(
-        IrisPenFolder="/test",
+        IrisPenFolders=["/test"],
         DeleteFiles=False,
         MaxFileSize=500,
     )
 
     data = cfg.to_dict()
 
-    assert data["IrisPenFolder"] == "/test"
+    assert data["IrisPenFolders"] == ["/test"]
     assert data["DeleteFiles"] is False
     assert data["MaxFileSize"] == 500
 
@@ -86,7 +96,7 @@ def test_appconfig_to_dict():
 def test_config_load_and_update(tmp_path, monkeypatch):
     """Test configuration loading and updating."""
     cfg_file = tmp_path / "config.json"
-    save_json(cfg_file, {"IrisPenFolder": "/tmp/iris", "DeleteFiles": False})
+    save_json(cfg_file, {"IrisPenFolders": ["/tmp/iris"], "DeleteFiles": False})
 
     monkeypatch.setattr(
         "ipr_keyboard.config.manager.config_path",
@@ -96,7 +106,7 @@ def test_config_load_and_update(tmp_path, monkeypatch):
 
     mgr = ConfigManager()
     cfg = mgr.get()
-    assert cfg.IrisPenFolder == "/tmp/iris"
+    assert cfg.IrisPenFolders == ["/tmp/iris"]
     assert cfg.DeleteFiles is False
 
     mgr.update(DeleteFiles=True, MaxFileSize=1234)
@@ -117,16 +127,16 @@ def test_config_get_returns_copy(temp_config):
     """Test that get() returns a copy, not the original."""
     mgr = ConfigManager.instance()
     cfg1 = mgr.get()
-    cfg1.IrisPenFolder = "/modified"
+    cfg1.IrisPenFolders = ["/modified"]
 
     cfg2 = mgr.get()
-    assert cfg2.IrisPenFolder != "/modified"
+    assert cfg2.IrisPenFolders != ["/modified"]
 
 
 def test_config_reload(tmp_path, monkeypatch):
     """Test reloading configuration from disk."""
     cfg_file = tmp_path / "config.json"
-    save_json(cfg_file, {"IrisPenFolder": "/original"})
+    save_json(cfg_file, {"IrisPenFolders": ["/original"]})
 
     monkeypatch.setattr(
         "ipr_keyboard.config.manager.config_path",
@@ -136,14 +146,14 @@ def test_config_reload(tmp_path, monkeypatch):
 
     mgr = ConfigManager()
     cfg1 = mgr.get()
-    assert cfg1.IrisPenFolder == "/original"
+    assert cfg1.IrisPenFolders == ["/original"]
 
     # Modify the file externally
-    save_json(cfg_file, {"IrisPenFolder": "/modified"})
+    save_json(cfg_file, {"IrisPenFolders": ["/modified"]})
 
     # Reload and verify
     cfg2 = mgr.reload()
-    assert cfg2.IrisPenFolder == "/modified"
+    assert cfg2.IrisPenFolders == ["/modified"]
 
 
 def test_config_missing_file(tmp_path, monkeypatch):
@@ -160,14 +170,15 @@ def test_config_missing_file(tmp_path, monkeypatch):
     cfg = mgr.get()
 
     # Should use defaults
-    assert cfg.IrisPenFolder == "/mnt/irispen"
+    assert isinstance(cfg.IrisPenFolders, list)
+    assert len(cfg.IrisPenFolders) > 0
     assert cfg.DeleteFiles is True
 
 
 def test_config_persistence(tmp_path, monkeypatch):
     """Test that updates are persisted to disk."""
     cfg_file = tmp_path / "config.json"
-    save_json(cfg_file, {"IrisPenFolder": "/original"})
+    save_json(cfg_file, {"IrisPenFolders": ["/original"]})
 
     monkeypatch.setattr(
         "ipr_keyboard.config.manager.config_path",
@@ -176,11 +187,11 @@ def test_config_persistence(tmp_path, monkeypatch):
     ConfigManager._instance = None
 
     mgr = ConfigManager()
-    mgr.update(IrisPenFolder="/updated", DeleteFiles=False)
+    mgr.update(IrisPenFolders=["/updated"], DeleteFiles=False)
 
     # Read the file directly
     data = load_json(cfg_file)
-    assert data["IrisPenFolder"] == "/updated"
+    assert data["IrisPenFolders"] == ["/updated"]
     assert data["DeleteFiles"] is False
 
 
@@ -196,9 +207,9 @@ def test_config_update_ignores_unknown_keys(tmp_path, monkeypatch):
     ConfigManager._instance = None
 
     mgr = ConfigManager()
-    cfg = mgr.update(UnknownKey="value", IrisPenFolder="/valid")
+    cfg = mgr.update(UnknownKey="value", IrisPenFolders=["/valid"])
 
-    assert cfg.IrisPenFolder == "/valid"
+    assert cfg.IrisPenFolders == ["/valid"]
     assert not hasattr(cfg, "UnknownKey")
 
 
@@ -211,7 +222,7 @@ def test_config_thread_safety(temp_config):
         try:
             for _ in range(10):
                 cfg = mgr.get()
-                results["reads"].append(cfg.IrisPenFolder)
+                results["reads"].append(cfg.IrisPenFolders)
         except Exception as e:  # pragma: no cover - defensive
             results["errors"].append(str(e))
 

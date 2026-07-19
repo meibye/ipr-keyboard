@@ -3,6 +3,7 @@
 Tests the BluetoothKeyboard class methods for sending text via Bluetooth.
 """
 import subprocess
+import pytest
 from ipr_keyboard.bluetooth.keyboard import BluetoothKeyboard
 
 
@@ -212,17 +213,21 @@ def test_is_available_false_not_exists():
     assert kb.is_available() is False
 
 
+@pytest.mark.skipif(
+    __import__("sys").platform == "win32",
+    reason="os.access(X_OK) always returns True on Windows; execute bit is a Unix concept",
+)
 def test_is_available_false_not_executable(tmp_path):
     """Test is_available returns False when helper is not executable.
-    
+
     Verifies that non-executable files are rejected.
     """
     helper = tmp_path / "bt_kb_send"
     helper.write_text("#!/bin/bash\necho 'helper'")
     # Don't make it executable
-    
+
     kb = BluetoothKeyboard(helper_path=str(helper))
-    
+
     assert kb.is_available() is False
 
 

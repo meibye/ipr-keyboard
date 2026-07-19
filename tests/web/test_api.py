@@ -463,14 +463,14 @@ def test_debug_pen_files_empty(flask_client, temp_config, monkeypatch, tmp_path)
     from ipr_keyboard.config.manager import ConfigManager
     pen_dir = tmp_path / "pen"
     pen_dir.mkdir()
-    ConfigManager.instance().update(IrisPenFolder=str(pen_dir))
+    ConfigManager.instance().update(IrisPenFolders=[str(pen_dir)])
 
     res = flask_client.get("/api/debug/pen-files")
 
     assert res.status_code == 200
     data = res.get_json()
     assert data["files"] == []
-    assert str(pen_dir) in data["folder"]
+    assert str(pen_dir) in data["folders"]
 
 
 def test_debug_pen_files_lists_files(flask_client, temp_config, monkeypatch, tmp_path):
@@ -479,7 +479,7 @@ def test_debug_pen_files_lists_files(flask_client, temp_config, monkeypatch, tmp
     pen_dir = tmp_path / "pen"
     pen_dir.mkdir()
     (pen_dir / "note.txt").write_text("Hello pen", encoding="utf-8")
-    ConfigManager.instance().update(IrisPenFolder=str(pen_dir))
+    ConfigManager.instance().update(IrisPenFolders=[str(pen_dir)])
 
     res = flask_client.get("/api/debug/pen-files")
 
@@ -500,7 +500,7 @@ def test_debug_pen_files_content_cap(flask_client, temp_config, monkeypatch, tmp
     pen_dir.mkdir()
     large = "x" * 20000
     (pen_dir / "big.txt").write_text(large, encoding="utf-8")
-    ConfigManager.instance().update(IrisPenFolder=str(pen_dir))
+    ConfigManager.instance().update(IrisPenFolders=[str(pen_dir)])
 
     res = flask_client.get("/api/debug/pen-files")
 

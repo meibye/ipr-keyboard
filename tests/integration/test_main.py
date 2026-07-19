@@ -110,100 +110,83 @@ def test_usb_bt_loop_handles_missing_folder(temp_config, monkeypatch):
 
 def test_usb_bt_loop_processes_file(temp_config, usb_folder, monkeypatch):
     """Test that USB/BT loop detects and processes files.
-    
+
     Verifies the main loop workflow with a test file.
+    The loop uses detector.list_files() internally; after processing the file
+    (and deleting it) the next iteration finds nothing and calls time.sleep(),
+    which we raise as KeyboardInterrupt to exit.
     """
     from ipr_keyboard.config.manager import ConfigManager
     from ipr_keyboard.main import run_usb_bt_loop
-    
-    # Update config to point to our test folder
+
+    # Point config at our temp folder
     ConfigManager.instance().update(
-        IrisPenFolder=str(usb_folder),
-        DeleteFiles=True
+        IrisPenFolders=[str(usb_folder)],
+        DeleteFiles=True,
     )
-    
+
     # Create a test file
     test_file = usb_folder / "test.txt"
     test_file.write_text("test content")
-    
-    processed = {"file": None, "text": None}
-    loop_count = {"count": 0}
-    
-    # Mock the wait_for_new_file to return immediately
-    def mock_wait(folder, mtime, interval):
-        if loop_count["count"] == 0:
-            loop_count["count"] += 1
-            return test_file
-        raise KeyboardInterrupt()
-    
-    monkeypatch.setattr("ipr_keyboard.main.detector.wait_for_new_file", mock_wait)
-    
-    # Mock BluetoothKeyboard
+
+    processed = {"text": None}
+
     class MockBT:
         def is_available(self):
             return True
-        
+
         def send_text(self, text):
             processed["text"] = text
             return True
-    
+
     monkeypatch.setattr("ipr_keyboard.main.BluetoothKeyboard", MockBT)
-    
-    # Run the loop
+
+    # After the file is processed and deleted the loop finds nothing and
+    # calls time.sleep(); raise KeyboardInterrupt there to stop the loop.
+    monkeypatch.setattr("ipr_keyboard.main.time.sleep",
+                        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
+
     try:
         run_usb_bt_loop()
     except KeyboardInterrupt:
         pass
-    
-    # Verify the text was sent
+
     assert processed["text"] == "test content"
-    
-    # Verify file was deleted (DeleteFiles=True)
     assert not test_file.exists()
 
 
 def test_usb_bt_loop_bt_unavailable(temp_config, usb_folder, monkeypatch):
     """Test USB/BT loop when Bluetooth is unavailable.
-    
-    Verifies that files are still processed even without BT.
+
+    Verifies that files are not deleted when BT is unavailable and DeleteFiles=False.
+    After the file is processed (but not deleted), mtime is unchanged so the next
+    iteration finds nothing and calls time.sleep(); we raise KeyboardInterrupt there.
     """
     from ipr_keyboard.config.manager import ConfigManager
     from ipr_keyboard.main import run_usb_bt_loop
-    
+
     ConfigManager.instance().update(
-        IrisPenFolder=str(usb_folder),
-        DeleteFiles=False
+        IrisPenFolders=[str(usb_folder)],
+        DeleteFiles=False,
     )
-    
-    # Create a test file
+
     test_file = usb_folder / "test.txt"
     test_file.write_text("test content")
-    
-    loop_count = {"count": 0}
-    
-    def mock_wait(folder, mtime, interval):
-        if loop_count["count"] == 0:
-            loop_count["count"] += 1
-            return test_file
-        raise KeyboardInterrupt()
-    
-    monkeypatch.setattr("ipr_keyboard.main.detector.wait_for_new_file", mock_wait)
-    
-    # Mock BluetoothKeyboard as unavailable
+
     class MockBT:
         def is_available(self):
             return False
-        
+
         def send_text(self, text):
             return False
-    
+
     monkeypatch.setattr("ipr_keyboard.main.BluetoothKeyboard", MockBT)
-    
-    # Should not raise
+    monkeypatch.setattr("ipr_keyboard.main.time.sleep",
+                        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
+
     try:
         run_usb_bt_loop()
     except KeyboardInterrupt:
         pass
-    
-    # File should still exist (DeleteFiles=False)
+
     assert test_file.exists()
