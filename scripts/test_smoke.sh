@@ -63,7 +63,7 @@ from ipr_keyboard.config.manager import ConfigManager
 from pathlib import Path
 mgr = ConfigManager()
 cfg = mgr.get()
-print(f'[test_smoke] ✓ Config loaded: IrisPenFolder={cfg.IrisPenFolder}')
+print(f'[test_smoke] ✓ Config loaded: IrisPenFolders={cfg.IrisPenFolders}')
 "
 
 echo "[test_smoke] Testing logger..."
@@ -82,6 +82,9 @@ client = app.test_client()
 res = client.get('/health')
 assert res.status_code == 200, 'Health check failed'
 print('[test_smoke] ✓ Web server health check works')
+with client.session_transaction() as sess:
+    sess['username'] = 'admin'
+    sess['is_admin'] = True
 res = client.get('/logs/')
 assert res.status_code == 200, 'Logs endpoint failed'
 print('[test_smoke] ✓ Web server logs endpoint works')

@@ -183,8 +183,12 @@ def test_setup_lang_invalid_still_redirects(anon_client):
     assert res.status_code == 302
 
 
-def test_setup_ca_cert_missing_returns_404(anon_client):
+def test_setup_ca_cert_missing_returns_404(anon_client, monkeypatch):
     """GET /setup/ca.crt returns 404 when the CA file is absent."""
+    import ipr_keyboard.web.setup as setup_mod
+    from pathlib import Path
+
+    monkeypatch.setattr(setup_mod, "_CA_CERT_FILE", Path("/nonexistent/ca.crt"))
     res = anon_client.get("/setup/ca.crt")
     assert res.status_code == 404
 

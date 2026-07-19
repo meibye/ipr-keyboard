@@ -128,6 +128,21 @@ manual_step() {
     fi
 }
 
+# Prime the user: show what to watch for, then wait for ENTER before the action starts.
+# In --auto or non-interactive mode this is a no-op (returns immediately).
+prep_step() {
+    echo ""
+    echo -e "  ${BOLD}${CYAN}▷ WATCH FOR${RESET}"
+    for line in "$@"; do
+        echo -e "  ${CYAN}▸${RESET} $line"
+    done
+    echo ""
+    if [[ "$AUTO" -eq 0 ]] && [ -t 0 ]; then
+        printf "  Press ENTER to start: "
+        read -r _
+    fi
+}
+
 # Run an inline Python GPIO snippet as root; capture exit code.
 # Usage: gpio_py <python_code_string>
 gpio_py() {
@@ -217,6 +232,7 @@ if [[ "$HAS_GPIO" -eq 0 ]]; then
     done
 else
     # A.1 — Red channel
+    prep_step "The LED will light RED for 2 s."
     info "A.1  Red ON for 2 s (GPIO${LED_R})..."
     led_show 1 0 0 2
     if manual_step "Did you see RED light?"; then
@@ -226,6 +242,7 @@ else
     fi
 
     # A.2 — Green channel
+    prep_step "The LED will light GREEN for 2 s (test rig: may appear yellow)."
     info "A.2  Green ON for 2 s (GPIO${LED_G})..."
     led_show 0 1 0 2
     if manual_step "Did you see GREEN (or yellow on test rig) light?"; then
@@ -235,6 +252,7 @@ else
     fi
 
     # A.3 — Blue channel
+    prep_step "The LED will light BLUE for 2 s."
     info "A.3  Blue ON for 2 s (GPIO${LED_B})..."
     led_show 0 0 1 2
     if manual_step "Did you see BLUE light?"; then
@@ -244,6 +262,7 @@ else
     fi
 
     # A.4 — Amber (R+G = no-WiFi state)
+    prep_step "The LED will light AMBER / YELLOW (R+G) for 2 s."
     info "A.4  Amber ON for 2 s (R+G, GPIO${LED_R}+${LED_G})..."
     led_show 1 1 0 2
     if manual_step "Did you see AMBER / YELLOW light?"; then
@@ -253,6 +272,7 @@ else
     fi
 
     # A.5 — White (R+G+B = boot state)
+    prep_step "The LED will light WHITE (all three channels) for 2 s."
     info "A.5  White ON for 2 s (R+G+B)..."
     led_show 1 1 1 2
     if manual_step "Did you see WHITE light (all three channels)?"; then
@@ -262,6 +282,7 @@ else
     fi
 
     # A.6 — All off
+    prep_step "The LED will turn OFF."
     info "A.6  All OFF..."
     led_show 0 0 0 1
     if manual_step "Is the LED now OFF?"; then
@@ -271,6 +292,7 @@ else
     fi
 
     # A.7 — White fast blink (boot sequence, 4 Hz, 3 s)
+    prep_step "The LED will BLINK WHITE rapidly (4 Hz) for 3 s — the boot sequence."
     info "A.7  White fast blink 4 Hz for 3 s (boot sequence)..."
     led_blink 1 1 1 4 3
     if manual_step "Did you see fast white blinking for ~3 s?"; then
@@ -329,28 +351,38 @@ print(val)
     # B.2 — Pin reads LOW with magnet (manual)
     if manual_step \
         "Bring the magnet close to the reed switch (GPIO${REED_PIN}, Pin 13)." \
-        "Hold it in place and press ENTER."; then
+        "Hold it in place and press ENTER." \
+        "Expected: pin reads LOW (0) while the magnet is present."; then
         REED_WITH_MAGNET=$(gpio_py "
-import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO, time
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup($REED_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-import time; time.sleep(0.1)
-val = GPIO.input($REED_PIN)
+time.sleep(0.2)
+# Poll for up to 2 s — accept the first LOW sample as success.
+low_seen = False
+end = time.time() + 2.0
+while time.time() < end:
+    if GPIO.input($REED_PIN) == 0:
+        low_seen = True
+        break
+    time.sleep(0.05)
 GPIO.cleanup()
-print(val)
+print(0 if low_seen else 1)
 " 2>/dev/null)
         if [[ "$REED_WITH_MAGNET" == "0" ]]; then
             record_pass B.2 "Reed switch reads LOW (closed) with magnet — switch and wiring OK"
         else
-            record_fail B.2 "Reed switch still reads HIGH with magnet — switch not closing (check placement)"
+            record_fail B.2 "Reed switch still reads HIGH with magnet — switch not closing (check placement or magnet orientation)"
         fi
     else
         record_skip B.2 "Reed switch closed state — magnet test not performed"
     fi
 
     # B.3 — Verify pin returns HIGH after magnet removed
-    if manual_step "Remove the magnet and press ENTER."; then
+    if manual_step \
+        "Remove the magnet from the reed switch and press ENTER." \
+        "Expected: pin returns to HIGH (1) when open."; then
         REED_AFTER=$(gpio_py "
 import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
@@ -425,18 +457,22 @@ DRIVER_EOF
     sleep 4  # wait for boot blink to finish
 
     if manual_step \
-        "Briefly bring the magnet close (< 3 s) then remove it." \
-        "LED should show the system status colour (green / amber / red / blue) then go off after 30 s." \
-        "Verify the LED colour matches the system state and it turns off on its own."; then
-        record_pass C.1 "Tap interaction — LED woke, showed status, then went off"
+        "Briefly bring the magnet close (< 3 s) then remove it."; then
+        if manual_step \
+            "Did the LED light a status colour (green / amber / red / blue) after the tap?" \
+            "Did it turn off on its own after ~30 s?"; then
+            record_pass C.1 "Tap interaction — LED woke, showed status, then went off"
+        else
+            record_skip C.1 "Tap interaction — visual confirmation not provided"
+        fi
     else
-        record_skip C.1 "Tap interaction — visual confirmation not provided"
+        record_skip C.1 "Tap interaction — magnet step skipped"
     fi
 
     sudo kill "$_MON_PID" 2>/dev/null; wait "$_MON_PID" 2>/dev/null || true
     sleep 1
 
-    # C.2 — Hold ≥ 3 s (hotspot arm): LED shows blue fast blink, then blue solid / off on release
+    # C.2 — Hold ≥ 3 s (hotspot arm): LED shows blue fast blink, then status colour / off on release
     info "C.2  Starting GpioMonitor for hotspot-arm test (30 s window)..."
     sudo python3 "$_DRIVER" "$PROJECT_SRC" 30 &
     _MON_PID=$!
@@ -444,12 +480,17 @@ DRIVER_EOF
 
     if manual_step \
         "Hold the magnet near the reed switch for ≥ 3 s then release." \
-        "At 3 s the LED should change to BLUE FAST BLINK (hotspot arming)." \
-        "On release: LED shows current status colour for 30 s then turns off." \
-        "(Hotspot toggle is real — check 'systemctl is-active ipr-provision.service' if needed.)"; then
-        record_pass C.2 "Hold ≥ 3 s — blue fast blink seen; hotspot toggle fired on release"
+        "Watch for a colour change at the 3 s mark."; then
+        if manual_step \
+            "At 3 s: did the LED change to BLUE FAST BLINK (hotspot arming)?" \
+            "On release: did it show the current status colour then turn off?" \
+            "(Hotspot toggle is real — check 'systemctl is-active ipr-provision.service' if needed.)"; then
+            record_pass C.2 "Hold ≥ 3 s — blue fast blink seen; hotspot toggle fired on release"
+        else
+            record_skip C.2 "Hotspot-arm hold — visual confirmation not provided"
+        fi
     else
-        record_skip C.2 "Hotspot-arm hold — visual confirmation not provided"
+        record_skip C.2 "Hotspot-arm hold — magnet step skipped"
     fi
 
     sudo kill "$_MON_PID" 2>/dev/null; wait "$_MON_PID" 2>/dev/null || true
@@ -496,13 +537,17 @@ SAFE_DRIVER_EOF
 
     if manual_step \
         "Hold the magnet near the reed switch for ≥ 10 s then release." \
-        "At 3 s: LED shows BLUE FAST BLINK (hotspot arm)." \
-        "At 10 s: LED changes to RED FAST BLINK (factory reset arm)." \
-        "On release: reboot and profile deletion are suppressed — Pi stays up." \
-        "Verify you saw the colour change from blue-blink to red-blink at 10 s."; then
-        record_pass C.3 "Hold ≥ 10 s — red fast blink seen at 10 s threshold"
+        "Watch for TWO colour changes: at 3 s and again at 10 s."; then
+        if manual_step \
+            "At 3 s: did the LED change to BLUE FAST BLINK (hotspot arm)?" \
+            "At 10 s: did the LED change to RED FAST BLINK (factory reset arm)?" \
+            "On release: did the Pi stay up (reboot suppressed in this safe run)?"; then
+            record_pass C.3 "Hold ≥ 10 s — red fast blink seen at 10 s threshold"
+        else
+            record_skip C.3 "Factory-reset-arm hold — visual confirmation not provided"
+        fi
     else
-        record_skip C.3 "Factory-reset-arm hold — visual confirmation not provided"
+        record_skip C.3 "Factory-reset-arm hold — magnet step skipped"
     fi
 
     sudo kill "$_MON_PID" 2>/dev/null; wait "$_MON_PID" 2>/dev/null || true
