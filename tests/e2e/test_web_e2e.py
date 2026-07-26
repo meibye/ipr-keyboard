@@ -1,9 +1,11 @@
 """End-to-end tests for the main user dashboard.
 
-Requires environment variable IPR_BASE_URL, e.g.:
+Runs against a local in-process server by default.  Set IPR_BASE_URL to test a
+real device instead, e.g.:
     IPR_BASE_URL=http://192.168.1.42:8080 pytest tests/e2e/test_web_e2e.py -v
 
-All tests skip gracefully when the variable is absent.
+Add --e2e to require the device: missing variables and failed logins then fail
+rather than skip.  See tests/e2e/conftest.py.
 """
 
 import requests

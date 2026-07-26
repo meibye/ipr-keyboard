@@ -7,6 +7,24 @@ from pathlib import Path
 from ipr_keyboard.utils.helpers import save_json
 
 
+def pytest_addoption(parser):
+    """Register the --e2e flag.
+
+    Must live in this initial conftest: pytest only honours pytest_addoption
+    from rootdir/testpaths conftests, not from tests/e2e/conftest.py.
+    """
+    parser.addoption(
+        "--e2e",
+        action="store_true",
+        default=False,
+        help=(
+            "Require a real device for tests/e2e/: missing IPR_* variables or a "
+            "failed login fail the run instead of skipping, and the local "
+            "in-process fallback server is not used."
+        ),
+    )
+
+
 @pytest.fixture
 def temp_config(tmp_path, monkeypatch):
     """Create a temporary config file and patch ConfigManager to use it.

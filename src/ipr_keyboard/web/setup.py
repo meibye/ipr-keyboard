@@ -253,11 +253,16 @@ def _hotspot_ssid() -> str:
 
 def _do_scan() -> None:
     global _scan_cache, _scan_in_progress
-    subprocess.run(["nmcli", "radio", "wifi", "on"], check=False)
-    subprocess.run(["nmcli", "dev", "wifi", "rescan"], check=False)
-    time.sleep(3)
-    own_ssid = _hotspot_ssid()
+    # Runs in a daemon thread.  Every exit path must clear _scan_in_progress,
+    # or _trigger_scan_background() short-circuits every later rescan and the
+    # UI stays stuck on "scanning".  OSError covers nmcli being absent, which
+    # check=False does not suppress.
+    result = ["(scan failed — try rescan)"]
     try:
+        subprocess.run(["nmcli", "radio", "wifi", "on"], check=False)
+        subprocess.run(["nmcli", "dev", "wifi", "rescan"], check=False)
+        time.sleep(3)
+        own_ssid = _hotspot_ssid()
         out = _sh(["nmcli", "-t", "-f", "SSID", "dev", "wifi", "list"])
         ssids: list[str] = []
         for line in out.splitlines():
@@ -265,11 +270,12 @@ def _do_scan() -> None:
             if s and s not in ssids and s != own_ssid:
                 ssids.append(s)
         result = ssids or ["(no networks found — try rescan)"]
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, OSError):
         result = ["(scan failed — try rescan)"]
-    with _scan_lock:
-        _scan_cache = result
-        _scan_in_progress = False
+    finally:
+        with _scan_lock:
+            _scan_cache = result
+            _scan_in_progress = False
 
 
 def _trigger_scan_background() -> None:
