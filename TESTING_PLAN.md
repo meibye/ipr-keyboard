@@ -23,7 +23,7 @@ hardware-dependent GPIO and Bluetooth testable only on a Raspberry Pi.
 Run on any Python 3.12 host.  No hardware, no network, no RPi.GPIO.
 
 ```bash
-pytest tests/ -v --tb=short --cov=src/ipr_keyboard --cov-report=term-missing
+pytest tests/ -v --tb=short --cov=src/ipr_keyboard --cov-report=term-missing -rs
 ```
 
 ### Test file inventory
@@ -70,8 +70,6 @@ Run together with unit tests in CI.  No hardware; uses in-process Flask test cli
 pytest tests/integration/ tests/e2e/ -v --tb=short
 ```
 
-E2E tests are environment-gated and skipped when `IPR_BASE_URL` / `IPR_SETUP_URL` are absent.
-
 | File | What it tests |
 |------|--------------|
 | `tests/integration/test_main.py` | Thread lifecycle, config init, USB/BT loop |
@@ -79,6 +77,36 @@ E2E tests are environment-gated and skipped when `IPR_BASE_URL` / `IPR_SETUP_URL
 | `tests/integration/test_web_integration.py` | Dashboard endpoints with real config |
 | `tests/e2e/test_web_e2e.py` | Authenticated HTTP session against live server |
 | `tests/e2e/test_setup_e2e.py` | Setup portal against live server |
+
+### E2E target selection
+
+`tests/e2e/` talks real HTTP, unlike the rest of the suite, which uses the Flask
+test client.  It picks its target automatically:
+
+| Invocation | Target | Missing config |
+|------------|--------|----------------|
+| `pytest tests/e2e/` | Local server started in-process on `127.0.0.1:<ephemeral>` | n/a — nothing to configure |
+| `IPR_BASE_URL=… pytest tests/e2e/` | That device | Skips |
+| `IPR_BASE_URL=… pytest tests/e2e/ --e2e` | That device | **Fails** |
+
+Local mode is the default, so these tests no longer skip in an ordinary run.  It
+covers what the test client cannot: real socket binding, the WSGI path, redirect
+chains, and session-cookie round-trips.  It does **not** cover hardware —
+`systemctl`, `nmcli` and `journalctl` fall through to their error paths, so pages
+render but report nothing meaningful.  Device behaviour is Tier 3 and up.
+
+Use `--e2e` whenever you intend to test a real device.  Without it, a wrong
+`IPR_PASSWORD` / `IPR_SETUP_PASSWORD` turns into a *skip*, which reads as a green
+run — you would think the device was verified when it was not.
+
+```bash
+# Verify the dev Pi, failing loudly if it is unreachable or credentials are wrong
+IPR_BASE_URL=https://ipr-dev-pi4:8443 \
+IPR_SETUP_PASSWORD=<hotspot-secret> \
+  pytest tests/e2e/ -v --e2e
+```
+
+Add `-rs` to any run to print skip reasons; the bare command hides them.
 
 ---
 
