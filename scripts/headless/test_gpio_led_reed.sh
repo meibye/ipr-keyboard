@@ -574,6 +574,20 @@ PYEOF
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# LED teardown — turn off all channels regardless of how the tests ended.
+# ═══════════════════════════════════════════════════════════════════════════════
+if [[ "$HAS_GPIO" -eq 1 ]]; then
+    gpio_py "
+import RPi.GPIO as GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+for pin in ($LED_R, $LED_G, $LED_B):
+    GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
+GPIO.cleanup()
+" 2>/dev/null || true
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
 section "TEST SUMMARY"
 # ═══════════════════════════════════════════════════════════════════════════════
 echo ""
