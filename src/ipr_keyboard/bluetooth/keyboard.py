@@ -26,8 +26,19 @@ class BluetoothKeyboard:
     helper script and its associated daemon.
     """
 
-    def __init__(self, helper_path: str = "/usr/local/bin/bt_kb_send") -> None:
+    #: Upper bound on a single helper invocation.  The helper writes to a FIFO,
+    #: and opening a FIFO for writing blocks until the BLE daemon attaches a
+    #: reader -- without a timeout a stalled daemon hangs the calling thread
+    #: (including the USB->BT transfer loop) indefinitely.
+    DEFAULT_TIMEOUT_SECS: float = 30.0
+
+    def __init__(
+        self,
+        helper_path: str = "/usr/local/bin/bt_kb_send",
+        timeout: float | None = None,
+    ) -> None:
         self.helper_path = helper_path
+        self.timeout = self.DEFAULT_TIMEOUT_SECS if timeout is None else timeout
 
     def is_available(self) -> bool:
         """Check if the Bluetooth helper script is available.
@@ -61,12 +72,21 @@ class BluetoothKeyboard:
             subprocess.run(
                 [self.helper_path, text],
                 check=True,
+                timeout=self.timeout,
             )
             transmission.set_success()
             return True
         except FileNotFoundError:
             logger.error("BT helper not found: %s", self.helper_path)
             transmission.set_failed("BT helper not found")
+            return False
+        except subprocess.TimeoutExpired:
+            logger.error(
+                "BT helper timed out after %.0fs — the BLE daemon is likely not "
+                "reading its FIFO (try: sudo systemctl restart bt_hid_ble.service)",
+                self.timeout,
+            )
+            transmission.set_failed("BT send timed out")
             return False
         except subprocess.CalledProcessError as exc:
             logger.error("BT helper exited with error: %s", exc)

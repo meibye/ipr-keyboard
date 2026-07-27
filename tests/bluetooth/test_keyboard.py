@@ -125,6 +125,44 @@ def test_send_text_check_true(temp_config, monkeypatch):
     assert captured_kwargs.get("check") is True
 
 
+def test_send_text_passes_timeout(temp_config, monkeypatch):
+    """subprocess.run must be bounded by a timeout.
+
+    Without one, a BLE daemon that has stopped reading its FIFO blocks the
+    calling thread forever.
+    """
+    captured_kwargs = {}
+
+    def fake_run(args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return subprocess.CompletedProcess(args=args, returncode=0)
+
+    monkeypatch.setattr("ipr_keyboard.bluetooth.keyboard.subprocess.run", fake_run)
+
+    kb = BluetoothKeyboard(helper_path="/fake/path", timeout=7)
+    kb.send_text("test")
+
+    assert captured_kwargs.get("timeout") == 7
+
+
+def test_send_text_helper_timeout(temp_config, monkeypatch):
+    """A hung helper is reported as a failure rather than hanging the caller."""
+    import ipr_keyboard.transmission as tx_module
+    calls = []
+
+    def fake_run(args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args, timeout=kwargs.get("timeout", 0))
+
+    monkeypatch.setattr("ipr_keyboard.bluetooth.keyboard.subprocess.run", fake_run)
+    monkeypatch.setattr(tx_module, "set_failed", lambda reason="": calls.append(("failed", reason)))
+
+    kb = BluetoothKeyboard(helper_path="/fake/path", timeout=1)
+    result = kb.send_text("test")
+
+    assert result is False
+    assert calls == [("failed", "BT send timed out")]
+
+
 def test_bluetooth_keyboard_default_helper_path():
     """Test default helper path.
     

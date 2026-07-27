@@ -107,14 +107,33 @@ print('[test_smoke] ✓ USB file operations work')
 rm -rf /tmp/ipr_smoke_test
 
 echo "[test_smoke] Testing Bluetooth helper availability..."
+
+# A real send needs a paired host with notifications enabled; without one the
+# daemon has no subscriber and the send cannot complete.  Skip rather than
+# make the smoke test depend on paired hardware.
+BT_HOST_CONNECTED=0
+if command -v bluetoothctl >/dev/null 2>&1; then
+  if [[ -n "$(bluetoothctl devices Connected 2>/dev/null)" ]]; then
+    BT_HOST_CONNECTED=1
+  fi
+fi
+export BT_HOST_CONNECTED
+
 python -c "
+import os
 from ipr_keyboard.bluetooth.keyboard import BluetoothKeyboard
-kb = BluetoothKeyboard()
+# Bounded: a stalled daemon must fail this test, not hang it.
+kb = BluetoothKeyboard(timeout=10)
 available = kb.is_available()
 print(f'[test_smoke] ✓ Bluetooth helper check works (available={available})')
-if available:
-    kb.send_text('SMOKE TEST BT')
+if not available:
+    print('[test_smoke] - Bluetooth send skipped (helper not installed)')
+elif os.environ.get('BT_HOST_CONNECTED') != '1':
+    print('[test_smoke] - Bluetooth send skipped (no BLE host connected)')
+elif kb.send_text('SMOKE TEST BT'):
     print('[test_smoke] ✓ Bluetooth send_text called successfully')
+else:
+    raise SystemExit('[test_smoke] ✗ Bluetooth send_text failed — see log above')
 "
 
 echo "[test_smoke] All smoke tests passed! ✓"

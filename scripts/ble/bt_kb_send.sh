@@ -6,10 +6,15 @@
 set -euo pipefail
 
 FIFO="/run/ipr_bt_keyboard_fifo"
-NOTIFY_FLAG="/run/ipr_bt_keyboard_notifying"
 
 WAIT_SECS="${BT_KB_WAIT_SECS:-10}"
+# Opening a FIFO for writing blocks until a reader attaches.  Bound it so a
+# daemon that has stopped reading cannot hang the caller indefinitely.
+WRITE_TIMEOUT_SECS="${BT_KB_WRITE_TIMEOUT_SECS:-5}"
 
+usage() {
+  echo "Usage: bt_kb_send [--nowait] [--wait <seconds>] [--debug] \"text...\""
+}
 
 # Parse CLI flags for wait/nowait/debug and capture text payload.
 NOWAIT=0
@@ -40,10 +45,6 @@ if [[ -z "$TEXT" ]]; then
   usage
   exit 2
 fi
-
-usage() {
-  echo "Usage: bt_kb_send [--nowait] [--wait <seconds>] [--debug] \"text...\""
-}
 
 # Check BLE daemon status before waiting for FIFO
 check_ble_daemon() {
@@ -103,7 +104,19 @@ if [[ ! -w "$FIFO" ]]; then
   fi
 fi
 
-printf "%s" "$TEXT" > "$FIFO"
+rc=0
+timeout "$WRITE_TIMEOUT_SECS" sh -c 'printf "%s" "$1" > "$2"' _ "$TEXT" "$FIFO" || rc=$?
+if (( rc != 0 )); then
+  if (( rc == 124 )); then
+    echo "ERROR: timed out after ${WRITE_TIMEOUT_SECS}s writing to $FIFO." >&2
+    echo "Hint: the BLE daemon is running but is not reading the FIFO." >&2
+    echo "Check for a stuck worker: sudo journalctl -u bt_hid_ble.service -n 30" >&2
+    echo "Recover with: sudo systemctl restart bt_hid_ble.service" >&2
+  else
+    echo "ERROR: failed writing to $FIFO (exit $rc)." >&2
+  fi
+  exit "$rc"
+fi
 if (( DEBUG == 1 )); then
   echo "[DEBUG] Done writing to FIFO." >&2
 fi

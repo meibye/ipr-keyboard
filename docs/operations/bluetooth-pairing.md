@@ -26,6 +26,37 @@ Current pairing model for `ipr-keyboard`.
 - Guided pairing script: `sudo ./scripts/ble/test_pairing.sh ble`
 - Status overview: `./scripts/diag_status.sh`
 
+## Symptom: send hangs and never returns
+
+`bt_kb_send`, `test_smoke.sh`, or a USB→BT transfer stops after
+`Sending text via BLE HID keyboard` and never completes.
+
+**Cause.** Text was written to the FIFO while no BLE host had notifications
+enabled. The daemon's FIFO worker holds that text in its queue and, until it
+drains, does not reopen the FIFO for reading. With no reader attached, the next
+writer blocks in `open(O_WRONLY)` indefinitely — so one undeliverable send wedges
+every later send until the service is restarted.
+
+**Confirm it.** The worker thread sits in `nanosleep` with no FIFO reader:
+
+```bash
+P=$(pgrep -f bin/bt_hid_ble_daemon.py | head -1)
+for t in /proc/$P/task/*; do echo "$(basename $t) $(sudo cat $t/wchan)"; done
+sudo fuser -v /run/ipr_bt_keyboard_fifo    # empty output = no reader
+```
+
+A healthy idle worker shows `wait_for_partner` (blocked in `open()` for reading);
+a wedged one shows `hrtimer_nanosleep`.
+
+**Recover.** `sudo systemctl restart bt_hid_ble.service`
+
+**Mitigations now in place.** The worker's pre-drain wait is bounded by
+`BLE_QUEUE_DRAIN_WAIT_SECS` (default 5) and its queue by `BLE_QUEUE_MAX_CHARS`
+(default 4096), so it always returns to reading. `bt_kb_send` /
+`bt_kb_send_file` bound their writes with `BT_KB_WRITE_TIMEOUT_SECS` (default 5 /
+30), and `BluetoothKeyboard.send_text()` bounds the helper at 30 s, reporting
+`BT send timed out` rather than blocking its thread.
+
 ## Recovery Ladder
 
 1. `sudo ./scripts/rpi-debug/dbg_bt_restart.sh`

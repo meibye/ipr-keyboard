@@ -6,6 +6,7 @@
 set -euo pipefail
 
 FIFO="/run/ipr_bt_keyboard_fifo"
+WRITE_TIMEOUT_SECS="${BT_KB_WRITE_TIMEOUT_SECS:-30}"
 WAIT_SECS="${BT_KB_WAIT_SECS:-10}"
 
 usage() {
@@ -83,22 +84,37 @@ ensure_fifo_writable() {
 send_file() {
   local input_file="$1"
   local newline_mode="$2"
+  local rc=0
 
+  # Opening the FIFO for writing blocks until a reader attaches, so every
+  # variant is bounded -- a daemon that has stopped reading must not hang the
+  # caller indefinitely.
   case "$newline_mode" in
     preserve)
-      cat "$input_file" > "$FIFO"
+      timeout "$WRITE_TIMEOUT_SECS" sh -c 'cat "$1" > "$2"' _ "$input_file" "$FIFO" || rc=$?
       ;;
     cr)
-      tr '\n' '\r' < "$input_file" > "$FIFO"
+      timeout "$WRITE_TIMEOUT_SECS" sh -c 'tr "\n" "\r" < "$1" > "$2"' _ "$input_file" "$FIFO" || rc=$?
       ;;
     strip)
-      tr -d '\n' < "$input_file" > "$FIFO"
+      timeout "$WRITE_TIMEOUT_SECS" sh -c 'tr -d "\n" < "$1" > "$2"' _ "$input_file" "$FIFO" || rc=$?
       ;;
     *)
       echo "ERROR: invalid --newline-mode '$newline_mode'" >&2
       exit 2
       ;;
   esac
+
+  if (( rc != 0 )); then
+    if (( rc == 124 )); then
+      echo "ERROR: timed out after ${WRITE_TIMEOUT_SECS}s writing to $FIFO." >&2
+      echo "Hint: the BLE daemon is running but is not reading the FIFO." >&2
+      echo "Recover with: sudo systemctl restart bt_hid_ble.service" >&2
+    else
+      echo "ERROR: failed writing to $FIFO (exit $rc)." >&2
+    fi
+    exit "$rc"
+  fi
 }
 
 NOWAIT=0

@@ -139,6 +139,13 @@ ADVERTISEMENT_IFACE = "org.bluez.LEAdvertisement1"
 
 FIFO_PATH = "/run/ipr_bt_keyboard_fifo"
 
+# Longest the FIFO worker will wait for a subscribed host before going back to
+# reading the FIFO.  Bounded so undeliverable text can never starve the reader
+# and block every writer (see fifo_worker).
+QUEUE_DRAIN_WAIT_SECS = float(os.environ.get("BLE_QUEUE_DRAIN_WAIT_SECS", "5"))
+# Upper bound on undelivered characters retained across a reconnect.
+QUEUE_MAX_CHARS = int(os.environ.get("BLE_QUEUE_MAX_CHARS", "4096"))
+
 # UUIDs
 UUID_HID_SERVICE = "1812"
 UUID_HID_INFORMATION = "2a4a"
@@ -1236,16 +1243,30 @@ def drain_queue(queue: deque, hid: HidService, notify_state: NotifyState) -> Non
 
 def fifo_worker(hid: HidService, notify_state: NotifyState):
     ensure_fifo_exists()
-    queue = deque()
+    # Bounded: undelivered text must not grow without limit while no host is
+    # subscribed.  Oldest characters are dropped first.
+    queue = deque(maxlen=QUEUE_MAX_CHARS)
 
     while True:
         try:
-            # First drain pending keys so reconnect does not lose queued text.
-            while queue:
+            # Drain pending keys so a quick reconnect does not lose queued text.
+            #
+            # This wait MUST be bounded.  Until the FIFO is reopened below there
+            # is no reader, and a writer's open(O_WRONLY) blocks until one
+            # appears -- so waiting here indefinitely for a subscriber wedges
+            # every caller of bt_kb_send permanently, not just this send.
+            deadline = time.monotonic() + QUEUE_DRAIN_WAIT_SECS
+            while queue and time.monotonic() < deadline:
                 if notify_state.event.is_set():
                     drain_queue(queue, hid, notify_state)
                 else:
-                    time.sleep(0.05)
+                    notify_state.event.wait(0.05)
+            if queue:
+                log_info(
+                    f"[ble] {len(queue)} character(s) still undelivered (no subscribed "
+                    "host); resuming FIFO reads",
+                    always=True,
+                )
 
             with open(FIFO_PATH, "r", encoding="utf-8", errors="ignore") as fifo:
                 for line in fifo:
