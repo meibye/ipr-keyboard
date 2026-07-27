@@ -38,6 +38,16 @@ function section() {
   echo -e "\n${YELLOW}=== $1 ===${RESET}"
 }
 
+# Is a systemd unit present on this system?
+#
+# Deliberately not `systemctl list-unit-files | ... | grep -q "$unit"`: grep -q
+# exits at the first match, the producer is killed by SIGPIPE (141), and
+# `set -o pipefail` above then reports the whole pipeline as failed -- so a unit
+# that IS installed reads as missing.  A direct query has no pipeline at all.
+function unit_installed() {
+  [[ "$(systemctl show -p LoadState --value --no-pager "$1" 2>/dev/null)" == "loaded" ]]
+}
+
 function ok() {
   echo -e "${GREEN}✓ $1${RESET}"
 }
@@ -125,8 +135,7 @@ section "3. Agent Service Status"
 
 AGENT_SERVICE="bt_hid_agent_unified.service"
 
-# Use awk to match only the first column (unit file name) exactly
-if systemctl list-unit-files | awk '{print $1}' | grep -qx "$AGENT_SERVICE"; then
+if unit_installed "$AGENT_SERVICE"; then
   if systemctl is-active --quiet "$AGENT_SERVICE"; then
     ok "$AGENT_SERVICE is active"
   else
@@ -148,7 +157,7 @@ fi
 section "4. Backend Service Status"
 # ---------------------------------------------------------------------------
 
-if systemctl list-unit-files | awk '{print $1}' | grep -qx "$BACKEND_SERVICE"; then
+if unit_installed "$BACKEND_SERVICE"; then
   if systemctl is-active --quiet "$BACKEND_SERVICE"; then
     ok "$BACKEND_SERVICE is active"
   else

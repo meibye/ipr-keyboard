@@ -159,8 +159,16 @@ sudo bash scripts/ble/diag_bt_visibility.sh
 
 ```bash
 sudo systemctl status ipr_keyboard.service bt_hid_ble.service bt_hid_agent_unified.service --no-pager -l
-curl -sk https://localhost/health
+curl -k --fail --show-error https://localhost/health
 ```
+
+Do not use `curl -sk` here: `-s` suppresses the error message, so a stopped
+`ipr_keyboard.service` returns a silent empty line that is indistinguishable
+from a successful empty body.  `--fail --show-error` prints the real reason
+(`Connection refused`) and exits nonzero.
+
+If `/health` does not answer, check `ipr_keyboard.service` first — it serves
+that endpoint, and several hardware test scripts stop it to free the GPIO pins.
 
 ---
 

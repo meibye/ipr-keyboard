@@ -48,6 +48,23 @@ LED_B=24
 AUTO=0
 for _arg in "$@"; do [[ "$_arg" == "--auto" || "$_arg" == "-y" ]] && AUTO=1; done
 
+# ── service restore ───────────────────────────────────────────────────────────
+# Section C stops ipr_keyboard.service to free the GPIO pins.  Restore it on
+# every exit path -- normal end, failure, or Ctrl-C -- otherwise the device is
+# left with no web server and no USB->BT bridge until someone notices.
+# Only restart it if it was running to begin with, so a deliberately stopped
+# service stays stopped.
+_IPR_WAS_ACTIVE=0
+systemctl is-active --quiet ipr_keyboard 2>/dev/null && _IPR_WAS_ACTIVE=1
+
+_restore_ipr_service() {
+    if (( _IPR_WAS_ACTIVE )) && ! systemctl is-active --quiet ipr_keyboard 2>/dev/null; then
+        echo "[test_gpio_led_reed] Restarting ipr_keyboard.service"
+        sudo systemctl start ipr_keyboard 2>/dev/null || true
+    fi
+}
+trap _restore_ipr_service EXIT INT TERM
+
 # ── result tracking ────────────────────────────────────────────────────────────
 
 PASS_COUNT=0

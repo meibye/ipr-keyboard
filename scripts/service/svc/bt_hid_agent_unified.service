@@ -11,16 +11,20 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=bt_hid_agent_unified
 
+# Default first, so /opt/ipr_common.env can override it.  systemd expands
+# ${BT_HCI} but NOT the shell form ${BT_HCI:-hci0} -- that is passed through
+# literally, so every command below received the raw string as its adapter.
+Environment=BT_HCI=hci0
 EnvironmentFile=-/opt/ipr_common.env
 
 # Prepare adapter for LE-only HID over GATT.
-ExecStartPre=/usr/bin/hciconfig ${BT_HCI:-hci0} up
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} le on
-ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "${BT_HCI:-hci0}" bredr off >/dev/null 2>&1 || true'
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} bondable on
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI:-hci0} connectable on
+ExecStartPre=/usr/bin/hciconfig ${BT_HCI} up
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI} le on
+ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "$BT_HCI" bredr off >/dev/null 2>&1 || true'
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI} bondable on
+ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI} connectable on
 
-ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_agent_unified.py --adapter ${BT_HCI:-hci0}
+ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_agent_unified.py --adapter ${BT_HCI}
 
 Restart=always
 RestartSec=2

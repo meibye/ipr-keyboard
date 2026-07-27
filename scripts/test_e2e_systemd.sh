@@ -24,6 +24,16 @@
 
 set -eo pipefail
 
+# Is a systemd unit present on this system?
+#
+# Deliberately not `systemctl list-unit-files | grep -q "$unit"`: grep -q exits
+# at the first match, the producer is killed by SIGPIPE (141), and the pipefail
+# above then reports the pipeline as failed -- so an installed unit reads as
+# missing.  A direct query has no pipeline at all.
+unit_installed() {
+  [[ "$(systemctl show -p LoadState --value --no-pager "$1" 2>/dev/null)" == "loaded" ]]
+}
+
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
@@ -42,7 +52,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # Check if service is installed
-if ! systemctl list-unit-files | grep -q "$SERVICE_NAME"; then
+if ! unit_installed "$SERVICE_NAME"; then
   echo "[test_e2e_systemd] Error: Service $SERVICE_NAME is not installed"
   echo "[test_e2e_systemd] Please run ./scripts/service/svc_install_systemd.sh first"
   exit 1

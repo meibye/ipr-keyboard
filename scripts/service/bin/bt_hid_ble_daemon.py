@@ -1139,8 +1139,16 @@ def find_adapter_path(bus: dbus.SystemBus, preferred_hci: str) -> str:
         if ADAPTER_IFACE in ifaces and path.endswith(preferred_suffix):
             return path
 
+    # Fall back to any adapter, but say so.  A silent fallback here hid an
+    # unexpanded ${BT_HCI:-hci0} in the unit file for a long time: the literal
+    # string never matched, the first adapter was picked anyway, and on a
+    # single-adapter device everything looked correct.
     for path, ifaces in objects.items():
         if ADAPTER_IFACE in ifaces:
+            log_err(
+                f"[ble] Requested adapter {preferred_hci!r} not found; "
+                f"falling back to {path}. Check BT_HCI in the unit file."
+            )
             return path
 
     raise RuntimeError("No Bluetooth adapter found in BlueZ")

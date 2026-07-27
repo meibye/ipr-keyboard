@@ -10,10 +10,14 @@ Type=simple
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=bt_hid_ble
+# Default first, so /opt/ipr_common.env can override it.  systemd expands
+# ${BT_HCI} but NOT the shell form ${BT_HCI:-hci0} -- that is passed through
+# literally, which silently defeated the setting entirely.
+Environment=BT_HCI=hci0
 EnvironmentFile=-/opt/ipr_common.env
 Environment=BT_BLE_TRACE_KEYS=0
 Environment=BT_BLE_TRACE_FILTER=
-ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_ble_daemon.py --adapter ${BT_HCI:-hci0}
+ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_ble_daemon.py --adapter ${BT_HCI}
 Restart=always
 RestartSec=2
 

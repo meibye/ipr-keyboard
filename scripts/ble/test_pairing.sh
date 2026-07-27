@@ -23,6 +23,16 @@
 
 set -eo pipefail
 
+# Is a systemd unit present on this system?
+#
+# Deliberately not `systemctl list-unit-files | grep -q "$unit"`: grep -q exits
+# at the first match, the producer is killed by SIGPIPE (141), and the pipefail
+# above then reports the pipeline as failed -- so an installed unit reads as
+# missing.  A direct query has no pipeline at all.
+unit_installed() {
+  [[ "$(systemctl show -p LoadState --value --no-pager "$1" 2>/dev/null)" == "loaded" ]]
+}
+
 # Color codes
 RED="\033[0;31m"
 GREEN="\033[0;32m"
@@ -90,13 +100,13 @@ if ! command -v bluetoothctl >/dev/null 2>&1; then
 fi
 ok "bluetoothctl found"
 
-if ! systemctl list-unit-files | grep -q "^$AGENT_SERVICE"; then
+if ! unit_installed "$AGENT_SERVICE"; then
   err "$AGENT_SERVICE not installed"
   exit 1
 fi
 ok "$AGENT_SERVICE installed"
 
-if ! systemctl list-unit-files | grep -q "^$BACKEND_SERVICE"; then
+if ! unit_installed "$BACKEND_SERVICE"; then
   err "$BACKEND_SERVICE not installed"
   exit 1
 fi
