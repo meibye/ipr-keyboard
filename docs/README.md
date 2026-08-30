@@ -23,6 +23,7 @@ This repository keeps tool-facing control files at the repository root and human
 
 - `docs/copilot/` — Copilot and AI assistant playbooks
 - `docs/ui/` — UI and API documentation for the dashboard
+- `docs/manuals/` — Danish end-user and administrator manuals (Word) plus their generators
 
 ## Guidance
 

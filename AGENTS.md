@@ -31,6 +31,23 @@ Update documentation when any of the following changes:
 
 Prefer targeted documentation edits over rewriting whole documents.
 
+### Manual versioning
+The manuals in `docs/manuals/` carry a version and date on their cover page.
+Whenever the content of a manual changes, in the same commit:
+
+- bump `VERSION` in the manual's build script — patch for corrections and
+  rewording, minor for new or restructured sections, major for a reorganisation
+  that invalidates existing section references
+- set `DATE` to the date of the change, written in Danish long form
+  (for example `30. august 2026`)
+- rebuild the `.docx` so the cover page, footer and the committed file agree
+
+`VERSION` and `DATE` are defined at the top of `build_admin_manual.py` and
+`build_user_manual.py`, and are rendered on the cover by `docx_helpers.Manual`.
+A content change committed without a version bump is incomplete — the manuals are
+distributed as files, so the cover page is the only way a reader can tell which
+revision they hold.
+
 ## Testing policy
 For bug fixes:
 - add or update a regression test where practical

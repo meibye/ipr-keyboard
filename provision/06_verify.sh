@@ -289,7 +289,7 @@ fi
 echo ""
 log "To compare two devices, copy verification reports and diff them:"
 log "  scp meibye@ipr-dev-pi4.local:/opt/ipr_state/verification_report.txt ./dev_report.txt"
-log "  scp meibye@ipr-target-zero2.local:/opt/ipr_state/verification_report.txt ./zero_report.txt"
+log "  scp meibye@ipr-prod-zero2.local:/opt/ipr_state/verification_report.txt ./zero_report.txt"
 log "  diff -u dev_report.txt zero_report.txt"
 echo ""
 

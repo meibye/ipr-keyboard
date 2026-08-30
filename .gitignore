@@ -58,3 +58,5 @@ htmlcov/
 !scripts/lib/
 !scripts/lib/**
 tests/data/reports/
+# Word lock files
+~$*
