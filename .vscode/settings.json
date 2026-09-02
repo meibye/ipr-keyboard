@@ -1,3 +1,10 @@
 {
-	"python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+	"python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+	"[shellscript]": {
+		"editor.defaultFormatter": "mkhl.shfmt",
+		"editor.formatOnSave": true
+	},
+	"shfmt.executablePath": "shfmt",
+	"shfmt.executableArgs": ["-i", "4"],
+	"shellcheck.enable": true
 }
