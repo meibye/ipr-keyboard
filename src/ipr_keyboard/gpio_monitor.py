@@ -5,11 +5,11 @@ Hardware connections (BCM numbering, Flirc Pi Zero 2 W case):
   Reed switch  GPIO 27  Pin 13   NO type, one leg to GPIO, other leg to GND
   RGB LED red  GPIO 22  Pin 15   150 Ω series resistor, common cathode to GND
   RGB LED grn  GPIO 23  Pin 16   150 Ω series resistor, common cathode to GND
-  RGB LED blu  GPIO 24  Pin 18    33 Ω series resistor, common cathode to GND
+  RGB LED blu  GPIO 24  Pin 18    22 Ω series resistor, common cathode to GND
 
 Test rig (three separate LEDs until RGB package arrives):
   Red    GPIO 22  150 Ω    Yellow (green substitute)  GPIO 23  150 Ω
-  Blue   GPIO 24   33 Ω    All cathodes connected to GND independently
+  Blue   GPIO 24   22 Ω    All cathodes connected to GND independently
 
 Reed switch interaction:
   Tap  (release < 3 s)   Wake LED; show system status for 30 s then off

@@ -93,3 +93,5 @@ Update these when behaviour changes, in line with the documentation policy in
 | Deploy scripts | Admin manual ch. 8 |
 | SD-card imaging parameters (hostname, user, SSID, SSH mode) | Admin manual §3.1 table |
 | SSH accounts, hostnames, transfer procedure | Admin manual §3.2, §3.3, §8.5, Appendix A |
+| Transfer/bootstrap scripts in `scripts/deploy/` | Admin manual §3.3, §3.5 |
+| GPIO pins or LED resistor values | Admin manual §2.x pin table + `docs/hardware/gpio-wiring.md` |

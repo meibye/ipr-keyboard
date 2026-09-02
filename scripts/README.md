@@ -37,6 +37,33 @@ Operational scripts for installation, diagnostics, testing, and service control.
 - `test_bluetooth.sh`
 - `test_pairing.sh`
 
+### `scripts/deploy/`
+
+Bringing up a new device, from the administrator PC:
+
+- `wsl_setup_ssh.sh` — run **once per WSL distribution**. WSL does not share the
+  Windows user's `~/.ssh`, and `.local` names do not resolve under WSL2. Copies
+  keys and config in with correct permissions and pins addresses resolved via
+  Windows interop.
+- `make_payload.sh` — pack only the files the device needs (~380 KB, not the
+  whole ~29 MB tree). Single source of truth for that file list; the
+  administrator manual's table is generated from it at build time.
+- `host_push_to_device.sh` — run on the **PC** (bash: Git Bash, WSL, or
+  `bash ./script` from PowerShell). Packs, transfers, unpacks, restores the
+  execute bit, and installs `/opt/ipr_common.env`. Supports `--dry-run`.
+- `device_bootstrap.sh` — run on the **device** as root. Verifies the transfer
+  is complete, reports the identity the device is about to take, then runs
+  `provision/provision_wizard.sh`. `--check-only` runs just the checks.
+
+Updating an already-provisioned device, run on the device:
+
+- `deploy_full_update.sh` — full update; `--install-python` also reinstalls deps
+- `deploy_reinstall_package.sh` — editable reinstall of the Python package
+- `deploy_install_ble_daemons.sh` — BLE daemon and unit files
+- `deploy_install_bt_helpers.sh` — `bt_kb_send` and helper scripts
+- `deploy_restart_app.sh` — restart the application only
+- `deploy_restart_all_services.sh` — restart all services in dependency order
+
 ### `scripts/service/`
 
 - installers/managers: `svc_install_bt_gatt_hid.sh`, `svc_install_all_services.sh`, `svc_install_systemd.sh`, `svc_enable_services.sh`, `svc_disable_services.sh`, `svc_status_services.sh`, `svc_tail_all_logs.sh`

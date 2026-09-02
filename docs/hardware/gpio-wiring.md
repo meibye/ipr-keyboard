@@ -15,11 +15,11 @@ is the sole visual indicator.
 | RGB LED | 5 mm common-cathode | R/G/B on separate anodes, one shared GND leg |
 | Resistor — R leg | 150 Ω | Limits current on red element |
 | Resistor — G leg | 150 Ω | Limits current on green element |
-| Resistor — B leg | 33 Ω | Blue element has higher Vf, needs lower resistance |
+| Resistor — B leg | 22 Ω | Blue element has higher Vf, needs lower resistance |
 
 **Temporary test rig** (use until RGB LED arrives):
 three separate LEDs — red, yellow (green substitute), blue — each with its
-own cathode wire to GND.  The blue resistor is still 33 Ω; red and yellow
+own cathode wire to GND.  The blue resistor is still 22 Ω; red and yellow
 use 150 Ω.  Software behaviour is identical; yellow maps to the "green" states.
 
 ---
@@ -31,7 +31,7 @@ use 150 Ω.  Software behaviour is identical; yellow maps to the "green" states.
 | Reed switch | **GPIO 27** | Pin 13 | Pull-up enabled in software |
 | RGB LED — Red | **GPIO 22** | Pin 15 | 150 Ω series |
 | RGB LED — Green | **GPIO 23** | Pin 16 | 150 Ω series |
-| RGB LED — Blue | **GPIO 24** | Pin 18 | 33 Ω series |
+| RGB LED — Blue | **GPIO 24** | Pin 18 | 22 Ω series |
 | Factory reset (existing) | GPIO 17 | Pin 11 | Do not reuse |
 
 All five signals are in the safe zone — no conflicts with I²C (GPIO 2/3),
@@ -53,7 +53,7 @@ GPIO 22 ──[150 Ω]──┬── R anode   ┐
 (Pin 15)            │             │
 GPIO 23 ──[150 Ω]──┼── G anode   ├── Common cathode ── GND
 (Pin 16)            │             │
-GPIO 24 ──[ 33 Ω]──┴── B anode   ┘
+GPIO 24 ──[ 22 Ω]──┴── B anode   ┘
 (Pin 18)
 ```
 
@@ -62,7 +62,7 @@ For the **test rig** (three separate LEDs):
 ```
 GPIO 22 ──[150 Ω]── Red LED   (+) ── Red LED   (−) ──┐
 GPIO 23 ──[150 Ω]── Yellow LED(+) ── Yellow LED(−) ──┼── GND
-GPIO 24 ──[ 33 Ω]── Blue LED  (+) ── Blue LED  (−) ──┘
+GPIO 24 ──[ 22 Ω]── Blue LED  (+) ── Blue LED  (−) ──┘
 ```
 
 ---
@@ -74,14 +74,27 @@ GPIO 24 ──[ 33 Ω]── Blue LED  (+) ── Blue LED  (−) ──┘
 | Red | 2.0 V | 3.3 V | (3.3 − 2.0) / 0.009 | 144 Ω | 150 Ω |
 | Green | 2.1 V | 3.3 V | (3.3 − 2.1) / 0.008 | 150 Ω | 150 Ω |
 | Yellow | 2.1 V | 3.3 V | (3.3 − 2.1) / 0.008 | 150 Ω | 150 Ω |
-| Blue | 3.0 V | 3.3 V | (3.3 − 3.0) / 0.009 | 33 Ω | 33 Ω |
+| Blue | 3.0 V | 3.3 V | (3.3 − 3.0) / 0.0136 | 22 Ω | 22 Ω |
 
-GPIO pins on Pi Zero 2 W are rated for a maximum of 16 mA per pin;
-these values keep current at 8–9 mA, well within the safe limit.
+GPIO pins on Pi Zero 2 W are rated for a maximum of 16 mA per pin.
+Red and green run at 8–9 mA; blue runs at about 13.6 mA at typical Vf.
+All three stay within the limit.
 
-If blue appears very dim (Vf higher than typical), try 22 Ω or connect
-directly for a quick test — at 3.2 V Vf only 3 mA flows through 33 Ω,
-which is safe but dim.
+**Blue is the marginal channel.** Only about 0.3 V is left across its
+resistor after the LED's forward drop, so part-to-part Vf spread moves the
+current more than the resistor value does:
+
+| Blue Vf | Voltage across 22 Ω | Current |
+|---------|---------------------|---------|
+| 2.9 V | 0.4 V | 18.2 mA — **over the 16 mA limit** |
+| 3.0 V (typical) | 0.3 V | 13.6 mA |
+| 3.1 V | 0.2 V | 9.1 mA |
+| 3.2 V | 0.1 V | 4.5 mA — safe but dim |
+
+Do not fit a resistor below 22 Ω: on a unit with below-typical Vf the pin
+would already exceed its 16 mA rating.  If blue still looks dim, measure the
+actual Vf before changing the resistor, and prefer trimming the other two
+channels' PWM duty cycle to rebalance the composite colours instead.
 
 ---
 
@@ -157,5 +170,5 @@ When the common-cathode RGB LED arrives:
 
 1. Desolder the three individual LEDs.
 2. Wire the new RGB LED: anode R → GPIO 22 via 150 Ω, anode G → GPIO 23 via
-   150 Ω, anode B → GPIO 24 via 33 Ω, common cathode → GND.
+   150 Ω, anode B → GPIO 24 via 22 Ω, common cathode → GND.
 3. No software change required — GPIO pin assignments are identical.

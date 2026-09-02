@@ -10,8 +10,8 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.1"
-DATE = "30. august 2026"
+VERSION = "1.2"
+DATE = "31. august 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
 # make_payload.sh — this maps them to manual prose.  The keys are checked
@@ -462,49 +462,118 @@ def build() -> None:
            "som er bygget til PC'ens processorarkitektur og ikke kan bruges på enheden.",
            "danger")
 
-    m.p("Overførsel med make_payload.sh — anbefalet", bold=True)
-    m.p("scripts/deploy/make_payload.sh pakker netop de filer, tabellen ovenfor nævner, i "
-        "ét arkiv. Skriptet køres på PC'en fra Git Bash eller WSL — ikke på enheden — og "
-        "kræver intet ekstra værktøj. Fordi listen er en positivliste, kan nye filer i "
-        "repositoriets rod ikke utilsigtet komme med, og skriptet kontrollerer desuden "
-        "arkivet bagefter og sletter det, hvis en enhedsspecifik fil alligevel er havnet i "
-        "det.")
-    m.code(
-        "# 1. På PC'en — opret den lokale miljøfil, hvis den ikke findes, og tilret den\n"
-        "cd /d/sandbox/ipr-keyboard\n"
-        "cp provision/common.env.example provision/common.env\n"
-        "notepad provision/common.env\n"
-        "\n"
-        "# 2. Pak de nødvendige filer\n"
-        "./scripts/deploy/make_payload.sh -o /tmp/ipr-deploy.tgz\n"
-        "./scripts/deploy/make_payload.sh --list      # vis listen uden at pakke\n"
-        "\n"
-        "# 3. Overfør arkivet, miljøfilen og den offentlige nøgle\n"
-        "scp /tmp/ipr-deploy.tgz ipr-prod:/tmp/\n"
-        "scp provision/common.env ipr-prod:/tmp/ipr_common.env\n"
-        "scp ~/.ssh/copilotdiag_rpi.pub ipr-prod:/tmp/copilot_pubkey.txt\n"
-        "\n"
-        "# 4. Pak ud på enheden\n"
-        "ssh ipr-prod \"mkdir -p ~/dev/ipr-keyboard && tar xzf /tmp/ipr-deploy.tgz -C ~/dev/ipr-keyboard && rm /tmp/ipr-deploy.tgz\""
+    m.p("Hvilken skal skal jeg bruge?", bold=True)
+    m.p("Overførselsskripterne er bash-skripter. De kan ikke køres direkte i PowerShell, "
+        "som ikke har bash. Vælg én af disse tre måder — de gør det samme:")
+    m.table(
+        ["Skal", "Sådan startes skriptet", "Bemærkning"],
+        [
+            ["Git Bash", "./scripts/deploy/host_push_to_device.sh ipr-prod",
+             "Enklest. Følger med Git til Windows. Åbn Git Bash og gå til "
+             "/d/sandbox/ipr-keyboard."],
+            ["PowerShell", "bash ./scripts/deploy/host_push_to_device.sh ipr-prod",
+             "Virker, fordi bash kaldes eksplicit. Kør fra D:\\sandbox\\ipr-keyboard."],
+            ["WSL (Ubuntu)", "./scripts/deploy/host_push_to_device.sh ipr-prod",
+             "Nødvendig, hvis der skal bruges rsync. Gå til "
+             "/mnt/d/sandbox/ipr-keyboard. Kræver wsl_setup_ssh.sh først."],
+        ],
+        widths=[2.8, 6.8, 6.0],
+        caption="De tre måder at starte overførselsskriptet fra Windows. Alle tre kører "
+                "det samme skript.",
     )
-    m.p("Arkivet fylder omkring 380 KB mod cirka 29 MB for hele mappen. Skal enheden også "
-        "kunne køre testsuiten — typisk kun udviklingsenheden — tilføjes tests med "
-        "--with-tests.")
+
+    m.note("Bruges WSL, kræves en engangsopsætning først. WSL deler ikke Windows-brugerens "
+           "~/.ssh: en frisk distribution har hverken nøgler eller config, så ipr-prod "
+           "opfattes som et bogstaveligt værtsnavn med WSL-brugerens navn, og alt fejler "
+           "eller falder tilbage til adgangskode. Dertil kommer, at .local-navne ikke kan "
+           "slås op under WSL2. Begge dele ordnes af scripts/deploy/wsl_setup_ssh.sh, som "
+           "kopierer nøgler og config ind i WSL med korrekte rettigheder og indsætter "
+           "IP-adresser, slået op via Windows.", "warn")
+    m.code(
+        "# Én gang pr. WSL-distribution\n"
+        "./scripts/deploy/wsl_setup_ssh.sh\n"
+        "\n"
+        "# Kontrollér resultatet\n"
+        "ssh ipr-prod true && echo ok"
+    )
+    m.p("Et symbolsk link fra WSL til Windows-mappen virker ikke: filer på Windows-drevet "
+        "fremstår med rettigheden 0777, og ssh afviser en privat nøgle, der er så åben. "
+        "Nøglerne skal kopieres ind i Linux-filsystemet. Kør skriptet igen, hvis enhedens "
+        "IP-adresse ændrer sig.")
+
+    m.p("Hele overførslen med ét skript — anbefalet", bold=True)
+    m.p("scripts/deploy/host_push_to_device.sh udfører alle trin på PC-siden: pakker "
+        "arkivet med make_payload.sh, overfører det sammen med miljøfilen og den "
+        "offentlige nøgle, pakker ud på enheden, gendanner eksekverbar-flaget og lægger "
+        "miljøfilen på plads i /opt.")
+    m.code(
+        "# I Git Bash, i repositoriets rod\n"
+        "cd /d/sandbox/ipr-keyboard\n"
+        "\n"
+        "# Miljøfilen skal findes først — opret den fra skabelonen, hvis den mangler\n"
+        "cp provision/common.env.example provision/common.env\n"
+        "notepad provision/common.env      # sæt DEVICE_TYPE, HOSTNAME, BT_DEVICE_NAME\n"
+        "\n"
+        "# Se hvad der ville ske, uden at ændre noget\n"
+        "./scripts/deploy/host_push_to_device.sh ipr-prod --dry-run\n"
+        "\n"
+        "# Udfør overførslen\n"
+        "./scripts/deploy/host_push_to_device.sh ipr-prod"
+    )
     m.table(
         ["Tilvalg", "Virkning"],
         [
-            ["-o, --output STI", "Skriv arkivet et andet sted end /tmp/ipr-deploy.tgz."],
+            ["HOST", "Værtsalias fra ~/.ssh/config. Standard: ipr-prod. Brug aliasset — "
+                     "ikke det fulde værtsnavn, se advarslen ovenfor."],
+            ["--dry-run", "Vis alle handlinger uden at udføre dem."],
             ["--with-tests", "Tag også tests/ med. Kun relevant for udviklingsenheden."],
-            ["--list", "Udskriv fillisten og afslut uden at pakke."],
-            ["-h, --help", "Vis den indbyggede hjælpetekst."],
+            ["--env FIL", "Anden miljøfil end provision/common.env."],
+            ["--pubkey FIL", "Anden offentlig nøgle end ~/.ssh/copilotdiag_rpi.pub."],
+            ["--remote-dir STI", "Anden placering end ~/dev/ipr-keyboard på enheden."],
+            ["--skip-env, --skip-pubkey", "Undlad at overføre miljøfil eller nøgle."],
         ],
         widths=[4.6, 11.0],
         mono_cols=(0,),
-        caption="Tilvalg til scripts/deploy/make_payload.sh.",
+        caption="Tilvalg til scripts/deploy/host_push_to_device.sh.",
     )
-    m.note("Køres skriptet fra PowerShell, findes bash ikke. Kald det gennem Git Bash eller "
-           "WSL, eller pak i stedet manuelt med tar som vist i skriptets hjælpetekst.",
-           "tip")
+    m.note("Skriptet kontrollerer selv forbindelsen, inden det går i gang, og advarer, "
+           "hvis nøglelogin ikke virker, eller hvis der er angivet et fuldt værtsnavn i "
+           "stedet for et alias. Mangler miljøfilen, stopper det med en besked om, hvordan "
+           "den oprettes — i stedet for at overføre en halv opsætning.", "tip")
+
+    m.p("Kun pakning: make_payload.sh", bold=True)
+    m.p("host_push_to_device.sh kalder scripts/deploy/make_payload.sh, som kan bruges "
+        "alene, hvis arkivet skal overføres på anden vis — for eksempel på en USB-nøgle "
+        "til en enhed helt uden netværk. Skriptet er den gældende liste over, hvad enheden "
+        "har brug for; det kontrollerer arkivet bagefter og sletter det, hvis en "
+        "enhedsspecifik fil alligevel er havnet i det.")
+    m.code(
+        "./scripts/deploy/make_payload.sh                 # -> /tmp/ipr-deploy.tgz\n"
+        "./scripts/deploy/make_payload.sh --list          # vis fillisten\n"
+        "./scripts/deploy/make_payload.sh -o D:/ipr.tgz   # anden placering\n"
+        "./scripts/deploy/make_payload.sh --with-tests    # tag tests/ med"
+    )
+    m.p("Arkivet fylder omkring 380 KB mod cirka 29 MB for hele mappen.")
+
+    m.p("Manuel overførsel", bold=True)
+    m.p("Skal trinnene køres enkeltvis — for eksempel ved fejlsøgning — svarer "
+        "host_push_to_device.sh til følgende:")
+    m.code(
+        "# På PC'en\n"
+        "./scripts/deploy/make_payload.sh -o /tmp/ipr-deploy.tgz\n"
+        "scp /tmp/ipr-deploy.tgz        ipr-prod:/tmp/\n"
+        "scp provision/common.env       ipr-prod:/tmp/ipr_common.env\n"
+        "scp ~/.ssh/copilotdiag_rpi.pub ipr-prod:/tmp/copilot_pubkey.txt\n"
+        "\n"
+        "# På enheden\n"
+        "ssh ipr-prod\n"
+        "mkdir -p ~/dev/ipr-keyboard\n"
+        "tar xzf /tmp/ipr-deploy.tgz -C ~/dev/ipr-keyboard && rm /tmp/ipr-deploy.tgz\n"
+        "find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\n"
+        "  \\( -name '*.sh' -o -name '*.py' \\) -exec chmod +x {} +\n"
+        "sudo mv /tmp/ipr_common.env /opt/ipr_common.env\n"
+        "sudo chmod 0600 /opt/ipr_common.env"
+    )
 
     m.p("Overførsel med scp af hele mappen", bold=True)
     m.p("Metoden er kun relevant, hvis tar ikke er tilgængelig. Læs advarslen ovenfor "
@@ -645,7 +714,19 @@ def build() -> None:
     )
 
     m.h2("3.5 Kør guiden")
-    m.p("Den anbefalede vej er guiden, som kører trin 00 til 06 med genoptagelsespunkter:")
+    m.p("Den anbefalede vej er scripts/deploy/device_bootstrap.sh. Den kontrollerer, at "
+        "overførslen fra afsnit 3.3 er komplet, viser hvilken identitet enheden er ved at "
+        "få, og starter derefter guiden. Kontrollen alene kan køres med --check-only.")
+    m.code(
+        "# På enheden\n"
+        "sudo ~/dev/ipr-keyboard/scripts/deploy/device_bootstrap.sh --check-only\n"
+        "sudo ~/dev/ipr-keyboard/scripts/deploy/device_bootstrap.sh"
+    )
+    m.note("Skriptet advarer, hvis HOSTNAME i miljøfilen afviger fra enhedens nuværende "
+           "navn. Navnet skifter under trin 02, og den igangværende SSH-forbindelse mister "
+           "sit navneopslag — genopret forbindelsen som <nyt navn>.local bagefter.", "warn")
+    m.p("Guiden kan også startes direkte. Den kører trin 00 til 06 med "
+        "genoptagelsespunkter:")
     m.code("sudo ./provision/provision_wizard.sh")
     m.p("Skal trinene køres manuelt — for eksempel ved fejlsøgning af et enkelt trin:")
     m.code(
@@ -823,12 +904,13 @@ def build() -> None:
             ["Reed-kontakt", "27", "13", "Normalt åben, software-pull-up"],
             ["LED rød", "22", "15", "150 Ω i serie"],
             ["LED grøn", "23", "16", "150 Ω i serie"],
-            ["LED blå", "24", "18", "33 Ω i serie (højere Vf)"],
+            ["LED blå", "24", "18", "22 Ω i serie (højere Vf)"],
             ["Fabriksnulstilling (ældre)", "17", "11", "Må ikke genbruges"],
         ],
         widths=[5.0, 2.0, 2.6, 6.0],
-        caption="Benallokering. Fælles katode til GND. Strømforbrug 8–9 mA pr. ben, "
-                "godt under grænsen på 16 mA.",
+        caption="Benallokering. Fælles katode til GND. Rød og grøn trækker 8–9 mA, "
+                "blå cirka 13,6 mA — alle under grænsen på 16 mA pr. ben. Modstanden på "
+                "blå må ikke sættes lavere end 22 Ω.",
     )
     m.p("Detaljeret ledningsdiagram, modstandsberegninger og montering i Flirc-kabinettet "
         "findes i docs/hardware/gpio-wiring.md. Sæt GpioEnabled til false på maskiner uden "
@@ -1547,7 +1629,7 @@ def build() -> None:
             ["B8", "Ledningsdiagram som fotomontage",
              "Administratormanual, afsnit 4.5",
              "Foto af GPIO-headeren med farvekodede ledninger til ben 13, 15, 16 og 18 samt "
-             "GND, med indtegnede modstandsværdier 150 Ω, 150 Ω og 33 Ω. Alternativt en ren "
+             "GND, med indtegnede modstandsværdier 150 Ω, 150 Ω og 22 Ω. Alternativt en ren "
              "tegning baseret på skemaet i docs/hardware/gpio-wiring.md."],
             ["B9", "Reed-kontakt og LED monteret",
              "Administratormanual, afsnit 4.5",

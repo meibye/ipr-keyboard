@@ -18,7 +18,7 @@
 #                                     to 3.3 V — no external power needed
 #   RGB LED R     GPIO 22  Pin 15     GPIO → 150 Ω → LED R anode
 #   RGB LED G     GPIO 23  Pin 16     GPIO → 150 Ω → LED G anode
-#   RGB LED B     GPIO 24  Pin 18     GPIO →  33 Ω → LED B anode
+#   RGB LED B     GPIO 24  Pin 18     GPIO →  22 Ω → LED B anode
 #                                     Common cathode → GND Pin 14 or Pin 20
 #
 # Power / voltage:
@@ -27,10 +27,17 @@
 #   the series resistor.  Calculated current per channel at typical Vf:
 #     Red   (Vf 2.0 V): (3.3 − 2.0) / 150 Ω ≈ 8.7 mA  ✓
 #     Green (Vf 2.1 V): (3.3 − 2.1) / 150 Ω ≈ 8.0 mA  ✓
-#     Blue  (Vf 3.0 V): (3.3 − 3.0) /  33 Ω ≈ 9.1 mA  ✓
-#   All channels run at 8–9 mA — within the 16 mA per-pin safe limit.
-#   If blue is very dim (Vf > 3.0 V), drop the resistor to 22 Ω or short it
-#   for a quick bench check (at 3.2 V Vf only 3 mA flows — safe but dim).
+#     Blue  (Vf 3.0 V): (3.3 − 3.0) /  22 Ω ≈ 13.6 mA ✓
+#   Red and green run at 8–9 mA, blue at about 13.6 mA — all within the
+#   16 mA per-pin safe limit.
+#
+#   Blue is the marginal channel: only ~0.3 V sits across its resistor, so
+#   Vf spread moves the current more than the resistor value does.
+#     Vf 2.9 V -> 18.2 mA (over the 16 mA limit)
+#     Vf 3.0 V -> 13.6 mA
+#     Vf 3.1 V ->  9.1 mA
+#     Vf 3.2 V ->  4.5 mA (safe but dim)
+#   Do not fit below 22 Ω — a below-typical Vf would exceed the pin rating.
 #
 # category: Headless
 # purpose: Hardware verification for reed switch and RGB LED wiring
