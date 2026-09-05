@@ -18,11 +18,24 @@ Environment=BT_HCI=hci0
 EnvironmentFile=-/opt/ipr_common.env
 
 # Prepare adapter for LE-only HID over GATT.
-ExecStartPre=/usr/bin/hciconfig ${BT_HCI} up
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI} le on
-ExecStartPre=/bin/sh -c '/usr/bin/btmgmt -i "$BT_HCI" bredr off >/dev/null 2>&1 || true'
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI} bondable on
-ExecStartPre=/usr/bin/btmgmt -i ${BT_HCI} connectable on
+#
+# btmgmt is built on BlueZ's bt_shell, which hangs forever when stdin is not a
+# terminal -- exactly the case under systemd.  Run by hand it returns at once;
+# run as ExecStartPre it never returns, and the unit dies with
+#
+#   Job for bt_hid_agent_unified.service failed because a timeout was exceeded.
+#
+# `script -qec` gives it the pseudo-terminal it insists on.  `timeout` is belt
+# and braces: if a call blocks for another reason, the unit fails in seconds
+# with a diagnosable exit code instead of stalling the whole start.
+#
+# bredr off is tolerated (the leading "-"): /etc/bluetooth/main.conf already
+# sets ControllerMode = le, so BR/EDR is normally off before we ask.
+ExecStartPre=/usr/bin/timeout 10 /usr/bin/hciconfig ${BT_HCI} up
+ExecStartPre=/usr/bin/timeout 15 /usr/bin/script -qec "/usr/bin/btmgmt -i ${BT_HCI} le on" /dev/null
+ExecStartPre=-/usr/bin/timeout 15 /usr/bin/script -qec "/usr/bin/btmgmt -i ${BT_HCI} bredr off" /dev/null
+ExecStartPre=/usr/bin/timeout 15 /usr/bin/script -qec "/usr/bin/btmgmt -i ${BT_HCI} bondable on" /dev/null
+ExecStartPre=/usr/bin/timeout 15 /usr/bin/script -qec "/usr/bin/btmgmt -i ${BT_HCI} connectable on" /dev/null
 
 ExecStart=/usr/bin/python3 -u /usr/local/bin/bt_hid_agent_unified.py --adapter ${BT_HCI}
 
