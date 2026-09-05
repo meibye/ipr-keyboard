@@ -255,23 +255,65 @@ log "Current commit: $CURRENT_COMMIT"
 log "Current branch: $CURRENT_BRANCH"
 
 # --- Wi-Fi Power Save Disable ---
+# Power save parks the radio between beacons, which shows up as latency and
+# dropouts on a device that serves a dashboard and bridges BLE input.
+WIFI_IFACE="${WIFI_IFACE:-wlan0}"
 WIFI_PS_STATE="unknown"
-if command -v iw &>/dev/null; then
-  PS_RESULT=$(iw dev wlan0 get power_save 2>/dev/null | grep -i 'Power save:')
-  if [[ "$PS_RESULT" =~ "on" ]]; then
+
+if ! command -v iw &>/dev/null; then
+  log "iw command not found; skipping Wi-Fi power save check."
+  WIFI_PS_STATE="not checked"
+elif ! iw dev "$WIFI_IFACE" info &>/dev/null; then
+  log "No $WIFI_IFACE interface present; skipping Wi-Fi power save check."
+  WIFI_PS_STATE="no interface"
+else
+  PS_RESULT=$(iw dev "$WIFI_IFACE" get power_save 2>/dev/null | grep -i 'power save:')
+
+  if [[ "$PS_RESULT" =~ [Oo]n$ ]]; then
     log "Wi-Fi power save is ON. Disabling..."
-    sudo nmcli connection modify preconfigured wifi.powersave disable || true
-    WIFI_PS_STATE="disabled"
-  elif [[ "$PS_RESULT" =~ "off" ]]; then
+
+    # The NetworkManager connection name is not fixed.  Raspberry Pi Imager
+    # writes "preconfigured", netplan writes "netplan-<iface>-<ssid>", and a
+    # hand-made profile can be called anything at all.  Hard-coding one name
+    # fails with "unknown connection" on every device that used another route,
+    # so look up the active connection for the interface instead.
+    WIFI_CONN=$(nmcli -t -f NAME,DEVICE connection show --active 2>/dev/null \
+                | awk -F: -v d="$WIFI_IFACE" '$2 == d { print $1; exit }')
+
+    if [[ -n "$WIFI_CONN" ]]; then
+      log "  NetworkManager connection: $WIFI_CONN"
+      # 2 = disable.  This is the persistent half: it survives a reboot.
+      if nmcli connection modify "$WIFI_CONN" 802-11-wireless.powersave 2 2>/dev/null; then
+        log "  Persisted powersave=disable on '$WIFI_CONN'"
+      else
+        warn "  Could not persist the setting on '$WIFI_CONN'"
+      fi
+    else
+      warn "  No NetworkManager connection found for $WIFI_IFACE."
+      warn "  Power save will be turned off now but will return after a reboot."
+    fi
+
+    # Apply immediately.  Reactivating the connection would also apply it, but
+    # that drops the link -- and provisioning is normally run over SSH on this
+    # very interface.
+    iw dev "$WIFI_IFACE" set power_save off 2>/dev/null || true
+
+    # Report what is actually true, not what was attempted.
+    if iw dev "$WIFI_IFACE" get power_save 2>/dev/null | grep -qi 'power save: off'; then
+      log "Wi-Fi power save is now OFF."
+      WIFI_PS_STATE="disabled"
+    else
+      warn "Wi-Fi power save could NOT be disabled -- expect latency and dropouts."
+      WIFI_PS_STATE="still on (disable failed)"
+    fi
+
+  elif [[ "$PS_RESULT" =~ [Oo]ff$ ]]; then
     log "Wi-Fi power save is already OFF."
     WIFI_PS_STATE="already off"
   else
     log "Wi-Fi power save state unknown or not supported."
     WIFI_PS_STATE="unknown"
   fi
-else
-  log "iw command not found; skipping Wi-Fi power save check."
-  WIFI_PS_STATE="not checked"
 fi
 
 # --- SSH Timeout Hardening ---
