@@ -62,6 +62,28 @@ prompt_reboot() {
 }
 
 # Helper: Ensure we are in the project directory
+# ---------------------------------------------------------------------------
+# Source mode
+#
+# A development device clones from GitHub and works from a git checkout.  A
+# target device is seeded from the administrator PC by make_payload.sh, which
+# ships only the files the device needs and no .git directory -- and such a
+# device usually has no internet access either.  Every git and GitHub step below
+# has to be skipped there, or the wizard dies on "not a git repository".
+# ---------------------------------------------------------------------------
+PROJECT_DIR="${REPO_DIR:-/home/meibye/dev/ipr-keyboard}"
+DEVICE_TYPE_ENV=""
+if [[ -r /opt/ipr_common.env ]]; then
+  DEVICE_TYPE_ENV="$(awk -F= '/^[[:space:]]*DEVICE_TYPE[[:space:]]*=/ {gsub(/[" ]/,"",$2); print $2; exit}' /opt/ipr_common.env)"
+fi
+
+is_payload_device() {
+  # A checkout wins: if git is there, use it whatever the env file says.
+  [[ -d "$PROJECT_DIR/.git" ]] && return 1
+  [[ "$DEVICE_TYPE_ENV" == "target" ]] && return 0
+  return 1
+}
+
 ensure_project_dir() {
   local proj_dir="/home/meibye/dev/ipr-keyboard"
   if [[ "$PWD" != "$proj_dir" ]]; then
@@ -176,7 +198,32 @@ fi
 
 # Step 2: Clone the repository
 if [[ "$wizard_step" -le 2 ]]; then
-  step "[Step 2/12] Clone the repository"
+  step "[Step 2/13] Clone the repository"
+  if is_payload_device; then
+    warn "DEVICE_TYPE=target and no git checkout found."
+    warn "Using the files transferred from the administrator PC; not cloning."
+    missing=()
+    for item in src provision scripts pyproject.toml README.md \
+                config.default.json users.default.json; do
+      [[ -e "$PROJECT_DIR/$item" ]] || missing+=("$item")
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+      fail "Incomplete payload in $PROJECT_DIR -- missing: ${missing[*]}"
+      fail "Transfer the files again from the PC:"
+      fail "  ./scripts/deploy/host_push_to_device.sh <host>"
+      exit 1
+    fi
+    success "Payload verified -- all required files are present."
+    cd "$PROJECT_DIR"
+    # Advance both the file and the variable: the next block tests the same
+    # condition, so leaving $wizard_step stale would run the clone anyway.
+    echo "wizard_step=3" > "$STATE_FILE"
+    wizard_step=3
+    prompt_continue
+  fi
+fi
+
+if [[ "$wizard_step" -le 2 ]]; then
   mkdir -p /home/meibye/dev
   cd /home/meibye/dev
   if [[ -d ipr-keyboard ]]; then
@@ -205,10 +252,20 @@ fi
 # Step 3: Create device configuration
 if [[ "$wizard_step" -le 3 ]]; then
   ensure_project_dir
-  step "[Step 3/12] Create device configuration"
-  cp provision/common.env.example provision/common.env
-  echo -e "${YELLOW}Please edit provision/common.env with device-specific values.${NC}"
-  nano provision/common.env
+  step "[Step 3/13] Create device configuration"
+  if [[ ! -f provision/common.env ]] || cmp -s provision/common.env.example provision/common.env; then
+    cp provision/common.env.example provision/common.env
+    echo -e "${YELLOW}Please edit provision/common.env with device-specific values.${NC}"
+    nano provision/common.env
+  else
+    echo -en "${YELLOW}Existing device configuration found. Edit it? [y/N]: ${NC}"
+    read -r ans
+    if [[ "${ans,,}" =~ ^(y|yes)$ ]]; then
+      nano provision/common.env
+    else
+      success "Using existing device configuration."
+    fi
+  fi
   sudo cp provision/common.env /opt/ipr_common.env
   echo "wizard_step=4" > "$STATE_FILE"
   prompt_continue
@@ -251,7 +308,26 @@ fi
 # Step 6: Setup and test GitHub SSH keys
 if [[ "$wizard_step" -le 6 ]]; then
   ensure_project_dir
-  step "[Step 6/10] Setup and test GitHub SSH keys"
+  step "[Step 6/13] Setup and test GitHub SSH keys"
+
+  if is_payload_device; then
+    # Nothing here can succeed: 00_bootstrap.sh does not generate a key on a
+    # payload device, there is no repository for `git remote set-url` to act
+    # on, and the device generally cannot reach GitHub at all.  Left unguarded,
+    # the ssh test prompts for a host key and `git remote` then aborts the
+    # wizard with "fatal: not a git repository".
+    warn "Skipping GitHub SSH setup -- this device is seeded from a transferred"
+    warn "payload and has no git checkout. Updates come from the administrator"
+    warn "PC; see section 8.5 of the administrator manual."
+    # Advance both the file and the variable: the next block tests the same
+    # condition, so leaving $wizard_step stale would run the GitHub steps anyway.
+    echo "wizard_step=7" > "$STATE_FILE"
+    wizard_step=7
+    prompt_continue
+  fi
+fi
+
+if [[ "$wizard_step" -le 6 ]]; then
 
 
   # Ensure ssh-agent is running and key is added for the correct user
@@ -312,7 +388,11 @@ if [[ "$wizard_step" -le 6 ]]; then
     warn "SSH test failed. You may need to set up your SSH key."
   fi
   set -e
-  git remote set-url origin git@github.com:meibye/ipr-keyboard.git
+  if [[ -d "$PROJECT_DIR/.git" ]]; then
+    git -C "$PROJECT_DIR" remote set-url origin git@github.com:meibye/ipr-keyboard.git
+  else
+    warn "No git checkout at $PROJECT_DIR; skipping 'git remote set-url'."
+  fi
   echo "wizard_step=7" > "$STATE_FILE"
   prompt_continue
 fi
