@@ -204,11 +204,25 @@ run ssh "$HOST" "
 "
 
 if ! $SKIP_ENV; then
-    log "Installing /opt/ipr_common.env (requires sudo on the device) ..."
-    run ssh -t "$HOST" "
-        sudo mv /tmp/ipr_common.env /opt/ipr_common.env
-        sudo chmod 0600 /opt/ipr_common.env
-    "
+    # This is the only step that needs sudo on the device.  ssh -t can only
+    # allocate a terminal when this script itself has one; run from a pipeline,
+    # a CI job or an agent, sudo has nowhere to ask for a password and fails
+    # with "a terminal is required to read the password".  Detect that up front
+    # and hand the command over rather than failing at the last step with
+    # everything else already transferred.
+    if [[ -t 0 ]] || ssh -o BatchMode=yes "$HOST" "sudo -n true" 2>/dev/null; then
+        log "Installing /opt/ipr_common.env (requires sudo on the device) ..."
+        run ssh -t "$HOST" "
+            sudo mv /tmp/ipr_common.env /opt/ipr_common.env
+            sudo chmod 0600 /opt/ipr_common.env
+        "
+    else
+        warn "No terminal available, and passwordless sudo is not configured on"
+        warn "$HOST, so /opt/ipr_common.env cannot be installed from here."
+        warn "The file has been transferred and is waiting at /tmp/ipr_common.env."
+        warn "Finish it yourself with:"
+        warn "  ssh $HOST \"sudo mv /tmp/ipr_common.env /opt/ipr_common.env && sudo chmod 0600 /opt/ipr_common.env\""
+    fi
 fi
 
 $DRY_RUN && { log "Dry run complete — nothing was changed."; exit 0; }
