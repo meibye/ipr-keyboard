@@ -114,12 +114,56 @@ log "Creating repository directory structure..."
 mkdir -p "$(dirname "$REPO_DIR")"
 chown -R "${APP_USER}:${APP_GROUP}" "$(dirname "$REPO_DIR")"
 
-# Clone repository if not present
-if [[ ! -d "$REPO_DIR/.git" ]]; then
+# ---------------------------------------------------------------------------
+# Source acquisition
+#
+# A development device clones the repository and works from git.  A target
+# device is seeded from the administrator PC by scripts/deploy/make_payload.sh
+# (see host_push_to_device.sh), which deliberately ships only the files the
+# device needs and no .git directory.  Cloning on top of that fails outright --
+# "destination path already exists and is not an empty directory" -- and a
+# production device usually has no internet access to clone from anyway.
+#
+# So: use git when a checkout is present, clone only when we are allowed to,
+# and otherwise verify the payload and carry on without git.
+# ---------------------------------------------------------------------------
+if [[ -d "$REPO_DIR/.git" ]]; then
+  SOURCE_MODE="git"
+  log "Repository already exists at $REPO_DIR"
+elif [[ "$DEVICE_TYPE" == "target" ]]; then
+  SOURCE_MODE="payload"
+else
+  SOURCE_MODE="clone"
+fi
+
+if [[ "$SOURCE_MODE" == "clone" ]]; then
   log "Cloning repository from $REPO_URL..."
   sudo -u "$APP_USER" git clone "$REPO_URL" "$REPO_DIR"
-else
-  log "Repository already exists at $REPO_DIR"
+fi
+
+if [[ "$SOURCE_MODE" == "payload" ]]; then
+  # Keep this list in step with scripts/deploy/make_payload.sh.  README.md is
+  # not documentation here: pyproject.toml sets readme = "README.md", so the
+  # editable install in step 03 fails without it.
+  log "No git checkout at $REPO_DIR -- expecting a transferred payload (DEVICE_TYPE=target)."
+  missing=()
+  for item in src provision scripts pyproject.toml README.md \
+              config.default.json users.default.json; do
+    [[ -e "$REPO_DIR/$item" ]] || missing+=("$item")
+  done
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    error "Neither a git checkout nor a complete payload was found in $REPO_DIR"
+    error "Missing: ${missing[*]}"
+    error ""
+    error "Transfer the files from the administrator PC first:"
+    error "  ./scripts/deploy/host_push_to_device.sh <host>"
+    error ""
+    error "To provision from git instead, set DEVICE_TYPE=\"dev\" in"
+    error "/opt/ipr_common.env, or place a checkout at $REPO_DIR."
+    exit 1
+  fi
+  log "Payload verified -- all required files are present."
 fi
 
 # Set git user config for this environment
@@ -143,6 +187,13 @@ else
 fi
 
 # --- SSH Key Generation and GitHub Setup ---
+# Only meaningful when the device pulls from GitHub.  A payload-seeded target
+# receives its code from the administrator PC and typically has no internet
+# access, so generating a key and printing GitHub instructions would only be
+# noise during provisioning.
+if [[ "$SOURCE_MODE" == "payload" ]]; then
+  log "Skipping GitHub SSH key setup (device is seeded from a transferred payload)."
+else
 SSH_KEY="/home/$APP_USER/.ssh/id_ed25519"
 if [[ ! -f "$SSH_KEY.pub" ]]; then
   log "No SSH key found for $APP_USER. Generating a new SSH key..."
@@ -172,16 +223,34 @@ $PUBKEY
 
 INSTRUCTIONS
 
+fi  # end of GitHub SSH key setup
 
-# Checkout specified ref
-log "Checking out Git ref: $GIT_REF"
+# ---------------------------------------------------------------------------
+# Check out the requested ref
+#
+# Skipped for a payload-seeded device: there is no checkout to move, and both
+# fetch and checkout need network access the device does not have.  The version
+# is then whatever the administrator packed, which is recorded below.
+# ---------------------------------------------------------------------------
 cd "$REPO_DIR"
-sudo -u "$APP_USER" git fetch --all --tags
-sudo -u "$APP_USER" git checkout "$GIT_REF"
-
-# Display current commit
-CURRENT_COMMIT=$(git rev-parse HEAD)
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$SOURCE_MODE" == "payload" ]]; then
+  log "Skipping git fetch/checkout -- no checkout present (DEVICE_TYPE=target)."
+  log "The installed version is whatever was packed on the administrator PC."
+  CURRENT_COMMIT="n/a (payload)"
+  CURRENT_BRANCH="n/a (payload)"
+elif [[ "$DEVICE_TYPE" == "target" ]]; then
+  # A checkout exists -- from a git bundle, say -- but the device is still
+  # offline, so report the current position without touching the network.
+  log "Target device with an existing checkout: not fetching."
+  CURRENT_COMMIT=$(sudo -u "$APP_USER" git rev-parse HEAD)
+  CURRENT_BRANCH=$(sudo -u "$APP_USER" git rev-parse --abbrev-ref HEAD)
+else
+  log "Checking out Git ref: $GIT_REF"
+  sudo -u "$APP_USER" git fetch --all --tags
+  sudo -u "$APP_USER" git checkout "$GIT_REF"
+  CURRENT_COMMIT=$(git rev-parse HEAD)
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+fi
 log "Current commit: $CURRENT_COMMIT"
 log "Current branch: $CURRENT_BRANCH"
 

@@ -10,8 +10,8 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.2"
-DATE = "31. august 2026"
+VERSION = "1.3"
+DATE = "5. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
 # make_payload.sh — this maps them to manual prose.  The keys are checked
@@ -642,17 +642,36 @@ def build() -> None:
         "\n"
         "# Selve overførslen — skrives på én linje, fordi den kaldes fra PowerShell.\n"
         "# Bemærk filtrene: de holder hemmeligheder og enhedsspecifikke filer tilbage.\n"
-        "wsl -d Ubuntu -- rsync -avz --delete --exclude '.git' --exclude '.venv' --exclude '__pycache__' --exclude 'docs' --exclude 'tests' --exclude 'logs' --exclude 'config.json' --exclude 'users.json' --exclude 'secret_key.txt' --exclude 'admin_initial_password.txt' /mnt/d/sandbox/ipr-keyboard/ meibye@ipr-prod-zero2.local:/home/meibye/dev/ipr-keyboard/"
+        "wsl -d Ubuntu -- rsync -avz --delete --chmod=D755,F644 --exclude '.git' --exclude '.venv' --exclude '__pycache__' --exclude 'docs' --exclude 'tests' --exclude 'logs' --exclude 'config.json' --exclude 'users.json' --exclude 'secret_key.txt' --exclude 'admin_initial_password.txt' /mnt/d/sandbox/ipr-keyboard/ ipr-prod:/home/meibye/dev/ipr-keyboard/\n"
+        "\n"
+        "# Gendan eksekverbar-flaget, som --chmod har fjernet\n"
+        "wsl -d Ubuntu -- ssh ipr-prod \"find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\\( -name '*.sh' -o -name '*.py' \\\\) -exec chmod +x {} +\""
     )
+    m.note("Brug værtsaliasset ipr-prod — ikke det fulde navn "
+           "meibye@ipr-prod-zero2.local. WSL2 kan ikke slå .local-navne op, og "
+           "kommandoen fejler med Could not resolve hostname. Aliasset peger på en "
+           "IP-adresse, som wsl_setup_ssh.sh har indsat.", "warn")
+    m.note("--chmod=D755,F644 er nødvendig. Filer på Windows-drevet fremstår med "
+           "rettigheden 0777 set fra WSL, og uden tilvalget skriver rsync 0777 videre til "
+           "enheden — også på modulerne under src/, som hverken skal være eksekverbare "
+           "eller skrivbare for alle. Derfor følges overførslen af, at eksekverbar-flaget "
+           "sættes igen på scripts/ og provision/.", "warn")
+
     m.p("Køres rsync i stedet inde fra en WSL-session, skrives kommandoen som sædvanligt "
         "med omvendt skråstreg som linjeskift:")
     m.code(
         "# I WSL, i repositoriets rod\n"
         "cd /mnt/d/sandbox/ipr-keyboard\n"
         "\n"
-        "rsync -avz --delete \\\n"
+        "rsync -avz --delete --chmod=D755,F644 \\\n"
         "  --exclude '.git' --exclude '.venv' --exclude '__pycache__' \\\n"
-        "  ./ meibye@ipr-prod-zero2.local:/home/meibye/dev/ipr-keyboard/"
+        "  --exclude 'docs' --exclude 'tests' --exclude 'logs' \\\n"
+        "  --exclude 'config.json' --exclude 'users.json' \\\n"
+        "  --exclude 'secret_key.txt' --exclude 'admin_initial_password.txt' \\\n"
+        "  ./ ipr-prod:/home/meibye/dev/ipr-keyboard/\n"
+        "\n"
+        "ssh ipr-prod \"find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\\\n"
+        "  \\\\( -name '*.sh' -o -name '*.py' \\\\) -exec chmod +x {} +\""
     )
     m.p("Placér derefter miljøfilen korrekt. Kommandoerne køres på enheden — enten i en "
         "SSH-session eller via ssh ipr-prod \"…\":")
@@ -696,13 +715,13 @@ def build() -> None:
     m.code(
         "# På PC'en — mappen er uden betydning her\n"
         "ssh meibye@ipr-prod-zero2.local \"ls -l ~/dev/ipr-keyboard/provision/*.sh\"\n"
-        "ssh meibye@ipr-prod-zero2.local \"sudo test -r /opt/ipr_common.env && echo env ok\""
+        "ssh meibye@ipr-prod-zero2.local \"sudo -S test -r /opt/ipr_common.env && echo env ok\""
     )
 
     m.h2("3.4 Forbered miljøfilen")
     m.p("Provisioneringen kræver, at /opt/ipr_common.env findes. Er filen allerede "
         "overført fra PC'en som beskrevet i afsnit 3.3, er dette afsnit klaret — kontrollér "
-        "blot med sudo test -r /opt/ipr_common.env. Ellers oprettes den på enheden ud fra "
+        "blot med sudo -S test -r /opt/ipr_common.env. Ellers oprettes den på enheden ud fra "
         "skabelonen. Kommandoerne køres på enheden, i repositoriets rod — typisk "
         "~/dev/ipr-keyboard, fordi stien provision/common.env.example er relativ:")
     m.code(
@@ -728,6 +747,36 @@ def build() -> None:
     m.p("Guiden kan også startes direkte. Den kører trin 00 til 06 med "
         "genoptagelsespunkter:")
     m.code("sudo ./provision/provision_wizard.sh")
+
+    m.p("Trin 00 og DEVICE_TYPE", bold=True)
+    m.p("Trin 00 henter kildekoden på to forskellige måder afhængigt af DEVICE_TYPE i "
+        "/opt/ipr_common.env. Det er afgørende for en produktionsenhed uden "
+        "internetadgang.")
+    m.table(
+        ["DEVICE_TYPE", "Hvad trin 00 gør", "Forudsætning"],
+        [
+            ["dev", "Kloner REPO_URL og checker GIT_REF ud. Opretter desuden en "
+                    "SSH-nøgle og viser vejledning til GitHub.",
+             "Enheden har internetadgang."],
+            ["target", "Kloner ikke. Kontrollerer i stedet, at de overførte filer er "
+                       "på plads, og springer git fetch, git checkout og "
+                       "GitHub-vejledningen over.",
+             "Filerne er overført som beskrevet i afsnit 3.3."],
+        ],
+        widths=[2.6, 8.4, 4.6],
+        mono_cols=(0,),
+        caption="Trin 00's opførsel afhænger af DEVICE_TYPE. Findes der allerede et "
+                "git-checkout i REPO_DIR, bruges det uanset indstillingen.",
+    )
+    m.note("Sættes DEVICE_TYPE forkert til dev på en enhed, der er seedet med "
+           "make_payload.sh, fejler trin 00 med destination path already exists and is "
+           "not an empty directory. git clone nægter at klone ned i en mappe, der ikke er "
+           "tom — og en produktionsenhed uden netværk kan alligevel ikke klone.", "warn")
+    m.p("Mangler filerne, stopper trin 00 med en liste over, hvad der ikke blev fundet, "
+        "og henviser til overførselsskriptet. Versionen på en target-enhed er den, "
+        "administratoren pakkede — enheden har ingen git-historik, og verifikations"
+        "rapporten fra trin 06 skriver derfor \"transferred payload\" i stedet for "
+        "commit og branch.")
     m.p("Skal trinene køres manuelt — for eksempel ved fejlsøgning af et enkelt trin:")
     m.code(
         "sudo ./provision/00_bootstrap.sh        # validerer miljø, henter repo\n"
@@ -1188,7 +1237,8 @@ def build() -> None:
         "\n"
         "# 3. Overfør koden — kør i WSL fra /mnt/d/sandbox/ipr-keyboard,\n"
         "#    eller brug scp -r fra PowerShell (se afsnit 3.3)\n"
-        "rsync -avz --delete --exclude '.git' --exclude '.venv' --exclude '__pycache__' \\\n"
+        "rsync -avz --delete --chmod=D755,F644 \\\n"
+        "  --exclude '.git' --exclude '.venv' --exclude '__pycache__' \\\n"
         "  --exclude 'config.json' --exclude 'users.json' \\\n"
         "  ./ ipr-prod:/home/meibye/dev/ipr-keyboard/\n"
         "\n"
@@ -1496,7 +1546,8 @@ def build() -> None:
         "ssh ipr-prod \"mkdir -p ~/dev/ipr-keyboard && \\\n"
         "  tar xzf /tmp/ipr-deploy.tgz -C ~/dev/ipr-keyboard\"\n"
         "scp <fil> ipr-prod:/tmp/                            # enkelt fil\n"
-        "wsl -d Ubuntu -- rsync -avz --exclude '.git' /mnt/d/sandbox/ipr-keyboard/ ipr-prod:/home/meibye/dev/ipr-keyboard/\n"
+        "wsl -d Ubuntu -- rsync -avz --chmod=D755,F644 --exclude '.git' \\\n"
+        "  /mnt/d/sandbox/ipr-keyboard/ ipr-prod:/home/meibye/dev/ipr-keyboard/\n"
         "git bundle create ipr-keyboard.bundle --all         # historik uden netværk"
     )
 

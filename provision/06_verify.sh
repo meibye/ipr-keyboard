@@ -122,9 +122,16 @@ REPORT_FILE="/opt/ipr_state/verification_report.txt"
   cd "$REPO_DIR"
   echo "Repository: $REPO_URL"
   echo "Location: $REPO_DIR"
-  echo "Current Branch: $(git rev-parse --abbrev-ref HEAD)"
-  echo "Current Commit: $(git rev-parse HEAD)"
-  echo "Current Tag: $(git describe --tags --exact-match 2>/dev/null || echo 'not on a tag')"
+  if [[ -d "$REPO_DIR/.git" ]]; then
+    echo "Source: git checkout"
+    echo "Current Branch: $(git rev-parse --abbrev-ref HEAD)"
+    echo "Current Commit: $(git rev-parse HEAD)"
+    echo "Current Tag: $(git describe --tags --exact-match 2>/dev/null || echo 'not on a tag')"
+  else
+    # Seeded by scripts/deploy/make_payload.sh, which ships no .git.
+    echo "Source: transferred payload (no git checkout)"
+    echo "Version: determined on the administrator PC at pack time"
+  fi
   echo ""
   
   echo "===== SYSTEMD SERVICES ====="
@@ -220,9 +227,13 @@ fi
 
 # Repository
 cd "$REPO_DIR"
-CURRENT_COMMIT=$(git rev-parse HEAD)
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-log "✓ Repository: $CURRENT_BRANCH @ ${CURRENT_COMMIT:0:8}"
+if [[ -d "$REPO_DIR/.git" ]]; then
+  CURRENT_COMMIT=$(git rev-parse HEAD)
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  log "✓ Repository: $CURRENT_BRANCH @ ${CURRENT_COMMIT:0:8}"
+else
+  log "✓ Repository: transferred payload (no git checkout)"
+fi
 
 # Services
 for service in ipr_keyboard.service bt_hid_ble.service bt_hid_agent_unified.service; do
