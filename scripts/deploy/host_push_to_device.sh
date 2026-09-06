@@ -204,7 +204,29 @@ $SKIP_PUBKEY || run scp "$PUBKEY"   "$HOST:/tmp/copilot_pubkey.txt"
 if $CLEAN; then
     warn "--clean: removing $REMOTE_DIR on $HOST before unpacking."
     warn "This also deletes config.json, users.json and anything else living there."
-    run ssh "$HOST" "rm -rf $REMOTE_DIR"
+
+    # Refuse if anything is mounted underneath.  The IrisPen scanner is mounted
+    # from a path configured in config.json, and a cache directory under the
+    # project root is a plausible choice -- rm -rf would then recurse into the
+    # mount and delete the user's scans.  Never risk that to save a reinstall.
+    mounted=$(ssh "$HOST" "d=\$(eval echo $REMOTE_DIR); findmnt -rno TARGET 2>/dev/null | grep -F \"\$d\" || true")
+    if [[ -n "$mounted" ]]; then
+        die "Refusing --clean: something is mounted under $REMOTE_DIR on $HOST:
+$mounted
+       Unmount it first, or re-run without --clean."
+    fi
+
+    # Provisioning creates root-owned directories inside the project (the
+    # scanner cache, for one), so the user alone cannot remove the tree.
+    if [[ -t 0 ]] || ssh -o BatchMode=yes "$HOST" "sudo -n true" 2>/dev/null; then
+        run ssh -t "$HOST" "d=\$(eval echo $REMOTE_DIR); sudo rm -rf \"\$d\""
+    else
+        warn "No terminal available and passwordless sudo is not configured, so"
+        warn "root-owned files under $REMOTE_DIR cannot be removed from here."
+        warn "Removing what is possible; run this yourself for a full wipe:"
+        warn "  ssh $HOST \"sudo rm -rf $REMOTE_DIR\""
+        run ssh "$HOST" "d=\$(eval echo $REMOTE_DIR); rm -rf \"\$d\" 2>/dev/null || true"
+    fi
 fi
 
 log "Unpacking on $HOST and restoring execute bits ..."
