@@ -54,7 +54,9 @@ source "$ENV_FILE"
 
 : "${COPILOT_USER:?Missing COPILOT_USER}"
 : "${COPILOT_REPO_DIR:?Missing COPILOT_REPO_DIR}"
-: "${COPILOT_GIT_REF:?Missing COPILOT_GIT_REF}"
+# COPILOT_GIT_REF is deliberately not required: install_dbg_tools.sh has no
+# flag for it and clones nothing, so demanding it only made the step fail on
+# devices that had no reason to set it.
 
 : "${DBG_LOG_ROOT:?Missing DBG_LOG_ROOT}"
 : "${DBG_BLE_SERVICE_UNIT:?Missing DBG_BLE_SERVICE_UNIT}"
@@ -155,30 +157,55 @@ if [[ -n "$COPILOT_PUBKEY_FILE" ]]; then
   else
     die "COPILOT_PUBKEY_FILE is set but file not found: $COPILOT_PUBKEY_FILE"
   fi
-elif [[ -f "/tmp/copilot_pubkey.txt" ]]; then
-  log "Detected transferred public key at /tmp/copilot_pubkey.txt"
-  append_key "$(cat /tmp/copilot_pubkey.txt)"
-  log "Public key from /tmp/copilot_pubkey.txt installed."
 else
-  echo
-  warn "No COPILOT_PUBKEY_FILE provided and no /tmp/copilot_pubkey.txt found."
-  warn "Paste ONE public key line now (starting with 'copilotdiag' or similar). It will be stored with a forced-command guard."
-  echo -n "> "
-  read -r PUBKEY_LINE
-  append_key "$PUBKEY_LINE"
+  # Look in the persistent location first.  Provisioning reboots twice, and
+  # /tmp is cleared on boot, so a key delivered there before step 00 is gone
+  # by the time this step runs.
+  PUBKEY_FOUND=""
+  for _candidate in /opt/ipr_state/copilot_pubkey.txt /tmp/copilot_pubkey.txt; do
+    if [[ -f "$_candidate" ]]; then
+      PUBKEY_FOUND="$_candidate"
+      break
+    fi
+  done
+
+  if [[ -n "$PUBKEY_FOUND" ]]; then
+    log "Detected transferred public key at $PUBKEY_FOUND"
+    append_key "$(cat "$PUBKEY_FOUND")"
+    log "Public key from $PUBKEY_FOUND installed."
+  elif [[ -t 0 ]]; then
+    echo
+    warn "No public key file found. Paste ONE public key line now; it will be"
+    warn "stored with a forced-command guard. Leave empty to skip."
+    echo -n "> "
+    read -r PUBKEY_LINE
+    if [[ -n "${PUBKEY_LINE// }" ]]; then
+      append_key "$PUBKEY_LINE"
+    else
+      warn "No key entered -- $COPILOT_USER has no authorized_keys yet."
+    fi
+  else
+    # Never block a scripted run waiting for input that cannot arrive.
+    warn "No public key file found and no terminal to prompt on."
+    warn "$COPILOT_USER is created but has no authorized_keys yet."
+    warn "Add one later with:"
+    warn "  sudo tee -a /home/$COPILOT_USER/.ssh/authorized_keys < your_key.pub"
+  fi
 fi
 
 # ----------------------------------------------------------------------
 # Run the dbg_tools installer script
 # ----------------------------------------------------------------------
 log "Running Copilot debug tools installer..."
+# Flag names must match install_dbg_tools.sh exactly; it rejects anything else
+# and prints its usage, which is how this step used to fail.  There is no
+# --copilot-git-ref: the installer does not clone anything.
 sudo "$INSTALLER" \
-  --ble-service-unit "$DBG_BLE_SERVICE_UNIT" \
-  --agent-service-unit "$DBG_AGENT_SERVICE_UNIT" \
+  --ble-service "$DBG_BLE_SERVICE_UNIT" \
+  --agent-service "$DBG_AGENT_SERVICE_UNIT" \
   --hci "$BT_HCI" \
   --log-root "$DBG_LOG_ROOT" \
   --copilot-repo "$COPILOT_REPO_DIR" \
-  --copilot-git-ref "$COPILOT_GIT_REF" \
   --copilot-user "$COPILOT_USER"
 
 # -----------------------------------------------------------------------------

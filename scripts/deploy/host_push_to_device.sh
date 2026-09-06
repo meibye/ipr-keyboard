@@ -192,6 +192,8 @@ log "Transferring payload to $HOST ..."
 run scp "$PAYLOAD" "$HOST:/tmp/ipr-deploy.tgz"
 
 $SKIP_ENV    || run scp "$ENV_FILE" "$HOST:/tmp/ipr_common.env"
+# /tmp is cleared on boot and provisioning reboots twice before step 05 reads
+# this, so stage it in /tmp and have the device move it somewhere persistent.
 $SKIP_PUBKEY || run scp "$PUBKEY"   "$HOST:/tmp/copilot_pubkey.txt"
 
 # ---------------------------------------------------------------------------
@@ -238,6 +240,20 @@ run ssh "$HOST" "
     find $REMOTE_DIR/scripts $REMOTE_DIR/provision \
         \\( -name '*.sh' -o -name '*.py' \\) -exec chmod +x {} +
 "
+
+# Move the diagnostics key somewhere that survives the provisioning reboots.
+# /opt/ipr_state is created by step 00 and persists; /tmp is cleared on boot,
+# and provisioning reboots twice before step 05 reads the key -- which is why
+# that step used to stop and ask for it interactively.
+if ! $SKIP_PUBKEY; then
+    if ssh -o BatchMode=yes "$HOST" "sudo -n true" 2>/dev/null; then
+        run ssh "$HOST" "sudo mkdir -p /opt/ipr_state && sudo cp /tmp/copilot_pubkey.txt /opt/ipr_state/copilot_pubkey.txt"
+    else
+        warn "Cannot stage the diagnostics key persistently without sudo."
+        warn "It is at /tmp/copilot_pubkey.txt, which a reboot clears. To keep it:"
+        warn "  ssh $HOST \"sudo mkdir -p /opt/ipr_state && sudo cp /tmp/copilot_pubkey.txt /opt/ipr_state/\""
+    fi
+fi
 
 if ! $SKIP_ENV; then
     # This is the only step that needs sudo on the device.  ssh -t can only

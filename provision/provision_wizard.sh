@@ -426,7 +426,35 @@ fi
 # Step 11: Run 05_copilot_debug_tools.sh
 if [[ "$wizard_step" -le 11 ]]; then
     ensure_project_dir
-    run_step "./provision/05_copilot_debug_tools.sh" "[Step 11/13] Copilot: debug tools" 12
+    # Optional tooling, so it must not be able to abort provisioning.
+    #
+    # Step 05 installs the copilotdiag diagnostics account and the dbg_* helper
+    # scripts.  Useful -- .vscode/mcp.json reaches production through that
+    # account -- but auxiliary: the device runs perfectly without it.  Running
+    # it through run_step meant any failure here exited the wizard before
+    # verification (step 12) and the device summary (step 13) had run.
+    #
+    # Set INSTALL_COPILOT_TOOLS="no" in /opt/ipr_common.env to skip it, e.g. on
+    # a hardened production device where a second SSH account is unwanted.
+    INSTALL_COPILOT_TOOLS_VAL="yes"
+    if [[ -r /opt/ipr_common.env ]]; then
+        _v="$(awk -F= '/^[[:space:]]*INSTALL_COPILOT_TOOLS[[:space:]]*=/ {gsub(/[" ]/,"",$2); print $2; exit}' /opt/ipr_common.env)"
+        [[ -n "$_v" ]] && INSTALL_COPILOT_TOOLS_VAL="$_v"
+    fi
+
+    step "[Step 11/13] Copilot: debug tools"
+    if [[ "${INSTALL_COPILOT_TOOLS_VAL,,}" =~ ^(no|false|0)$ ]]; then
+        warn "Skipping: INSTALL_COPILOT_TOOLS=$INSTALL_COPILOT_TOOLS_VAL in /opt/ipr_common.env."
+    elif bash ./provision/05_copilot_debug_tools.sh; then
+        success "[Step 11/13] Copilot: debug tools completed successfully."
+    else
+        warn "[Step 11/13] Copilot debug tools failed."
+        warn "This is optional tooling; provisioning continues. Re-run later with:"
+        warn "  sudo ./provision/05_copilot_debug_tools.sh"
+    fi
+    echo "wizard_step=12" > "$STATE_FILE"
+    wizard_step=12
+    prompt_continue
 fi
 
 # Step 12: Run 06_verify.sh
