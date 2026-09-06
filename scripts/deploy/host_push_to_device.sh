@@ -34,6 +34,12 @@
 #   --remote-dir DIR     where the repository lands on the device.
 #                        Default: ~/dev/ipr-keyboard
 #   --with-tests         include tests/ in the payload (development device)
+#   --clean              DELETE the remote directory before unpacking, for a
+#                        genuine from-scratch install.  The payload is a tar
+#                        archive, so it adds and overwrites but never removes:
+#                        a file deleted in the repository lingers on the device
+#                        forever without this.  Destructive -- it also removes
+#                        config.json, users.json and any logs living there.
 #   --skip-env           do not transfer the environment file
 #   --skip-pubkey        do not transfer the public key
 #   --dry-run            show what would happen, change nothing
@@ -52,6 +58,7 @@ ENV_FILE="$REPO_ROOT/provision/common.env"
 PUBKEY="$HOME/.ssh/copilotdiag_rpi.pub"
 REMOTE_DIR="~/dev/ipr-keyboard"
 PAYLOAD_ARGS=()
+CLEAN=false
 SKIP_ENV=false
 SKIP_PUBKEY=false
 DRY_RUN=false
@@ -75,6 +82,7 @@ while [[ $# -gt 0 ]]; do
         --pubkey)      PUBKEY="$2"; shift 2 ;;
         --remote-dir)  REMOTE_DIR="$2"; shift 2 ;;
         --with-tests)  PAYLOAD_ARGS+=("--with-tests"); shift ;;
+        --clean)       CLEAN=true; shift ;;
         --skip-env)    SKIP_ENV=true; shift ;;
         --skip-pubkey) SKIP_PUBKEY=true; shift ;;
         --dry-run)     DRY_RUN=true; shift ;;
@@ -193,6 +201,12 @@ $SKIP_PUBKEY || run scp "$PUBKEY"   "$HOST:/tmp/copilot_pubkey.txt"
 # filesystem arrives without +x.  Only scripts/ and provision/ need it; modules
 # under src/ are imported, never executed directly.
 # ---------------------------------------------------------------------------
+if $CLEAN; then
+    warn "--clean: removing $REMOTE_DIR on $HOST before unpacking."
+    warn "This also deletes config.json, users.json and anything else living there."
+    run ssh "$HOST" "rm -rf $REMOTE_DIR"
+fi
+
 log "Unpacking on $HOST and restoring execute bits ..."
 run ssh "$HOST" "
     set -e
