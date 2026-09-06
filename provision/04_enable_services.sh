@@ -78,74 +78,36 @@ bash scripts/ble/ble_setup_extras.sh
 log "Enabling BLE service set..."
 bash scripts/service/svc_enable_services.sh
 
-# Install and enable headless Wi-Fi provisioning service
-log "Installing headless Wi-Fi provisioning service (ipr-provision) ..."
-PROVISION_SCRIPT="scripts/headless/net_provision_hotspot.sh"
-PROVISION_TARGET="/usr/local/sbin/ipr-provision.sh"
-PROVISION_SERVICE="scripts/headless/ipr-provision.service"
-
-if [[ -f "$PROVISION_SCRIPT" ]]; then
-  cp "$PROVISION_SCRIPT" "$PROVISION_TARGET"
-  chmod +x "$PROVISION_TARGET"
-  log "Installed $PROVISION_TARGET"
-else
-  warn "Headless provisioning script not found: $PROVISION_SCRIPT"
-fi
-
-# Install provisioning web UI (started automatically by ipr-provision.sh when hotspot activates)
-WEB_PROVISION_SCRIPT="scripts/headless/net_provision_web.py"
-WEB_PROVISION_TARGET="/usr/local/sbin/ipr-provision-web.py"
-
-if [[ -f "$WEB_PROVISION_SCRIPT" ]]; then
-  cp "$WEB_PROVISION_SCRIPT" "$WEB_PROVISION_TARGET"
-  chmod +x "$WEB_PROVISION_TARGET"
-  log "Installed $WEB_PROVISION_TARGET"
-else
-  warn "Provisioning web script not found: $WEB_PROVISION_SCRIPT"
-fi
-
-# Install systemd service unit if present
-if [[ -f "$PROVISION_SERVICE" ]]; then
-  cp "$PROVISION_SERVICE" /etc/systemd/system/ipr-provision.service
-  systemctl daemon-reload
-  systemctl enable ipr-provision.service
-  systemctl start ipr-provision.service
-  log "Enabled and started ipr-provision.service"
-else
-  warn "Headless provisioning service unit not found: $PROVISION_SERVICE"
-fi
-
 # ---------------------------------------------------------------------------
-# TLS certificate auto-renewal
+# Headless Wi-Fi provisioning and TLS certificate renewal
 #
-# The server certificate is valid for 397 days -- browsers reject anything
-# longer even from a privately trusted CA -- so it has to be renewed annually.
-# ipr-cert-renew.timer checks daily and renews when fewer than 30 days remain,
-# keeping the CA key so clients that installed the CA do not have to reinstall
-# it.
+# scripts/headless/install_provision_service.sh is the single source of truth
+# for this. Step 04 used to duplicate part of it inline, and the two had drifted
+# apart in two ways that mattered:
 #
-# This used to be installed only by scripts/headless/install_provision_service.sh,
-# which provisioning never calls: step 04 installs ipr-provision.service inline
-# instead.  The result was a device whose certificate would simply expire after
-# a year, with nothing scheduled to renew it.
-log "Installing TLS certificate renewal timer ..."
-CERT_GEN_SRC="scripts/headless/gen_ipr_ssl_cert.sh"
-CERT_RENEW_SRC="scripts/headless/ipr-cert-renew.sh"
-CERT_RENEW_SVC_SRC="scripts/headless/ipr-cert-renew.service"
-CERT_RENEW_TIMER_SRC="scripts/headless/ipr-cert-renew.timer"
+#   - the inline copy installed net_provision_web.py as
+#     /usr/local/sbin/ipr-provision-web.py. Nothing launches it: neither
+#     net_provision_hotspot.sh nor ipr-provision.service references it, and the
+#     setup UI is served by the Flask app at /setup/. install_provision_service.sh
+#     already deletes it as retired, so provisioning was installing a dead file
+#     for the other script to remove.
+#
+#   - the inline copy installed nothing for certificate renewal, so
+#     ipr-cert-renew.timer was never enabled and the 397-day server certificate
+#     would expire with nothing scheduled to renew it.
+#
+# The installer resolves its sources relative to its own location, so it can be
+# called from anywhere. It is idempotent: copies, enables and restarts.
+# ---------------------------------------------------------------------------
+log "Installing headless provisioning service and certificate renewal ..."
+PROVISION_INSTALLER="scripts/headless/install_provision_service.sh"
 
-if [[ -f "$CERT_RENEW_SRC" && -f "$CERT_RENEW_SVC_SRC" && -f "$CERT_RENEW_TIMER_SRC" ]]; then
-  # ipr-cert-renew.sh calls /usr/local/sbin/ipr-cert-gen.sh by that exact path.
-  install -m 0755 "$CERT_GEN_SRC"   /usr/local/sbin/ipr-cert-gen.sh
-  install -m 0755 "$CERT_RENEW_SRC" /usr/local/sbin/ipr-cert-renew.sh
-  install -m 0644 "$CERT_RENEW_SVC_SRC"   /etc/systemd/system/ipr-cert-renew.service
-  install -m 0644 "$CERT_RENEW_TIMER_SRC" /etc/systemd/system/ipr-cert-renew.timer
-  systemctl daemon-reload
-  systemctl enable ipr-cert-renew.timer
-  systemctl start ipr-cert-renew.timer
-  log "  ipr-cert-renew.timer enabled (daily check, renews at <= 30 days left)"
+if [[ -f "$PROVISION_INSTALLER" ]]; then
+  bash "$PROVISION_INSTALLER"
+  log "ipr-provision.service and ipr-cert-renew.timer installed."
 else
-  warn "Certificate renewal sources not found; the timer was NOT installed."
+  warn "Not found: $PROVISION_INSTALLER"
+  warn "The hotspot and the TLS certificate renewal timer were NOT installed."
   warn "The server certificate will expire in 397 days with nothing to renew it."
 fi
 

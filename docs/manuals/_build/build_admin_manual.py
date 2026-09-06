@@ -10,8 +10,8 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.3"
-DATE = "5. september 2026"
+VERSION = "1.3.1"
+DATE = "6. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
 # make_payload.sh — this maps them to manual prose.  The keys are checked
@@ -796,9 +796,16 @@ def build() -> None:
         "scripts/ble/ble_install_helper.sh — afhængigheder og bt_kb_send",
         "scripts/service/svc_install_systemd.sh — ipr_keyboard.service",
         "scripts/ble/ble_setup_extras.sh — supplerende Bluetooth-opsætning",
-        "scripts/service/svc_enable_services.sh — aktivering",
-        "installation af ipr-provision.service samt TLS-certifikater",
+        "scripts/service/svc_enable_services.sh — genstarter bluetooth, venter på "
+        "adapteren og aktiverer BLE-tjenesterne",
+        "scripts/headless/install_provision_service.sh — hotspot-tjenesten "
+        "ipr-provision.service, TLS-certifikater og fornyelsestimeren "
+        "ipr-cert-renew.timer",
     ], numbered=True)
+    m.note("Certifikatfornyelsen installeres af trin 04. Springes trinnet over, findes "
+           "ipr-cert-renew.timer ikke, og serverbeviset udløber efter 397 dage uden at "
+           "blive fornyet — dashboardet holder op med at svare over HTTPS. Kontrollér "
+           "med systemctl list-timers ipr-cert-renew.timer, se afsnit 8.6.", "warn")
 
     m.h2("3.6 Efter provisioneringen")
     m.p("Hent hotspot-oplysningerne og notér dem — de skal bruges ved nødadgang:")
