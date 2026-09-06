@@ -19,7 +19,6 @@ Python application package for `ipr-keyboard`.
 | `utils/helpers.py` | Project/config path and JSON helpers |
 | `web/server.py` | Flask app factory, legacy HTML endpoints, and dashboard root |
 | `web/api.py` | `/api/` Blueprint — dashboard JSON API (all `/api/*` routes) |
-| `web/pairing_routes.py` | Legacy pairing wizard endpoints |
 | `web/templates/dashboard.html` | Image-first SPA dashboard (primary UI) |
 | `web/templates/` | Legacy HTML templates (status, config, logs, pairing) |
 | `web/static/` | SVG icons and device-flow illustration for the dashboard |
@@ -42,4 +41,4 @@ Python application package for `ipr-keyboard`.
 
 ## Notes
 
-`web/pairing_routes.py` uses BLE-only pairing actions and does not depend on backend-switch manager services.
+Pairing actions are BLE-only and do not depend on backend-switch manager services.

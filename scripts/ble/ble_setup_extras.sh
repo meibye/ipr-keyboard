@@ -73,48 +73,12 @@ else
   exit 1
 fi
 
-# ---------------------------------------------------------------------------
-# 6. Pairing wizard HTML template
-# ---------------------------------------------------------------------------
-echo "=== [ble_setup_extras] Verifying pairing wizard HTML template ==="
-TEMPLATES_DIR="$PROJECT_ROOT/src/ipr_keyboard/web/templates"
-PAIRING_TEMPLATE="$TEMPLATES_DIR/pairing_wizard.html"
-
-if [[ -f "$PAIRING_TEMPLATE" ]]; then
-  echo "  Pairing wizard template exists at $PAIRING_TEMPLATE"
-else
-  echo -e "  ${YELLOW}WARNING:${NC} $PAIRING_TEMPLATE not found in source tree"
-  echo "  The template should be part of the source code repository"
-fi
-
-# ---------------------------------------------------------------------------
-# 7. Register pairing routes in server.py
-# ---------------------------------------------------------------------------
-echo "=== [ble_setup_extras] Checking pairing routes registration in server.py ==="
-SERVER_PY="$PROJECT_ROOT/src/ipr_keyboard/web/server.py"
-PAIRING_ROUTES_PY="$PROJECT_ROOT/src/ipr_keyboard/web/pairing_routes.py"
-
-if [[ ! -f "$SERVER_PY" ]]; then
-  echo -e "  ${RED}ERROR:${NC} $SERVER_PY not found; cannot register pairing routes."
-  exit 1
-fi
-
-if [[ ! -f "$PAIRING_ROUTES_PY" ]]; then
-  echo -e "  ${RED}ERROR:${NC} $PAIRING_ROUTES_PY not found; pairing routes module missing."
-  exit 1
-fi
-
-if grep -q "pairing_routes" "$SERVER_PY" || grep -q "pairing_bp" "$SERVER_PY"; then
-  echo "  Pairing routes already registered in server.py"
-else
-  echo -e "  ${YELLOW}WARNING:${NC} Pairing routes not registered in server.py"
-  echo "  Please add the following to server.py create_app() function:"
-  echo "    from .pairing_routes import pairing_bp"
-  echo "    app.register_blueprint(pairing_bp)"
-fi
+# The legacy pairing wizard (pairing_routes.py + pairing_wizard.html) was
+# removed: it was never registered in server.py, so it had never actually
+# served a request.  Pairing lives in server.py itself, and the dashboard uses
+# POST /api/actions/pairing -- see docs/ui/api-contract.md.
 
 echo "=== [ble_setup_extras] Setup complete ==="
 echo "You can now use:"
 echo "  - ipr_ble_diagnostics.sh          (BLE health check)"
 echo "  - ipr_ble_hid_analyzer.py         (HID report analyzer)"
-echo "  - http://localhost:8080/pairing   (web pairing wizard)"

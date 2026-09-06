@@ -406,7 +406,6 @@ so all 210+ tests pass in the container without hardware.
 |------|-----|-------------------|
 | `gpio_monitor.py` | 0 % coverage; no unit tests | Mock RPi.GPIO at module level; test state transitions |
 | `main.py` | Partial; signal handling not tested | Add shutdown/restart signal tests |
-| `web/pairing_routes.py` | Unknown coverage | Add pairing wizard endpoint tests |
 | BT hardware reconnect | Not automated | Tier 4b manual only |
 | MTP real device | jmtpfs calls mocked | Test with physical IrisPen pen |
 | CI gates | `|| true` means failures pass CI | Remove after suite stabilises |

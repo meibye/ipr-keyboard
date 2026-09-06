@@ -6,13 +6,12 @@ Flask web layer for the IPR Pen Bridge dashboard and legacy status/config/log/pa
 
 - `server.py`: app factory, root endpoint, and legacy HTML endpoints
 - `api.py`: `/api/` Blueprint — dashboard JSON API (see docs/ui/api-contract.md)
-- `pairing_routes.py`: legacy pairing wizard routes
 - `templates/dashboard.html`: image-first SPA dashboard (primary UI)
 - `templates/index.html`: legacy index page (kept for compatibility)
 - `templates/status.html`: legacy status page
 - `templates/config.html`: legacy configuration page
 - `templates/logs.html`, `templates/logs_select.html`: legacy log viewers
-- `templates/pairing.html`, `templates/pairing_wizard.html`: legacy pairing UI
+- `templates/pairing.html`: pairing UI, rendered by server.py
 - `static/`: SVG icons and device illustration assets
 
 ## Endpoints Registered by `create_app()`

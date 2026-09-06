@@ -87,8 +87,22 @@ EOF
 systemctl daemon-reload
 systemctl enable ipr_keyboard.service
 
+# The dashboard does not listen on 443; it binds the port named by LogPort in
+# config.json (8080 by default).  Printing a portless URL sent people to a
+# connection-refused page, so resolve the real port the way 07_show_info.sh
+# does.
+DASHBOARD_PORT=8080
+for _cfg in "${PROJECT_DIR:-}/config.json" "${PROJECT_DIR:-}/config.default.json"; do
+  if [[ -n "${PROJECT_DIR:-}" && -f "$_cfg" ]] && command -v python3 &>/dev/null; then
+    DASHBOARD_PORT=$(python3 -c \
+      "import json; print(json.load(open('$_cfg')).get('LogPort', 8080))" \
+      2>/dev/null || echo 8080)
+    break
+  fi
+done
+
 echo "[svc_install_systemd] Service installed and enabled."
 echo "     Start now:    sudo systemctl start ipr_keyboard"
 echo "     Check status: sudo systemctl status ipr_keyboard"
-echo "     Dashboard:    https://$(hostname -s).local/"
-echo "     Setup UI:     https://10.42.0.1/setup/"
+echo "     Dashboard:    https://$(hostname -s).local:${DASHBOARD_PORT}/"
+echo "     Setup UI:     https://10.42.0.1:${DASHBOARD_PORT}/setup/"
