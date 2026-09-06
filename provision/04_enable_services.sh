@@ -115,6 +115,40 @@ else
   warn "Headless provisioning service unit not found: $PROVISION_SERVICE"
 fi
 
+# ---------------------------------------------------------------------------
+# TLS certificate auto-renewal
+#
+# The server certificate is valid for 397 days -- browsers reject anything
+# longer even from a privately trusted CA -- so it has to be renewed annually.
+# ipr-cert-renew.timer checks daily and renews when fewer than 30 days remain,
+# keeping the CA key so clients that installed the CA do not have to reinstall
+# it.
+#
+# This used to be installed only by scripts/headless/install_provision_service.sh,
+# which provisioning never calls: step 04 installs ipr-provision.service inline
+# instead.  The result was a device whose certificate would simply expire after
+# a year, with nothing scheduled to renew it.
+log "Installing TLS certificate renewal timer ..."
+CERT_GEN_SRC="scripts/headless/gen_ipr_ssl_cert.sh"
+CERT_RENEW_SRC="scripts/headless/ipr-cert-renew.sh"
+CERT_RENEW_SVC_SRC="scripts/headless/ipr-cert-renew.service"
+CERT_RENEW_TIMER_SRC="scripts/headless/ipr-cert-renew.timer"
+
+if [[ -f "$CERT_RENEW_SRC" && -f "$CERT_RENEW_SVC_SRC" && -f "$CERT_RENEW_TIMER_SRC" ]]; then
+  # ipr-cert-renew.sh calls /usr/local/sbin/ipr-cert-gen.sh by that exact path.
+  install -m 0755 "$CERT_GEN_SRC"   /usr/local/sbin/ipr-cert-gen.sh
+  install -m 0755 "$CERT_RENEW_SRC" /usr/local/sbin/ipr-cert-renew.sh
+  install -m 0644 "$CERT_RENEW_SVC_SRC"   /etc/systemd/system/ipr-cert-renew.service
+  install -m 0644 "$CERT_RENEW_TIMER_SRC" /etc/systemd/system/ipr-cert-renew.timer
+  systemctl daemon-reload
+  systemctl enable ipr-cert-renew.timer
+  systemctl start ipr-cert-renew.timer
+  log "  ipr-cert-renew.timer enabled (daily check, renews at <= 30 days left)"
+else
+  warn "Certificate renewal sources not found; the timer was NOT installed."
+  warn "The server certificate will expire in 397 days with nothing to renew it."
+fi
+
 IPR_PROVISION_DEFAULTS="/etc/default/ipr-provision"
 if [[ ! -f "$IPR_PROVISION_DEFAULTS" ]]; then
   log "Creating ${IPR_PROVISION_DEFAULTS} ..."

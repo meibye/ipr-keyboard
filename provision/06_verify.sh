@@ -94,7 +94,10 @@ REPORT_FILE="/opt/ipr_state/verification_report.txt"
   bluetoothctl show || echo "Bluetooth adapter not available"
   echo ""
   echo "Bluetooth Name from config: $BT_DEVICE_NAME"
-  BT_NAME_ACTUAL=$(bluetoothctl show | grep "Name:" | cut -d: -f2 | xargs || echo "unknown")
+  # BlueZ reports two names: "Name" is the controller's own system name ("BlueZ 5.82"),
+  # while "Alias" is the advertised name set from BT_DEVICE_NAME. Comparing against
+  # Name could never match, so this always warned on a correctly configured device.
+  BT_NAME_ACTUAL=$(bluetoothctl show 2>/dev/null | grep -E "^[[:space:]]*Alias:" | cut -d: -f2- | xargs || echo "unknown")
   echo "Bluetooth Name (actual): $BT_NAME_ACTUAL"
   if [[ "$BT_NAME_ACTUAL" == "$BT_DEVICE_NAME" ]]; then
     echo "✓ Bluetooth name matches expected value"
@@ -209,7 +212,10 @@ else
 fi
 
 # Bluetooth name
-BT_NAME_ACTUAL=$(bluetoothctl show | grep "Name:" | cut -d: -f2 | xargs || echo "unknown")
+# BlueZ reports two names: "Name" is the controller's own system name ("BlueZ 5.82"),
+# while "Alias" is the advertised name set from BT_DEVICE_NAME. Comparing against
+# Name could never match, so this always warned on a correctly configured device.
+BT_NAME_ACTUAL=$(bluetoothctl show 2>/dev/null | grep -E "^[[:space:]]*Alias:" | cut -d: -f2- | xargs || echo "unknown")
 if [[ "$BT_NAME_ACTUAL" == "$BT_DEVICE_NAME" ]]; then
   log "✓ Bluetooth name: $BT_DEVICE_NAME"
 else

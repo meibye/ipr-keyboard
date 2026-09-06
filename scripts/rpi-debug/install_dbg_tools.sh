@@ -156,10 +156,16 @@ while IFS= read -r line; do
   SUDOERS_CMDS+=("$expanded")
 done < "$SUDOERS_LIST_FILE"
 
+# One sudoers line: "<user> ALL=(root) NOPASSWD: cmd1, cmd2, ..."
+#
+# The opening quote here used to be left unterminated, with a line
+# continuation after it, so bash swallowed the rest of the file and the
+# script died with "unexpected EOF while looking for matching quote"
+# before doing anything at all.
 {
-  echo -n "${COPILOT_USER} ALL=(root) NOPASSWD: \\
-
-  printf '%s, \\n  ' "${SUDOERS_CMDS[@]}" | sed 's/, \\n  $//'
+  echo -n "${COPILOT_USER} ALL=(root) NOPASSWD: "
+  # Join with ", " and drop the separator left on the last entry.
+  printf '%s, ' "${SUDOERS_CMDS[@]}" | sed 's/, $//'
   echo
 } > "$SUDOERS_FILE"
 visudo -cf "$SUDOERS_FILE"
