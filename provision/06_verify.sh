@@ -235,6 +235,35 @@ else
   log "✓ Repository: transferred payload (no git checkout)"
 fi
 
+# mDNS hostname
+#
+# Avahi renames itself to <hostname>-2.local when it detects a conflict while
+# probing -- typically its own pre-reboot records, still live on the network
+# when the device comes back.  It never reverts on its own, so <hostname>.local
+# simply stops resolving and the device becomes unreachable by name even though
+# it is perfectly healthy.  Worth catching here rather than discovering it by
+# losing access.
+if systemctl is-active avahi-daemon &>/dev/null; then
+  PUBLISHED_NAME=$(journalctl -u avahi-daemon -b --no-pager 2>/dev/null \
+                   | sed -n 's/.*Host name is \([^.]*\)\.local.*/\1/p' | tail -1)
+  EXPECTED_NAME=$(hostname -s)
+
+  if [[ -z "$PUBLISHED_NAME" ]]; then
+    log "✓ mDNS: avahi-daemon running (published name not found in this boot's log)"
+  elif [[ "$PUBLISHED_NAME" == "$EXPECTED_NAME" ]]; then
+    log "✓ mDNS: publishing ${EXPECTED_NAME}.local"
+  else
+    warn "⚠ mDNS: avahi is publishing ${PUBLISHED_NAME}.local, not ${EXPECTED_NAME}.local"
+    warn "  A name conflict was detected at boot, so ${EXPECTED_NAME}.local does NOT"
+    warn "  resolve and the device is only reachable by IP address."
+    warn "  Fix: sudo systemctl restart avahi-daemon"
+    WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+  fi
+else
+  warn "⚠ avahi-daemon is not running -- $(hostname -s).local will not resolve"
+  WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+fi
+
 # Services
 for service in ipr_keyboard.service bt_hid_ble.service bt_hid_agent_unified.service; do
   if systemctl is-active "$service" &>/dev/null; then
