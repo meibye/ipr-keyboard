@@ -5,8 +5,8 @@
 # Give WSL its own working SSH setup, copied from Windows.
 #
 # WSL does not share the Windows user's ~/.ssh.  A fresh WSL distribution has
-# no keys and no config at all, so `ssh ipr-prod` resolves to the literal
-# hostname "ipr-prod" as the WSL user, and every transfer fails or falls back
+# no keys and no config at all, so `ssh ipr-prod-zero2` resolves to the literal
+# hostname "ipr-prod-zero2" as the WSL user, and every transfer fails or falls back
 # to a password prompt.
 #
 # Symlinking to /mnt/c/Users/<user>/.ssh does not work: files on the Windows
@@ -27,7 +27,7 @@
 #
 #   --win-user NAME   Windows account name. Default: detected via interop.
 #   --host NAME       Host alias to pin to an address. Repeatable.
-#                     Default: ipr-prod ipr-prod-zero2 ipr-prod-zero ipr-dev-pi4
+#                     Default: ipr-prod-zero2 ipr-prod-zero ipr-dev-pi4
 #   --host-ip A=IP    Pin alias A to IP directly, instead of resolving it
 #                     through Windows. Repeatable. Needed when Windows
 #                     interop is unavailable in this distribution.
@@ -67,7 +67,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ ${#HOSTS[@]} -gt 0 ]] || HOSTS=(ipr-prod ipr-prod-zero2 ipr-prod-zero ipr-dev-pi4)
+[[ ${#HOSTS[@]} -gt 0 ]] || HOSTS=(ipr-prod-zero2 ipr-prod-zero ipr-dev-pi4)
 
 grep -qi microsoft /proc/version 2>/dev/null || \
     warn "This does not look like WSL. Continuing anyway."
@@ -284,4 +284,4 @@ fi
 
 echo
 log "WSL SSH is ready. You can now run:"
-log "  ./scripts/deploy/host_push_to_device.sh ipr-prod --dry-run"
+log "  ./scripts/deploy/host_push_to_device.sh ipr-prod-zero2 --dry-run"

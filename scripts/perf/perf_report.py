@@ -2,7 +2,7 @@
 """Cross-platform KPI comparison.  Run on the PC; pulls /api/metrics from each
 device and prints one table with the three boards side by side.
 
-    python scripts/perf/perf_report.py ipr-dev-pi4 ipr-prod ipr-prod-zero
+    python scripts/perf/perf_report.py ipr-dev-pi4 ipr-prod-zero2 ipr-prod-zero
 
 Each argument is an ssh alias.  The script reads the dashboard credentials
 from IPR_USER / IPR_PASS (defaults: admin / the device's
@@ -99,7 +99,7 @@ def cell(doc: dict, key: str) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("hosts", nargs="+", help="ssh aliases, e.g. ipr-dev-pi4 ipr-prod ipr-prod-zero")
+    ap.add_argument("hosts", nargs="+", help="ssh aliases, e.g. ipr-dev-pi4 ipr-prod-zero2 ipr-prod-zero")
     ap.add_argument("--repo", default="~/dev/ipr-keyboard")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()

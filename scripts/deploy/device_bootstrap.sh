@@ -7,7 +7,7 @@
 #
 # Run this ON the Raspberry Pi, as root:
 #
-#   ssh ipr-prod
+#   ssh ipr-prod-zero2        # or ipr-prod-zero
 #   sudo ~/dev/ipr-keyboard/scripts/deploy/device_bootstrap.sh
 #
 # It is a thin, checked wrapper around provision/provision_wizard.sh — it does

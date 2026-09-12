@@ -11,7 +11,7 @@
 # from PowerShell (it is a bash script; PowerShell has no bash).  From
 # PowerShell, call it as:
 #
-#   bash ./scripts/deploy/host_push_to_device.sh ipr-prod
+#   bash ./scripts/deploy/host_push_to_device.sh ipr-prod-zero2
 #
 # Afterwards, continue on the device with:
 #
@@ -21,13 +21,16 @@
 # Usage:
 #   ./scripts/deploy/host_push_to_device.sh [HOST] [options]
 #
-#   HOST                 ssh target; an alias from ~/.ssh/config is strongly
-#                        preferred over a full hostname, because a pattern like
-#                        'Host ipr-prod ipr-prod-zero2' does not match
-#                        'ipr-prod-zero2.local' and the key would be skipped.
-#                        Targets: ipr-prod (Zero 2 W, 64-bit) or
-#                                 ipr-prod-zero (Zero W, 32-bit).
-#                        Default: ipr-prod
+#   HOST                 REQUIRED. The device's ~/.ssh/config alias, which is
+#                        also its hostname:
+#                          ipr-prod-zero2   Raspberry Pi Zero 2 W (64-bit)
+#                          ipr-prod-zero    Raspberry Pi Zero W   (32-bit)
+#                          ipr-dev-pi4      development Pi 4
+#                        There is deliberately no default: with two production
+#                        devices, an implicit target is how the wrong one gets
+#                        wiped. Use the alias, not the .local form -- a Host
+#                        pattern without .local does not match it and the key
+#                        would be skipped.
 #
 #   --env FILE           environment file to install as /opt/ipr_common.env.
 #                        Default: provision/common.env
@@ -55,7 +58,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-HOST="ipr-prod"
+HOST=""
 ENV_FILE="$REPO_ROOT/provision/common.env"
 PUBKEY="$HOME/.ssh/copilotdiag_rpi.pub"
 REMOTE_DIR="~/dev/ipr-keyboard"
@@ -97,14 +100,21 @@ done
 # ---------------------------------------------------------------------------
 # Preflight — fail here rather than half way through a transfer
 # ---------------------------------------------------------------------------
+if [[ -z "$HOST" ]]; then
+    die "No target given. Name the device explicitly:
+         ./scripts/deploy/host_push_to_device.sh ipr-prod-zero2   # Zero 2 W, 64-bit
+         ./scripts/deploy/host_push_to_device.sh ipr-prod-zero    # Zero W,   32-bit
+         ./scripts/deploy/host_push_to_device.sh ipr-dev-pi4      # development
+       There is no default on purpose: two production devices exist."
+fi
 log "Target host: $HOST"
 
 case "$HOST" in
     *.local|*.*.*.*)
         warn "'$HOST' looks like a hostname or IP rather than an ~/.ssh/config alias."
-        warn "Host patterns such as 'Host ipr-prod ipr-prod-zero2' do not match a"
-        warn ".local suffix, so IdentityFile is skipped and ssh falls back to asking"
-        warn "for a password. Prefer the alias, e.g. 'ipr-prod'."
+        warn "A Host pattern such as 'Host ipr-prod-zero2' does not match the .local"
+        warn "suffix, so IdentityFile is skipped and ssh falls back to asking for a"
+        warn "password. Use the alias, e.g. 'ipr-prod-zero2'."
         ;;
 esac
 

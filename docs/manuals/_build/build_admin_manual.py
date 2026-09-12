@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.5"
+VERSION = "1.5.1"
 DATE = "12. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -352,9 +352,9 @@ def build() -> None:
         ["Enhed", "Værtsnavn", "Konto", "Anvendelse"],
         [
             ["Produktionsenhed (Zero 2 W)", "ipr-prod-zero2", "meibye",
-             "Provisionering, udrulning og drift. Alias: ipr-prod."],
+             "Provisionering, udrulning og drift."],
             ["Produktionsenhed (Zero W)", "ipr-prod-zero", "meibye",
-             "Som ovenfor, 32-bit. Alias: ipr-prod-zero."],
+             "Som ovenfor, 32-bit."],
             ["Udviklingsenhed (Pi 4)", "ipr-dev-pi4", "meibye",
              "Udvikling og test."],
             ["Alle", "(samme)", "copilotdiag",
@@ -393,16 +393,26 @@ def build() -> None:
         "ssh -i ~/.ssh/copilotdiag_rpi copilotdiag@ipr-prod-zero2.local"
     )
 
-    m.p("En fast post i ~/.ssh/config sparer skrivearbejde og bruges automatisk af scp "
-        "og rsync:")
+    m.p("En fast post pr. enhed i ~/.ssh/config sparer skrivearbejde og bruges automatisk "
+        "af scp og rsync. Brug enhedens værtsnavn som alias — ikke et fællesnavn som "
+        "ipr-prod-zero2. Med to produktionsenheder er et fællesnavn tvetydigt, og det er den "
+        "slags tvetydighed, der får den forkerte enhed slettet under en udrulning.")
     m.code(
-        "Host ipr-prod\n"
+        "Host ipr-prod-zero2 ipr-prod-zero2.local\n"
         "    HostName ipr-prod-zero2.local\n"
+        "    User meibye\n"
+        "    IdentityFile ~/.ssh/ipr_rpi\n"
+        "    ServerAliveInterval 30\n"
+        "\n"
+        "Host ipr-prod-zero ipr-prod-zero.local\n"
+        "    HostName ipr-prod-zero.local\n"
         "    User meibye\n"
         "    IdentityFile ~/.ssh/ipr_rpi\n"
         "    ServerAliveInterval 30"
     )
-    m.p("Derefter er ssh ipr-prod og scp fil.txt ipr-prod:~/ tilstrækkeligt.")
+    m.p("Derefter er ssh ipr-prod-zero2 og scp fil.txt ipr-prod-zero2:~/ tilstrækkeligt. "
+        "Bemærk .local-formen i Host-linjen: uden den matcher mønstret ikke "
+        "ipr-prod-zero2.local, og nøglen springes over.")
 
     m.note("Trin 00 sætter ClientAliveInterval 60 og ClientAliveCountMax 3 i "
            "/etc/ssh/sshd_config, så inaktive sessioner lukkes efter omkring tre minutter. "
@@ -488,6 +498,9 @@ def build() -> None:
         caption="Filer, der skal på plads på enheden før provisioneringen køres.",
     )
 
+    m.note("Eksemplerne i dette afsnit bruger ipr-prod-zero2. For Zero W-enheden "
+           "erstattes navnet med ipr-prod-zero — fremgangsmåden er ellers den samme.", "info")
+
     m.p("Overfør kun det nødvendige", bold=True)
     m.p("Enheden har kun brug for en delmængde af repositoriet. Overfør netop den "
         "delmængde — ikke hele mappen.")
@@ -515,12 +528,12 @@ def build() -> None:
     m.table(
         ["Skal", "Sådan startes skriptet", "Bemærkning"],
         [
-            ["Git Bash", "./scripts/deploy/host_push_to_device.sh ipr-prod",
+            ["Git Bash", "./scripts/deploy/host_push_to_device.sh ipr-prod-zero2",
              "Enklest. Følger med Git til Windows. Åbn Git Bash og gå til "
              "/d/sandbox/ipr-keyboard."],
-            ["PowerShell", "bash ./scripts/deploy/host_push_to_device.sh ipr-prod",
+            ["PowerShell", "bash ./scripts/deploy/host_push_to_device.sh ipr-prod-zero2",
              "Virker, fordi bash kaldes eksplicit. Kør fra D:\\sandbox\\ipr-keyboard."],
-            ["WSL (Ubuntu)", "./scripts/deploy/host_push_to_device.sh ipr-prod",
+            ["WSL (Ubuntu)", "./scripts/deploy/host_push_to_device.sh ipr-prod-zero2",
              "Nødvendig, hvis der skal bruges rsync. Gå til "
              "/mnt/d/sandbox/ipr-keyboard. Kræver wsl_setup_ssh.sh først."],
         ],
@@ -530,7 +543,7 @@ def build() -> None:
     )
 
     m.note("Bruges WSL, kræves en engangsopsætning først. WSL deler ikke Windows-brugerens "
-           "~/.ssh: en frisk distribution har hverken nøgler eller config, så ipr-prod "
+           "~/.ssh: en frisk distribution har hverken nøgler eller config, så ipr-prod-zero2 "
            "opfattes som et bogstaveligt værtsnavn med WSL-brugerens navn, og alt fejler "
            "eller falder tilbage til adgangskode. Dertil kommer, at .local-navne ikke kan "
            "slås op under WSL2. Begge dele ordnes af scripts/deploy/wsl_setup_ssh.sh, som "
@@ -541,7 +554,7 @@ def build() -> None:
         "./scripts/deploy/wsl_setup_ssh.sh\n"
         "\n"
         "# Kontrollér resultatet\n"
-        "ssh ipr-prod true && echo ok"
+        "ssh ipr-prod-zero2 true && echo ok"
     )
     m.p("Et symbolsk link fra WSL til Windows-mappen virker ikke: filer på Windows-drevet "
         "fremstår med rettigheden 0777, og ssh afviser en privat nøgle, der er så åben. "
@@ -562,16 +575,18 @@ def build() -> None:
         "notepad provision/common.env      # sæt DEVICE_TYPE, HOSTNAME, BT_DEVICE_NAME\n"
         "\n"
         "# Se hvad der ville ske, uden at ændre noget\n"
-        "./scripts/deploy/host_push_to_device.sh ipr-prod --dry-run\n"
+        "./scripts/deploy/host_push_to_device.sh ipr-prod-zero2 --dry-run\n"
         "\n"
         "# Udfør overførslen\n"
-        "./scripts/deploy/host_push_to_device.sh ipr-prod"
+        "./scripts/deploy/host_push_to_device.sh ipr-prod-zero2"
     )
     m.table(
         ["Tilvalg", "Virkning"],
         [
-            ["HOST", "Værtsalias fra ~/.ssh/config. Standard: ipr-prod. Brug aliasset — "
-                     "ikke det fulde værtsnavn, se advarslen ovenfor."],
+            ["HOST", "Påkrævet: ipr-prod-zero2, ipr-prod-zero eller ipr-dev-pi4. Der er "
+                     "bevidst ingen standardværdi — med to produktionsenheder ville en "
+                     "underforstået modtager være den letteste vej til at ramme den forkerte. "
+                     "Brug aliasset, ikke .local-formen."],
             ["--dry-run", "Vis alle handlinger uden at udføre dem."],
             ["--with-tests", "Tag også tests/ med. Kun relevant for udviklingsenheden."],
             ["--env FIL", "Anden miljøfil end provision/common.env."],
@@ -608,12 +623,12 @@ def build() -> None:
     m.code(
         "# På PC'en\n"
         "./scripts/deploy/make_payload.sh -o /tmp/ipr-deploy.tgz\n"
-        "scp /tmp/ipr-deploy.tgz        ipr-prod:/tmp/\n"
-        "scp provision/common.env       ipr-prod:/tmp/ipr_common.env\n"
-        "scp ~/.ssh/copilotdiag_rpi.pub ipr-prod:/tmp/copilot_pubkey.txt\n"
+        "scp /tmp/ipr-deploy.tgz        ipr-prod-zero2:/tmp/\n"
+        "scp provision/common.env       ipr-prod-zero2:/tmp/ipr_common.env\n"
+        "scp ~/.ssh/copilotdiag_rpi.pub ipr-prod-zero2:/tmp/copilot_pubkey.txt\n"
         "\n"
         "# På enheden\n"
-        "ssh ipr-prod\n"
+        "ssh ipr-prod-zero2\n"
         "mkdir -p ~/dev/ipr-keyboard\n"
         "tar xzf /tmp/ipr-deploy.tgz -C ~/dev/ipr-keyboard && rm /tmp/ipr-deploy.tgz\n"
         "find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\n"
@@ -633,15 +648,15 @@ def build() -> None:
 
     m.code(
         "# 1. På enheden — opret overmappen\n"
-        "ssh ipr-prod \"mkdir -p ~/dev\"\n"
+        "ssh ipr-prod-zero2 \"mkdir -p ~/dev\"\n"
         "\n"
         "# 2. På PC'en — kør fra mappen OVER repositoriet, og navngiv mappen.\n"
         "#    Så opretter scp selv ipr-keyboard i målet.\n"
         "cd D:\\sandbox\n"
-        "scp -r ipr-keyboard ipr-prod:/home/meibye/dev/\n"
+        "scp -r ipr-keyboard ipr-prod-zero2:/home/meibye/dev/\n"
         "\n"
         "# 3. Ryd op på enheden bagefter\n"
-        "ssh ipr-prod \"cd ~/dev/ipr-keyboard && rm -rf .venv .git logs && rm -f secret_key.txt admin_initial_password.txt\""
+        "ssh ipr-prod-zero2 \"cd ~/dev/ipr-keyboard && rm -rf .venv .git logs && rm -f secret_key.txt admin_initial_password.txt\""
     )
 
     m.note("Repositoriet indeholder kun skabelonen provision/common.env.example. Filen "
@@ -665,11 +680,11 @@ def build() -> None:
                 "REPO_URL, REPO_DIR, APP_USER, APP_GROUP og GIT_REF — de er korrekte som "
                 "leveret i skabelonen.",
     )
-    m.note("Brug værtsaliasset fra ~/.ssh/config — her ipr-prod — og ikke det fulde "
-           "værtsnavn. Et alias som Host ipr-prod ipr-prod-zero2 matcher ikke "
-           "ipr-prod-zero2.local, fordi mønstrene ikke indeholder .local. Skrives det fulde "
-           "navn, bruges IdentityFile ikke, og ssh spørger om adgangskode i stedet for at "
-           "bruge nøglen.", "tip")
+    m.note("Brug værtsaliasset fra ~/.ssh/config — ipr-prod-zero2 eller ipr-prod-zero — "
+           "og ikke det fulde navn med .local. Et Host-mønster uden .local matcher ikke "
+           "ipr-prod-zero2.local, så IdentityFile springes over, og ssh spørger om "
+           "adgangskode i stedet for at bruge nøglen. Konfigurationseksemplet i afsnit 3.2 "
+           "medtager derfor begge former i Host-linjen.", "tip")
 
     m.p("Overførsel med rsync — bedst ved gentagne udrulninger", bold=True)
     m.p("rsync overfører kun ændrede filer og bevarer rettigheder, herunder "
@@ -685,16 +700,16 @@ def build() -> None:
         "wsl -d Ubuntu -- bash -c \"mkdir -p ~/.ssh && cp /mnt/c/Users/<windows-bruger>/.ssh/ipr_rpi ~/.ssh/ && chmod 600 ~/.ssh/ipr_rpi\"\n"
         "\n"
         "# Målmappen skal findes — rsync opretter kun det sidste led\n"
-        "ssh ipr-prod \"mkdir -p ~/dev/ipr-keyboard\"\n"
+        "ssh ipr-prod-zero2 \"mkdir -p ~/dev/ipr-keyboard\"\n"
         "\n"
         "# Selve overførslen — skrives på én linje, fordi den kaldes fra PowerShell.\n"
         "# Bemærk filtrene: de holder hemmeligheder og enhedsspecifikke filer tilbage.\n"
-        "wsl -d Ubuntu -- rsync -avz --delete --chmod=D755,F644 --exclude '.git' --exclude '.venv' --exclude '__pycache__' --exclude 'docs' --exclude 'tests' --exclude 'logs' --exclude 'config.json' --exclude 'users.json' --exclude 'secret_key.txt' --exclude 'admin_initial_password.txt' /mnt/d/sandbox/ipr-keyboard/ ipr-prod:/home/meibye/dev/ipr-keyboard/\n"
+        "wsl -d Ubuntu -- rsync -avz --delete --chmod=D755,F644 --exclude '.git' --exclude '.venv' --exclude '__pycache__' --exclude 'docs' --exclude 'tests' --exclude 'logs' --exclude 'config.json' --exclude 'users.json' --exclude 'secret_key.txt' --exclude 'admin_initial_password.txt' /mnt/d/sandbox/ipr-keyboard/ ipr-prod-zero2:/home/meibye/dev/ipr-keyboard/\n"
         "\n"
         "# Gendan eksekverbar-flaget, som --chmod har fjernet\n"
-        "wsl -d Ubuntu -- ssh ipr-prod \"find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\\( -name '*.sh' -o -name '*.py' \\\\) -exec chmod +x {} +\""
+        "wsl -d Ubuntu -- ssh ipr-prod-zero2 \"find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\\( -name '*.sh' -o -name '*.py' \\\\) -exec chmod +x {} +\""
     )
-    m.note("Brug værtsaliasset ipr-prod — ikke det fulde navn "
+    m.note("Brug værtsaliasset ipr-prod-zero2 — ikke det fulde navn "
            "meibye@ipr-prod-zero2.local. WSL2 kan ikke slå .local-navne op, og "
            "kommandoen fejler med Could not resolve hostname. Aliasset peger på en "
            "IP-adresse, som wsl_setup_ssh.sh har indsat.", "warn")
@@ -715,13 +730,13 @@ def build() -> None:
         "  --exclude 'docs' --exclude 'tests' --exclude 'logs' \\\n"
         "  --exclude 'config.json' --exclude 'users.json' \\\n"
         "  --exclude 'secret_key.txt' --exclude 'admin_initial_password.txt' \\\n"
-        "  ./ ipr-prod:/home/meibye/dev/ipr-keyboard/\n"
+        "  ./ ipr-prod-zero2:/home/meibye/dev/ipr-keyboard/\n"
         "\n"
-        "ssh ipr-prod \"find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\\\n"
+        "ssh ipr-prod-zero2 \"find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\\\n"
         "  \\\\( -name '*.sh' -o -name '*.py' \\\\) -exec chmod +x {} +\""
     )
     m.p("Placér derefter miljøfilen korrekt. Kommandoerne køres på enheden — enten i en "
-        "SSH-session eller via ssh ipr-prod \"…\":")
+        "SSH-session eller via ssh ipr-prod-zero2 \"…\":")
     m.code(
         "# På enheden\n"
         "sudo mv /tmp/ipr_common.env /opt/ipr_common.env\n"
@@ -1288,7 +1303,7 @@ def build() -> None:
         "git pull && git checkout <tag eller commit>\n"
         "\n"
         "# 2. Sikkerhedskopiér enhedsspecifikke filer på enheden først\n"
-        "ssh ipr-prod \"sudo mkdir -p /root/backup-$(date +%F) && \\\n"
+        "ssh ipr-prod-zero2 \"sudo mkdir -p /root/backup-$(date +%F) && \\\n"
         "  sudo cp config.json users.json /etc/ipr-hotspot.secret /root/backup-$(date +%F)/\"\n"
         "\n"
         "# 3. Overfør koden — kør i WSL fra /mnt/d/sandbox/ipr-keyboard,\n"
@@ -1296,13 +1311,13 @@ def build() -> None:
         "rsync -avz --delete --chmod=D755,F644 \\\n"
         "  --exclude '.git' --exclude '.venv' --exclude '__pycache__' \\\n"
         "  --exclude 'config.json' --exclude 'users.json' \\\n"
-        "  ./ ipr-prod:/home/meibye/dev/ipr-keyboard/\n"
+        "  ./ ipr-prod-zero2:/home/meibye/dev/ipr-keyboard/\n"
         "\n"
         "# 4. Rul ud på enheden\n"
-        "ssh ipr-prod \"cd ~/dev/ipr-keyboard && sudo ./scripts/deploy/deploy_full_update.sh\"\n"
+        "ssh ipr-prod-zero2 \"cd ~/dev/ipr-keyboard && sudo ./scripts/deploy/deploy_full_update.sh\"\n"
         "\n"
         "# 5. Verificér\n"
-        "ssh ipr-prod \"cd ~/dev/ipr-keyboard && ./scripts/diag_status.sh\""
+        "ssh ipr-prod-zero2 \"cd ~/dev/ipr-keyboard && ./scripts/diag_status.sh\""
     )
     m.note("config.json og users.json er enhedsspecifikke og må ikke overskrives af "
            "udrulningen. Undtag dem eksplicit fra rsync som vist, eller undlad --delete.",
@@ -1318,7 +1333,7 @@ def build() -> None:
         "cd D:\\sandbox\\ipr-keyboard\n"
         "pip download . -d wheels/ \\\n"
         "  --platform linux_aarch64 --only-binary=:all:\n"
-        "wsl -d Ubuntu -- rsync -avz /mnt/d/sandbox/ipr-keyboard/wheels/ ipr-prod:/tmp/wheels/\n"
+        "wsl -d Ubuntu -- rsync -avz /mnt/d/sandbox/ipr-keyboard/wheels/ ipr-prod-zero2:/tmp/wheels/\n"
         "\n"
         "# På enheden, i repositoriets rod\n"
         "cd ~/dev/ipr-keyboard\n"
@@ -1439,10 +1454,10 @@ def build() -> None:
         "\n"
         "# 3. På PC'en — den sande pen → PC-tid, målt på PC'ens eget ur.\n"
         "#    Klik ind i terminalen, når den beder om det.\n"
-        "python scripts/perf/perf_keystroke_probe.py --host ipr-prod --count 5\n"
+        "python scripts/perf/perf_keystroke_probe.py --host ipr-prod-zero2 --count 5\n"
         "\n"
         "# 4. På PC'en — én tabel med alle enheder side om side.\n"
-        "python scripts/perf/perf_report.py ipr-dev-pi4 ipr-prod ipr-prod-zero"
+        "python scripts/perf/perf_report.py ipr-dev-pi4 ipr-prod-zero2 ipr-prod-zero"
     )
     m.note("perf_keystroke_probe.py er den eneste måling, der dækker hele vejen til "
            "PC'en. Den lader PC'en både udløse skanningen (over SSH) og tage tid på de "
@@ -1673,12 +1688,12 @@ def build() -> None:
         "ssh-copy-id -i ~/.ssh/ipr_rpi.pub meibye@ipr-prod-zero2.local\n"
         "ssh-keygen -R ipr-prod-zero2.local                  # ryd gammel værtsnøgle\n"
         "./scripts/deploy/make_payload.sh                     # pak kun det nodvendige\n"
-        "scp /tmp/ipr-deploy.tgz ipr-prod:/tmp/\n"
-        "ssh ipr-prod \"mkdir -p ~/dev/ipr-keyboard && \\\n"
+        "scp /tmp/ipr-deploy.tgz ipr-prod-zero2:/tmp/\n"
+        "ssh ipr-prod-zero2 \"mkdir -p ~/dev/ipr-keyboard && \\\n"
         "  tar xzf /tmp/ipr-deploy.tgz -C ~/dev/ipr-keyboard\"\n"
-        "scp <fil> ipr-prod:/tmp/                            # enkelt fil\n"
+        "scp <fil> ipr-prod-zero2:/tmp/                            # enkelt fil\n"
         "wsl -d Ubuntu -- rsync -avz --chmod=D755,F644 --exclude '.git' \\\n"
-        "  /mnt/d/sandbox/ipr-keyboard/ ipr-prod:/home/meibye/dev/ipr-keyboard/\n"
+        "  /mnt/d/sandbox/ipr-keyboard/ ipr-prod-zero2:/home/meibye/dev/ipr-keyboard/\n"
         "git bundle create ipr-keyboard.bundle --all         # historik uden netværk"
     )
 

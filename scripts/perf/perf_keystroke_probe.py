@@ -13,7 +13,7 @@ t1 - t0 is the figure a user actually experiences.  No clock synchronisation
 between PC and device is needed, because the device's clock is never used.
 
 Usage:
-    python scripts/perf/perf_keystroke_probe.py --host ipr-prod [--count 5]
+    python scripts/perf/perf_keystroke_probe.py --host ipr-prod-zero2 [--count 5]
 
 Then click into THIS terminal window so it has keyboard focus: the Bluetooth
 keyboard types into whatever is focused, and the probe reads its own stdin.
@@ -108,7 +108,7 @@ def _device_folder(host: str, repo: str) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--host", required=True, help="ssh alias of the device, e.g. ipr-prod")
+    ap.add_argument("--host", required=True, help="ssh alias of the device, e.g. ipr-prod-zero2 or ipr-prod-zero")
     ap.add_argument("--count", type=int, default=5)
     ap.add_argument("--chars", type=int, default=20, help="payload length per scan")
     ap.add_argument("--timeout", type=float, default=30.0, help="max seconds to wait per scan")
