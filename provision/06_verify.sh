@@ -266,6 +266,29 @@ if command -v journalctl &>/dev/null; then
   fi
 fi
 
+# DHCP client identity
+#
+# NetworkManager's default client-id derives from /etc/machine-id, which changes
+# on every re-image. The router then sees a new client on a known MAC while it
+# still holds a lease for the old identity - the cause of the conflict above.
+# Identifying by MAC survives re-imaging and matches MAC-keyed reservations.
+WLAN_CONN=$(nmcli -t -f NAME,DEVICE connection show --active 2>/dev/null \
+            | awk -F: '$2 == "wlan0" { print $1; exit }')
+if [[ -n "$WLAN_CONN" ]]; then
+  CLIENT_ID=$(nmcli -g ipv4.dhcp-client-id connection show "$WLAN_CONN" 2>/dev/null || true)
+  if [[ "$CLIENT_ID" == "mac" ]]; then
+    log "✓ Network: DHCP client-id is the MAC address ($WLAN_CONN)"
+  else
+    warn "⚠ Network: ipv4.dhcp-client-id is '${CLIENT_ID:-default}' on $WLAN_CONN"
+    warn "  The default derives from /etc/machine-id and changes on every re-image, which"
+    warn "  can leave the device without an address at first boot (see manual 3.1). Set:"
+    warn "    sudo nmcli connection modify \"$WLAN_CONN\" ipv4.dhcp-client-id mac"
+    warn "  Create a DHCP reservation for $(cat /sys/class/net/wlan0/address 2>/dev/null) first,"
+    warn "  or the router may hand out a different address at the next renewal."
+    WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+  fi
+fi
+
 # mDNS hostname
 #
 # Avahi renames itself to <hostname>-2.local when it detects a conflict while
