@@ -241,6 +241,31 @@ else
   log "✓ Repository: transferred payload (no git checkout)"
 fi
 
+# IP address conflict at boot
+#
+# Seen on a Zero W at first boot: the router offered an address another host on
+# the LAN was already using. NetworkManager's address-conflict detection
+# refused it - correctly - and kept refusing on every retry, so the device sat
+# without an IP for 26 minutes although Wi-Fi was up. From the PC it just looked
+# dead. The fix belongs in the router (a DHCP reservation for this MAC); this
+# check makes sure the situation is at least named rather than guessed at.
+if command -v journalctl &>/dev/null; then
+  ACD_LINE=$(journalctl -b -u NetworkManager --no-pager 2>/dev/null \
+             | grep -m1 -iE "already in use in the network by host" || true)
+  if [[ -n "$ACD_LINE" ]]; then
+    ACD_ADDR=$(grep -oE "IP address [0-9.]+" <<<"$ACD_LINE" | awk '{print $3}')
+    ACD_MAC=$(grep -oiE "by host [0-9a-f:]+" <<<"$ACD_LINE" | awk '{print $3}')
+    warn "⚠ Network: DHCP offered ${ACD_ADDR:-an address} already in use by ${ACD_MAC:-another host} this boot"
+    warn "  NetworkManager refused it (address conflict). If the device is up now, a later"
+    warn "  retry succeeded - but it will recur. Reserve this device's MAC in the router:"
+    warn "    $(cat /sys/class/net/wlan0/address 2>/dev/null || echo '<see: cat /sys/class/net/wlan0/address>')"
+    warn "  and find which device owns ${ACD_MAC:-the conflicting MAC}."
+    WARNINGS=$(( ${WARNINGS:-0} + 1 ))
+  else
+    log "✓ Network: no DHCP address conflict this boot"
+  fi
+fi
+
 # mDNS hostname
 #
 # Avahi renames itself to <hostname>-2.local when it detects a conflict while

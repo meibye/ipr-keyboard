@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.5.1"
+VERSION = "1.5.2"
 DATE = "12. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -328,6 +328,34 @@ def build() -> None:
         "i PC'en igen og gennemse firstrun-filerne på boot-partitionen. Alternativt "
         "tilsluttes tastatur og skærm direkte.")
 
+    m.p("Enheden er på Wi-Fi, men får ingen IP-adresse", bold=True)
+    m.p("Set på en Zero W ved første opstart: enheden forbandt fint til nettet og fik "
+        "tilbudt en adresse af DHCP-serveren, men afviste den, fordi en anden enhed på "
+        "nettet allerede brugte samme adresse. NetworkManager kontrollerer altid for "
+        "adressekonflikter, før en adresse tages i brug, og bliver ved at afvise, så længe "
+        "serveren tilbyder den samme. Enheden står så uden IP-adresse i det uendelige, "
+        "selv om alt andet er i orden. Symptomet fra PC'en er blot, at den ikke svarer.")
+    m.p("Diagnosen stilles med tastatur og skærm på enheden, eller over hotspottet:")
+    m.code(
+        "journalctl -b -u NetworkManager | grep -iE \"acd conflict|already in use\"\n"
+        "# IP address 192.168.1.96 cannot be configured because it is already in use\n"
+        "# in the network by host 50:31:23:d4:7c:a0"
+    )
+    m.p("Afhjælpning her og nu — bed NetworkManager om at prøve igen:")
+    m.code(
+        "nmcli connection show                       # find profilens navn, fx netplan-wlan0-<SSID>\n"
+        "sudo nmcli connection up \"netplan-wlan0-DPbUFEKqA\""
+    )
+    m.note("Det virker kun, hvis den anden enhed i mellemtiden har sluppet adressen. Den "
+           "varige løsning ligger i routeren: giv enheden en fast DHCP-reservation på sin "
+           "MAC-adresse (Raspberry Pi-adresser begynder med b8:27:eb eller dc:a6:32; "
+           "aflæs den med cat /sys/class/net/wlan0/address), og find ud af, hvilken enhed "
+           "der ejer den MAC-adresse, journalen nævner — den har typisk en fast adresse, "
+           "som overlapper routerens DHCP-område. En reservation er i øvrigt også det, der "
+           "gør de fastlåste adresser i ~/.ssh/config (afsnit 3.2) holdbare.", "warn")
+    m.p("Trin 06 (verifikation) kontrollerer denne opstarts NetworkManager-log og advarer, "
+        "hvis en adressekonflikt er registreret.")
+
     m.note("Imagerens værtsnavn gælder fra første opstart, men trin 02 sætter det "
            "autoritativt ud fra HOSTNAME i /opt/ipr_common.env. Afviger de to værdier, "
            "skifter enhedens navn midt i provisioneringen, og den igangværende "
@@ -439,6 +467,11 @@ def build() -> None:
             ["Forbindelsen dør midt i en kørsel",
              "Wi-Fi-strømbesparelse eller SSH-timeout.",
              "Kør lange opgaver under tmux, så de overlever et afbrud."],
+            ["Ingen svar overhovedet, men enheden er tændt og på Wi-Fi",
+             "Enheden fik ingen IP-adresse: DHCP-tilbuddet kollider med en anden enhed "
+             "(adressekonflikt).",
+             "Se afsnit 3.1: sudo nmcli connection up \"<profil>\" på enheden, og opret "
+             "en DHCP-reservation i routeren."],
         ],
         widths=[4.2, 4.6, 6.8],
         caption="Almindelige SSH-fejl og deres afhjælpning.",
