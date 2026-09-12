@@ -24,7 +24,8 @@ The UI must be simple enough for a non-technical user standing near the device.
 
 - Provide an appliance-like dashboard rather than a technical admin interface.
 - Make the status understandable mostly through images, icons, color, and short labels.
-- Keep the implementation lightweight enough for Raspberry Pi Zero 2 W.
+- Keep the implementation lightweight enough for Raspberry Pi Zero 2 W — and for the
+  single-core ARMv6 Raspberry Pi Zero W, which is also a supported target.
 - Preserve the current Python-based backend approach where practical.
 - Support desktop and mobile browsers on the local network.
 

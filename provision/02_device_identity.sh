@@ -4,7 +4,7 @@
 # Sets hostname, Bluetooth device name, and optional Wi-Fi interface names
 #
 # Purpose:
-#   - Sets device-specific hostname (ipr-dev-pi4 or ipr-prod-zero2)
+#   - Sets device-specific hostname (ipr-dev-pi4, ipr-prod-zero2 or ipr-prod-zero)
 #   - Configures Bluetooth device name
 #   - Optionally configures Wi-Fi interface names for dual-band Pi 4
 #
@@ -122,7 +122,9 @@ if [[ "$DEVICE_TYPE" == "dev" ]]; then
   log "    Wired: ipr-dev-pi4.local"
   log "    Wi-Fi: ipr-dev-pi4-wifi.local (if configured)"
 else
-  log "    Wi-Fi: ipr-prod-zero2.local"
+  # Derived from the configured hostname rather than hard-coded, so it is right
+  # for every target model (ipr-prod-zero2, ipr-prod-zero, ...).
+  log "    Wi-Fi: ${HOSTNAME}.local"
 fi
 echo ""
 warn "Reboot recommended for hostname changes to fully take effect"

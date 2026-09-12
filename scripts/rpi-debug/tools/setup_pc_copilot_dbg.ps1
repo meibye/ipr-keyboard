@@ -36,7 +36,7 @@ Remote commands are executed through an **SSH-based MCP server**:
 
 - MCP server package: `@fangjunjie/ssh-mcp-server`
 - VS Code integration via `.vscode/mcp.json` (uses `npx` or `node` to launch the MCP server)
-- Profile selection: `dev` (ipr-dev-pi4) or `prod` (ipr-prod-zero2)
+- Profile selection: `dev` (ipr-dev-pi4), `prod` (ipr-prod-zero2) or `prodzero` (ipr-prod-zero, 32-bit Zero W)
 
 
 
@@ -86,6 +86,7 @@ For each step include:
 - Target profiles (from `.vscode/mcp.json`):
   - `dev`: `ipr-dev-pi4` (default)
   - `prod`: `ipr-prod-zero2`
+  - `prodzero`: `ipr-prod-zero` (Raspberry Pi Zero W, 32-bit)
 - Diagnostics SSH user: `copilotdiag`
 - MCP server launch: via `npx @fangjunjie/ssh-mcp-server` or `node` (see `.vscode/mcp.json`)
 - Services:

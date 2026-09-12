@@ -25,6 +25,8 @@
 #                        preferred over a full hostname, because a pattern like
 #                        'Host ipr-prod ipr-prod-zero2' does not match
 #                        'ipr-prod-zero2.local' and the key would be skipped.
+#                        Targets: ipr-prod (Zero 2 W, 64-bit) or
+#                                 ipr-prod-zero (Zero W, 32-bit).
 #                        Default: ipr-prod
 #
 #   --env FILE           environment file to install as /opt/ipr_common.env.

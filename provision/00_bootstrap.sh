@@ -14,7 +14,9 @@
 #   sudo ./provision/00_bootstrap.sh
 #
 # Prerequisites:
-#   - Fresh Raspberry Pi OS Lite (64-bit) Bookworm installation
+#   - Fresh Raspberry Pi OS Lite, Trixie or later (Python >= 3.12 is required):
+#       64-bit for Raspberry Pi Zero 2 W / Pi 4
+#       32-bit for Raspberry Pi Zero W (ARMv6; the 64-bit image does not boot)
 #   - /opt/ipr_common.env file must exist (copy from provision/common.env.example)
 #
 # category: Provisioning
@@ -214,7 +216,7 @@ $PUBKEY
 
 1. Copy the above public key.
 2. Go to https://github.com/settings/keys (GitHub > Settings > SSH and GPG keys).
-3. Click "New SSH key", give it a name (e.g., Pi 4 or Pi Zero 2 W), and paste the key.
+3. Click "New SSH key", give it a name (e.g., Pi 4, Pi Zero 2 W or Pi Zero W), and paste the key.
 4. Save the key.
 5. On this device, set the repo remote to use SSH:
    git remote set-url origin git@github.com:meibye/ipr-keyboard.git

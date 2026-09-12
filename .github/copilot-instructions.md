@@ -5,7 +5,8 @@ Understand the repository before suggesting changes.
 ## Purpose
 
 This repository contains a Raspberry Pi based BLE HID keyboard / pen bridge solution.
-AI-generated changes must preserve lightweight operation and fit the realities of Raspberry Pi Zero 2 W.
+AI-generated changes must preserve lightweight operation and fit the realities of Raspberry Pi Zero 2 W
+and the single-core, 32-bit-only Raspberry Pi Zero W.
 
 ## High-level guidance
 

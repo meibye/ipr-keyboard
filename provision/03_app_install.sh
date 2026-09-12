@@ -97,7 +97,9 @@ mkdir -p /opt/ipr_state
   sudo -u "$APP_USER" bash -c 'HOME="$APP_USER_HOME" "$HOME/.local/bin/uv" --version' || echo "uv not available"
   echo ""
   echo "=== Installed Packages ==="
-  sudo -u "$APP_USER" bash -c 'HOME="$APP_USER_HOME" "$HOME/.local/bin/uv" pip list --format=freeze'
+  # The venv's own pip works whether the venv was created by uv or by
+  # python3 -m venv (the ARMv6 / offline fallback); uv's listing needs uv on PATH.
+  sudo -u "$APP_USER" "$APP_VENV_DIR/bin/python" -m pip list --format=freeze 2>/dev/null     || sudo -u "$APP_USER" bash -c 'HOME="$APP_USER_HOME" "$HOME/.local/bin/uv" pip list --format=freeze'     || echo "(package listing unavailable)"
   echo ""
 } > /opt/ipr_state/python_packages.txt
 

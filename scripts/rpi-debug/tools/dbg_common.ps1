@@ -38,12 +38,19 @@ $Global:RpiProfiles = @{
     port       = 22
     repoDirOnPi = $Global:RepoDirOnPi
   }
+  # Raspberry Pi Zero W: ARMv6, single-core, 32-bit Raspberry Pi OS only.
+  prodzero = @{
+    host       = "ipr-prod-zero"
+    user       = "copilotdiag"
+    port       = 22
+    repoDirOnPi = $Global:RepoDirOnPi
+  }
 }
 
 function Set-RpiProfile {
   param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet("dev","prod")]
+    [ValidateSet("dev","prod","prodzero")]
     [string]$ProfileName = $null
   )
 
@@ -56,7 +63,7 @@ function Set-RpiProfile {
   }
 
   if(-not $Global:RpiProfiles.ContainsKey($ProfileName)){
-    throw "Unknown RPI profile '$ProfileName'. Valid: dev, prod"
+    throw "Unknown RPI profile '$ProfileName'. Valid: dev, prod, prodzero"
   }
 
   $p = $Global:RpiProfiles[$ProfileName]

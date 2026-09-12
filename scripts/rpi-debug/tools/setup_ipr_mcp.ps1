@@ -8,7 +8,7 @@
 #  - Creates .vscode/mcp.json for VS Code integration
 
 param(
-  [ValidateSet("dev","prod")]
+  [ValidateSet("dev","prod","prodzero")]
   [string]$RpiProfile = "dev"
   [switch]$GenerateWhitelist = $false
 )
@@ -195,12 +195,24 @@ $mcpJson = Join-Path $vscodeDir "mcp.json"
         "debug": { "type": "node" }
       }
     },
-     "ipr-rpi-prod-ssh": {
+     "ipr-rpi-prod-zero2-ssh": {
       "command": "npx",
       "args": [
         "-y",
         "@fangjunjie/ssh-mcp-server",
         "--host", "ipr-prod-zero2",
+        "--port", "22",
+        "--username", "copilotdiag",
+        "--privateKey", "~/.ssh/copilotdiag_rpi",
+        "--blacklist", "^rm .*,^shutdown.*,^reboot.*"
+      ]
+    },
+     "ipr-rpi-prod-zero-ssh": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host", "ipr-prod-zero",
         "--port", "22",
         "--username", "copilotdiag",
         "--privateKey", "~/.ssh/copilotdiag_rpi",

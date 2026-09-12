@@ -27,7 +27,7 @@
 #
 #   --win-user NAME   Windows account name. Default: detected via interop.
 #   --host NAME       Host alias to pin to an address. Repeatable.
-#                     Default: ipr-prod ipr-prod-zero2 ipr-dev-pi4
+#                     Default: ipr-prod ipr-prod-zero2 ipr-prod-zero ipr-dev-pi4
 #   --host-ip A=IP    Pin alias A to IP directly, instead of resolving it
 #                     through Windows. Repeatable. Needed when Windows
 #                     interop is unavailable in this distribution.
@@ -67,7 +67,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ ${#HOSTS[@]} -gt 0 ]] || HOSTS=(ipr-prod ipr-prod-zero2 ipr-dev-pi4)
+[[ ${#HOSTS[@]} -gt 0 ]] || HOSTS=(ipr-prod ipr-prod-zero2 ipr-prod-zero ipr-dev-pi4)
 
 grep -qi microsoft /proc/version 2>/dev/null || \
     warn "This does not look like WSL. Continuing anyway."

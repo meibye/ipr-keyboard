@@ -323,7 +323,8 @@ See Tier 4a for the manual LED visual confirmation steps.
 
 ## Tier 6 — Production acceptance
 
-After deploying to `ipr-prod-zero2`, run via `ipr-rpi-prod-ssh` (whitelist-only):
+After deploying to `ipr-prod-zero2` (or `ipr-prod-zero`, the 32-bit Zero W), run via
+`ipr-rpi-prod-zero2-ssh` (or `ipr-rpi-prod-zero-ssh`), whitelist-only:
 
 ```bash
 dbg_stack_status.sh

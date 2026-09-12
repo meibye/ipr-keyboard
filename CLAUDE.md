@@ -33,8 +33,9 @@ Raspberry Pi based BLE HID keyboard / pen bridge with a local web dashboard.
 
 ## Runtime reality
 
-Target device is Raspberry Pi Zero 2 W.
-Changes must respect limited CPU, RAM, and storage.
+Target devices are Raspberry Pi Zero 2 W (64-bit OS) and Raspberry Pi Zero W
+(ARMv6, single-core, 32-bit OS only). Changes must respect limited CPU, RAM,
+and storage, and must not assume a 64-bit or multi-core platform.
 
 ## Important product direction
 

@@ -76,7 +76,9 @@ GPIO 24 ──[ 22 Ω]── Blue LED  (+) ── Blue LED  (−) ──┘
 | Yellow | 2.1 V | 3.3 V | (3.3 − 2.1) / 0.008 | 150 Ω | 150 Ω |
 | Blue | 3.0 V | 3.3 V | (3.3 − 3.0) / 0.0136 | 22 Ω | 22 Ω |
 
-GPIO pins on Pi Zero 2 W are rated for a maximum of 16 mA per pin.
+GPIO pins on Pi Zero 2 W and Pi Zero W are rated for a maximum of 16 mA per pin.
+The two boards share the same 40-pin header and the same GPIO numbering, so this
+wiring applies unchanged to both.
 Red and green run at 8–9 mA; blue runs at about 13.6 mA at typical Vf.
 All three stay within the limit.
 

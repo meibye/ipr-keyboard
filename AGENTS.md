@@ -86,7 +86,9 @@ Use the most relevant skill when applicable:
 ## Project context
 
 This repository contains a Raspberry Pi based BLE HID keyboard / pen bridge project.
-The device is resource-constrained and is expected to run reliably on Raspberry Pi Zero 2 W.
+The device is resource-constrained and is expected to run reliably on Raspberry Pi Zero 2 W
+and on the original Raspberry Pi Zero W (ARMv6, single-core, 32-bit OS only). Do not
+introduce dependencies that ship no 32-bit ARM wheel without a fallback.
 
 ## Core engineering priorities
 

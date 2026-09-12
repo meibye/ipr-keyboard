@@ -245,40 +245,67 @@ fi
 
 cd "$PROJECT_DIR"
 
-# 1. Install uv if missing
+# 1. Install uv if missing.
+#
+# uv ships a musl build for ARMv6 (uv-arm-unknown-linux-musleabihf), so it does
+# install on a Raspberry Pi Zero W as well as on the Zero 2 W and Pi 4.  The
+# install still needs internet, though, and a target device may have none -- so
+# a missing uv is a reason to fall back, not to abort provisioning.
+export PATH="$HOME/.local/bin:$PATH"
 if ! command -v uv >/dev/null 2>&1; then
     echo "[sys_setup_venv] uv not found, installing..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.local/bin:$PATH"
+    if curl -LsSf https://astral.sh/uv/install.sh | sh; then
+        export PATH="$HOME/.local/bin:$PATH"
+    else
+        echo "[sys_setup_venv] WARNING: uv could not be installed (no network, or no"
+        echo "[sys_setup_venv] build for $(uname -m)). Falling back to python3 -m venv + pip."
+    fi
 else
     echo "[sys_setup_venv] uv already installed."
-    export PATH="$HOME/.local/bin:$PATH"
 fi
 
-# 2. Create venv using uv (faster than python -m venv)
-echo "[sys_setup_venv] Creating virtualenv at $VENV_DIR using uv venv..."
-uv venv  --allow-existing "$VENV_DIR"
+# A tiny shim so the rest of this script reads the same either way.
+if command -v uv >/dev/null 2>&1; then
+    USE_UV=true
+    py_venv()  { uv venv --allow-existing "$1"; }
+    py_pip()   { uv pip "$@"; }
+else
+    USE_UV=false
+    py_venv()  { python3 -m venv "$1"; }
+    py_pip()   { "$VENV_DIR/bin/python" -m pip "$@"; }
+fi
+
+# 2. Create the venv
+echo "[sys_setup_venv] Creating virtualenv at $VENV_DIR ($($USE_UV && echo uv || echo 'python3 -m venv'))..."
+py_venv "$VENV_DIR"
 
 # 3. Activate venv
 #    Not strictly needed for uv pip, but convenient if you run more commands after.
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-# 4. Install project with dev extras if present
-echo "[sys_setup_venv] Installing project (with dev extras if available) using uv pip..."
-if uv pip install -e ".[dev]" ; then
+# On the pip path, make sure pip itself is current before installing anything:
+# the venv-bundled pip on an older image may not know the wheel tags it needs.
+$USE_UV || py_pip install --upgrade pip >/dev/null 2>&1 || true
+
+# 4. Install project with dev extras if present.
+#    On a 32-bit ARMv6 device (Zero W) the [dev] extras can fail because ruff
+#    ships no wheel for that architecture; the fallback without extras is what
+#    a production device needs anyway.
+echo "[sys_setup_venv] Installing project (with dev extras if available)..."
+if py_pip install -e ".[dev]" ; then
     echo "[sys_setup_venv] Installed editable package with [dev] extras."
 else
     echo "[sys_setup_venv] [dev] extras not available or failed; installing without extras."
-    uv pip install -e .
+    py_pip install -e .
 fi
 
 # 5. Install Python debugging tools
-echo "[sys_setup_venv] Installing debugpy using uv pip..."
-if uv pip install debugpy ; then
+echo "[sys_setup_venv] Installing debugpy..."
+if py_pip install debugpy ; then
     echo "[sys_setup_venv] Installed debugpy."
 else
-    echo "[sys_setup_venv] debugpy not available or failed; installing without extras."
+    echo "[sys_setup_venv] debugpy not available or failed; continuing without it."
 fi
 
 # 6. Verify pytest is available in the venv (required for repo test workflow)
@@ -286,9 +313,11 @@ echo "[sys_setup_venv] Verifying pytest installation..."
 if "$VENV_DIR/bin/python" -m pytest --version >/dev/null 2>&1 ; then
     echo "[sys_setup_venv] pytest is installed and available."
 else
-    echo "[sys_setup_venv] ERROR: pytest is not available in $VENV_DIR."
-    echo "[sys_setup_venv] Ensure dev dependencies are installed (e.g. uv pip install -e '.[dev]')."
-    exit 1
+    # Not fatal: pytest comes from the [dev] extras, which are optional on a
+    # production device and may be unavailable on 32-bit ARMv6.
+    echo "[sys_setup_venv] WARNING: pytest is not available in $VENV_DIR."
+    echo "[sys_setup_venv] Fine for a production device. For development install"
+    echo "[sys_setup_venv] the extras: uv pip install -e '.[dev]'"
 fi
 
 # 7. Create/update ~/.bashrc for convenience functions

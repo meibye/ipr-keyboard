@@ -114,7 +114,7 @@ REPORT_FILE="/opt/ipr_state/verification_report.txt"
     echo "✓ Virtual environment exists"
     APP_USER_HOME=$(getent passwd "$APP_USER" | cut -d: -f6)
     echo "Venv Python: $(sudo -u "$APP_USER" "$APP_VENV_DIR/bin/python" --version)"
-    echo "Package count: $(sudo -u "$APP_USER" bash -c 'HOME="$APP_USER_HOME" "$HOME/.local/bin/uv" pip list --format=freeze' | wc -l)"
+    echo "Package count: $( (sudo -u "$APP_USER" "$APP_VENV_DIR/bin/python" -m pip list --format=freeze 2>/dev/null || sudo -u "$APP_USER" bash -c 'HOME="$APP_USER_HOME" "$HOME/.local/bin/uv" pip list --format=freeze' 2>/dev/null) | wc -l)"
     echo "Pytest: $(sudo -u "$APP_USER" "$APP_VENV_DIR/bin/python" -m pytest --version 2>&1 || echo 'not installed')"
   else
     echo "✗ Virtual environment not found!"
@@ -335,8 +335,9 @@ fi
 echo ""
 log "To compare two devices, copy verification reports and diff them:"
 log "  scp meibye@ipr-dev-pi4.local:/opt/ipr_state/verification_report.txt ./dev_report.txt"
-log "  scp meibye@ipr-prod-zero2.local:/opt/ipr_state/verification_report.txt ./zero_report.txt"
-log "  diff -u dev_report.txt zero_report.txt"
+log "  scp meibye@<target>.local:/opt/ipr_state/verification_report.txt ./target_report.txt"
+log "  # <target> is ipr-prod-zero2 (Zero 2 W, 64-bit) or ipr-prod-zero (Zero W, 32-bit)"
+log "  diff -u dev_report.txt target_report.txt"
 echo ""
 
 if [[ $ERRORS -gt 0 ]]; then
