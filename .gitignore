@@ -41,6 +41,8 @@ Thumbs.db
 
 # Device-specific configuration
 provision/common.env
+provision/common.env.*
+!provision/common.env.example
 config.json
 users.json
 secret_key.txt
