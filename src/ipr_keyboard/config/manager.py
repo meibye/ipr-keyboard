@@ -41,6 +41,9 @@ class AppConfig:
         StaticIP: Static IP address (used when NetworkMode is "static").
         StaticNetmask: Static netmask (used when NetworkMode is "static").
         StaticGateway: Static gateway (used when NetworkMode is "static").
+        MetricsEnabled: Record performance KPIs (latency, send time, boot time)
+            and expose them at /api/metrics. Off by default: when off the
+            instrumentation costs one boolean check per event.
     """
 
     IrisPenFolders: List[str] = None  # type: ignore[assignment]
@@ -68,6 +71,8 @@ class AppConfig:
     GpioLedGPin: int = 23
     GpioLedBPin: int = 24
     GpioLedIdleSeconds: int = 30
+    # Performance KPIs. Off by default; see ipr_keyboard/metrics.py.
+    MetricsEnabled: bool = False
 
     def __post_init__(self) -> None:
         if self.IrisPenFolders is None:

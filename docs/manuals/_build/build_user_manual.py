@@ -6,8 +6,8 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "1.0"
-DATE = "12. august 2026"
+VERSION = "1.1"
+DATE = "11. september 2026"
 
 
 def build() -> None:
@@ -40,7 +40,7 @@ def build() -> None:
 
     # ---------------------------------------------------------------- 2
     m.h1("2. Hvad er IPR Pen Bridge?", new_page=True)
-    m.p("IPR Pen Bridge er en lille boks — en Raspberry Pi Zero 2 W — der fungerer som "
+    m.p("IPR Pen Bridge er en lille boks — en Raspberry Pi Zero 2 W eller Zero W — der fungerer som "
         "bindeled mellem din IRIS-skanner og din PC.")
 
     m.h2("Formålet")

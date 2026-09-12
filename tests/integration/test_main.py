@@ -190,3 +190,77 @@ def test_usb_bt_loop_bt_unavailable(temp_config, usb_folder, monkeypatch):
         pass
 
     assert test_file.exists()
+
+
+# ---------------------------------------------------------------------------
+# Performance metrics instrumentation in the loop
+# ---------------------------------------------------------------------------
+
+def _run_loop_once_with_file(usb_folder, monkeypatch, *, metrics_enabled, bt_ok=True):
+    """Drive run_usb_bt_loop through exactly one file, then stop it."""
+    from ipr_keyboard import metrics
+    from ipr_keyboard.config.manager import ConfigManager
+    from ipr_keyboard.main import run_usb_bt_loop
+
+    metrics.reset()
+    ConfigManager.instance().update(
+        IrisPenFolders=[str(usb_folder)],
+        DeleteFiles=True,
+        MetricsEnabled=metrics_enabled,
+    )
+    (usb_folder / "scan.txt").write_text("hello world")
+
+    class MockBT:
+        def is_available(self):
+            return True
+
+        def send_text(self, text):
+            return bt_ok
+
+    monkeypatch.setattr("ipr_keyboard.main.BluetoothKeyboard", MockBT)
+    monkeypatch.setattr("ipr_keyboard.main.time.sleep",
+                        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
+    try:
+        run_usb_bt_loop()
+    except KeyboardInterrupt:
+        pass
+    return metrics.snapshot()
+
+
+def test_loop_records_pipeline_kpis_when_enabled(temp_config, usb_folder, monkeypatch):
+    snap = _run_loop_once_with_file(usb_folder, monkeypatch, metrics_enabled=True)
+    k = snap["kpis"]
+    assert snap["enabled"] is True
+    assert k["detect_latency_ms"]["count"] == 1
+    assert k["read_ms"]["count"] == 1
+    assert k["send_ms"]["count"] == 1
+    assert k["e2e_latency_ms"]["count"] == 1
+    # "hello world" is 11 chars
+    assert k["send_ms_per_char"]["count"] == 1
+    # Timing sanity: the file was written moments before detection.
+    assert 0 <= k["detect_latency_ms"]["last"] < 10_000
+    assert k["e2e_latency_ms"]["last"] >= k["detect_latency_ms"]["last"]
+
+
+def test_loop_records_nothing_when_disabled(temp_config, usb_folder, monkeypatch):
+    """The whole point: a production device with the flag off pays nothing."""
+    snap = _run_loop_once_with_file(usb_folder, monkeypatch, metrics_enabled=False)
+    assert snap["enabled"] is False
+    assert all(v["count"] == 0 for v in snap["kpis"].values())
+
+
+def test_loop_failed_send_records_no_send_kpis(temp_config, usb_folder, monkeypatch):
+    """A failed BT send must not be counted as a successful end-to-end delivery."""
+    snap = _run_loop_once_with_file(usb_folder, monkeypatch, metrics_enabled=True, bt_ok=False)
+    k = snap["kpis"]
+    assert k["detect_latency_ms"]["count"] == 1
+    assert k["send_ms"]["count"] == 0
+    assert k["e2e_latency_ms"]["count"] == 0
+
+
+def test_loop_applies_toggle_from_config_each_iteration(temp_config, usb_folder, monkeypatch):
+    """Turning the flag on in config must take effect without a restart."""
+    from ipr_keyboard import metrics
+    metrics.set_enabled(False)
+    _run_loop_once_with_file(usb_folder, monkeypatch, metrics_enabled=True)
+    assert metrics.is_enabled() is True

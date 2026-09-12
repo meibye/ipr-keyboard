@@ -153,7 +153,7 @@ class Manual:
             ("Dokument-id", doc_id),
             ("Version", version),
             ("Dato", date),
-            ("Produkt", "IPR Pen Bridge — Raspberry Pi Zero 2 W"),
+            ("Produkt", "IPR Pen Bridge — Raspberry Pi Zero 2 W / Zero W"),
             ("Sprog", "Dansk"),
         ):
             row = t.add_row().cells

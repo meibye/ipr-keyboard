@@ -192,6 +192,67 @@ Example response
 }
 ```
 
+### Performance metrics
+
+#### GET /api/metrics
+
+Returns performance KPIs recorded by the application, for the Home screen's
+Performance block and for the cross-platform perf harness in `scripts/perf/`.
+
+Recording is controlled by `MetricsEnabled` in `config.json`
+(`diagnostics.metrics_enabled` in `/api/config`). The endpoint always answers,
+so a client can distinguish *disabled* from *no data yet*: when `enabled` is
+`false`, every KPI has `count: 0`.
+
+Cost model: recording is one clock read and one bounded `deque.append`; when
+disabled it is a single boolean check. Statistics are computed on this request,
+never on the recording path. Buffers hold the last `buffer_size` samples per
+KPI; `total` counts for the process lifetime.
+
+Example response
+
+```json
+{
+  "enabled": true,
+  "platform": {
+    "model": "Raspberry Pi Zero 2 W Rev 1.0",
+    "machine": "aarch64",
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "python": "3.13.5",
+    "cpu_count": 4
+  },
+  "boot": {
+    "boot_to_process_s": 41.3,
+    "process_uptime_s": 86412.5
+  },
+  "buffer_size": 200,
+  "kpis": {
+    "e2e_latency_ms": {
+      "count": 57, "total": 812,
+      "last": 612.4, "min": 402.1, "max": 1290.0,
+      "mean": 655.8, "p50": 630.2, "p95": 1011.7,
+      "unit": "ms",
+      "description": "File written on the pen -> text handed to the BLE daemon. Device-side end-to-end."
+    },
+    "detect_latency_ms": { "...": "same shape" },
+    "read_ms":           { "...": "same shape" },
+    "send_ms":           { "...": "same shape" },
+    "send_ms_per_char":  { "...": "same shape, unit ms/char" },
+    "poll_scan_ms":      { "...": "same shape; sampled 1 in 10 idle polls" },
+    "sse_build_ms":      { "...": "same shape" }
+  }
+}
+```
+
+`e2e_latency_ms` is measured on the device up to the Bluetooth hand-off. The
+keystrokes' arrival at the PC is not observable from the device; use
+`scripts/perf/perf_keystroke_probe.py` on the PC for that figure.
+
+#### POST /api/metrics/reset
+
+Discards all recorded samples and lifetime totals. Used by the perf harness
+between runs. Returns `{"ok": true, "message": "Metrics cleared."}`.
+
 ### Event endpoints
 #### GET /api/events
 
@@ -292,10 +353,15 @@ Example response
     "read_timeout_seconds": 10
   },
   "diagnostics": {
-    "log_level": "INFO"
+    "log_level": "INFO",
+    "metrics_enabled": false
   }
 }
 ```
+
+`diagnostics.metrics_enabled` turns performance recording on or off (see
+`GET /api/metrics`). It is a boolean; other types are rejected with
+`validation_error`. Off by default.
 
 POST /api/config
 

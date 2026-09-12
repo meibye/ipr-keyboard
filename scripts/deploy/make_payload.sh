@@ -105,7 +105,9 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 fi
 
 log "Packing ${#PAYLOAD[@]} entries from $REPO_ROOT ..."
-tar -czf "$OUTPUT" "${PAYLOAD[@]}"
+# Bytecode caches are host-specific (a Windows CPython 3.12 .pyc is useless on
+# the Pi) and were quietly adding dozens of files to every payload.
+tar -czf "$OUTPUT" --exclude='__pycache__' --exclude='*.pyc' "${PAYLOAD[@]}"
 
 # ---------------------------------------------------------------------------
 # Safety net: refuse to hand over an archive containing device-specific state

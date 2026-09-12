@@ -10,8 +10,8 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.3.1"
-DATE = "6. september 2026"
+VERSION = "1.5"
+DATE = "12. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
 # make_payload.sh — this maps them to manual prose.  The keys are checked
@@ -100,14 +100,46 @@ def build() -> None:
 
     m.h2("1.1 Forudsætninger")
     m.bullets([
-        "Raspberry Pi Zero 2 W (eller Pi 4 til udvikling og test) med Raspberry Pi OS Lite, "
-        "Bookworm, 64-bit.",
+        "Raspberry Pi Zero 2 W eller Raspberry Pi Zero W som produktionsenhed (Pi 4 til "
+        "udvikling og test) med Raspberry Pi OS Lite, Trixie eller nyere. Zero 2 W og Pi 4 "
+        "kører 64-bit-udgaven; Zero W er ARMv6 og kan kun køre 32-bit-udgaven.",
+        "microSD-kort på mindst 8 GB, helst 16 GB og A1-klassificeret. Selve "
+        "installationen fylder omkring 3,5 GB (styresystemet 3 GB, projektet med "
+        "Python-miljø under 50 MB); resten er plads til logfiler, opdateringer og "
+        "skannerens filer. Kort over 16 GB giver ingen praktisk gevinst.",
         "SSH-adgang eller tastatur/skærm til førstegangsopsætningen.",
         "IRIS-skanner, som eksponerer sine skanninger som tekstfiler over USB "
         "(masselager eller MTP).",
         "En vært med Bluetooth Low Energy — typisk en Windows-PC.",
         "Kendskab til systemd, journalctl, nmcli og bash.",
     ])
+
+    m.p("De to produktionsmodeller", bold=True)
+    m.table(
+        ["", "Raspberry Pi Zero 2 W", "Raspberry Pi Zero W"],
+        [
+            ["Værtsnavn", "ipr-prod-zero2", "ipr-prod-zero"],
+            ["Processor", "4 kerner, ARM Cortex-A53, 1 GHz", "1 kerne, ARM1176 (ARMv6), 1 GHz"],
+            ["Styresystem", "Raspberry Pi OS Lite 64-bit", "Raspberry Pi OS Lite 32-bit — "
+                                                            "64-bit-billedet starter ikke"],
+            ["Python-pakker", "aarch64-hjul fra PyPI", "armv6l-hjul fra piwheels; rene "
+                                                        "Python-pakker fra PyPI"],
+            ["Bluetooth", "BLE 4.2", "BLE 4.1 — tilstrækkeligt til HID over GATT"],
+            ["Ydelse", "Rigelig", "Væsentligt langsommere: dashboardet svarer "
+                                   "trægere, og opstart tager længere tid"],
+            ["microSD-kort", "Mindst 8 GB, anbefalet 16 GB, A1-klasse",
+                             "Mindst 8 GB, anbefalet 16 GB, A1-klasse"],
+        ],
+        widths=[3.0, 6.0, 6.6],
+        mono_cols=(),
+        caption="De to understøttede produktionsmodeller. Ben, kabinet, ledningsføring og "
+                "provisioneringstrin er ens; kun styresystemets arkitektur og ydelsen adskiller.",
+    )
+    m.note("Zero W er ikke blot en langsommere Zero 2 W. Den har én processorkerne og en "
+           "ældre instruktionsarkitektur, så et 64-bit-billede starter slet ikke, og "
+           "kompilerede Python-pakker findes kun som armv6l-hjul fra piwheels. Projektets "
+           "egne afhængigheder er rene Python-pakker og fungerer på begge — men tilføjes "
+           "nye afhængigheder, skal de afprøves på Zero W, før de tages i brug.", "warn")
 
     m.h2("1.2 Terminologi i denne manual")
     m.table(
@@ -219,15 +251,28 @@ def build() -> None:
     m.p("Vælg styresystem", bold=True)
     m.bullets([
         "Under Raspberry Pi-enhed vælges den model, kortet skal bruges i.",
-        "Under Styresystem vælges Raspberry Pi OS (other) og derefter "
-        "Raspberry Pi OS Lite (64-bit).",
+        "Under Styresystem vælges Raspberry Pi OS (other) og derefter Lite-udgaven i "
+        "den arkitektur, modellen kræver: Raspberry Pi OS Lite (64-bit) til Zero 2 W og "
+        "Pi 4, Raspberry Pi OS Lite (32-bit) til Zero W.",
         "Under Lagerplads vælges microSD-kortet. Kontrollér valget — kortet overskrives "
         "uden yderligere advarsel.",
     ], numbered=True)
-    m.note("Det skal være Lite-udgaven uden skrivebordsmiljø og 64-bit. Zero 2 W har 512 MB "
+    m.table(
+        ["Model", "Vælg dette billede", "Hvorfor"],
+        [
+            ["Zero 2 W, Pi 4", "Raspberry Pi OS Lite (64-bit)",
+             "Processoren er 64-bit, og PyPI leverer aarch64-hjul."],
+            ["Zero W", "Raspberry Pi OS Lite (32-bit)",
+             "Processoren er ARMv6. 64-bit-billedet starter ikke på denne model."],
+        ],
+        widths=[3.0, 5.6, 7.0],
+        caption="Valg af billede i Raspberry Pi Imager. Begge skal være Lite-udgaven og "
+                "Trixie eller nyere.",
+    )
+    m.note("Det skal være Lite-udgaven uden skrivebordsmiljø. Begge Zero-modeller har 512 MB "
            "RAM, og et skrivebordsmiljø efterlader ikke ressourcer nok til BLE-stakken og "
-           "webserveren. 64-bit kræves, fordi projektets Python-afhængigheder installeres "
-           "som aarch64-pakker.", "warn")
+           "webserveren. Det skal desuden være Trixie eller nyere: projektet kræver Python "
+           "3.12, og Bookworm leverer 3.11 — også i 64-bit-udgaven.", "warn")
 
     m.p("Udfyld de avancerede indstillinger", bold=True)
     m.p("Vælg Rediger indstillinger, når Imageren spørger, om indstillingerne skal "
@@ -235,9 +280,9 @@ def build() -> None:
     m.table(
         ["Indstilling", "Værdi", "Bemærkning"],
         [
-            ["Værtsnavn", "ipr-prod-zero2 eller ipr-dev-pi4",
-             "Produktionsenhed henholdsvis udviklingsenhed. Skal være identisk med HOSTNAME "
-             "i /opt/ipr_common.env."],
+            ["Værtsnavn", "ipr-prod-zero2, ipr-prod-zero eller ipr-dev-pi4",
+             "Zero 2 W, Zero W henholdsvis udviklingsenheden. Skal være identisk med "
+             "HOSTNAME i /opt/ipr_common.env."],
             ["Brugernavn", "meibye",
              "Applikations- og administrationskontoen. Alle stier i manualen tager "
              "udgangspunkt i denne bruger."],
@@ -307,10 +352,12 @@ def build() -> None:
         ["Enhed", "Værtsnavn", "Konto", "Anvendelse"],
         [
             ["Produktionsenhed (Zero 2 W)", "ipr-prod-zero2", "meibye",
-             "Provisionering, udrulning og drift."],
+             "Provisionering, udrulning og drift. Alias: ipr-prod."],
+            ["Produktionsenhed (Zero W)", "ipr-prod-zero", "meibye",
+             "Som ovenfor, 32-bit. Alias: ipr-prod-zero."],
             ["Udviklingsenhed (Pi 4)", "ipr-dev-pi4", "meibye",
              "Udvikling og test."],
-            ["Begge", "(samme)", "copilotdiag",
+            ["Alle", "(samme)", "copilotdiag",
              "Afgrænset fejlsøgning. Oprettes af trin 05 og bruger sin egen nøgle."],
         ],
         widths=[4.2, 3.4, 2.8, 5.2],
@@ -606,14 +653,14 @@ def build() -> None:
     m.p("Værdier, der skal tilrettes pr. enhed. De øvrige standardværdier i skabelonen "
         "passer allerede til den beskrevne opsætning:")
     m.table(
-        ["Variabel", "Produktionsenhed", "Udviklingsenhed"],
+        ["Variabel", "Zero 2 W", "Zero W", "Udviklingsenhed"],
         [
-            ["DEVICE_TYPE", "target", "dev"],
-            ["HOSTNAME", "ipr-prod-zero2", "ipr-dev-pi4"],
-            ["BT_DEVICE_NAME", "IPR Keyboard", "IPR Keyboard (Dev)"],
+            ["DEVICE_TYPE", "target", "target", "dev"],
+            ["HOSTNAME", "ipr-prod-zero2", "ipr-prod-zero", "ipr-dev-pi4"],
+            ["BT_DEVICE_NAME", "IPR Keyboard", "IPR Keyboard", "IPR Keyboard (Dev)"],
         ],
-        widths=[4.4, 5.6, 5.6],
-        mono_cols=(0, 1, 2),
+        widths=[3.8, 4.0, 3.8, 4.0],
+        mono_cols=(0, 1, 2, 3),
         caption="Enhedsspecifikke værdier i provision/common.env. Trin 00 kræver desuden "
                 "REPO_URL, REPO_DIR, APP_USER, APP_GROUP og GIT_REF — de er korrekte som "
                 "leveret i skabelonen.",
@@ -891,6 +938,8 @@ def build() -> None:
             ["GpioLedRPin / GpioLedGPin / GpioLedBPin", "22 / 23 / 24",
              "BCM-numre for LED'ens tre farvekanaler."],
             ["GpioLedIdleSeconds", "30", "Hvor længe LED'en viser status efter en berøring."],
+            ["MetricsEnabled", "false", "Registrér ydelsestal (opstartstid, forsinkelse fra pen "
+                                        "til Bluetooth). Slået fra som standard; se afsnit 9.4."],
         ],
         widths=[4.4, 3.4, 7.8],
         mono_cols=(0, 1),
@@ -1262,7 +1311,10 @@ def build() -> None:
         "hente dem uden netværk. Enten gives enheden midlertidigt internetadgang, eller "
         "hjulpakkerne hentes på PC'en og overføres:")
     m.code(
-        "# På PC'en, i repositoriets rod — samme platform og Python-version som enheden\n"
+        "# På PC'en, i repositoriets rod — samme Python-version som enheden.\n"
+        "# Platformen afhænger af modellen:\n"
+        "#   Zero 2 W (64-bit):  --platform linux_aarch64\n"
+        "#   Zero W   (32-bit):  --platform linux_armv6l  --extra-index-url https://www.piwheels.org/simple\n"
         "cd D:\\sandbox\\ipr-keyboard\n"
         "pip download . -d wheels/ \\\n"
         "  --platform linux_aarch64 --only-binary=:all:\n"
@@ -1321,7 +1373,10 @@ def build() -> None:
     m.note("Logniveauet DEBUG belaster både CPU og SD-kort på en Pi Zero 2 W. Brug det til "
            "fejlsøgning, og sæt niveauet tilbage til INFO bagefter.", "warn")
 
-    m.h2("9.3 Ressourcehensyn på Pi Zero 2 W")
+    m.h2("9.3 Ressourcehensyn på Pi Zero 2 W og Zero W")
+    m.p("Punkterne herunder gælder begge modeller, men vejer tungest på Zero W, som har én "
+        "processorkerne. Regn med, at dashboardet svarer mærkbart langsommere der, og undgå "
+        "at belaste den med flere samtidige browserfaner.")
     m.bullets([
         "PollIntervalSeconds under 1,0 øger CPU-forbruget mærkbart uden praktisk gevinst.",
         "StatusIntervalSeconds styrer, hvor ofte browseren får opdateringer via SSE — "
@@ -1330,6 +1385,75 @@ def build() -> None:
         "Hold MaxFileSize på et realistisk niveau; meget store filer bruger både hukommelse "
         "og lang afsendelsestid.",
     ])
+
+    m.h2("9.4 Ydelsesmåling")
+    m.p("Enheden kan registrere en række ydelsestal (KPI'er), så de tre modeller kan "
+        "sammenlignes, og en langsom enhed kan diagnosticeres. Målingen er slået fra som "
+        "standard og slås til under Indstillinger → Diagnostik → Registrér ydelsestal, "
+        "eller med MetricsEnabled i config.json. Den virker med det samme — ingen genstart.")
+    m.note("Målingen er lavet til at være gratis. Slået fra koster den én sandhedstest pr. "
+           "hændelse. Slået til koster den ét ur-opslag og én tilføjelse til en fast "
+           "begrænset buffer på 200 målinger pr. tal — hukommelsen vokser ikke, uanset "
+           "hvor længe enheden kører. Statistik beregnes først, når nogen beder om den.", "info")
+
+    m.p("Hvad måles", bold=True)
+    m.table(
+        ["Tal", "Betyder", "Bemærk"],
+        [
+            ["Opstart → program", "Sekunder fra kernen startede, til programmet kørte.",
+             "Læses én gang ved start. Vises altid, også når målingen er slået fra."],
+            ["Pen → registreret", "Fra filen blev skrevet på pennen, til pollingen så den.",
+             "Kan ikke blive lavere end PollIntervalSeconds."],
+            ["Læsning", "Læsning af filen fra monteringen.", ""],
+            ["Overdragelse til BLE", "bt_kb_send afleverer teksten til BLE-dæmonen.",
+             "Også pr. tegn, så modeller kan sammenlignes uafhængigt af tekstlængde."],
+            ["Pen → BLE (ende til ende)", "Fra filen blev skrevet, til teksten var afleveret.",
+             "Målt på enheden. Selve tastetrykkenes ankomst på PC'en kan enheden ikke se."],
+            ["Polling-omkostning", "Hvad ét tomt gennemløb af mapperne koster.",
+             "Måles kun hver tiende gang for at holde målingen selv billig."],
+            ["Dashboard-omkostning", "Hvad én statusopdatering til browseren koster.",
+             "Stiger med antal åbne faner."],
+        ],
+        widths=[3.8, 6.2, 5.6],
+        caption="Ydelsestal, der registreres når MetricsEnabled er slået til. Alle ses "
+                "under /api/metrics; opstartstid og pen → BLE vises også på dashboardets "
+                "forside.",
+    )
+
+    m.p("På dashboardet", bold=True)
+    m.p("Når målingen er slået til, viser forsiden en blok Performance under Enhedens "
+        "tilstand med opstartstid, median og 95-percentil for pen → BLE samt tid pr. tegn. "
+        "Blokken opdateres sammen med de øvrige sundhedstal hvert 30. sekund og belaster "
+        "derfor ikke SSE-strømmen. Er målingen slået fra, er blokken skjult.")
+
+    m.p("Sammenligning på tværs af de tre modeller", bold=True)
+    m.p("Skripterne i scripts/perf/ udfører målingerne ensartet, så tallene kan stilles op "
+        "side om side. Kør dem i denne rækkefølge:")
+    m.code(
+        "# 1. På hver enhed efter en ren genstart — hvor går opstartstiden hen?\n"
+        "./scripts/perf/perf_boot_time.sh\n"
+        "\n"
+        "# 2. På hver enhed — lægger 10 syntetiske skanninger og rapporterer enhedens tal.\n"
+        "#    Hold et tomt vindue i fokus på den parrede PC; teksten bliver skrevet dér.\n"
+        "IPR_PASS=<dashboard-kode> ./scripts/perf/perf_e2e_latency.sh --enable -n 10\n"
+        "\n"
+        "# 3. På PC'en — den sande pen → PC-tid, målt på PC'ens eget ur.\n"
+        "#    Klik ind i terminalen, når den beder om det.\n"
+        "python scripts/perf/perf_keystroke_probe.py --host ipr-prod --count 5\n"
+        "\n"
+        "# 4. På PC'en — én tabel med alle enheder side om side.\n"
+        "python scripts/perf/perf_report.py ipr-dev-pi4 ipr-prod ipr-prod-zero"
+    )
+    m.note("perf_keystroke_probe.py er den eneste måling, der dækker hele vejen til "
+           "PC'en. Den lader PC'en både udløse skanningen (over SSH) og tage tid på de "
+           "tegn, der ankommer, så begge tidsstempler er på PC'ens ur — enhedens ur "
+           "indgår ikke, og der kræves ingen ursynkronisering. Tallet indeholder "
+           "pollingintervallet og varierer derfor med op til PollIntervalSeconds mellem "
+           "kørsler.", "tip")
+    m.p("Et brugbart sammenligningsgrundlag er median og 95-percentil for pen → BLE fra "
+        "perf_e2e_latency.sh på hver model med samme PollIntervalSeconds, suppleret med "
+        "én kørsel af perf_keystroke_probe.py pr. model. Gem perf_report.py --json fra "
+        "hver kørsel, hvis udviklingen over tid skal følges.")
 
     # ---------------------------------------------------------------- 10
     m.h1("10. Fejlfinding", new_page=True)

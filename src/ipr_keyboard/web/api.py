@@ -21,6 +21,7 @@ from flask import Blueprint, Response, jsonify, request, session, stream_with_co
 from ..config.manager import ConfigManager
 from ..logging.logger import get_logger, set_log_level
 from .. import transmission
+from .. import metrics
 from ..usb.detector import list_files
 from .auth import UserStore
 
@@ -438,6 +439,7 @@ def api_config_get():
             },
             "diagnostics": {
                 "log_level": log_level,
+                "metrics_enabled": bool(getattr(cfg, "MetricsEnabled", False)),
             },
         })
     except Exception:
@@ -480,9 +482,50 @@ def api_config_post():
                 v = int(t["status_interval_seconds"])
                 if 1 <= v <= 60:
                     update_kwargs["StatusIntervalSeconds"] = v
+        if "diagnostics" in data and "metrics_enabled" in data["diagnostics"]:
+            v = data["diagnostics"]["metrics_enabled"]
+            if not isinstance(v, bool):
+                return jsonify({"error": {"code": "validation_error",
+                                          "message": "diagnostics.metrics_enabled must be a boolean."}}), 400
+            update_kwargs["MetricsEnabled"] = v
+            # Apply at once for the web process; the main loop picks it up on
+            # its next iteration from the saved config.
+            metrics.set_enabled(v)
         if update_kwargs:
             cfg_mgr.update(**update_kwargs)
         return jsonify({"ok": True, "message": "Configuration updated."})
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# ---------------------------------------------------------------------------
+# Performance metrics  (/api/metrics)
+# ---------------------------------------------------------------------------
+
+@bp_api.get("/metrics")
+def api_metrics():
+    """Performance KPIs recorded by ipr_keyboard.metrics.
+
+    Always answers, even when recording is off, so the dashboard and the perf
+    harness can tell "disabled" apart from "no data yet".  Computing the
+    statistics happens here, on request, never on the recording path.
+    """
+    try:
+        # Keep the web process's view of the switch in step with the saved
+        # config: the main loop applies it each iteration, the web process only
+        # when asked.
+        metrics.set_enabled(bool(getattr(ConfigManager.instance().get(), "MetricsEnabled", False)))
+        return jsonify(metrics.snapshot())
+    except Exception:
+        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/metrics/reset")
+def api_metrics_reset():
+    """Discard recorded samples.  The perf harness calls this between runs."""
+    try:
+        metrics.reset()
+        return jsonify({"ok": True, "message": "Metrics cleared."})
     except Exception:
         logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
 
@@ -759,11 +802,14 @@ def api_stream():
         import time
         while True:
             try:
+                _t0 = time.time()
                 bt = _build_bluetooth_state()
                 pen = _build_pen_state()
                 tx = _build_transmission_state()
                 sys = _build_system_state(bt)
                 overall = _build_overall_state(bt, pen, tx, sys)
+                # How much the dashboard costs the device per update; no-op when off.
+                metrics.record("sse_build_ms", (time.time() - _t0) * 1000.0)
                 payload = json.dumps({
                     "type": "status_update",
                     "data": {

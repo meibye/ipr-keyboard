@@ -92,6 +92,8 @@ Update these when behaviour changes, in line with the documentation policy in
 | Hotspot triggers | Admin manual §5.2 |
 | Deploy scripts | Admin manual ch. 8 |
 | SD-card imaging parameters (hostname, user, SSID, SSH mode) | Admin manual §3.1 table |
+| Supported device models (Zero 2 W / Zero W), OS architecture | Admin manual §1.1 model table, §3.1 image table, §8.5 wheel platform |
 | SSH accounts, hostnames, transfer procedure | Admin manual §3.2, §3.3, §8.5, Appendix A |
 | Transfer/bootstrap scripts in `scripts/deploy/` | Admin manual §3.3, §3.5 |
+| KPIs recorded by `metrics.py`, perf scripts in `scripts/perf/` | Admin manual §4.1 (MetricsEnabled), §9.4; `docs/ui/api-contract.md` GET /api/metrics |
 | GPIO pins or LED resistor values | Admin manual §2.x pin table + `docs/hardware/gpio-wiring.md` |

@@ -64,6 +64,24 @@ Updating an already-provisioned device, run on the device:
 - `deploy_restart_app.sh` — restart the application only
 - `deploy_restart_all_services.sh` — restart all services in dependency order
 
+### `scripts/perf/`
+
+Performance / KPI measurement across the three boards (Pi 4, Zero 2 W, Zero W).
+All need `MetricsEnabled=true` on the device (Settings → Diagnostics, or
+`perf_e2e_latency.sh --enable`). Recording costs the device almost nothing and
+is off by default.
+
+- `perf_e2e_latency.sh` — **on the device**: drops N synthetic scans into the
+  IrisPen folder and reports the device-side KPIs (detect, read, hand-off to
+  BLE, per-character rate, poll cost, dashboard cost).
+- `perf_boot_time.sh` — **on the device**: boot time from `systemd-analyze`,
+  per-service readiness, and the application's own kernel→process figure.
+- `perf_keystroke_probe.py` — **on the PC** receiving the keystrokes: the true
+  pen→PC latency. Triggers the scan over ssh and timestamps the arriving
+  characters on the PC's own clock, so no clock sync is needed.
+- `perf_report.py` — **on the PC**: pulls `/api/metrics` from several devices
+  and prints them side by side. `--json` for keeping a history.
+
 ### `scripts/service/`
 
 - installers/managers: `svc_install_bt_gatt_hid.sh`, `svc_install_all_services.sh`, `svc_install_systemd.sh`, `svc_enable_services.sh`, `svc_disable_services.sh`, `svc_status_services.sh`, `svc_tail_all_logs.sh`

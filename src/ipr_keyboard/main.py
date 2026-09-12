@@ -22,6 +22,7 @@ from .bluetooth import keyboard as bt_keyboard
 from .logging.logger import get_logger, set_log_level
 from .usb import detector, reader, deleter
 from .usb import detector as usb_detector, reader as usb_reader, deleter as usb_deleter
+from . import metrics
 from .web.server import create_app
 from .web import server as web_server
 from .gpio_monitor import GpioMonitor, gpio_available
@@ -116,6 +117,9 @@ def run_usb_bt_loop():
 
     while True:
         cfg = cfg_mgr.get()
+        # Re-apply every iteration so the dashboard toggle takes effect without
+        # a restart.  One attribute assignment; not worth guarding.
+        metrics.set_enabled(cfg.MetricsEnabled)
         folders = [Path(p) for p in (cfg.IrisPenFolders or [])]
 
         poll = cfg.PollIntervalSeconds
@@ -125,6 +129,8 @@ def run_usb_bt_loop():
             continue
 
         found_file = None
+        found_mtime = 0.0
+        scan_started = time.time()
         for folder in folders:
             if not folder.exists():
                 logger.debug("Folder does not exist yet: %s", folder)
@@ -144,23 +150,35 @@ def run_usb_bt_loop():
             if mtime > last_mtime.get(folder_key, 0.0):
                 last_mtime[folder_key] = mtime
                 found_file = newest
+                found_mtime = mtime
                 break
 
         if found_file is None:
+            metrics.record_poll_scan(time.time() - scan_started)
             time.sleep(poll)
             continue
 
+        detected_at = time.time()
         logger.info("Detected new file: %s", found_file)
 
         text = reader.read_file(found_file, cfg.MaxFileSize)
+        read_done_at = time.time()
+        send_done_at = None
         if text is None:
             logger.warning("File %s is too large or unreadable", found_file)
         else:
             logger.info("Read %d bytes from %s", len(text), found_file)
             if kb.is_available():
-                kb.send_text(text)
+                if kb.send_text(text):
+                    send_done_at = time.time()
             else:
                 logger.info("BT not available; text would have been: %r", text[:100])
+
+        # One call, one lock, no-op when MetricsEnabled is false.
+        metrics.record_file_pipeline(
+            found_mtime, detected_at, read_done_at, send_done_at,
+            len(text) if text else 0,
+        )
 
         if cfg.DeleteFiles:
             ok = deleter.delete_file(found_file)

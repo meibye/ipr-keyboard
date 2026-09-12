@@ -116,6 +116,33 @@
       <div class="service-pill-row" id="home-services-pills">
         <span class="spinner"></span>
       </div>
+
+      <!-- Performance KPIs. Rendered only when MetricsEnabled is on; the block
+           stays hidden otherwise so the home screen is unchanged for users who
+           never turn it on. Fed by the same 30 s poll as the health metrics. -->
+      <div id="home-perf" hidden>
+        <div class="health-divider"></div>
+        <div class="home-health-title">Performance</div>
+        <div class="health-metrics">
+          <div class="health-metric">
+            <div class="hm-label">Boot to app</div>
+            <div class="hm-value" id="pm-boot-val">—</div>
+          </div>
+          <div class="health-metric">
+            <div class="hm-label">Pen → BT, median</div>
+            <div class="hm-value" id="pm-e2e-p50-val">—</div>
+          </div>
+          <div class="health-metric">
+            <div class="hm-label">Pen → BT, slowest 5 %</div>
+            <div class="hm-value" id="pm-e2e-p95-val">—</div>
+          </div>
+          <div class="health-metric">
+            <div class="hm-label">Send per char</div>
+            <div class="hm-value" id="pm-char-val">—</div>
+          </div>
+        </div>
+        <div class="card-explanation" id="pm-note" style="margin-top:6px"></div>
+      </div>
     </div>
   </section>
 
@@ -337,6 +364,13 @@
       <div class="settings-row">
         <label for="cfg-status-interval">Status refresh (seconds)</label>
         <input type="number" id="cfg-status-interval" min="1" max="60" value="5" style="width:80px">
+      </div>
+      <div class="settings-row">
+        <label for="cfg-metrics-enabled">Record performance metrics</label>
+        <input type="checkbox" id="cfg-metrics-enabled">
+      </div>
+      <div class="card-explanation" style="margin-top:-4px">
+        Shows boot time and pen-to-Bluetooth timing on the home screen. Costs the device almost nothing; off by default.
       </div>
     </div>
 
@@ -698,6 +732,29 @@ async function loadHomeHealth() {
   } catch (_) {}
 
   try {
+    const m = await apiFetch('/api/metrics');
+    const box = document.getElementById('home-perf');
+    if (!m.enabled) {
+      box.hidden = true;
+    } else {
+      box.hidden = false;
+      const fmtMs = v => (v == null ? '—' : v >= 1000 ? (v / 1000).toFixed(2) + ' s' : Math.round(v) + ' ms');
+      const k = m.kpis || {};
+      const bootEl = document.getElementById('pm-boot-val');
+      const b = m.boot && m.boot.boot_to_process_s;
+      bootEl.textContent = b == null ? '—' : b.toFixed(1) + ' s';
+      document.getElementById('pm-e2e-p50-val').textContent = fmtMs(k.e2e_latency_ms && k.e2e_latency_ms.p50);
+      document.getElementById('pm-e2e-p95-val').textContent = fmtMs(k.e2e_latency_ms && k.e2e_latency_ms.p95);
+      const pc = k.send_ms_per_char && k.send_ms_per_char.p50;
+      document.getElementById('pm-char-val').textContent = pc == null ? '—' : pc.toFixed(1) + ' ms';
+      const n = (k.e2e_latency_ms && k.e2e_latency_ms.count) || 0;
+      document.getElementById('pm-note').textContent = n
+        ? `Based on the last ${n} scan${n === 1 ? '' : 's'}. Measured on the device up to the Bluetooth hand-off; the PC adds its own delay.`
+        : 'No scans recorded since metrics were enabled.';
+    }
+  } catch (_) {}
+
+  try {
     const data = await apiFetch('/api/debug/services');
     const row = document.getElementById('home-services-pills');
     if (data.services && data.services.length > 0) {
@@ -916,6 +973,7 @@ async function loadSettings() {
       for (let opt of sel.options) {
         if (opt.value === cfg.diagnostics.log_level) { opt.selected = true; break; }
       }
+      document.getElementById('cfg-metrics-enabled').checked = !!cfg.diagnostics.metrics_enabled;
     }
   } catch (e) {
     showToast('Could not load settings');
@@ -965,6 +1023,7 @@ async function saveSettings() {
       },
       diagnostics: {
         log_level: document.getElementById('cfg-log-level').value,
+        metrics_enabled: document.getElementById('cfg-metrics-enabled').checked,
       },
     };
     const res = await apiFetch('/api/config', {

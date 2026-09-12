@@ -125,7 +125,7 @@ def fig_system_overview():
            ["Skanner tekst fra papir", "og gemmer den som", "tekstfil i pennen"],
            PURPLE, PURPLE_BG)
     c.node(390, y, 220, h, "IPR Pen Bridge",
-           ["Raspberry Pi Zero 2 W", "læser nye filer og", "sender dem videre"],
+           ["Raspberry Pi Zero 2 W / Zero W", "læser nye filer og", "sender dem videre"],
            BLUE, BLUE_BG)
     c.node(720, y, 220, h, "PC",
            ["Modtager teksten", "som helt almindelige", "tastetryk"],
@@ -160,7 +160,7 @@ def fig_connections():
 
     # Pi body
     c.box(370, 150, 260, 150, fill=BLUE_BG, outline=BLUE, width=2, radius=12)
-    c.text(500, 172, "Raspberry Pi Zero 2 W", F(13, True), BLUE, anchor="ma")
+    c.text(500, 172, "Raspberry Pi Zero 2 W / Zero W", F(13, True), BLUE, anchor="ma")
     c.text(500, 196, "IPR Pen Bridge", F(11), MUTED, anchor="ma")
 
     # ports
@@ -362,7 +362,7 @@ def fig_architecture():
 
     # Outer Pi frame
     c.box(40, 76, 1000, 520, fill=(252, 253, 255), outline=LINE, width=2, radius=12)
-    c.text(60, 92, "Raspberry Pi Zero 2 W  ·  Raspberry Pi OS Lite (Bookworm)", F(12, True), MUTED, anchor="la")
+    c.text(60, 92, "Raspberry Pi Zero 2 W / Zero W  ·  Raspberry Pi OS Lite (Trixie)", F(12, True), MUTED, anchor="la")
 
     # ipr_keyboard.service group
     c.box(64, 124, 470, 300, fill=BLUE_BG, outline=BLUE, width=2, radius=10)
