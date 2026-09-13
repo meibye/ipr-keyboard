@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.8.1"
+VERSION = "1.8.2"
 DATE = "13. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -1073,7 +1073,11 @@ def build() -> None:
     m.h2("4.2 Konfiguration via dashboardet")
     m.p("Skærmen Indstillinger dækker de felter, der normalt skal ændres i drift:")
     m.bullets([
-        ("Netværk — ", "webport, DHCP eller statisk adressering med IP, netmaske og gateway."),
+        ("Netværk — ", "webport, DHCP eller statisk adressering med IP, netmaske og gateway. "
+                       "Anvendes med det samme på hjemmenettets NetworkManager-profil via "
+                       "hjælperen ipr_net_apply.sh (sudoers); skifter adressen, skal browseren "
+                       "genforbinde på den nye. Kan også sættes fra kommandolinjen: "
+                       "sudo ipr_net_apply.sh dhcp | static <ip> <netmaske> [gateway] | show."),
         ("Bluetooth — ", "automatisk genforbindelse og parringstimeout."),
         ("Pen/skanner — ", "automatisk detektion, læsetimeout, pollinterval og listen over "
                            "overvågede mapper."),
@@ -1853,7 +1857,8 @@ def build() -> None:
             ["Enheden mistede netværket efter et statisk IP-skift.",
              "Forkert adresse, netmaske eller gateway.",
              "Tænd hotspottet med magneten, og ret indstillingerne via "
-             "https://10.42.0.1/setup/."],
+             "https://10.42.0.1/login (Indstillinger), eller over SSH på hotspottet i "
+             "udviklingstilstand: sudo ipr_net_apply.sh dhcp."],
         ],
         widths=[4.2, 4.4, 7.0],
         caption="Fejlmønstre i web- og netværkslaget.",

@@ -142,8 +142,8 @@ else
   log "Hotspot credentials already present in ${SECRET_FILE}"
 fi
 
-# Install dhcpcd write helper and sudoers entry for APP_USER
-log "Installing dhcpcd write helper..."
+# Install the nmcli network-apply helper and sudoers entry for APP_USER
+log "Installing network apply helper..."
 bash "$REPO_DIR/scripts/service/install_network_helper.sh"
 
 # Status LED + magnet: boot blink unit, config.txt gpio= line, hotspot

@@ -576,10 +576,6 @@ def api_metrics_reset():
 # Network endpoints
 # ---------------------------------------------------------------------------
 
-_DHCPCD_CONF = "/etc/dhcpcd.conf"
-_DHCPCD_WRITE_HELPER = "/usr/local/bin/ipr_write_dhcpcd.sh"
-
-
 def _get_current_ip() -> str:
     """The device's IPv4 address(es).
 
@@ -629,47 +625,35 @@ def _get_network_interface() -> str:
     return "wlan0"
 
 
-def _write_dhcpcd(interface: str, mode: str, ip: str, netmask: str, gateway: str) -> None:
-    try:
-        with open(_DHCPCD_CONF, "r") as f:
-            lines = f.readlines()
-    except FileNotFoundError:
-        lines = []
+_NET_APPLY_HELPER = "/usr/local/bin/ipr_net_apply.sh"
 
-    # Strip existing block for this interface
-    filtered: list[str] = []
-    skip = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped == f"interface {interface}":
-            skip = True
-            continue
-        if skip and stripped.startswith("interface "):
-            skip = False
-        if not skip:
-            filtered.append(line)
 
-    if mode == "static" and ip:
-        cidr = sum(bin(int(x)).count("1") for x in netmask.split(".")) if netmask else 24
-        filtered.append(f"\ninterface {interface}\n")
-        filtered.append(f"static ip_address={ip}/{cidr}\n")
-        if gateway:
-            filtered.append(f"static routers={gateway}\n")
-            filtered.append(f"static domain_name_servers={gateway}\n")
+def _apply_network(mode: str, ip: str, netmask: str, gateway: str) -> str:
+    """Apply dhcp/static settings to the home network profile via nmcli.
 
-    content = "".join(filtered)
+    Goes through the root helper (sudoers).  The devices run NetworkManager;
+    the earlier implementation wrote /etc/dhcpcd.conf, which nothing read there.
+    Returns the helper's last log line; raises PermissionError / RuntimeError.
+    """
+    if mode == "static":
+        if not ip:
+            raise ValueError("Static mode needs an IP address.")
+        args = ["static", ip, netmask or "255.255.255.0", gateway or ""]
+    else:
+        args = ["dhcp"]
     result = subprocess.run(
-        ["sudo", _DHCPCD_WRITE_HELPER],
-        input=content,
+        ["sudo", "-n", _NET_APPLY_HELPER, *args],
         text=True,
         capture_output=True,
-        timeout=10,
+        timeout=40,
     )
+    stderr = (result.stderr or "").strip()
     if result.returncode != 0:
-        stderr = result.stderr.strip()
-        if result.returncode == 1 and ("sudoers" in stderr or "not allowed" in stderr or not stderr):
-            raise PermissionError(stderr or "sudo not permitted for ipr_write_dhcpcd.sh")
-        raise RuntimeError(f"ipr_write_dhcpcd.sh failed (rc={result.returncode}): {stderr}")
+        if "sudo:" in stderr or "password" in stderr:
+            raise PermissionError(stderr or "sudo not permitted for ipr_net_apply.sh")
+        raise RuntimeError(stderr or f"ipr_net_apply.sh failed (rc={result.returncode})")
+    lines = [ln for ln in (result.stdout or "").splitlines() if ln.strip()]
+    return lines[-1] if lines else "applied"
 
 
 @bp_api.get("/network")
@@ -725,17 +709,19 @@ def api_network_post():
         if update_kwargs:
             cfg_mgr.update(**update_kwargs)
 
-        # Apply to dhcpcd.conf if mode or static fields changed
+        # Apply to the NetworkManager home profile if mode or static fields changed.
+        # Re-activation is immediate: if the address changes, the browser must
+        # reconnect at the new one.
         if any(k in update_kwargs for k in ("NetworkMode", "StaticIP", "StaticNetmask", "StaticGateway")):
             cfg = cfg_mgr.get()
-            iface = _get_network_interface()
             try:
-                _write_dhcpcd(iface, cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway)
-                dhcp_msg = "Network config saved. It takes effect at the next reboot."
+                _apply_network(cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway)
+                dhcp_msg = ("Network settings applied. If the address changed, reconnect at the new one."
+                            if cfg.NetworkMode == "static" else "Network settings applied (DHCP).")
             except PermissionError:
-                dhcp_msg = "Settings saved, but could not write /etc/dhcpcd.conf (permission denied). Apply manually or run as root."
+                dhcp_msg = "Settings saved, but the device could not apply them (sudo not permitted for ipr_net_apply.sh)."
             except Exception as exc:
-                dhcp_msg = f"Settings saved, but dhcpcd.conf update failed: {exc}"
+                dhcp_msg = f"Settings saved, but applying them failed: {exc}"
         else:
             dhcp_msg = "Network settings saved."
 
@@ -784,6 +770,7 @@ def api_action_reconnect_bluetooth():
 
 @bp_api.post("/actions/apply-network")
 def api_action_apply_network():
+    """Re-apply the stored network settings to the home profile (nmcli)."""
     denied = _require_admin()
     if denied:
         return denied
@@ -791,21 +778,16 @@ def api_action_apply_network():
     if not data.get("confirm"):
         return jsonify({"error": {"code": "confirmation_required", "message": "Set confirm=true to proceed. The connection will drop briefly if the IP address changes."}}), 400
     try:
-        result = subprocess.run(
-            ["sudo", "systemctl", "restart", "dhcpcd"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        if result.returncode == 0:
-            return jsonify({"ok": True, "message": "Network settings applied. If the IP address changed, reconnect at the new address."})
-        stderr = (result.stderr or "").strip()
-        return jsonify({"ok": False, "message": stderr or f"dhcpcd restart failed (exit {result.returncode})."}), 500
+        cfg = ConfigManager.instance().get()
+        _apply_network(cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway)
+        return jsonify({"ok": True, "message": "Network settings applied. If the IP address changed, reconnect at the new address."})
+    except PermissionError as exc:
+        return jsonify({"ok": False, "message": str(exc)}), 500
     except subprocess.TimeoutExpired:
-        return jsonify({"ok": False, "message": "Timed out waiting for dhcpcd to restart."}), 500
-    except Exception:
+        return jsonify({"ok": False, "message": "Timed out waiting for NetworkManager."}), 500
+    except Exception as exc:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify({"ok": False, "message": f"Applying network settings failed: {exc}"}), 500
 
 
 @bp_api.post("/actions/reboot")

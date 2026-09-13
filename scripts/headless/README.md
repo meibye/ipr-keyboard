@@ -96,6 +96,7 @@ Run `sudo provision/07_show_info.sh` to display the current SSID and password.
 | `ipr_led_boot.sh` | `/usr/local/sbin/ipr-led-boot.sh` | White blink during OS boot (`gpioset`, `pinctrl` fallback) |
 | `ipr-led-boot.service` | `/etc/systemd/system/` | Early unit for the boot blink; stopped by `ipr_keyboard.service` via `Conflicts=` |
 | `install_gpio_support.sh` | — | Installs everything the LED and magnet need (idempotent) |
+| `../service/ipr_net_apply.sh` | `/usr/local/bin/` | Applies the dashboard's dhcp/static settings to the home NetworkManager profile (replaces the dhcpcd helper) |
 | `ipr_fw_ctl.sh` | `/usr/local/sbin/ipr-firewall.sh` | nftables input policy from mode + hotspot state (`apply`/`status`/`off`) |
 | `ipr_mode_ctl.sh` | `/usr/local/bin/ipr_mode_ctl.sh` | Production/development switch (sudoers for the app user; magnet 6 s) |
 | `ipr-firewall.service` | `/etc/systemd/system/` | Applies the policy at boot before networking |

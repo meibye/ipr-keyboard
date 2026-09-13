@@ -2,15 +2,15 @@
 #
 # install_network_helper.sh
 #
-# One-shot setup: installs the dhcpcd write helper and the sudoers entry
-# that allow the ipr_keyboard service to apply network settings without
-# a full reboot.
+# One-shot setup: installs the NetworkManager apply helper and the sudoers
+# entry that allow the ipr_keyboard service to apply the dashboard's
+# dhcp/static settings to the home network profile (nmcli).
 #
 # Run as root on the Pi:
 #   sudo bash scripts/service/install_network_helper.sh
 #
 # category: Service
-# purpose: Install dhcpcd write helper and sudoers entry for the app user
+# purpose: Install the nmcli network-apply helper and sudoers entry for the app user
 # sudo: yes
 
 set -euo pipefail
@@ -56,14 +56,14 @@ log "App user: $APP_USER"
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HELPER_SRC="$SCRIPT_DIR/ipr_write_dhcpcd.sh"
+HELPER_SRC="$SCRIPT_DIR/ipr_net_apply.sh"
 
 if [[ ! -f "$HELPER_SRC" ]]; then
   error "Helper source not found: $HELPER_SRC"
   exit 1
 fi
 
-HELPER_DST="/usr/local/bin/ipr_write_dhcpcd.sh"
+HELPER_DST="/usr/local/bin/ipr_net_apply.sh"
 SUDOERS_DST="/etc/sudoers.d/${APP_USER}-ipr"
 
 # ---------------------------------------------------------------------------
@@ -82,7 +82,7 @@ trap 'rm -f "$SUDOERS_TMP"' EXIT
 
 cat > "$SUDOERS_TMP" <<SUDOERSEOF
 # Managed by install_network_helper.sh — do not edit by hand.
-${APP_USER} ALL=(root) NOPASSWD: ${HELPER_DST}, /usr/bin/systemctl restart dhcpcd
+${APP_USER} ALL=(root) NOPASSWD: ${HELPER_DST}
 SUDOERSEOF
 
 if visudo -cf "$SUDOERS_TMP"; then
@@ -98,8 +98,10 @@ fi
 # ---------------------------------------------------------------------------
 
 log "Smoke-testing sudo grant..."
-if su -s /bin/sh "$APP_USER" -c "echo test | sudo $HELPER_DST" > /dev/null 2>&1; then
-  log "OK — $APP_USER can write /etc/dhcpcd.conf via the helper."
+# Retire the dhcpcd-era helper if a previous install left it behind.
+rm -f /usr/local/bin/ipr_write_dhcpcd.sh
+if su -s /bin/sh "$APP_USER" -c "sudo -n $HELPER_DST show" > /dev/null 2>&1; then
+  log "OK — $APP_USER can apply network settings via the helper."
 else
   warn "Smoke test failed. Check that $APP_USER exists and the sudoers entry is correct."
 fi

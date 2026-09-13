@@ -45,7 +45,7 @@ def temp_config(tmp_path, monkeypatch):
         "DeleteFiles": True,
         "Logging": True,
         "MaxFileSize": 1048576,
-        "LogPort": 8080
+        "LogPort": 443
     })
     
     # Patch config_path to return our temp config
