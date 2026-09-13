@@ -205,6 +205,8 @@ check C.3 "bt_hid_agent_unified.service unit"   \
           "[ -f /etc/systemd/system/bt_hid_agent_unified.service ]"
 check C.4 "bt_hid_ble.service unit"             \
           "[ -f /etc/systemd/system/bt_hid_ble.service ]"
+check C.4b "FIFO /run/ipr_bt_keyboard_fifo writable by $_INVOKING_USER" \
+          "[ -p /run/ipr_bt_keyboard_fifo ] && runuser -u '$_INVOKING_USER' -- test -w /run/ipr_bt_keyboard_fifo"
 check C.5 "/opt/ipr_common.env present"         \
           "[ -f /opt/ipr_common.env ]"
 check C.6 "bluetooth override.conf present"     \

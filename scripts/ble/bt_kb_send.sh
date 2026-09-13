@@ -90,18 +90,12 @@ if (( DEBUG == 1 )); then
   echo "[DEBUG] Sending text to FIFO: '$TEXT'" >&2
 fi
 if [[ ! -w "$FIFO" ]]; then
-  echo "[WARN] FIFO $FIFO is not writable. Attempting to fix permissions..." >&2
-  if command -v sudo >/dev/null 2>&1; then
-    sudo chmod 666 "$FIFO" || {
-      echo "[ERROR] Failed to chmod 666 $FIFO. Permission denied." >&2
-      exit 1
-    }
-  else
-    chmod 666 "$FIFO" || {
-      echo "[ERROR] Failed to chmod 666 $FIFO. Permission denied." >&2
-      exit 1
-    }
-  fi
+  # No sudo escalation here: it only ever worked where sudo was passwordless
+  # (dev Pi) and hid the real problem.  The daemon owns the FIFO to APP_USER.
+  echo "[ERROR] FIFO $FIFO is not writable by $(id -un)." >&2
+  echo "        bt_hid_ble.service owns it to APP_USER from /opt/ipr_common.env." >&2
+  echo "        Fix: check APP_USER, then: sudo systemctl restart bt_hid_ble.service" >&2
+  exit 1
 fi
 
 rc=0

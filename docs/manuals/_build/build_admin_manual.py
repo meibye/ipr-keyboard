@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.9.2"
+VERSION = "1.9.3"
 DATE = "13. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -1632,6 +1632,11 @@ def build() -> None:
             ["/health", "HTTP 200", "Kontrollér portbinding og TLS-certifikater."],
             ["Læser på FIFO'en", "sudo fuser -v /run/ipr_bt_keyboard_fifo giver output",
              "Ingen læser: genstart bt_hid_ble.service."],
+            ["FIFO'ens ejer", "ls -l /run/ipr_bt_keyboard_fifo viser applikationsbrugeren "
+                              "(ikke root)",
+             "Root-ejet: APP_USER mangler i /opt/ipr_common.env, eller en gammel dæmon — "
+             "kør svc_install_bt_gatt_hid.sh og genstart bt_hid_ble.service. "
+             "test_provision.sh C.4b kontrollerer det."],
             ["Monteringspunkt for skanneren", "mountpoint /mnt/irispen er sandt, "
              "irispen-mount.service active, når skanneren sidder i",
              "journalctl -u irispen-mount.service; tag USB-stikket ud og i."],
@@ -1811,6 +1816,13 @@ def build() -> None:
     )
 
     m.h2("10.2 Den vigtigste kendte fejl: blokeret FIFO")
+    m.note("Beslægtet, set på en produktionsenhed: “BT helper failed: FIFO … is not writable”. "
+           "Dæmonen oprettede FIFO'en som root med tilstand 0600, så applikationsbrugeren "
+           "kunne aldrig skrive til den; bt_kb_send forsøgte “sudo chmod 666”, hvilket kun "
+           "virker på udviklingsenheden med adgangskodefri sudo. Dæmonen ejer nu FIFO'en til "
+           "APP_USER, bt_kb_send eskalerer ikke længere, og en skanning, hvis afsendelse "
+           "fejler, slettes ikke fra pennen. Hændelsessiden viser hjælperens egen fejltekst "
+           "i stedet for hele den tekst, der skulle sendes.", "warn")
     m.p("Symptom: bt_kb_send, test_smoke.sh eller en overførsel stopper efter linjen "
         "“Sending text via BLE HID keyboard” og vender aldrig tilbage.", bold=True)
     m.p("Årsag: tekst blev skrevet til FIFO'en, mens ingen BLE-vært havde slået "

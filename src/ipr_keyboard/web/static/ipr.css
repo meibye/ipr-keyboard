@@ -271,8 +271,11 @@
     display: none;
     background: #1e272e; color: #dfe6e9;
     border-radius: 8px; padding: 12px;
-    font-size: 11px; font-family: monospace;
-    max-height: 300px; overflow-y: auto;
+    font-size: 12px; font-family: monospace;
+    /* Tall enough to read a stack of log lines; the corner handle lets the
+       user pull it further (resize needs overflow: auto). */
+    height: 60vh; min-height: 300px; max-height: 90vh;
+    overflow: auto; resize: vertical;
     white-space: pre-wrap; word-break: break-all;
   }
 

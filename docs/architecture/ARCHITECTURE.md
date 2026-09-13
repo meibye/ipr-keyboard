@@ -84,6 +84,7 @@ Defined by `AppConfig` in `src/ipr_keyboard/config/manager.py`:
 - `/opt/ipr_common.env` for service/env behavior
 - `/etc/default/bt_hid_agent_unified` managed by `scripts/lib/bt_agent_unified_env.sh`
 - `/etc/ipr-hotspot.secret` (mode 0640, root:ipr-ssl) — hotspot SSID and random password, written by `ipr-provision.sh` on first run; optional GPIO gate via `/etc/default/ipr-provision`
+- `/run/ipr_bt_keyboard_fifo` — created by `bt_hid_ble_daemon.py` (root), owned to `APP_USER` from `/opt/ipr_common.env`, mode 0600: the app writes, the daemon reads. A root-owned FIFO means `APP_USER` is missing from the env file.
 - `/etc/sudoers.d/<user>-ipr-gpio` — NOPASSWD grant for `/usr/local/bin/ipr_hotspot_ctl.sh` (hotspot start/stop, WiFi reset) and reboot/shutdown, installed by `scripts/headless/install_gpio_support.sh`
 - `/boot/firmware/config.txt` managed block `gpio=22,23,24=op,dh` — status LED solid white from power-on; `/etc/default/ipr-led` — pin numbers for the boot blink
 - `/etc/systemd/journald.conf.d/ipr.conf` — persistent journal, 64 MB / 1 month; `/var/lib/ipr-keyboard/incidents.log` — one line per failed core unit

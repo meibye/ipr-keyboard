@@ -1174,16 +1174,34 @@ def set_adapter_ready(bus: dbus.SystemBus, adapter_path: str) -> None:
 
 
 def ensure_fifo_exists() -> None:
+    """Create the FIFO and hand it to the application user.
+
+    This daemon runs as root and only READS the FIFO; the writer is
+    ipr_keyboard.service (via bt_kb_send) running as APP_USER from
+    /opt/ipr_common.env.  A root-owned 0600 FIFO therefore made every send
+    fail on a production device — bt_kb_send's "sudo chmod 666" fallback
+    only worked where sudo was passwordless.  Owner = APP_USER, mode 0600:
+    still nobody else can write to it, and root reads it regardless.
+    """
     if BLE_DEBUG:
         journal.send(f"[DEBUG] ensure_fifo_exists() path={FIFO_PATH}")
     if not os.path.exists(FIFO_PATH):
         os.mkfifo(FIFO_PATH)
         if BLE_DEBUG:
             journal.send(f"[DEBUG] FIFO created: {FIFO_PATH}")
-    # Secure permissions: owner read/write only
+    owner = os.environ.get("APP_USER", "").strip().strip('"')
+    if owner:
+        try:
+            import pwd
+            pw = pwd.getpwnam(owner)
+            os.chown(FIFO_PATH, pw.pw_uid, pw.pw_gid)
+        except (KeyError, OSError) as exc:
+            log_info(f"[ble] Could not chown FIFO to {owner}: {exc} — sends from the app will fail")
+    else:
+        log_info("[ble] APP_USER not set in /opt/ipr_common.env — FIFO stays root-owned, app cannot send")
     os.chmod(FIFO_PATH, 0o600)
     if BLE_DEBUG:
-        journal.send(f"[DEBUG] FIFO permissions set: {FIFO_PATH} (0600)")
+        journal.send(f"[DEBUG] FIFO permissions set: {FIFO_PATH} (owner {owner or 'root'}, 0600)")
 
 
 def send_next_character(

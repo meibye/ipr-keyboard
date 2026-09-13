@@ -201,12 +201,20 @@ def run_usb_bt_loop():
             len(text) if text else 0,
         )
 
-        if cfg.DeleteFiles:
+        sent = send_done_at is not None
+        if cfg.DeleteFiles and (sent or text is None):
+            # Delete after a successful send (or an unreadable/oversized file
+            # that will never send).  A scan whose send FAILED stays on the pen:
+            # deleting it would lose the text; it is not retried automatically
+            # (the folder watcher tracks the newest mtime), but it is still
+            # there for the user to see and re-scan or copy.
             ok = deleter.delete_file(found_file)
             if ok:
                 logger.info("Deleted file after processing: %s", found_file)
             else:
                 logger.error("Failed to delete file: %s", found_file)
+        elif cfg.DeleteFiles and not sent:
+            logger.warning("Send failed — keeping %s on the pen", found_file)
 
 
 _READY_WAIT_SECS = 180

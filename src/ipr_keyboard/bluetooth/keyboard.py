@@ -73,6 +73,8 @@ class BluetoothKeyboard:
                 [self.helper_path, text],
                 check=True,
                 timeout=self.timeout,
+                capture_output=True,
+                text=True,
             )
             transmission.set_success()
             return True
@@ -89,6 +91,9 @@ class BluetoothKeyboard:
             transmission.set_failed("BT send timed out")
             return False
         except subprocess.CalledProcessError as exc:
-            logger.error("BT helper exited with error: %s", exc)
-            transmission.set_failed(f"Send error: {exc.returncode}")
+            # Log the helper's own words, not the whole text we tried to send.
+            stderr = (exc.stderr or "").strip() if isinstance(exc.stderr, str) else ""
+            tail = stderr.splitlines()[-1] if stderr else f"exit {exc.returncode}"
+            logger.error("BT helper failed: %s", tail)
+            transmission.set_failed(f"Send failed: {tail}")
             return False

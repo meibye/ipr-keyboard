@@ -264,3 +264,35 @@ def test_loop_applies_toggle_from_config_each_iteration(temp_config, usb_folder,
     metrics.set_enabled(False)
     _run_loop_once_with_file(usb_folder, monkeypatch, metrics_enabled=True)
     assert metrics.is_enabled() is True
+
+
+def test_usb_bt_loop_keeps_file_when_send_fails(temp_config, usb_folder, monkeypatch):
+    """A scan whose Bluetooth send FAILED must not be deleted (it would be lost).
+
+    Seen on a production device: the FIFO was not writable, bt_kb_send exited
+    1, and the file was deleted anyway.
+    """
+    from ipr_keyboard.config.manager import ConfigManager
+    from ipr_keyboard.main import run_usb_bt_loop
+
+    ConfigManager.instance().update(IrisPenFolders=[str(usb_folder)], DeleteFiles=True)
+    test_file = usb_folder / "scan.txt"
+    test_file.write_text("keep me")
+
+    class FailingBT:
+        def is_available(self):
+            return True
+
+        def send_text(self, text):
+            return False
+
+    monkeypatch.setattr("ipr_keyboard.main.BluetoothKeyboard", FailingBT)
+    monkeypatch.setattr("ipr_keyboard.main.time.sleep",
+                        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
+    try:
+        run_usb_bt_loop()
+    except KeyboardInterrupt:
+        pass
+
+    assert test_file.exists()
+    assert test_file.read_text() == "keep me"
