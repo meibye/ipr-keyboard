@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# NetworkManager dispatcher hook: re-apply the IPR firewall whenever a
+# connection goes up or down.  This is what opens the setup-portal port on
+# the hotspot the moment it starts and closes it again when it stops, and
+# what keeps the rules correct after a home-network reconnect.
+#
+# Installed to /etc/NetworkManager/dispatcher.d/90-ipr-firewall by
+# scripts/headless/install_firewall.sh.
+case "${2:-}" in
+  up|down|pre-down|vpn-up|vpn-down|connectivity-change)
+    /usr/local/sbin/ipr-firewall.sh apply >/dev/null 2>&1 || true
+    ;;
+esac
+exit 0

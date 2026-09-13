@@ -1,0 +1,18 @@
+[Unit]
+Description=IPR Keyboard network exposure (nftables, production/development mode)
+Documentation=file:///home/meibye/dev/ipr-keyboard/docs/operations/network-modes.md
+# Load the DROP policy before any interface comes up, so there is no window
+# at boot where ssh or the dashboard are reachable in production mode.
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target NetworkManager.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/ipr-firewall.sh apply
+ExecReload=/usr/local/sbin/ipr-firewall.sh apply
+
+[Install]
+WantedBy=sysinit.target
