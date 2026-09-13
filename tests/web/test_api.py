@@ -520,3 +520,37 @@ def test_debug_requires_auth(temp_config):
     with app.test_client() as client:
         res = client.get("/api/debug/services")
     assert res.status_code == 401
+
+
+def test_api_device_returns_mode_hotspot_and_incidents(flask_client, temp_config, monkeypatch):
+    """GET /api/device: the home-page Device card fields, no host tools needed."""
+    _mock_subprocess_idle(monkeypatch)
+    from ipr_keyboard.web import api as api_mod
+
+    monkeypatch.setattr(api_mod, "_device_mode", lambda: "development")
+    monkeypatch.setattr(api_mod, "_hotspot_active", lambda: False)
+    monkeypatch.setattr(api_mod, "_home_wifi_active", lambda: True)
+    monkeypatch.setattr(api_mod, "_hotspot_ssid", lambda: "ipr-setup-abcd")
+    monkeypatch.setattr(api_mod, "_incidents", lambda: (2, "2026-09-12T13:06:49  bt_hid_ble.service failed"))
+    monkeypatch.setattr(api_mod, "_get_current_ip", lambda: "192.168.1.97")
+
+    res = flask_client.get("/api/device")
+
+    assert res.status_code == 200
+    d = res.get_json()
+    assert d["mode"] == "development"
+    assert d["hotspot_active"] is False
+    assert d["hotspot_ssid"] == "ipr-setup-abcd"
+    assert d["home_network"] is True
+    assert d["incidents_count"] == 2
+    assert "SSH and dashboard open" in d["reachability"]
+
+
+def test_api_action_hotspot_requires_confirm_to_start(flask_client, temp_config, monkeypatch):
+    _mock_subprocess_idle(monkeypatch)
+    from ipr_keyboard.web import api as api_mod
+
+    monkeypatch.setattr(api_mod, "_require_admin", lambda: None)
+    res = flask_client.post("/api/actions/hotspot", json={"enabled": True})
+    assert res.status_code == 400
+    assert res.get_json()["error"]["code"] == "confirmation_required"

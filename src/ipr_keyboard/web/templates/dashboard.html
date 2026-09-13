@@ -90,6 +90,34 @@
       <a href="#settings" data-screen="settings">⚙️ Settings</a>
     </div>
 
+    <!-- Device: mode, hotspot, reachability, incidents -->
+    <div class="card" style="margin-top:4px" id="home-device">
+      <div class="home-health-title">Device</div>
+      <div class="health-metrics">
+        <div class="health-metric">
+          <div class="hm-label">Mode</div>
+          <div class="hm-value" id="dv-mode">—</div>
+        </div>
+        <div class="health-metric">
+          <div class="hm-label">Hotspot</div>
+          <div class="hm-value" id="dv-hotspot">—</div>
+        </div>
+        <div class="health-metric">
+          <div class="hm-label">Network</div>
+          <div class="hm-value" id="dv-network" style="font-size:13px">—</div>
+        </div>
+        <div class="health-metric">
+          <div class="hm-label">Incidents</div>
+          <div class="hm-value" id="dv-incidents">—</div>
+        </div>
+      </div>
+      <div class="card-explanation" id="dv-reach" style="margin-top:6px"></div>
+      <div class="action-row" id="dv-actions" style="margin-top:10px" hidden>
+        <button class="btn btn-secondary btn-sm" id="dv-hotspot-on" onclick="hotspotAction(true)">📶 Start hotspot</button>
+        <button class="btn btn-secondary btn-sm" id="dv-hotspot-off" onclick="hotspotAction(false)">⏹ Stop hotspot</button>
+      </div>
+    </div>
+
     <!-- Device health -->
     <div class="card" style="margin-top:4px">
       <div class="home-health-title">Device Health</div>
@@ -142,6 +170,14 @@
           </div>
         </div>
         <div class="card-explanation" id="pm-note" style="margin-top:6px"></div>
+        <div class="card-explanation" style="margin-top:6px">
+          <b>Boot to app</b>: from power-on until the dashboard answered, measured on the
+          first start after a boot only. <b>Pen → BT</b>: for one whole scan (one file),
+          from the moment the device noticed it until the last character was handed to
+          Bluetooth — the median and the slowest 5 % of recent scans. <b>Send per char</b>:
+          the Bluetooth hand-off time divided by the number of characters in the scan.
+          The PC adds its own delay on top of all of these.
+        </div>
       </div>
     </div>
   </section>
@@ -708,7 +744,46 @@ refreshStatus();
 setInterval(refreshStatus, 10000);
 
 // ---- Home health ----
+async function loadHomeDevice() {
+  try {
+    const d = await apiFetch('/api/device');
+    const modeEl = document.getElementById('dv-mode');
+    modeEl.textContent = d.mode === 'development' ? 'Development' : 'Production';
+    modeEl.className = 'hm-value ' + (d.mode === 'development' ? 'state-warning' : 'state-ready');
+    const hsEl = document.getElementById('dv-hotspot');
+    hsEl.textContent = d.hotspot_active ? 'On' + (d.hotspot_ssid ? ' · ' + d.hotspot_ssid : '') : 'Off';
+    hsEl.className = 'hm-value ' + (d.hotspot_active ? 'state-warning' : 'state-muted');
+    const netEl = document.getElementById('dv-network');
+    netEl.textContent = (d.home_network ? 'Home network' : (d.hotspot_active ? 'Hotspot only' : 'Not connected')) + (d.ip ? ' · ' + d.ip : '');
+    const incEl = document.getElementById('dv-incidents');
+    incEl.textContent = d.incidents_count ? String(d.incidents_count) : 'None';
+    incEl.className = 'hm-value ' + (d.incidents_count ? 'state-error' : 'state-ready');
+    incEl.title = d.last_incident || '';
+    document.getElementById('dv-reach').textContent = d.reachability || '';
+    const acts = document.getElementById('dv-actions');
+    acts.hidden = !_currentIsAdmin;
+    document.getElementById('dv-hotspot-on').hidden = !!d.hotspot_active;
+    document.getElementById('dv-hotspot-off').hidden = !d.hotspot_active;
+  } catch (_) {}
+}
+
+async function hotspotAction(enable) {
+  if (enable && !confirm('Start the management hotspot?\n\nWhile it is on, the device leaves the home network: this page will stop responding here. Reconnect to the hotspot (ipr-setup-…) and open https://10.42.0.1/login.\n\nStop it again with the magnet (3 s) or from that page.')) return;
+  if (!enable && !confirm('Stop the hotspot? If you are connected through it, this page will stop responding; the device returns to the home network.')) return;
+  try {
+    const res = await apiFetch('/api/actions/hotspot', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled: enable, confirm: true}),
+    });
+    showToast(res.message || 'Done.');
+    setTimeout(loadHomeDevice, 4000);
+  } catch (e) {
+    showToast('Hotspot action failed: ' + e.message);
+  }
+}
+
 async function loadHomeHealth() {
+  loadHomeDevice();
   try {
     const data = await apiFetch('/api/status/health');
     const cpuEl  = document.getElementById('hm-cpu-val');

@@ -8,6 +8,9 @@ Hardware connections (BCM numbering, Flirc Pi Zero 2 W case):
   RGB LED blu  GPIO 24  Pin 18    22 Ω series resistor, common cathode to GND
 
 Reed switch interaction (the magnet is the only control on the device):
+  Press                  LED goes dark at once ("press registered"), so every
+                         arming colour below blinks against dark — visible even
+                         when the LED was solid blue (hotspot) or solid purple
   Tap  (release < 3 s)   Wake LED; show system status for GpioLedIdleSeconds
   Hold ≥ 3 s             LED blinks blue; release to toggle the management hotspot
   Hold ≥ 6 s             LED blinks cyan; release for a controlled shutdown
@@ -552,6 +555,11 @@ class LedLogic:
         if self.phase == Phase.SHUTTING_DOWN:
             return FRAME_SHUTDOWN
         if reed_closed and self.phase != Phase.BOOT:
+            if self._armed is None:
+                # Dark while held before the first threshold: the press is
+                # acknowledged and the 3 s blue blink is unmistakable even
+                # when the LED was solid blue (hotspot on) a moment ago.
+                return FRAME_OFF
             if self._armed == "cancel":
                 return FRAME_OFF
             if self._armed == "reset":

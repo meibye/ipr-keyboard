@@ -6,7 +6,7 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "1.5"
+VERSION = "1.6"
 DATE = "13. september 2026"
 
 
@@ -251,8 +251,9 @@ def build() -> None:
                                    "(du har holdt magneten i 3 sekunder).",
              "Vent nogle sekunder."],
             ["Blå, konstant", "Opsætningsnetværket er tændt. Lampen bliver ved med at lyse, "
-                              "så længe det er tændt.",
-             "Slå det fra igen med magneten (3 sekunder), når du er færdig."],
+                              "så længe det er tændt, og boksen er imens ikke på hjemmenettet.",
+             "Slå det fra igen med magneten (3 sekunder), når du er færdig. Lampen slukker, "
+             "mens du holder, og blinker blåt efter 3 sekunder."],
             ["Turkis, hurtigt blink", "Du har holdt magneten i 6 sekunder (sluk).",
              "Slip for at slukke boksen — eller hold fast, til lampen slukker (20 sekunder), "
              "for at fortryde."],
@@ -285,7 +286,8 @@ def build() -> None:
         ["Sådan gør du", "Resultat"],
         [
             ["Hold magneten tæt på og fjern den igen (under 3 sekunder)",
-             "Lampen viser status i 30 sekunder."],
+             "Lampen slukker, mens magneten holdes (så du ved, den er registreret), og "
+             "viser status i 30 sekunder, når du fjerner den."],
             ["Hold magneten på plads i 3 sekunder — lampen blinker blåt — og slip",
              "Opsætningsnetværket tændes: lampen blinker blåt, mens det starter, og lyser "
              "derefter konstant blåt. Var det allerede tændt, slukkes det, og lampen viser "
@@ -328,7 +330,9 @@ def build() -> None:
         ["Side", "Det finder du her"],
         [
             ["Forside", "Samlet status: er alt klar, eller er der noget, der kræver "
-                        "opmærksomhed."],
+                        "opmærksomhed. Boksen “Enhed” viser tilstand (drift/udvikling), om "
+                        "opsætningsnetværket er tændt, hvilket netværk boksen er på, og om "
+                        "der er registreret fejl."],
             ["Forbindelser", "Om PC'en er forbundet, og om skanneren er fundet."],
             ["Aktivitet", "Om der sendes tekst lige nu, og hvad der er sendt for nylig."],
             ["Hændelser", "En liste i almindeligt sprog over, hvad der er sket."],

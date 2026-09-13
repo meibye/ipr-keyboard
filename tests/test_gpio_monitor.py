@@ -210,14 +210,27 @@ def test_status_refreshes_while_shown():
     assert rig.frame == Frame(GREEN)
 
 
-def test_press_shows_status_colour_before_arming():
+def test_press_goes_dark_before_arming_then_status_on_release():
     rig = Rig()
     rig.ready()
     rig.advance(40)  # idle
     rig.press()
     rig.advance(1)
-    assert rig.frame == Frame(GREEN)
+    assert rig.frame == Frame(OFF), "press acknowledged by going dark"
     assert rig.logic.armed is None
+    rig.release()
+    assert rig.frame == Frame(GREEN)
+
+
+def test_press_while_hotspot_on_goes_dark_so_blue_blink_is_visible():
+    rig = Rig(FakeProbe(hotspot=True))
+    rig.ready()
+    assert rig.frame == Frame(BLUE)
+    rig.press()
+    rig.advance(1)
+    assert rig.frame == Frame(OFF)
+    rig.advance(2.5)
+    assert rig.frame == Frame(BLUE, FAST_HZ)
 
 
 def test_long_hold_does_not_time_out_status():

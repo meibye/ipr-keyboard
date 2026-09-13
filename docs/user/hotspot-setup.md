@@ -64,6 +64,11 @@ Reboot button on the System page — the hotspot does not restart automatically.
 
 ---
 
+**From the dashboard:** the home page's *Device* card shows the mode, whether
+the hotspot is on, the network the device is on, and any recorded incidents;
+administrators get *Start hotspot* / *Stop hotspot* buttons there.  Starting
+it from the home network disconnects that page — reconnect via the hotspot.
+
 ### Option 2 — Via the main dashboard (requires home network and development mode)
 
 The device normally runs in **production mode**, in which nothing is
@@ -95,7 +100,7 @@ for as long as the hotspot is on.
 
 | LED colour | Meaning |
 |------------|---------|
-| Off | Device running normally, no action needed |
+| Off | Device running normally, no action needed (also: dark while you hold the magnet, until a threshold is reached) |
 | White solid | Power is on, the device is starting (first seconds) |
 | White blinking | Device is starting up (about a minute) |
 | Green solid | WiFi connected and Bluetooth paired — all good |
@@ -103,7 +108,7 @@ for as long as the hotspot is on.
 | Red blinking slowly | No WiFi connection — setup needed |
 | Red solid | Something on the device is not running — power-cycle it; if it stays red, tell your administrator |
 | Blue blinking | Hotspot is being switched on or off (magnet held 3 s) |
-| Blue solid | Hotspot active — you can connect |
+| Blue solid | Hotspot active — you can connect. The device is **not** on the home network while this is on |
 | Cyan blinking | Magnet held 6 s — release for a controlled shutdown |
 | Cyan solid | Shutting down — wait until the LED is off, then unplug |
 | Purple blinking | Magnet held 10 s — release to switch production ↔ development mode |

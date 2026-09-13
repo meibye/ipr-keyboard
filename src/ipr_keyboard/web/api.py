@@ -383,6 +383,119 @@ def api_status_health():
 
 
 # ---------------------------------------------------------------------------
+# Device endpoint  (/api/device) — mode, hotspot, network, incidents
+# ---------------------------------------------------------------------------
+
+_MODE_FILE = Path("/var/lib/ipr-keyboard/mode")
+_INCIDENTS_FILE = Path("/var/lib/ipr-keyboard/incidents.log")
+_HOTSPOT_SECRET = Path("/etc/ipr-hotspot.secret")
+_HOTSPOT_CTL = "/usr/local/bin/ipr_hotspot_ctl.sh"
+
+
+def _device_mode() -> str:
+    try:
+        return "development" if _MODE_FILE.read_text().strip() == "development" else "production"
+    except OSError:
+        return "production"
+
+
+def _hotspot_active() -> bool:
+    out = _run(["nmcli", "-t", "-f", "NAME", "con", "show", "--active"])
+    return "ipr-hotspot" in out.splitlines()
+
+
+def _home_wifi_active() -> bool:
+    out = _run(["nmcli", "-t", "-f", "NAME,TYPE", "con", "show", "--active"])
+    for line in out.splitlines():
+        name, _, ctype = line.partition(":")
+        if name != "ipr-hotspot" and ("wireless" in ctype or "ethernet" in ctype):
+            return True
+    return False
+
+
+def _hotspot_ssid() -> str:
+    try:
+        for line in _HOTSPOT_SECRET.read_text().splitlines():
+            if line.startswith("SSID="):
+                return line[5:].strip()
+    except OSError:
+        pass
+    return ""
+
+
+def _incidents() -> tuple[int, str]:
+    try:
+        lines = [ln for ln in _INCIDENTS_FILE.read_text().splitlines() if ln.strip()]
+        return len(lines), (lines[-1] if lines else "")
+    except OSError:
+        return 0, ""
+
+
+def _build_device_data() -> dict[str, Any]:
+    mode = _device_mode()
+    hotspot = _hotspot_active()
+    home = _home_wifi_active()
+    count, last = _incidents()
+    if hotspot:
+        reach = "Reachable only via the hotspot (10.42.0.1) while it is on"
+    elif mode == "development":
+        reach = "SSH and dashboard open on the home network"
+    else:
+        reach = "No ports open on the home network; use the hotspot for maintenance"
+    return {
+        "mode": mode,
+        "hotspot_active": hotspot,
+        "hotspot_ssid": _hotspot_ssid(),
+        "home_network": home,
+        "ip": _get_current_ip(),
+        "hostname": _run(["hostname"]).strip(),
+        "reachability": reach,
+        "incidents_count": count,
+        "last_incident": last,
+    }
+
+
+@bp_api.get("/device")
+def api_device():
+    try:
+        data = _build_device_data()
+        data["timestamp"] = _now()
+        return jsonify(data)
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+@bp_api.post("/actions/hotspot")
+def api_action_hotspot():
+    """Start or stop the management hotspot (admin).  Same helper the magnet uses."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    data = request.get_json(force=True) or {}
+    enabled = bool(data.get("enabled", True))
+    if enabled and not data.get("confirm"):
+        return jsonify({"error": {"code": "confirmation_required",
+                                  "message": "Set confirm=true: while the hotspot is on, the device leaves the home network."}}), 400
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", _HOTSPOT_CTL, "start" if enabled else "stop"],
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode == 0:
+            msg = ("Hotspot started. Connect to it and open https://10.42.0.1/login."
+                   if enabled else "Hotspot stopped. The device rejoins the home network in a few seconds.")
+            return jsonify({"ok": True, "message": msg})
+        err = (result.stderr or result.stdout or "").strip()
+        return jsonify({"ok": False, "message": err or f"ipr_hotspot_ctl.sh exit {result.returncode}"}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "message": "Timed out waiting for the hotspot."}), 500
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# ---------------------------------------------------------------------------
 # Event endpoints
 # ---------------------------------------------------------------------------
 

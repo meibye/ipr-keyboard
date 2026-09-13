@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.9.0"
+VERSION = "1.9.1"
 DATE = "13. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -1075,6 +1075,13 @@ def build() -> None:
            "test_provision.sh advarer, hvis porten ikke er 443.", "info")
 
     m.h2("4.2 Konfiguration via dashboardet")
+    m.p("Forsidens boks “Device” viser tilstand (drift/udvikling), om hotspottet er tændt "
+        "(med SSID), hvilket netværk enheden er på med IP-adresse, antal registrerede "
+        "hændelser (afsnit 9.5) og en sætning om, hvor enheden kan nås. Administratorer får "
+        "knapperne Start hotspot / Stop hotspot; start kræver bekræftelse, fordi enheden "
+        "forlader hjemmenettet, mens hotspottet er tændt — siden holder op med at svare "
+        "dér og nås igen på https://10.42.0.1/login. Knapperne bruger samme hjælper som "
+        "magneten (ipr_hotspot_ctl.sh); API: GET /api/device, POST /api/actions/hotspot.")
     m.p("Skærmen Indstillinger dækker de felter, der normalt skal ændres i drift:")
     m.bullets([
         ("Netværk — ", "webport, DHCP eller statisk adressering med IP, netmaske og gateway. "
@@ -1192,7 +1199,7 @@ def build() -> None:
     m.table(
         ["Hold", "Lampen mens du holder", "Ved slip"],
         [
-            ["under 3 s", "statusfarve", "status i 30 s"],
+            ["under 3 s", "slukket (magneten er registreret)", "status i 30 s"],
             ["3 s", "blå blink", "hotspot tændes/slukkes"],
             ["6 s", "turkis blink", "kontrolleret nedlukning; turkis → slukket = sikkert at afbryde"],
             ["10 s", "lilla blink", "drift ↔ udvikling (afsnit 5.5)"],
@@ -1200,8 +1207,10 @@ def build() -> None:
             ["20 s", "slukket", "fortryd — der sker ingenting"],
         ],
         widths=[2.2, 4.4, 9.0],
-        caption="Hele magnet-stigen. Lampen skifter ved hver tærskel, og handlingen "
-                "udføres først ved slip.",
+        caption="Hele magnet-stigen. Lampen slukker, så snart magneten registreres, og "
+                "skifter ved hver tærskel — blinkene ses derfor altid mod en mørk lampe, "
+                "også når den lyste konstant blåt (hotspot) inden. Handlingen udføres først "
+                "ved slip.",
     )
 
     # ---------------------------------------------------------------- 5
@@ -1687,8 +1696,10 @@ def build() -> None:
         ],
         widths=[3.8, 6.2, 5.6],
         caption="Ydelsestal, der registreres når MetricsEnabled er slået til. Alle ses "
-                "under /api/metrics; opstartstid og pen → BLE vises også på dashboardets "
-                "forside.",
+                "under /api/metrics; opstartstid, pen → BLE (median og langsomste 5 %) og "
+                "overdragelse pr. tegn vises også på dashboardets forside med en kort "
+                "forklaring under tallene. Pen → BLE gælder én hel skanning (én fil); "
+                "pr. tegn er overdragelsestiden divideret med antal tegn i skanningen.",
     )
 
     m.p("På dashboardet", bold=True)

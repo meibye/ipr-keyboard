@@ -648,3 +648,30 @@ The backend may internally gather state from:
 - application logs
 
 However, those internal details should remain behind this UI-oriented contract.
+
+
+## `GET /api/device`
+
+Device-level facts for the home page's *Device* card (session required):
+
+```json
+{
+  "mode": "production" | "development",
+  "hotspot_active": false,
+  "hotspot_ssid": "ipr-setup-d970",
+  "home_network": true,
+  "ip": "192.168.1.97",
+  "hostname": "ipr-prod-zero2",
+  "reachability": "SSH and dashboard open on the home network",
+  "incidents_count": 0,
+  "last_incident": "",
+  "timestamp": "2026-09-13T12:00:00Z"
+}
+```
+
+## `POST /api/actions/hotspot`  (admin)
+
+Body `{"enabled": true|false, "confirm": true}`.  Starting requires
+`confirm` because the device leaves the home network while the hotspot is
+on.  Runs `/usr/local/bin/ipr_hotspot_ctl.sh start|stop` — the same helper
+the magnet uses.  Returns `{"ok": true, "message": "..."}`.
