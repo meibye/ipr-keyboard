@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.9.3"
+VERSION = "1.9.4"
 DATE = "13. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -1844,6 +1844,14 @@ def build() -> None:
         "afgrænset af BLE_QUEUE_DRAIN_WAIT_SECS, køen af BLE_QUEUE_MAX_CHARS, "
         "bt_kb_send af BT_KB_WRITE_TIMEOUT_SECS, og send_text() afgrænser hjælperen ved "
         "30 sekunder og rapporterer “BT send timed out” i stedet for at blokere sin tråd.")
+
+    m.note("Dashboardets knap “Reconnect Bluetooth” og Debug-sidens start/stop/genstart af "
+           "tjenester går gennem ipr_hotspot_ctl.sh service … (sudoers). Tidligere kaldte de "
+           "systemctl direkte og fejlede med “Interactive authentication required” — det var "
+           "linjen “Failed to restart bt_hid_ble.service” i journalen. Bemærk: en genstart af "
+           "bt_hid_ble.service afbryder den aktive BLE-forbindelse; Windows genforbinder, når "
+           "enheden annoncerer igen, men kan kræve et tryk på Tilslut eller Bluetooth "
+           "fra/til på PC'en.", "info")
 
     m.h2("10.3 Eskalationsstige for Bluetooth")
     m.code(

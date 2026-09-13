@@ -268,20 +268,31 @@ def test_api_pairing_action(flask_client, temp_config, monkeypatch):
 
 
 def test_api_reconnect_bluetooth(flask_client, temp_config, monkeypatch):
-    """POST /api/actions/reconnect-bluetooth returns ok."""
-    popen_calls = []
+    """POST /api/actions/reconnect-bluetooth restarts the daemon via the root helper."""
+    from ipr_keyboard.web import api as api_mod
 
-    class FakePopen:
-        def __init__(self, cmd, **kwargs):
-            popen_calls.append(cmd)
+    calls = []
 
-    monkeypatch.setattr(subprocess, "Popen", FakePopen)
+    def fake_helper(action, unit):
+        calls.append((action, unit))
+        return True, ""
+
+    monkeypatch.setattr(api_mod, "_helper_service", fake_helper)
 
     res = flask_client.post("/api/actions/reconnect-bluetooth", json={})
 
     assert res.status_code == 200
-    data = res.get_json()
-    assert data["ok"] is True
+    assert res.get_json()["ok"] is True
+    assert calls == [("restart", "bt_hid_ble")]
+
+
+def test_api_reconnect_bluetooth_reports_helper_failure(flask_client, temp_config, monkeypatch):
+    from ipr_keyboard.web import api as api_mod
+
+    monkeypatch.setattr(api_mod, "_helper_service", lambda a, u: (False, "sudo: a password is required"))
+    res = flask_client.post("/api/actions/reconnect-bluetooth", json={})
+    assert res.status_code == 500
+    assert "password" in res.get_json()["message"]
 
 
 def test_api_rescan_pen(flask_client, temp_config):

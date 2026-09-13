@@ -874,11 +874,36 @@ def api_action_rescan_pen():
 
 @bp_api.post("/actions/reconnect-bluetooth")
 def api_action_reconnect_bluetooth():
+    """Restart the BLE HID daemon through the root helper.
+
+    A bare `systemctl restart` from the service gets "Interactive
+    authentication required" from polkit (no session) — that was the
+    "Failed to restart bt_hid_ble.service" line in the journal.  Note the
+    restart drops the current link; the PC reconnects when it sees the new
+    advertisement, which on Windows can need a nudge (Connect / BT off-on).
+    """
     try:
-        subprocess.Popen(["systemctl", "restart", "bt_hid_ble.service"])
-        return jsonify({"ok": True, "message": "Bluetooth reconnect started."})
+        ok, msg = _helper_service("restart", "bt_hid_ble")
+        if ok:
+            return jsonify({"ok": True, "message": "Bluetooth daemon restarted. The PC reconnects when it sees the device again — on Windows press Connect if it does not."})
+        return jsonify({"ok": False, "message": msg}), 500
     except Exception:
         logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+def _helper_service(action: str, unit: str) -> tuple[bool, str]:
+    """systemctl <action> <unit> via ipr_hotspot_ctl.sh (sudoers); (ok, message)."""
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", _HOTSPOT_CTL, "service", action, unit],
+            capture_output=True, text=True, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"Timed out waiting for systemctl {action} {unit}."
+    if result.returncode == 0:
+        return True, ""
+    err = (result.stderr or result.stdout or "").strip().splitlines()
+    return False, (err[-1] if err else f"systemctl {action} {unit} failed (exit {result.returncode}).")
 
 
 @bp_api.post("/actions/apply-network")
@@ -1041,6 +1066,8 @@ _SERVICES = [
 
 _SERVICE_NAMES = {s["name"] for s in _SERVICES}
 _ALLOWED_ACTIONS = {"start", "stop", "restart"}
+# Units the root helper agrees to control; dbus and udevd are inspect-only.
+_HELPER_CONTROLLABLE = {"bluetooth", "bt_hid_agent_unified", "bt_hid_ble"}
 
 _BT_SEND_HELPER = "/usr/local/bin/bt_kb_send"
 _BT_SEND_FILE_HELPER = "/usr/local/bin/bt_kb_send_file"
@@ -1083,19 +1110,13 @@ def api_debug_service_action(name: str, action: str):
         return jsonify({"error": {"code": "bad_request", "message": f"Unknown service: {name}"}}), 400
     if action not in _ALLOWED_ACTIONS:
         return jsonify({"error": {"code": "bad_request", "message": f"Unknown action: {action}. Allowed: {sorted(_ALLOWED_ACTIONS)}"}}), 400
+    if name not in _HELPER_CONTROLLABLE:
+        return jsonify({"ok": False, "message": f"{name} can only be inspected here, not controlled (system service)."}), 400
     try:
-        result = subprocess.run(
-            ["sudo", "systemctl", action, name],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        if result.returncode == 0:
+        ok, msg = _helper_service(action, name)
+        if ok:
             return jsonify({"ok": True, "message": f"Service {name} {action} succeeded."})
-        stderr = (result.stderr or "").strip()
-        return jsonify({"ok": False, "message": stderr or f"Service {name} {action} failed (exit {result.returncode})."})
-    except subprocess.TimeoutExpired:
-        return jsonify({"ok": False, "message": f"Timed out waiting for systemctl {action} {name}."}), 500
+        return jsonify({"ok": False, "message": msg})
     except Exception as exc:
         logger.exception("Service action error")
         return jsonify({"ok": False, "message": str(exc)}), 500

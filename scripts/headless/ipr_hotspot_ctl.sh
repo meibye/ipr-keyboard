@@ -15,6 +15,11 @@
 #   ipr_hotspot_ctl.sh status         # exit 0 if the hotspot is up, 1 if not
 #   ipr_hotspot_ctl.sh factory-reset  # delete WiFi profiles (not the hotspot) and reboot
 #   ipr_hotspot_ctl.sh poweroff       # controlled shutdown (magnet held 6 s)
+#   ipr_hotspot_ctl.sh service <start|stop|restart> <unit>
+#                                     # unit in: bluetooth bt_hid_agent_unified bt_hid_ble
+#                                     # (dashboard "Reconnect Bluetooth" and the Debug
+#                                     # page; the app has no polkit session, so a bare
+#                                     # systemctl gets "Interactive authentication required")
 #
 # "start" works at any time, not only at boot: it writes the request file
 # that /usr/local/sbin/ipr-provision.sh treats as a trigger, then restarts
@@ -103,8 +108,19 @@ case "${1:-}" in
     sync
     systemctl poweroff
     ;;
+  service)
+    action="${2:-}"; unit="${3:-}"
+    case "${action}" in start|stop|restart) ;; *) echo "bad action: ${action}" >&2; exit 2 ;; esac
+    unit="${unit%.service}"
+    case "${unit}" in
+      bluetooth|bt_hid_agent_unified|bt_hid_ble) ;;
+      *) echo "unit not allowed: ${unit}" >&2; exit 2 ;;
+    esac
+    log "systemctl ${action} ${unit}.service"
+    systemctl "${action}" "${unit}.service"
+    ;;
   *)
-    echo "usage: $0 {start|stop|status|factory-reset|poweroff}" >&2
+    echo "usage: $0 {start|stop|status|factory-reset|poweroff|service <start|stop|restart> <unit>}" >&2
     exit 2
     ;;
 esac
