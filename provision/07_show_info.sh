@@ -76,12 +76,21 @@ if [[ -f "$CONFIG_JSON" ]] && command -v python3 &>/dev/null; then
     2>/dev/null || echo 8080)
 fi
 
+# The dashboard serves HTTPS; drop the port suffix on the standard 443.
+_PORT_SUFFIX=":${DASHBOARD_PORT}"
+[[ "$DASHBOARD_PORT" == "443" ]] && _PORT_SUFFIX=""
 if [[ -n "$CURRENT_IP" ]]; then
-  DASHBOARD_URL="http://${CURRENT_IP}:${DASHBOARD_PORT}"
+  DASHBOARD_URL="https://${CURRENT_IP}${_PORT_SUFFIX}/"
 else
-  DASHBOARD_URL="http://<device-ip>:${DASHBOARD_PORT}"
+  DASHBOARD_URL="https://<device-ip>${_PORT_SUFFIX}/"
 fi
-DASHBOARD_MDNS_URL="http://${MDNS_NAME}:${DASHBOARD_PORT}"
+DASHBOARD_MDNS_URL="https://${MDNS_NAME}${_PORT_SUFFIX}/"
+
+# Initial admin password — written by the app on first start, removed when
+# the admin password is changed in the dashboard.
+ADMIN_PWD_FILE="${REPO_DIR}/admin_initial_password.txt"
+ADMIN_INITIAL_PWD=""
+[[ -r "$ADMIN_PWD_FILE" ]] && ADMIN_INITIAL_PWD="$(tr -d '\r\n' < "$ADMIN_PWD_FILE")"
 
 # ── Print summary ─────────────────────────────────────────────────────────────
 echo ""
@@ -95,16 +104,26 @@ echo -e "  Device name  : ${BOLD}${BT_DEVICE_NAME}${NC}"
 echo -e "  Pairing      : Search for '${BT_DEVICE_NAME}' on the host device"
 echo ""
 
-echo -e "${CYAN}${BOLD}── Wi-Fi Management Hotspot (always active) ───────────${NC}"
+echo -e "${CYAN}${BOLD}── Wi-Fi Management Hotspot (on demand: magnet 3 s) ───${NC}"
 echo -e "  SSID         : ${BOLD}${HOTSPOT_SSID}${NC}"
 echo -e "  Password     : ${BOLD}${HOTSPOT_PASS}${NC}"
-echo -e "  Setup URL    : ${BOLD}https://10.42.0.1/${NC}"
+echo -e "  Setup URL    : ${BOLD}https://10.42.0.1/setup/${NC}"
 echo -e "  Web UI login : ${BOLD}ipr${NC} / ${BOLD}${HOTSPOT_PASS}${NC}"
 echo ""
 
 echo -e "${CYAN}${BOLD}── Web Dashboard ──────────────────────────────────────${NC}"
 echo -e "  By IP        : ${BOLD}${DASHBOARD_URL}${NC}"
 echo -e "  By mDNS      : ${BOLD}${DASHBOARD_MDNS_URL}${NC}"
+if [[ -n "$ADMIN_INITIAL_PWD" ]]; then
+  echo -e "  Login        : ${BOLD}admin${NC} / ${BOLD}${ADMIN_INITIAL_PWD}${NC}"
+  echo -e "                 (initial password — change it in the dashboard; this line"
+  echo -e "                  and admin_initial_password.txt then disappear)"
+elif [[ -f "${REPO_DIR}/users.json" ]]; then
+  echo -e "  Login        : ${BOLD}admin${NC} / the password set in the dashboard"
+else
+  echo -e "  Login        : admin / generated at first start of ipr_keyboard.service"
+  echo -e "                 (re-run this script, or see the setup portal home page)"
+fi
 echo ""
 
 echo -e "${CYAN}${BOLD}── SSH Access ─────────────────────────────────────────${NC}"

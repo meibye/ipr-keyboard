@@ -738,18 +738,29 @@ async function loadHomeHealth() {
       box.hidden = true;
     } else {
       box.hidden = false;
-      const fmtMs = v => (v == null ? '—' : v >= 1000 ? (v / 1000).toFixed(2) + ' s' : Math.round(v) + ' ms');
+      // Human units: ms below a second, s below a minute, then m / h.
+      const fmtMs = v => {
+        if (v == null || !isFinite(v)) return '—';
+        if (v < 1000) return Math.round(v) + ' ms';
+        const s = v / 1000;
+        if (s < 60) return s.toFixed(2) + ' s';
+        const m = Math.floor(s / 60), rs = Math.round(s - m * 60);
+        if (m < 60) return `${m} m ${rs} s`;
+        const h = Math.floor(m / 60);
+        return `${h} h ${m - h * 60} m`;
+      };
       const k = m.kpis || {};
       const bootEl = document.getElementById('pm-boot-val');
       const b = m.boot && m.boot.boot_to_process_s;
-      bootEl.textContent = b == null ? '—' : b.toFixed(1) + ' s';
+      // null after a service restart: only the first start after a boot measures it
+      bootEl.textContent = b == null ? 'n/a (app restarted)' : fmtMs(b * 1000);
       document.getElementById('pm-e2e-p50-val').textContent = fmtMs(k.e2e_latency_ms && k.e2e_latency_ms.p50);
       document.getElementById('pm-e2e-p95-val').textContent = fmtMs(k.e2e_latency_ms && k.e2e_latency_ms.p95);
       const pc = k.send_ms_per_char && k.send_ms_per_char.p50;
       document.getElementById('pm-char-val').textContent = pc == null ? '—' : pc.toFixed(1) + ' ms';
       const n = (k.e2e_latency_ms && k.e2e_latency_ms.count) || 0;
       document.getElementById('pm-note').textContent = n
-        ? `Based on the last ${n} scan${n === 1 ? '' : 's'}. Measured on the device up to the Bluetooth hand-off; the PC adds its own delay.`
+        ? `Based on the last ${n} scan${n === 1 ? '' : 's'}. Measured on the device from the moment a scan is detected (the pen's own clock is not trusted) up to the Bluetooth hand-off; the PC adds its own delay.`
         : 'No scans recorded since metrics were enabled.';
     }
   } catch (_) {}

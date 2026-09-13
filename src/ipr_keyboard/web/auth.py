@@ -32,6 +32,20 @@ def users_default_path() -> Path:
     return project_root() / "users.default.json"
 
 
+def initial_admin_password() -> str | None:
+    """The generated first-login password, or None once it has been changed.
+
+    Written by UserStore on the very first start; removed by change_password
+    for the admin account.  Shown on the setup portal home page and by
+    provision/07_show_info.sh so the administrator never needs SSH to find it.
+    """
+    try:
+        pwd = (project_root() / _INITIAL_PWD_FILE).read_text().strip()
+        return pwd or None
+    except OSError:
+        return None
+
+
 def _load_raw() -> dict:
     seed_from_default(users_path(), users_default_path())
     data = load_json(users_path())
@@ -154,6 +168,12 @@ class UserStore:
                 raise KeyError(f"User not found: {username}")
             data["users"][username]["password_hash"] = generate_password_hash(new_password)
             _save_raw(data)
+            if data["users"][username].get("is_admin"):
+                # The clear-text bootstrap password is no longer valid: drop it.
+                try:
+                    (project_root() / _INITIAL_PWD_FILE).unlink()
+                except OSError:
+                    pass
 
     def set_admin(self, username: str, is_admin: bool) -> None:
         with self._lock:

@@ -10,8 +10,8 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.5.3"
-DATE = "12. september 2026"
+VERSION = "1.8.1"
+DATE = "13. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
 # make_payload.sh — this maps them to manual prose.  The keys are checked
@@ -200,7 +200,23 @@ def build() -> None:
              "BlueZ Agent1: parring og autorisation. Standard: NoInputNoOutput.",
              "root"],
             ["ipr-provision.service",
-             "Opsætningshotspot på wlan0 (10.42.0.1). Type=oneshot, RemainAfterExit=yes.",
+             "Opsætningshotspot på wlan0 (10.42.0.1). Type=oneshot, RemainAfterExit=yes; "
+             "ExecStop tager hotspottet ned.",
+             "root"],
+            ["ipr-led-boot.service",
+             "Blinker statuslampen hvidt under opstarten, indtil ipr_keyboard.service "
+             "overtager lampen (Conflicts=).",
+             "root"],
+            ["ipr-firewall.service",
+             "Indlæser nftables-politikken før netværket kommer op (afsnit 5.5).",
+             "root"],
+            ["irispen-mount.service",
+             "Monterer IRIS-skanneren (MTP, jmtpfs) på /mnt/irispen, når udev ser den; "
+             "stoppes og afmonteres, når den trækkes ud (BindsTo=).",
+             "applikationsbruger"],
+            ["ipr-failure@.service",
+             "OnFailure-handler: skriver én linje pr. fejlet kerneenhed til "
+             "/var/lib/ipr-keyboard/incidents.log (afsnit 9.5).",
              "root"],
             ["ipr-cert-renew.timer",
              "Årlig fornyelse af servercertifikatet. CA-nøglen bevares.",
@@ -223,7 +239,33 @@ def build() -> None:
             ["/usr/local/bin/bt_kb_send", "Skalhjælper, der skriver tekst til FIFO'en."],
             ["/usr/local/bin/bt_hid_ble_daemon.py", "BLE HID-dæmonen."],
             ["/usr/local/bin/bt_hid_agent_unified.py", "BlueZ-parringsagenten."],
-            ["/usr/local/sbin/ipr-provision.sh", "Hotspot-skriptet."],
+            ["/usr/local/sbin/ipr-provision.sh", "Hotspot-skriptet (--stop ved ExecStop)."],
+            ["/usr/local/bin/ipr_hotspot_ctl.sh",
+             "Root-hjælper: start/stop/status/factory-reset for hotspottet. Bruges af "
+             "magneten via sudoers."],
+            ["/usr/local/sbin/ipr-led-boot.sh", "Hvidt blink på statuslampen under opstart."],
+            ["/etc/sudoers.d/<bruger>-ipr-gpio",
+             "NOPASSWD for ipr_hotspot_ctl.sh, reboot og shutdown til applikationsbrugeren."],
+            ["/etc/systemd/system/ipr_keyboard.service.d/10-led-boot.conf",
+             "Drop-in: stopper ipr-led-boot.service, så appen overtager lampen."],
+            ["/boot/firmware/config.txt (blok)",
+             "gpio=22,23,24=op,dh — lampen lyser hvidt fra strømmen sættes til."],
+            ["/run/ipr-hotspot.request",
+             "Midlertidig udløserfil, som ipr_hotspot_ctl.sh start skriver."],
+            ["/usr/local/sbin/ipr-firewall.sh",
+             "nftables-politik ud fra tilstand og hotspot (apply/status/off)."],
+            ["/usr/local/bin/ipr_mode_ctl.sh",
+             "Skifter drift/udvikling; magneten (6 s) bruger den via sudoers."],
+            ["/var/lib/ipr-keyboard/mode", "Tilstandsfil: production eller development."],
+            ["/var/lib/ipr-keyboard/incidents.log",
+             "Én linje pr. fejlet kerneenhed (tidspunkt, enhed, resultat). Overlever "
+             "genstart og journalrotation."],
+            ["/etc/systemd/journald.conf.d/ipr.conf",
+             "Persistent journal, højst 64 MB / 1 måned."],
+            ["/etc/udev/rules.d/69-irispen-mtp.rules",
+             "Rettigheder til skanneren og dev-irispen.device til systemd (automontering)."],
+            ["/etc/NetworkManager/dispatcher.d/90-ipr-firewall",
+             "Genanvender politikken ved enhver forbindelsesændring."],
             ["/run/ipr_bt_keyboard_fifo", "Navngiven pipe mellem app og BLE-dæmon."],
             ["/etc/ipr-ssl/", "CA og servercertifikat samt private nøgler."],
             ["/etc/ipr-hotspot.secret", "SSID og adgangskode til hotspot (tilstand 0600)."],
@@ -931,8 +973,16 @@ def build() -> None:
         "monteret på et fast sted, som matcher IrisPenFolders i config.json.")
     m.p("Masselagerenheder — permanent montering via UUID i /etc/fstab:", bold=True)
     m.code("sudo ./scripts/usb_setup_mount.sh /dev/sda1 /mnt/irispen")
-    m.p("MTP-enheder, som ikke eksponerer et blokdrev:", bold=True)
-    m.code("sudo apt install jmtpfs\nsudo ./scripts/usb_mount_mtp.sh    # skifter mellem montér og afmontér")
+    m.p("IRIS-skanneren (MTP, som ikke eksponerer et blokdrev):", bold=True)
+    m.p("Monteres automatisk. Provisioneringen installerer en udev-regel og "
+        "irispen-mount.service, som kører jmtpfs som applikationsbrugeren, når skanneren "
+        "sættes i, og afmonterer, når den trækkes ud. Der er ingen manuel handling; "
+        "dashboardets skannerkort går fra “Ikke fundet” over “Forbinder” til “Klar” i løbet "
+        "af få sekunder. Kontrol:")
+    m.code("systemctl status irispen-mount.service\nmountpoint /mnt/irispen && ls /mnt/irispen")
+    m.note("scripts/usb_mount_mtp.sh (manuel montering) må ikke bruges, mens tjenesten er "
+           "aktiv — MTP tillader kun én klient ad gangen. Baggrund: "
+           "docs/operations/irispen-automount.md.", "warn")
     m.note("usb_setup_mount.sh tager en sikkerhedskopi af /etc/fstab, før den ændrer den, "
            "og bruger nofail — en manglende skanner blokerer derfor ikke opstarten.", "tip")
 
@@ -944,15 +994,24 @@ def build() -> None:
         ("admin_initial_password.txt", "c"),
         (" i projektroden.", ""),
     ])
+    m.p("Du behøver ikke SSH for at finde startadgangskoden. Den vises to steder, så længe "
+        "filen findes:")
     m.bullets([
-        "Log ind på dashboardet med admin og adgangskoden fra filen.",
-        "Skift adgangskoden med det samme under Indstillinger → Konto.",
-        "Slet derefter admin_initial_password.txt fra enheden.",
+        "På setup-portalens forside (https://10.42.0.1/setup/ via hotspottet, log ind som ipr "
+        "med hotspot-adgangskoden) under “Betjeningssiden”.",
+        "I output fra sudo ./provision/07_show_info.sh på enheden.",
+    ])
+    m.bullets([
+        "Log ind på dashboardet med admin og startadgangskoden.",
+        "Skift adgangskoden med det samme under Indstillinger → Konto. "
+        "admin_initial_password.txt slettes automatisk, og adgangskoden forsvinder fra "
+        "setup-portalen og 07_show_info.sh.",
         "Opret personlige konti til de administratorer, der skal have adgang.",
     ], numbered=True)
-    m.note("admin_initial_password.txt indeholder en adgangskode i klartekst. Filen er "
-           "udelukket fra git via .gitignore, men den bliver liggende på enheden, indtil "
-           "den slettes manuelt. Slet den som en fast del af idriftsættelsen.", "danger")
+    m.note("admin_initial_password.txt indeholder en adgangskode i klartekst, og den vises "
+           "på setup-portalen for alle, der kender hotspot-adgangskoden. Skift derfor "
+           "administratoradgangskoden som en fast del af idriftsættelsen — det sletter "
+           "filen. Findes filen stadig på en ældre enhed, kan den slettes manuelt.", "danger")
 
     m.h2("3.9 Par den første vært")
     m.bullets([
@@ -1006,9 +1065,10 @@ def build() -> None:
         caption="Felter i config.json med standardværdier og virkning.",
     )
 
-    m.note("Standardværdien for LogPort er 443 i den kode og den konfiguration, der "
-           "leveres til enheder, mens config.default.json angiver 8080. Kontrollér altid den "
-           "faktiske værdi i config.json på enheden, før du fejlsøger portbinding.", "warn")
+    m.note("Standardværdien for LogPort er 443 både i koden og i config.default.json. "
+           "Enheder provisioneret før september 2026 kan stadig have 8080 i config.json — "
+           "kontrollér den faktiske værdi på enheden, før du fejlsøger portbinding; "
+           "test_provision.sh advarer, hvis porten ikke er 443.", "info")
 
     m.h2("4.2 Konfiguration via dashboardet")
     m.p("Skærmen Indstillinger dækker de felter, der normalt skal ændres i drift:")
@@ -1079,7 +1139,37 @@ def build() -> None:
     )
     m.p("Detaljeret ledningsdiagram, modstandsberegninger og montering i Flirc-kabinettet "
         "findes i docs/hardware/gpio-wiring.md. Sæt GpioEnabled til false på maskiner uden "
-        "RPi.GPIO — modulet deaktiverer i øvrigt sig selv, hvis importen fejler.")
+        "GPIO — modulet deaktiverer i øvrigt sig selv med en advarsel i journalen, hvis "
+        "RPi.GPIO ikke kan importeres.")
+
+    m.p("Lampen drives i tre lag, så hele opstarten er synlig — ikke kun applikationen:")
+    m.table(
+        ["Fase", "Fra ca.", "Mekanisme", "Lampen"],
+        [
+            ["Strøm til", "1 s", "gpio=22,23,24=op,dh i config.txt (firmware).", "Hvid, konstant"],
+            ["OS starter", "14 s", "ipr-led-boot.service (gpioset --toggle).", "Hvid, hurtigt blink"],
+            ["App starter", "35 s", "ipr_keyboard.service stopper boot-enheden (ExecStartPre "
+                                   "+systemctl stop) og gpio_monitor overtager benene.",
+             "Hvid, hurtigt blink"],
+            ["Klar", "41 s", "Dashboardet svarer på /health på LogPort.",
+             "Statusfarve i GpioLedIdleSeconds, derefter slukket"],
+        ],
+        widths=[2.6, 1.6, 7.4, 4.0],
+        caption="Lampens opstartsfaser (tider målt på Pi Zero 2 W). Blinker lampen hvidt "
+                "i mere end tre minutter, er applikationen ikke kommet op.",
+    )
+    m.p("Applikationen kører som en almindelig bruger. Alt, der kræver root — tænd/sluk "
+        "hotspot, netværksnulstilling, genstart — går gennem /usr/local/bin/ipr_hotspot_ctl.sh "
+        "med én NOPASSWD-linje i /etc/sudoers.d/<bruger>-ipr-gpio. Hotspottets tilstand "
+        "aflæses fra NetworkManager (nmcli con show --active), aldrig fra systemd-enhedens "
+        "tilstand, der er “active” efter enhver opstart.")
+    m.p("RPi.GPIO leveres af Debian-pakken python3-rpi-lgpio (lgpio-baseret; virker på både "
+        "Zero W og Zero 2 W med nyere kerner). Applikationens venv oprettes derfor med "
+        "--system-site-packages; install_gpio_support.sh retter eksisterende venv'er. "
+        "Pakker installeret i venv'et har stadig forrang.")
+    m.p("Alt ovenstående installeres af scripts/headless/install_gpio_support.sh, som "
+        "kaldes af provisioneringen og af deploy_full_update.sh og kan køres igen uden "
+        "bivirkninger. Ændringen i config.txt kræver én genstart.")
 
     # ---------------------------------------------------------------- 5
     m.h1("5. Adgang, netværk og hotspot", new_page=True)
@@ -1092,6 +1182,9 @@ def build() -> None:
     m.p("Dashboardet nås på https://<værtsnavn>.local/ på den port, der er sat i LogPort. "
         "Adgang kræver login. Administratorer får desuden et Setup-punkt i navigationen, "
         "der fører direkte til setup-siderne uden endnu et login.")
+    m.note("Kun i udviklingstilstand. I driftstilstand (standard efter idriftsættelse) er "
+           "hverken dashboardet eller SSH tilgængelig på hjemmenettet — enheden nås "
+           "udelukkende via hotspottet. Se afsnit 5.5.", "warn")
 
     m.h2("5.2 Opsætningshotspottet")
     m.p("Hotspottet er slukket som standard (on-demand) for at holde enheden usynlig. Det "
@@ -1099,6 +1192,9 @@ def build() -> None:
     m.table(
         ["Udløser", "Sådan aktiveres den", "Hvornår bruges den"],
         [
+            ["Anmodningsfil", "ipr_hotspot_ctl.sh start skriver /run/ipr-hotspot.request og "
+                              "genstarter ipr-provision.service.",
+             "Når som helst — magneten (3 s) og administratoren bruger denne vej."],
             ["Markørfil", "Opret en tom fil ved navn IPR_SETUP på /boot/firmware "
                           "(FAT32, kan skrives fra enhver PC).",
              "Sidste udvej — kræver SD-kortlæser."],
@@ -1108,27 +1204,41 @@ def build() -> None:
              "Ældre hardwareopsætninger."],
             ["HOTSPOT_MODE=always", "Sæt i /etc/default/ipr-provision.",
              "Udviklings- og testenheder."],
-            ["Reed-kontakt", "Hold magneten på plads i mindst 3 sekunder og slip.",
-             "Normal drift. Håndteres af gpio_monitor, ikke af hotspot-skriptet."],
+            ["Reed-kontakt", "Hold magneten på plads i mindst 3 sekunder og slip. Lampen "
+                             "blinker blåt under anmodningen og lyser konstant blåt, så længe "
+                             "hotspottet er tændt. Samme gestus slukker det igen.",
+             "Normal drift. gpio_monitor kalder ipr_hotspot_ctl.sh."],
         ],
         widths=[3.4, 6.6, 5.6],
-        caption="Udløsere for hotspottet. De fire første evalueres af "
-                "net_provision_hotspot.sh ved opstart i den viste rækkefølge.",
+        caption="Udløsere for hotspottet, evalueret af net_provision_hotspot.sh i den "
+                "viste rækkefølge. Anmodningsfilen virker når som helst; de øvrige kun ved "
+                "opstart.",
     )
     m.p("Manuel styring:")
     m.code(
-        "sudo systemctl start ipr-provision.service    # tænd hotspot\n"
-        "sudo systemctl stop  ipr-provision.service    # sluk hotspot\n"
+        "sudo ipr_hotspot_ctl.sh start                 # tænd hotspot (når som helst)\n"
+        "sudo ipr_hotspot_ctl.sh stop                  # sluk hotspot\n"
+        "sudo ipr_hotspot_ctl.sh status                # up/down\n"
         "sudo cat /etc/ipr-hotspot.secret              # SSID og adgangskode"
     )
+    m.note("Brug ikke systemctl start ipr-provision.service til at tænde hotspottet: "
+           "enheden er allerede “active” efter opstart (RemainAfterExit), så start gør "
+           "ingenting, og en restart uden udløser afslutter uden at starte noget. "
+           "systemctl stop virker (ExecStop tager forbindelsen ned), men hjælperen "
+           "dækker begge retninger.", "warn")
+    m.p("Når hotspottet tændes, overtager det wlan0. En SSH-forbindelse over hjemmenettet "
+        "falder, og enheden nås derefter kun via hotspottet (10.42.0.1), indtil det "
+        "slukkes igen. NetworkManager genoptager selv hjemmenettet.")
     m.p("Tilslut derefter til SSID'et ipr-setup-xxxx og åbn https://10.42.0.1/setup/. "
         "Log ind som brugeren ipr med adgangskoden fra PASS-linjen i "
-        "/etc/ipr-hotspot.secret.")
+        "/etc/ipr-hotspot.secret. Selve dashboardet nås på hotspottet via "
+        "https://10.42.0.1/login (en ikke-indlogget klient på 10.42.0.x sendes bevidst til "
+        "setup-login, hvis den åbner roden). Setup-forsiden viser adressen.")
 
-    m.note("SERVICES.md og docs/architecture/ARCHITECTURE.md beskriver hotspottet som "
-           "permanent og altid tændt. Skriptet net_provision_hotspot.sh er siden ændret til "
-           "on-demand som standard. Skriptets adfærd er den gældende — kontrollér "
-           "HOTSPOT_MODE i /etc/default/ipr-provision på den konkrete enhed.", "warn")
+    m.note("SERVICES.md beskriver hotspottet som permanent og altid tændt. Skriptet "
+           "net_provision_hotspot.sh er siden ændret til on-demand som standard. Skriptets "
+           "adfærd er den gældende — kontrollér HOTSPOT_MODE i /etc/default/ipr-provision "
+           "på den konkrete enhed.", "warn")
 
     m.h2("5.3 Setup-UI'ets sider")
     m.table(
@@ -1149,6 +1259,63 @@ def build() -> None:
         "genstarter enheden. Applikationsindstillinger, brugerkonti og logfiler berøres ikke. "
         "Samme resultat opnås manuelt:")
     m.code("sudo ./scripts/headless/net_factory_reset.sh")
+
+    m.h2("5.5 Netværkstilstande: drift og udvikling")
+    m.p("Enheden bruges i et kritisk miljø, og der åbnes derfor kun porte på brugerens "
+        "anmodning. En nftables-politik (tabellen inet ipr_fw, input-politik DROP) "
+        "genopbygges af /usr/local/sbin/ipr-firewall.sh ud fra to forhold: tilstandsfilen "
+        "/var/lib/ipr-keyboard/mode og om hotspottet er tændt.")
+    m.table(
+        ["Tilstand", "Hjemmenettet", "Hotspottet (10.42.0.0/24 på wlan0)"],
+        [
+            ["drift (production)", "Ingen åbne porte.",
+             "TCP 443 (setup-portalen) og UDP 67 (DHCP, så klienter får en adresse). "
+             "DNS 53 er lukket."],
+            ["udvikling (development)", "TCP 22 (SSH), TCP 443 (dashboard), UDP 5353 (mDNS).",
+             "TCP 22, TCP 443, UDP 67."],
+        ],
+        widths=[3.6, 5.2, 6.8],
+        caption="Åbne porte pr. tilstand. Loopback, svar på enhedens egen udgående trafik, "
+                "ICMP og DHCP-klientsvar er altid tilladt; udgående trafik filtreres ikke. "
+                "Bluetooth er ikke IP og berøres ikke.",
+    )
+    m.p("Politikken anvendes ved opstart før netværket kommer op (ipr-firewall.service), "
+        "ved enhver forbindelsesændring (NetworkManager-dispatcher-hook 90-ipr-firewall), "
+        "når hotspottet tændes eller slukkes, og når tilstanden skiftes.")
+    m.p("Tilstanden skiftes med magneten (hold i 6 sekunder — lampen blinker lilla — og slip; "
+        "lampen lyser lilla i 3 sekunder som bekræftelse) eller fra kommandolinjen:")
+    m.code(
+        "sudo ipr_mode_ctl.sh production     # drift: luk alt på hjemmenettet\n"
+        "sudo ipr_mode_ctl.sh development    # udvikling: åbn SSH og dashboard\n"
+        "sudo ipr_mode_ctl.sh status         # viser tilstanden\n"
+        "sudo ipr-firewall.sh status         # tilstand, hotspot og indlæste regler"
+    )
+    m.p("I udviklingstilstand blinker lampen kort lilla hvert fjerde sekund — også når den "
+        "ellers er slukket — så en åben enhed ikke overses. Setup-portalens forside viser "
+        "tilstanden ved siden af værtsnavnet.")
+    m.p("Skiftet til drift lukker også forbindelser, der allerede var åbne: ipr_mode_ctl.sh "
+        "nedlægger enhedens egne sockets på port 22 og 443 (ss -K) og afslutter "
+        "sshd-sessionerne, så SSH-klienten straks melder “Connection reset by peer”. "
+        "Nye forbindelsesforsøg smides væk uden svar (enheden er usynlig for en "
+        "portscanning).")
+    m.p("Sådan ses hotspottets tilstand i drift, hvor SSH er lukket: lampen lyser konstant "
+        "blåt, så længe hotspottet er tændt; SSID'et ipr-setup-xxxx ses på en telefon; og "
+        "setup-portalens Status-side viser hotspottet som aktivt (aflæst fra NetworkManager, "
+        "ikke fra systemd-enheden).")
+    m.p("Sådan afprøves lampen i udviklingstilstand: skift med magneten (6 s) — lampen lyser "
+        "lilla i 3 sekunder og blinker derefter kort lilla hvert 4. sekund; en berøring viser "
+        "statusfarven oven i. Fra en anden maskine virker ssh og dashboardet nu; "
+        "sudo ipr-firewall.sh status viser tilstand, hotspot og regler. Skift tilbage med "
+        "magneten: SSH-sessionen falder, og det lilla blink stopper.")
+    m.note("Provisioneringen efterlader enheden i udviklingstilstand, fordi den kører over "
+           "SSH og ellers ville afbryde sig selv. Idriftsættelsen afsluttes med "
+           "sudo ipr_mode_ctl.sh production (eller magneten i 6 sekunder). Skiftet til drift "
+           "over en SSH-forbindelse på hjemmenettet afbryder forbindelsen — det er meningen. "
+           "test_provision.sh advarer, så længe enheden står i udviklingstilstand.", "warn")
+    m.p("Konsekvenser: i drift kan brugerne ikke åbne betjeningssiden på hjemmenettet; "
+        "<værtsnavn>.local svarer ikke (mDNS er lukket); telefoner på hotspottet får ingen "
+        "DNS og kan melde “intet internet” — portalen nås på IP-adressen. Baggrund og "
+        "alternativer: docs/operations/network-modes.md.")
 
     # ---------------------------------------------------------------- 6
     m.h1("6. Brugerkonti og roller", new_page=True)
@@ -1199,8 +1366,11 @@ def build() -> None:
         ["Område", "Funktion"],
         [
             ["Angrebsflade",
+             "I driftstilstand er ingen port åben på hjemmenettet (nftables, politik DROP). "
              "Hotspottet er slukket som standard og kræver fysisk tilstedeværelse "
-             "(magnet, strømcykling eller SD-kort) for at blive tændt."],
+             "(magnet, strømcykling eller SD-kort); tændt eksponerer det kun setup-portalen. "
+             "SSH og dashboard på hjemmenettet kræver udviklingstilstand (magnet 6 s). "
+             "Se afsnit 5.5."],
             ["Trådløs sikring",
              "Hotspottet bruger WPA2 med tilfældigt genereret SSID og adgangskode. "
              "Legitimationsoplysningerne ligger i /etc/ipr-hotspot.secret med tilstand 0600."],
@@ -1235,7 +1405,10 @@ def build() -> None:
 
     m.h2("7.2 Obligatoriske tiltag ved idriftsættelse")
     m.bullets([
-        "Skift admin-kontoens adgangskode, og slet admin_initial_password.txt.",
+        "Skift admin-kontoens adgangskode (admin_initial_password.txt slettes automatisk).",
+        "Sæt enheden i driftstilstand som det allersidste trin: sudo ipr_mode_ctl.sh "
+        "production, eller magneten i 6 sekunder. Kontrollér med sudo ipr-firewall.sh status "
+        "og — fra en anden maskine — at SSH og dashboardet ikke længere svarer.",
         "Opret personlige konti; undgå at dele admin-kontoen.",
         "Distribuér CA-certifikatet fra https://10.42.0.1/setup/ca.crt til de PC'er, der "
         "skal bruge dashboardet, så browseradvarsler forsvinder — og brugerne ikke vænner "
@@ -1417,8 +1590,11 @@ def build() -> None:
             ["/health", "HTTP 200", "Kontrollér portbinding og TLS-certifikater."],
             ["Læser på FIFO'en", "sudo fuser -v /run/ipr_bt_keyboard_fifo giver output",
              "Ingen læser: genstart bt_hid_ble.service."],
-            ["Monteringspunkt for skanneren", "mountpoint /mnt/irispen er sandt",
-             "Montér igen; kontrollér USB-kabel og fstab-linje."],
+            ["Monteringspunkt for skanneren", "mountpoint /mnt/irispen er sandt, "
+             "irispen-mount.service active, når skanneren sidder i",
+             "journalctl -u irispen-mount.service; tag USB-stikket ud og i."],
+            ["Hændelseslog", "/var/lib/ipr-keyboard/incidents.log er tom",
+             "Læs linjerne; slå enheden op i journalen (afsnit 9.5)."],
             ["Bluetooth-forbindelse", "bluetoothctl devices Connected viser værten",
              "Kør parringsdiagnostikken."],
             ["Certifikatets udløb", "Mere end 30 dage tilbage",
@@ -1462,12 +1638,14 @@ def build() -> None:
         [
             ["Opstart → program", "Sekunder fra kernen startede, til programmet kørte.",
              "Læses én gang ved start. Vises altid, også når målingen er slået fra."],
-            ["Pen → registreret", "Fra filen blev skrevet på pennen, til pollingen så den.",
+            ["Pen → registreret", "Fra filen blev skrevet på pennen, til pollingen så den "
+                                  "(kun når pennens ur er troværdigt — ellers 0).",
              "Kan ikke blive lavere end PollIntervalSeconds."],
             ["Læsning", "Læsning af filen fra monteringen.", ""],
             ["Overdragelse til BLE", "bt_kb_send afleverer teksten til BLE-dæmonen.",
              "Også pr. tegn, så modeller kan sammenlignes uafhængigt af tekstlængde."],
-            ["Pen → BLE (ende til ende)", "Fra filen blev skrevet, til teksten var afleveret.",
+            ["Pen → BLE (ende til ende)", "Fra filen blev registreret (pennens ur bruges ikke, "
+                                          "hvis det er mere end 10 minutter forkert), til teksten var afleveret.",
              "Målt på enheden. Selve tastetrykkenes ankomst på PC'en kan enheden ikke se."],
             ["Polling-omkostning", "Hvad ét tomt gennemløb af mapperne koster.",
              "Måles kun hver tiende gang for at holde målingen selv billig."],
@@ -1514,6 +1692,38 @@ def build() -> None:
         "perf_e2e_latency.sh på hver model med samme PollIntervalSeconds, suppleret med "
         "én kørsel af perf_keystroke_probe.py pr. model. Gem perf_report.py --json fra "
         "hver kørsel, hvis udviklingen over tid skal følges.")
+
+    m.h2("9.5 Drift uden opsyn: sådan bliver fejl synlige")
+    m.p("Enheden kører uden nogen ved en terminal. En fejl skal derfor rette sig selv, "
+        "hvor det kan lade sig gøre, være synlig på enheden og efterlade et spor, som kan "
+        "læses dage senere.")
+    m.table(
+        ["Lag", "Mekanisme"],
+        [
+            ["Selvhelbredelse", "bt_hid_ble og bt_hid_agent_unified har Restart=always; "
+                                "ipr_keyboard Restart=on-failure; irispen-mount genstartes af udev."],
+            ["Synligt på enheden", "Lampen lyser konstant rødt, når en kerneenhed (bluetooth, "
+                                   "bt_hid_ble, bt_hid_agent_unified) ikke er aktiv. Dashboardets "
+                                   "systemstatus viser “Warning”. Setup-portalens Status-side viser "
+                                   "hver tjeneste."],
+            ["Spor, der overlever", "Persistent journal (64 MB / 1 måned) og "
+                                    "/var/lib/ipr-keyboard/incidents.log, som OnFailure-handleren "
+                                    "ipr-failure@.service skriver til: én linje pr. fejl med "
+                                    "tidspunkt, enhed og resultat."],
+        ],
+        widths=[3.6, 12.0],
+        caption="Tre lag, installeret af install_observability.sh.",
+    )
+    m.p("Efter en hændelse:")
+    m.code(
+        "cat /var/lib/ipr-keyboard/incidents.log\n"
+        "journalctl -u <enhed> --since \"<tidspunkt>\" --no-pager\n"
+        "systemctl status <enhed>"
+    )
+    m.p("En enhed, der igen er active med en linje i hændelsesloggen, var en forbigående "
+        "fejl (fx et genstartskapløb under en udrulning). En enhed i tilstanden failed "
+        "kræver journalen. Før denne ændring beholdt journalen kun den aktuelle opstart, "
+        "og en “Failed to restart bt_hid_ble.service” fra dagen før var væk.")
 
     # ---------------------------------------------------------------- 10
     m.h1("10. Fejlfinding", new_page=True)
@@ -1649,6 +1859,51 @@ def build() -> None:
         caption="Fejlmønstre i web- og netværkslaget.",
     )
 
+    m.h2("10.7 Statuslampe og magnet")
+    m.table(
+        ["Symptom", "Sandsynlig årsag", "Afhjælpning"],
+        [
+            ["Lampen er mørk under hele opstarten; farve kommer først senere.",
+             "gpio=-blokken mangler i config.txt, eller ipr-led-boot.service er ikke aktiveret.",
+             "sudo bash scripts/headless/install_gpio_support.sh og genstart."],
+            ["Lampen lyser aldrig, men appen kører.",
+             "RPi.GPIO kan ikke importeres fra venv'et (python3-rpi-lgpio usynligt).",
+             "journalctl -u ipr_keyboard.service -b | grep GPIO. Kør install_gpio_support.sh "
+             "(sætter include-system-site-packages) og genstart appen."],
+            ["Lampen virker, men magneten gør ingenting.",
+             "Reed-kontakten eller pull-up'en.",
+             "gpioget -c gpiochip0 27 skal vise active, mens magneten holdes tæt på. "
+             "Kør test_gpio_led_reed.sh."],
+            ["Blåt blink, derefter kort rødt blink — hotspottet kommer aldrig op.",
+             "sudo virker ikke inde i tjenesten (CapabilityBoundingSet i enhedsfilen), "
+             "sudoers-linjen mangler, eller nmcli kunne ikke starte AP'et.",
+             "journalctl -u ipr_keyboard.service: “unable to change to root gid” betyder "
+             "CapabilityBoundingSet — kør install_gpio_support.sh igen og genstart appen. "
+             "Ellers sudo -n /usr/local/bin/ipr_hotspot_ctl.sh status som "
+             "applikationsbrugeren og journalctl -u ipr-provision.service."],
+            ["Lampen lyser konstant blåt, men intet hotspot ses.",
+             "Lampen følger NetworkManager: ipr-hotspot er aktiv.",
+             "nmcli con show --active. Er ipr-hotspot med, er AP'et oppe — kontrollér klienten."],
+            ["SSH og dashboard svarer ikke på hjemmenettet, men enheden kører (lampen "
+             "viser status ved berøring, intet lilla blink).",
+             "Enheden står i driftstilstand — det er normalt.",
+             "Hold magneten i 6 sekunder (lilla blink) og slip: udviklingstilstand, lampen "
+             "blinker lilla hvert 4. sekund. Eller brug hotspottet (magnet 3 s)."],
+            ["Lampen lyser konstant rødt.",
+             "En kerneenhed er ikke aktiv.",
+             "systemctl is-active bluetooth bt_hid_ble bt_hid_agent_unified; "
+             "cat /var/lib/ipr-keyboard/incidents.log; journalctl -u <enhed>."],
+            ["Hvidt blink i flere minutter.",
+             "Boot-blinkeren blev ikke stoppet (appen logger “GPIO busy”), eller "
+             "dashboardet svarede aldrig på LogPort.",
+             "systemctl is-active ipr-led-boot.service skal være inactive, når appen kører; "
+             "ellers kør install_gpio_support.sh igen. journalctl -u ipr_keyboard.service."],
+        ],
+        widths=[4.6, 4.6, 6.4],
+        caption="Fejlmønstre for statuslampen og reed-kontakten. Fase K i "
+                "test_provision.sh kontrollerer, at alle dele er installeret.",
+    )
+
     m.h2("10.6 Indsaml en diagnosepakke")
     m.code("sudo ./scripts/rpi-debug/dbg_diag_bundle.sh")
     m.p("Skriptet samler status, logs og konfiguration i én pakke, der kan vedhæftes en "
@@ -1688,8 +1943,15 @@ def build() -> None:
         "Dashboardet kan åbnes, og login virker.",
         "bt_kb_send \"test\" returnerer og teksten kommer frem på værten.",
         "En fil lagt i den overvågede mappe sendes automatisk og slettes bagefter.",
+        "Lampen lyser hvidt fra strømmen sættes til, blinker hvidt under opstarten og "
+        "viser derefter statusfarven i 30 sekunder.",
         "LED'en viser grønt, når magneten holdes tæt på en fuldt forbundet enhed.",
-        "Hotspottet kan tændes og slukkes med magneten, og setup-UI'et kan nås.",
+        "Hotspottet kan tændes og slukkes med magneten: blåt blink under anmodningen, "
+        "konstant blåt mens det er tændt, og setup-UI'et kan nås.",
+        "test_provision.sh --auto rapporterer 0 fejl, herunder fase K (lampe og magnet), "
+        "fase L (netværkseksponering) og fase M (skanner-automontering og hændelseslog).",
+        "Med skanneren sat i viser dashboardet “Klar”, og Debug-siden viser dens filer.",
+        "Enheden står i driftstilstand, og ingen port svarer på hjemmenettet.",
     ], numbered=True)
 
     # ---------------------------------------------------------------- 12
@@ -1701,12 +1963,9 @@ def build() -> None:
         ["Emne", "Afvigelse", "Sådan forholder du dig"],
         [
             ["Hotspottets tilstand",
-             "SERVICES.md og ARCHITECTURE.md beskriver et permanent hotspot; "
+             "SERVICES.md beskriver stadig et permanent hotspot; "
              "net_provision_hotspot.sh bruger on-demand som standard.",
              "Skriptet er gældende. Kontrollér HOTSPOT_MODE i /etc/default/ipr-provision."],
-            ["Standardport",
-             "AppConfig og enhedens config.json bruger 443; config.default.json angiver 8080.",
-             "Læs den faktiske værdi i config.json på enheden."],
             ["Legacy-enheder",
              "bt_hid_uinput.service, ipr_backend_manager.service og bt_hid_daemon.service "
              "nævnes i ældre skripts, men leveres ikke.",

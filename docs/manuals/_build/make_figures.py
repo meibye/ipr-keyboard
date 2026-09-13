@@ -202,19 +202,23 @@ def fig_connections():
 # ---------------------------------------------------------------------------
 def fig_led_colours():
     rows = [
-        ((255, 255, 255), "Hvid, hurtigt blink", "Brotoget starter op — vent ca. 30 sekunder", MUTED),
+        ((255, 255, 255), "Hvid, konstant", "Strømmen er lige sat til", MUTED),
+        ((255, 255, 255), "Hvid, hurtigt blink", "Brotoget starter op — vent ca. 1 minut", MUTED),
         ((46, 160, 87), "Grøn, konstant", "Alt er klar — netværk og Bluetooth er forbundet", GREEN),
         ((240, 180, 40), "Gul/ravfarvet, konstant", "Netværk OK, men PC'en er ikke forbundet endnu", AMBER),
         ((214, 60, 60), "Rød, langsomt blink", "Intet netværk — kontakt din administrator", RED),
-        ((60, 120, 230), "Blå, konstant", "Opsætningsnetværket er tændt (setup-tilstand)", BLUE),
-        ((60, 120, 230), "Blå, hurtigt blink", "Magnet holdt i 3 sek. — slip for at tænde/slukke opsætning", BLUE),
+        ((214, 60, 60), "Rød, konstant", "En tjeneste i boksen er stoppet — sluk og tænd; ellers administrator", RED),
+        ((60, 120, 230), "Blå, hurtigt blink", "Magnet holdt i 3 sek., eller opsætningsnetværket tændes/slukkes", BLUE),
+        ((60, 120, 230), "Blå, konstant", "Opsætningsnetværket er tændt — lyser så længe det er tændt", BLUE),
+        ((150, 70, 220), "Lilla, hurtigt blink", "Magnet holdt i 6 sek. — slip for at skifte drift/udvikling (admin)", PURPLE),
+        ((150, 70, 220), "Lilla, kort blink hvert 4. sek.", "Udviklingstilstand — administratoren arbejder på boksen", PURPLE),
         ((214, 60, 60), "Rød, hurtigt blink", "Magnet holdt i 10 sek. — slip for at nulstille netværk", RED),
         ((225, 228, 233), "Slukket", "Normal drift — lampen sparer strøm", MUTED),
     ]
     rh = 46
     c = Canvas(940, 100 + rh * len(rows) + 30)
     c.title("Hvad betyder lampens farve?",
-            "Hold magneten tæt på brotoget for at vække lampen i 30 sekunder")
+            "Lampen lyser selv under opstart og i setup-tilstand — ellers vækker magneten den i 30 sek.")
 
     y = 90
     for colour, name, meaning, accent in rows:
@@ -236,20 +240,21 @@ def fig_magnet_timeline():
 
     x0, x1, y = 90, 890, 150
     c.line(x0, y, x1, y, LINE, 3)
-    for frac, label in ((0.0, "0 s"), (0.3, "3 s"), (1.0, "10 s")):
+    for frac, label in ((0.0, "0 s"), (0.3, "3 s"), (0.6, "6 s"), (1.0, "10 s")):
         x = x0 + (x1 - x0) * frac
         c.line(x, y - 10, x, y + 10, MUTED, 3)
         c.text(x, y + 18, label, F(11, True), MUTED, anchor="ma")
 
     seg = [
         (0.0, 0.3, "Kort berøring", "Lampen viser status i 30 sek.", BLUE, BLUE_BG),
-        (0.3, 1.0, "Hold i 3 sek.", "Tænder/slukker opsætningsnetværket", GREEN, GREEN_BG),
+        (0.3, 0.6, "Hold i 3 sek.", "Tænder/slukker opsætnings-\nnetværket (blå)", GREEN, GREEN_BG),
+        (0.6, 1.0, "Hold i 6 sek.", "Drift ↔ udvikling (lilla)\n— kun administrator", PURPLE, PURPLE_BG),
     ]
     for a, b, t, s, accent, bg in seg:
         xa, xb = x0 + (x1 - x0) * a, x0 + (x1 - x0) * b
-        c.box(xa + 4, y - 66, xb - xa - 8, 50, fill=bg, outline=accent, width=2, radius=8)
-        c.text((xa + xb) / 2, y - 54, t, F(12, True), accent, anchor="ma")
-        c.text((xa + xb) / 2, y - 34, s, F(11), INK, anchor="ma")
+        c.box(xa + 4, y - 82, xb - xa - 8, 66, fill=bg, outline=accent, width=2, radius=8)
+        c.text((xa + xb) / 2, y - 72, t, F(12, True), accent, anchor="ma")
+        c.text((xa + xb) / 2, y - 52, s, F(11), INK, anchor="ma")
 
     c.line(x1, y + 36, x1 - 24, y + 52, RED, 2)
     c.box(740, y + 52, 190, 82, fill=RED_BG, outline=RED, width=2, radius=8)
@@ -258,7 +263,7 @@ def fig_magnet_timeline():
 
     c.box(60, 308, 860, 52, fill=PANEL, outline=LINE, width=1, radius=8)
     c.text(490, 334,
-           "Fortryd: hold magneten, indtil lampen skifter væk fra den farve du ikke ønsker — "
+           "Fortryd: fjern magneten, mens lampen stadig blinker blåt (under 6 sek.) — "
            "handlingen udføres først, når du slipper.",
            F(12), INK, anchor="mm")
     c.save("fig04_magnet_tidslinje.png")

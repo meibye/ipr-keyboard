@@ -92,6 +92,30 @@ bash "$SCRIPT_DIR/../ble/ble_install_helper.sh"
 echo "      OK"
 echo ""
 
+# ---- 3b. Status LED / magnet support ----
+echo "[3b/5] Installing status LED and hotspot helper (config.txt, ipr-led-boot, sudoers)…"
+bash "$SCRIPT_DIR/../headless/install_gpio_support.sh"
+echo "      OK"
+echo ""
+
+# ---- 3c. Network exposure (firewall + mode switch) ----
+echo "[3c/5] Installing network exposure control (nftables, production/development mode)…"
+bash "$SCRIPT_DIR/../headless/install_firewall.sh"
+echo "      OK"
+echo ""
+
+# ---- 3d. IrisPen automount ----
+echo "[3d/5] Installing IrisPen automount (udev + irispen-mount.service)…"
+bash "$SCRIPT_DIR/../headless/install_irispen_mount.sh"
+echo "      OK"
+echo ""
+
+# ---- 3e. Observability ----
+echo "[3e/5] Installing persistent journal and OnFailure incident log…"
+bash "$SCRIPT_DIR/../headless/install_observability.sh"
+echo "      OK"
+echo ""
+
 # ---- 4. Reload systemd ----
 echo "[4/5] Reloading systemd unit definitions…"
 systemctl daemon-reload

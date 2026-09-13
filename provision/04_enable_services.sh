@@ -146,6 +146,27 @@ fi
 log "Installing dhcpcd write helper..."
 bash "$REPO_DIR/scripts/service/install_network_helper.sh"
 
+# Status LED + magnet: boot blink unit, config.txt gpio= line, hotspot
+# helper + sudoers, GPIO packages, venv system-site-packages.
+log "Installing status LED / reed switch support..."
+bash "$REPO_DIR/scripts/headless/install_gpio_support.sh"
+
+# Network exposure: nftables policy + production/development mode switch.
+# Seeds DEVELOPMENT mode so this SSH session survives; commissioning ends
+# with `sudo ipr_mode_ctl.sh production` (or the magnet held 6 s).
+log "Installing network exposure control (firewall, mode switch)..."
+bash "$REPO_DIR/scripts/headless/install_firewall.sh"
+
+# IrisPen automount: udev + irispen-mount.service (jmtpfs) so the pen's files
+# appear at /mnt/irispen whenever it is plugged in — no manual mount step.
+log "Installing IrisPen automount..."
+bash "$REPO_DIR/scripts/headless/install_irispen_mount.sh"
+
+# Persistent journal + OnFailure incident log, so failures on an unsupervised
+# device can be read afterwards (LED shows red solid meanwhile).
+log "Installing observability (persistent journal, incident log)..."
+bash "$REPO_DIR/scripts/headless/install_observability.sh"
+
 # Wait for services to start
 sleep 3
 

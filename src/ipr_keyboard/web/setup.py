@@ -27,6 +27,7 @@ from flask import (
     url_for,
 )
 
+from .auth import initial_admin_password
 from .setup_i18n import SUPPORTED_LANGS, get_translations
 
 bp_setup = Blueprint("setup", __name__, url_prefix="/setup")
@@ -126,6 +127,33 @@ def _run(cmd: list[str]) -> str:
         return f"(error: {e})"
 
 
+_MODE_FILE = Path("/var/lib/ipr-keyboard/mode")
+
+
+def _device_mode() -> str:
+    """'development' or 'production' (missing/unknown file = production)."""
+    try:
+        return "development" if _MODE_FILE.read_text().strip() == "development" else "production"
+    except OSError:
+        return "production"
+
+
+def _dashboard_url() -> str:
+    """Address of the main dashboard on the home network (LogPort-aware)."""
+    try:
+        from ..config.manager import ConfigManager
+        port = int(ConfigManager.instance().get().LogPort)
+    except Exception:
+        port = 443
+    # On the hotspot the .local name does not resolve, and an unauthenticated
+    # visit to "/" from 10.42.0.x is redirected to the setup login by design
+    # (server.py); point hotspot clients straight at the dashboard login.
+    if (request.remote_addr or "").startswith("10.42.0."):
+        return "https://10.42.0.1/login" if port == 443 else f"https://10.42.0.1:{port}/login"
+    host = _device_hostname()
+    return f"https://{host}.local/" if port == 443 else f"https://{host}.local:{port}/"
+
+
 def _read_hotspot_secret() -> tuple[str, str]:
     ssid = pass_ = ""
     try:
@@ -188,6 +216,14 @@ def _service_status(name: str) -> str:
         return "active" if rc == 0 else "inactive"
     except Exception:
         return "unknown"
+
+
+def _hotspot_status() -> str:
+    """'active' when the ipr-hotspot connection is up — read from NetworkManager,
+    not from ipr-provision.service, whose oneshot unit is 'active' after every
+    boot whether or not a hotspot is running."""
+    out = _run(["nmcli", "-t", "-f", "NAME", "con", "show", "--active"])
+    return "active" if "ipr-hotspot" in out.splitlines() else "inactive"
 
 
 def _bt_info() -> dict:
@@ -390,6 +426,9 @@ def home():
         home_ip=_home_network_ip(),
         hotspot_ssid=hotspot_ssid,
         hotspot_pass=hotspot_pass,
+        admin_initial_password=initial_admin_password(),
+        dashboard_url=_dashboard_url(),
+        device_mode=_device_mode(),
     )
 
 
@@ -400,7 +439,7 @@ def status():
         {"label": "IPR Keyboard",   "status": _service_status("ipr_keyboard.service")},
         {"label": "BT HID BLE",     "status": _service_status("bt_hid_ble.service")},
         {"label": "BT HID Agent",   "status": _service_status("bt_hid_agent_unified.service")},
-        {"label": "Hotspot / Setup","status": _service_status("ipr-provision.service")},
+        {"label": "Hotspot (ipr-setup-xxxx)", "status": _hotspot_status()},
     ]
     bt = _bt_info()
     return render_template(

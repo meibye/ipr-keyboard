@@ -64,6 +64,17 @@ _counts: Dict[str, int] = {k: 0 for k in KPIS}
 # costs nothing afterwards.
 try:
     _boot_to_process_s: Optional[float] = float(Path("/proc/uptime").read_text().split()[0])
+    # Only the FIRST start after a boot measures "boot to app".  A service
+    # restart hours later would otherwise report the uptime at that moment
+    # (seen as 11287 s on a device).  /dev/shm is a tmpfs, cleared by a reboot.
+    _first_start_marker = Path("/dev/shm/ipr-keyboard.started")
+    if _first_start_marker.exists():
+        _boot_to_process_s = None
+    else:
+        try:
+            _first_start_marker.touch()
+        except OSError:
+            pass
 except Exception:  # not Linux, or /proc unavailable
     _boot_to_process_s = None
 _process_start = time.time()
@@ -115,6 +126,11 @@ def record_poll_scan(duration_s: float) -> None:
         record("poll_scan_ms", duration_s * 1000.0)
 
 
+# Pen clock sanity window for record_file_pipeline (see there).
+_MTIME_SLACK_S = 5.0        # mtime slightly in the future: clock skew, accept
+_MTIME_MAX_AGE_S = 600.0    # older than this: pen clock wrong or file predates the app
+
+
 def record_file_pipeline(
     file_mtime: float,
     detected_at: float,
@@ -129,6 +145,14 @@ def record_file_pipeline(
     """
     if not _enabled:
         return
+    # The file's mtime comes from the PEN's clock (MTP), which is not
+    # synchronised with the device: an IrisPen with its clock at 2010
+    # produced "Pen -> BT = 526920126 s" on the dashboard.  Trust the mtime
+    # only when it is plausibly recent; otherwise anchor on detection, which
+    # is the first moment this device can vouch for.
+    delta = detected_at - file_mtime
+    if delta < -_MTIME_SLACK_S or delta > _MTIME_MAX_AGE_S:
+        file_mtime = detected_at
     with _lock:
         def _put(k: str, v: float) -> None:
             _samples[k].append(v)

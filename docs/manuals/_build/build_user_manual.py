@@ -6,8 +6,8 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "1.1"
-DATE = "11. september 2026"
+VERSION = "1.4"
+DATE = "13. september 2026"
 
 
 def build() -> None:
@@ -206,33 +206,68 @@ def build() -> None:
     m.h1("5. Statuslampen og magneten", new_page=True)
     m.p("Boksen har én lille lampe, der kan lyse i flere farver. Lampen er slukket under "
         "normal drift for at spare strøm og for ikke at forstyrre. Du vækker den ved at "
-        "holde magneten tæt på boksen — så viser den status i 30 sekunder.")
+        "holde magneten tæt på boksen — så viser den status i 30 sekunder. Under opstart "
+        "og mens opsætningsnetværket er tændt, lyser lampen af sig selv.")
 
-    m.h2("5.1 Farvernes betydning")
+    m.h2("5.1 Når du sætter strøm til")
+    m.p("Lampen følger hele opstarten, så du kan se, at boksen lever, længe før den er klar:")
+    m.table(
+        ["Lampen viser", "Hvad sker der", "Hvor længe"],
+        [
+            ["Hvid, konstant", "Strømmen er sat til, boksen vågner.", "De første sekunder"],
+            ["Hvid, hurtigt blink", "Boksen starter op.", "Ca. ½–1 minut"],
+            ["Grøn, gul eller rød", "Boksen er klar og viser status.", "30 sekunder"],
+            ["Slukket", "Normal drift.", "Indtil du bruger magneten"],
+        ],
+        widths=[4.0, 7.2, 4.4],
+        caption="Lampens forløb fra strøm til klar.",
+    )
+    m.note("Blinker lampen hvidt i mere end tre minutter, er boksen ikke kommet ordentligt "
+           "i gang. Tag strømmen fra i 10 sekunder og prøv igen; hjælper det ikke, så giv "
+           "administratoren besked.", "info")
+
+    m.h2("5.2 Farvernes betydning")
     m.figure("fig03_led_farver.png",
              "Lampens farver og deres betydning.")
 
     m.table(
         ["Lampen viser", "Betydning", "Hvad gør du?"],
         [
+            ["Hvid, konstant", "Strømmen er lige sat til.", "Vent."],
             ["Hvid, hurtigt blink", "Boksen starter op.", "Vent ca. 1 minut."],
             ["Grøn, konstant", "Alt er klar.", "Ingenting — bare skan."],
             ["Gul, konstant", "Boksen kører, men PC'en er ikke forbundet.",
              "Kontrollér at PC'en er tændt og har Bluetooth slået til."],
             ["Rød, langsomt blink", "Boksen har intet netværk.",
-             "Skanning virker som regel alligevel. Fortæller din administrator det, "
+             "Skanning virker som regel alligevel. Fortæl din administrator det, "
              "hvis betjeningssiden ikke kan nås."],
-            ["Blå, konstant", "Opsætningstilstand er slået til.",
-             "Slå den fra igen med magneten (3 sekunder), når du er færdig."],
+            ["Rød, konstant", "Noget inde i boksen kører ikke (en tjeneste er stoppet).",
+             "Tag strømmen fra i 10 sekunder og sæt den til igen. Lyser den stadig rødt "
+             "efter opstart, så giv administratoren besked."],
+            ["Blå, hurtigt blink", "Opsætningsnetværket er ved at blive tændt eller slukket "
+                                   "(du har holdt magneten i 3 sekunder).",
+             "Vent nogle sekunder."],
+            ["Blå, konstant", "Opsætningsnetværket er tændt. Lampen bliver ved med at lyse, "
+                              "så længe det er tændt.",
+             "Slå det fra igen med magneten (3 sekunder), når du er færdig."],
+            ["Lilla, hurtigt blink", "Du har holdt magneten i 6 sekunder (skift af tilstand).",
+             "Slip kun, hvis administratoren har bedt dig om det — ellers hold fast, til "
+             "lampen blinker rødt, og fjern så magneten, eller fjern den nu og prøv igen."],
+            ["Lilla, kort blink hvert 4. sekund", "Boksen er i udviklingstilstand "
+             "(administratoren arbejder på den).", "Ingenting. Giv administratoren besked, "
+             "hvis det bliver ved i dagevis."],
+            ["Rød, hurtigt blink (kort)", "Opsætningsnetværket kunne ikke tændes.",
+             "Prøv igen. Sker det igen, så giv administratoren besked."],
             ["Slukket", "Normal drift.", "Ingenting."],
         ],
         widths=[3.8, 5.8, 6.0],
         caption="Lampens farver oversat til handling.",
     )
 
-    m.h2("5.2 Magneten")
+    m.h2("5.3 Magneten")
     m.p("Magneten er boksens eneste betjeningsknap. Hvor længe du holder den tæt på "
-        "boksen, bestemmer hvad der sker.")
+        "boksen, bestemmer hvad der sker. Den virker når som helst, når boksen er "
+        "færdig med at starte op — også midt i det daglige arbejde.")
     m.figure("fig04_magnet_tidslinje.png",
              "Kort berøring viser status. 3 sekunder tænder eller slukker "
              "opsætningsnetværket. 10 sekunder nulstiller netværksindstillingerne.")
@@ -243,7 +278,12 @@ def build() -> None:
             ["Hold magneten tæt på og fjern den igen (under 3 sekunder)",
              "Lampen viser status i 30 sekunder."],
             ["Hold magneten på plads i 3 sekunder — lampen blinker blåt — og slip",
-             "Opsætningsnetværket tændes eller slukkes."],
+             "Opsætningsnetværket tændes: lampen blinker blåt, mens det starter, og lyser "
+             "derefter konstant blåt. Var det allerede tændt, slukkes det, og lampen viser "
+             "status igen."],
+            ["Hold magneten på plads i 6 sekunder — lampen blinker lilla — og slip",
+             "Skifter mellem drift og udvikling (kun administratoren). Lampen lyser lilla "
+             "i 3 sekunder. I udvikling blinker lampen kort lilla hvert 4. sekund."],
             ["Hold magneten på plads i 10 sekunder — lampen blinker rødt — og slip",
              "Alle gemte netværksforbindelser slettes, og boksen genstarter."],
         ],
@@ -251,14 +291,16 @@ def build() -> None:
         caption="Magnetens tre funktioner.",
     )
 
-    m.note("Nulstillingen på 10 sekunder er forbeholdt administratoren. Fortryder du "
-           "undervejs, skal du blot blive ved med at holde magneten på plads, indtil "
-           "lampen skifter væk fra rødt blink — handlingen udføres først, når du slipper. "
-           "Er du i tvivl, så fjern magneten, inden lampen begynder at blinke rødt.",
+    m.note("Skiftet efter 6 sekunder og nulstillingen efter 10 sekunder er forbeholdt "
+           "administratoren. Handlingen udføres først, når du slipper: er du i tvivl, så "
+           "fjern magneten, mens lampen stadig blinker blåt (under 6 sekunder).",
            "danger")
 
     # ---------------------------------------------------------------- 6
     m.h1("6. Betjeningssiden i browseren", new_page=True)
+    m.note("Betjeningssiden kan kun åbnes på hjemmenettet, når administratoren har sat boksen "
+           "i udviklingstilstand (lampen blinker kort lilla hvert 4. sekund). I normal drift er "
+           "boksen lukket for netværket, og siden nås kun via opsætningsnetværket.", "info")
     m.p("Boksen har en indbygget side, du kan åbne i en browser. Den er ikke nødvendig for "
         "daglig brug, men er nyttig, hvis du vil se, om alt er som det skal være. "
         "Din administrator oplyser adressen og dit brugernavn.")
@@ -308,8 +350,9 @@ def build() -> None:
         [
             ["Der sker ingenting, når jeg skanner.",
              "Boksen har ikke strøm, eller den er ikke færdig med at starte op.",
-             "Kontrollér strømstikket. Hold magneten tæt på: er lampen helt død, mangler "
-             "der strøm. Vent 1 minut efter tilslutning."],
+             "Kontrollér strømstikket: lampen lyser hvidt, så snart der er strøm. Hold "
+             "magneten tæt på: er lampen helt død, mangler der strøm. Vent 1 minut efter "
+             "tilslutning."],
             ["Lampen er gul.",
              "PC'en er ikke forbundet via Bluetooth.",
              "Tænd PC'en, kontrollér at Bluetooth er slået til, og vent ½ minut. Hjælper "
@@ -330,6 +373,13 @@ def build() -> None:
             ["Lampen blinker rødt langsomt.",
              "Boksen har ikke netværk.",
              "Skanning virker som regel stadig. Giv administratoren besked."],
+            ["Lampen lyser rødt konstant.",
+             "En tjeneste i boksen er stoppet.",
+             "Tag strømmen fra i 10 sekunder, og sæt den til igen. Hjælper det ikke, så "
+             "giv administratoren besked — boksen husker selv, hvad der gik galt."],
+            ["Betjeningssiden viser skanneren som “Ikke fundet”, selv om den sidder i.",
+             "Boksen har endnu ikke åbnet skanneren (tager nogle sekunder efter tilslutning).",
+             "Vent 10 sekunder. Står der stadig “Ikke fundet”, så tag USB-stikket ud og i."],
             ["Lampen lyser blåt hele tiden.",
              "Opsætningstilstand er blevet slået til ved et uheld.",
              "Hold magneten tæt på boksen i 3 sekunder og slip. Lampen skifter tilbage."],

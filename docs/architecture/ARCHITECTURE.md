@@ -53,7 +53,11 @@ Blueprint in `src/ipr_keyboard/web/api.py`. SVG assets live in `src/ipr_keyboard
 - `ipr_keyboard.service`
 - `bt_hid_agent_unified.service`
 - `bt_hid_ble.service`
-- `ipr-provision.service` — permanent WPA3/WPA2 management hotspot on `wlan0`; Flask UI with HTTP Basic Auth at `http://10.42.0.1/`
+- `ipr-provision.service` — on-demand WPA2 management hotspot on `wlan0` (trigger: magnet via `ipr_hotspot_ctl.sh`, boot marker, triple power-cycle); setup UI served by `ipr_keyboard.service` at `https://10.42.0.1/setup/`
+- `ipr-led-boot.service` — early-boot white blink on the RGB status LED; stopped by `ipr_keyboard.service` (`Conflicts=`) which then drives the LED from `gpio_monitor.py`. See `docs/architecture/led-status-design.md`.
+- `irispen-mount.service` — `jmtpfs` mount of the IrisPen at `/mnt/irispen`, started by udev (`dev-irispen.device`) on plug-in, stopped by `BindsTo=` on unplug. See `docs/operations/irispen-automount.md`.
+- `ipr-failure@.service` — `OnFailure=` handler for the core units; appends to `/var/lib/ipr-keyboard/incidents.log`. See `docs/operations/unsupervised-operation.md`.
+- `ipr-firewall.service` — nftables input policy (`inet ipr_fw`, DROP) applied before networking; production mode exposes nothing on the home network and only the setup portal on the hotspot, development mode exposes SSH/dashboard/mDNS. Re-applied by a NetworkManager dispatcher hook and by `ipr_mode_ctl.sh`. See `docs/operations/network-modes.md`.
 
 ### Not Shipped as Current Units
 
@@ -78,7 +82,11 @@ Defined by `AppConfig` in `src/ipr_keyboard/config/manager.py`:
 
 - `/opt/ipr_common.env` for service/env behavior
 - `/etc/default/bt_hid_agent_unified` managed by `scripts/lib/bt_agent_unified_env.sh`
-- `/etc/ipr-hotspot.secret` (mode 0600) — hotspot SSID and random password, written by `ipr-provision.sh` on first run; optional GPIO gate via `/etc/default/ipr-provision`
+- `/etc/ipr-hotspot.secret` (mode 0640, root:ipr-ssl) — hotspot SSID and random password, written by `ipr-provision.sh` on first run; optional GPIO gate via `/etc/default/ipr-provision`
+- `/etc/sudoers.d/<user>-ipr-gpio` — NOPASSWD grant for `/usr/local/bin/ipr_hotspot_ctl.sh` (hotspot start/stop, WiFi reset) and reboot/shutdown, installed by `scripts/headless/install_gpio_support.sh`
+- `/boot/firmware/config.txt` managed block `gpio=22,23,24=op,dh` — status LED solid white from power-on; `/etc/default/ipr-led` — pin numbers for the boot blink
+- `/etc/systemd/journald.conf.d/ipr.conf` — persistent journal, 64 MB / 1 month; `/var/lib/ipr-keyboard/incidents.log` — one line per failed core unit
+- `/var/lib/ipr-keyboard/mode` — `production` (default) or `development`; read by `ipr-firewall.sh`, `gpio_monitor.py` (purple heartbeat) and the setup portal. `/etc/sudoers.d/<user>-ipr-mode` lets the app toggle it (magnet 6 s).
 
 ## 6. Legacy and Deprecated Patterns
 

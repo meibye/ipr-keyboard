@@ -7,6 +7,18 @@
     <span class="val">{{ hostname }}</span>
   </div>
   <div class="row">
+    <span class="lbl">{{ t['home_mode'] }}</span>
+    <span class="val">
+      {% if device_mode == 'development' %}
+      <span class="badge badge-grey" style="background:#6b3fa0;color:#fff">{{ t['home_mode_dev'] }}</span>
+      <span style="font-weight:normal;font-size:.8rem;color:#666">{{ t['home_mode_dev_hint'] }}</span>
+      {% else %}
+      <span class="badge badge-green">{{ t['home_mode_prod'] }}</span>
+      <span style="font-weight:normal;font-size:.8rem;color:#666">{{ t['home_mode_prod_hint'] }}</span>
+      {% endif %}
+    </span>
+  </div>
+  <div class="row">
     <span class="lbl">{{ t['home_ssh_mdns'] }}</span>
     <span class="val"><code>ssh {{ ssh_user }}@{{ hostname }}.local</code></span>
   </div>
@@ -41,6 +53,26 @@
     <span class="lbl">{{ t['home_login_lbl'] }}</span>
     <span class="val">{{ t['home_login_val'] }}</span>
   </div>
+</div>
+
+<div class="card">
+  <h2>{{ t['home_dash_title'] }}</h2>
+  <div class="row">
+    <span class="lbl">{{ t['home_dash_url'] }}</span>
+    <span class="val"><code>{{ dashboard_url }}</code></span>
+  </div>
+  {% if admin_initial_password %}
+  <div class="row">
+    <span class="lbl">{{ t['home_dash_login'] }}</span>
+    <span class="val">admin  /  <code>{{ admin_initial_password }}</code></span>
+  </div>
+  <p style="color:#a15c00;font-size:.85rem;margin:.4rem 0 0">{{ t['home_dash_initial_note'] }}</p>
+  {% else %}
+  <div class="row">
+    <span class="lbl">{{ t['home_dash_login'] }}</span>
+    <span class="val">{{ t['home_dash_login_changed'] }}</span>
+  </div>
+  {% endif %}
 </div>
 
 <div class="card">

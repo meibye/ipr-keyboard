@@ -207,6 +207,14 @@ pre {
   border-radius: 8px;
   font-size: .88rem;
 }
+/* The generic "input { width:100%; padding }" rule above must not apply to
+   the checkboxes, or each one stretches and pushes its label away. */
+.unit-list input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 auto;
+}
 
 /* ---- Two-column layout (system page) ---- */
 .two-col {

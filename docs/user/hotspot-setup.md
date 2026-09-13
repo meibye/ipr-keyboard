@@ -23,7 +23,11 @@ one of these methods:
 | **Power-cycle the device 3 times within 2 minutes** | Magnet not available or device in an enclosure |
 | **Create a file named `IPR_SETUP` on the SD card** | Last resort — requires a PC and SD card reader |
 
-When the hotspot starts, the LED on the device turns **solid blue**.
+While you hold the magnet the LED blinks blue from the 3-second mark; release
+it and the LED keeps blinking blue while the hotspot starts (a few seconds).
+When the hotspot is up the LED turns **solid blue** and stays on until the
+hotspot is stopped.  A short red flash means the hotspot could not start —
+try again, or ask your administrator to check the device log.
 
 **Step 2 — Connect your phone or laptop to the hotspot**
 
@@ -44,18 +48,37 @@ warning permanently, download and install the device's CA certificate from
 - Username: `ipr`
 - Password: printed on the device label (or shown on the setup home page)
 
+**Reaching the main dashboard over the hotspot**
+
+Opening `https://10.42.0.1/` on the hotspot takes you to the *setup* login
+on purpose.  For the main dashboard go to **`https://10.42.0.1/login`** and
+sign in with a dashboard account (e.g. `admin`); `https://10.42.0.1/` then
+shows the dashboard.  The setup home page shows this address too.
+
 **Step 5 — When done**
 
 Hold the magnet near the reed switch for 3 seconds again to turn off the
-hotspot.  The LED returns to its normal colour.  Alternatively, use the
+hotspot.  The LED blinks blue briefly and then shows the normal status
+colour for 30 seconds before going off.  Alternatively, use the
 Reboot button on the System page — the hotspot does not restart automatically.
 
 ---
 
-### Option 2 — Via the main dashboard (requires home network)
+### Option 2 — Via the main dashboard (requires home network and development mode)
 
-If the device is already connected to your home network, you can reach the
-setup pages directly from the main dashboard without activating the hotspot.
+The device normally runs in **production mode**, in which nothing is
+reachable on the home network — not the dashboard, not SSH.  Only the
+hotspot route above works then.  An administrator can put the device into
+**development mode** (hold the magnet for 6 seconds — the LED blinks purple,
+release, and it lights solid purple for 3 seconds), after which the dashboard
+and SSH are reachable on the home network.  In development mode the LED gives
+a short purple blip every 4 seconds as a reminder; hold the magnet 6 seconds
+again to return to production mode.  Details:
+`docs/operations/network-modes.md`.
+
+If the device is in development mode and connected to your home network, you
+can reach the setup pages directly from the main dashboard without activating
+the hotspot.
 
 1. Open the main dashboard and sign in as an administrator.
 2. Click **Setup** in the navigation bar.
@@ -67,16 +90,24 @@ setup pages directly from the main dashboard without activating the hotspot.
 ## LED status indicator
 
 The small LED on the device shows the current state whenever you bring the
-magnet near (or for 30 seconds after activating the hotspot).
+magnet near, for 30 seconds after the device has finished starting, and
+for as long as the hotspot is on.
 
 | LED colour | Meaning |
 |------------|---------|
 | Off | Device running normally, no action needed |
+| White solid | Power is on, the device is starting (first seconds) |
+| White blinking | Device is starting up (about a minute) |
 | Green solid | WiFi connected and Bluetooth paired — all good |
 | Amber solid | WiFi connected, waiting for Bluetooth |
-| Red blinking | No WiFi connection — setup needed |
+| Red blinking slowly | No WiFi connection — setup needed |
+| Red solid | Something on the device is not running — power-cycle it; if it stays red, tell your administrator |
+| Blue blinking | Hotspot is being switched on or off (magnet held 3 s) |
 | Blue solid | Hotspot active — you can connect |
-| White blinking | Device is starting up |
+| Purple blinking | Magnet held 6 s — release to switch production ↔ development mode |
+| Purple solid (3 s) | Mode changed |
+| Purple blip every 4 s | Development mode — SSH and dashboard are open on the network |
+| Red blinking fast | Magnet held 10 s (network reset) — or a hotspot request failed |
 
 ---
 
@@ -88,7 +119,9 @@ If the magnet is not available:
 
 1. Turn the device off (unplug power or use the Shutdown button if accessible).
 2. Turn it back on.
-3. Wait for the startup blink (white LED) to finish — about 5 seconds.
+3. Wait until the white LED has been blinking for a few seconds (the boot
+   is counted once the device has started booting; you do not need to wait
+   for the colour).
 4. Turn it off again.
 5. Turn it back on again.
 6. Repeat once more (off → on) within 2 minutes total.
@@ -117,6 +150,7 @@ moving the device to a completely different network and want a clean start.
 **Hold the magnet in place for 10 seconds.**
 
 - At 3 seconds the LED turns blue fast-blink (hotspot arm threshold).
+- At 6 seconds it turns purple fast-blink (mode toggle threshold) — keep holding.
 - At 10 seconds the LED turns **red fast-blink** — this is the reset threshold.
 - Release the magnet to confirm.
 

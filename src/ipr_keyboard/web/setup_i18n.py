@@ -196,6 +196,11 @@ _EN: dict[str, str] = {
     # Home — Device card
     "home_device_title":   "Device",
     "home_hostname":       "Hostname",
+    "home_mode":           "Mode",
+    "home_mode_prod":      "production",
+    "home_mode_prod_hint": "no open ports on the home network; setup portal only over the hotspot",
+    "home_mode_dev":       "development",
+    "home_mode_dev_hint":  "SSH and dashboard reachable on the home network (magnet 6 s toggles)",
     "home_ssh_mdns":       "SSH (mDNS)",
     "home_net_ip":         "Home network IP",
     "home_net":            "Home network",
@@ -209,6 +214,15 @@ _EN: dict[str, str] = {
     "home_web_ui":         "Web UI",
     "home_login_lbl":      "Login",
     "home_login_val":      "ipr  /  hotspot password above",
+
+    # Home — Dashboard card
+    "home_dash_title":         "Main Dashboard",
+    "home_dash_url":           "Address",
+    "home_dash_login":         "Login",
+    "home_dash_login_changed": "admin  /  the password you set",
+    "home_dash_initial_note":  ("This is the generated first-login password. Change it in the "
+                                "dashboard (Settings → Account); it disappears from this page "
+                                "as soon as you do."),
 
     # Home — Certificate card
     "home_cert_title":    "Trust Certificate",
@@ -312,6 +326,11 @@ _DA: dict[str, str] = {
     # Home — Device card
     "home_device_title":   "Enhed",
     "home_hostname":       "Værtsnavn",
+    "home_mode":           "Tilstand",
+    "home_mode_prod":      "drift",
+    "home_mode_prod_hint": "ingen åbne porte på hjemmenettet; setup-portalen kun via hotspottet",
+    "home_mode_dev":       "udvikling",
+    "home_mode_dev_hint":  "SSH og betjeningsside kan nås på hjemmenettet (magnet 6 s skifter)",
     "home_ssh_mdns":       "SSH (mDNS)",
     "home_net_ip":         "Hjemmenetværks-IP",
     "home_net":            "Hjemmenetværk",
@@ -325,6 +344,15 @@ _DA: dict[str, str] = {
     "home_web_ui":         "Web-brugerflade",
     "home_login_lbl":      "Log ind",
     "home_login_val":      "ipr  /  hotspot-adgangskoden ovenfor",
+
+    # Home — Dashboard card
+    "home_dash_title":         "Betjeningssiden",
+    "home_dash_url":           "Adresse",
+    "home_dash_login":         "Log ind",
+    "home_dash_login_changed": "admin  /  den adgangskode, du selv har valgt",
+    "home_dash_initial_note":  ("Dette er den automatisk oprettede startadgangskode. Skift den "
+                                "på betjeningssiden (Indstillinger → Konto); så forsvinder den "
+                                "fra denne side."),
 
     # Home — Certificate card
     "home_cert_title":    "Stol på certifikat",

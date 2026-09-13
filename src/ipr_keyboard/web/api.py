@@ -112,10 +112,52 @@ def _build_bluetooth_state() -> dict[str, Any]:
     }
 
 
+# IrisPen USB ids (see provision/01_os_base.sh udev rule 69-irispen-mtp.rules)
+_PEN_USB_IDS = {("0e8d", "2008")}
+_PEN_MOUNTPOINT = "/mnt/irispen"
+
+
+def _pen_usb_present() -> bool:
+    """True when the IrisPen is plugged in (sysfs scan, no external tools)."""
+    try:
+        for dev in Path("/sys/bus/usb/devices").iterdir():
+            try:
+                vid = (dev / "idVendor").read_text().strip().lower()
+                pid = (dev / "idProduct").read_text().strip().lower()
+            except OSError:
+                continue
+            if (vid, pid) in _PEN_USB_IDS:
+                return True
+    except OSError:
+        pass
+    return False
+
+
+def _pen_mounted() -> bool:
+    """True when the MTP filesystem is mounted at the configured mountpoint."""
+    try:
+        with open("/proc/mounts", encoding="utf-8") as fh:
+            return any(line.split()[1] == _PEN_MOUNTPOINT for line in fh if len(line.split()) > 1)
+    except OSError:
+        return False
+
+
 def _build_pen_state() -> dict[str, Any]:
-    agent_active = _service_active("bt_hid_agent_unified.service")
-    if agent_active:
-        state, label, explanation = "ready", "Ready", "Scanner found"
+    """Pen state from what is physically there, not from the Bluetooth agent.
+
+    ready    plugged in and its files are mounted (the app can read scans)
+    busy     plugged in, mount not up yet (irispen-mount.service starting)
+    missing  not plugged in
+    """
+    present = _pen_usb_present()
+    mounted = _pen_mounted()
+    if present and mounted:
+        state, label, explanation = "ready", "Ready", "Scanner connected"
+    elif present:
+        state, label, explanation = "busy", "Connecting", "Scanner found, mounting its files…"
+    elif mounted:
+        # stale FUSE mount after an unplug; irispen-mount.service clears it
+        state, label, explanation = "missing", "Not detected", "Scanner unplugged"
     else:
         state, label, explanation = "missing", "Not detected", "Attach the pen / scanner"
     return {"state": state, "label": label, "explanation": explanation, "device_name": "IR Pen Scanner"}
@@ -539,17 +581,39 @@ _DHCPCD_WRITE_HELPER = "/usr/local/bin/ipr_write_dhcpcd.sh"
 
 
 def _get_current_ip() -> str:
+    """The device's IPv4 address(es).
+
+    The default-route trick only works with a route to the internet; on the
+    hotspot alone (10.42.0.1, no uplink) it yields nothing, so fall back to
+    listing every global-scope IPv4 address.
+    """
+    s = None
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
+        ip = s.getsockname()[0]
+        if ip and not ip.startswith("127."):
+            return ip
     except Exception:
-        return ""
+        pass
     finally:
         try:
-            s.close()
+            if s is not None:
+                s.close()
         except Exception:
             pass
+    try:
+        out = subprocess.check_output(
+            ["ip", "-4", "-o", "addr", "show", "scope", "global"], text=True, timeout=3
+        )
+        addrs = []
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) >= 4 and parts[2] == "inet":
+                addrs.append(parts[3].split("/")[0])
+        return ", ".join(addrs)
+    except Exception:
+        return ""
 
 
 def _get_network_interface() -> str:
@@ -652,16 +716,22 @@ def api_network_post():
         if "static_gateway" in data:
             update_kwargs["StaticGateway"] = str(data["static_gateway"])
 
+        # Only values that actually differ from the stored config count as a
+        # change: the settings page posts every network field on each save,
+        # and re-writing dhcpcd.conf (and telling the user about it) for an
+        # unchanged mode was noise.
+        before = cfg_mgr.get()
+        update_kwargs = {k: v for k, v in update_kwargs.items() if getattr(before, k, None) != v}
         if update_kwargs:
             cfg_mgr.update(**update_kwargs)
 
         # Apply to dhcpcd.conf if mode or static fields changed
-        if "mode" in update_kwargs or any(k in update_kwargs for k in ("StaticIP", "StaticNetmask", "StaticGateway")):
+        if any(k in update_kwargs for k in ("NetworkMode", "StaticIP", "StaticNetmask", "StaticGateway")):
             cfg = cfg_mgr.get()
             iface = _get_network_interface()
             try:
                 _write_dhcpcd(iface, cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway)
-                dhcp_msg = "Network config saved. Use 'Apply Network Settings' to activate without rebooting."
+                dhcp_msg = "Network config saved. It takes effect at the next reboot."
             except PermissionError:
                 dhcp_msg = "Settings saved, but could not write /etc/dhcpcd.conf (permission denied). Apply manually or run as root."
             except Exception as exc:

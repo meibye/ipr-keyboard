@@ -1,7 +1,7 @@
 {
   "DeleteFiles": true,
   "IrisPenFolders": ["/mnt/irispen/Intern delt lagerplads/Scan text and save"],
-  "LogPort": 8080,
+  "LogPort": 443,
   "Logging": true,
   "LogLevel": "INFO",
   "MaxFileSize": 1048576,

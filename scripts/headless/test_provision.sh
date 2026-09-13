@@ -145,7 +145,9 @@ check A.6  "openssl available"           "command -v openssl"
 check A.7  "curl available"              "command -v curl"
 check A.8  "jmtpfs installed"            "command -v jmtpfs"
 check A.9  "uv available"               "command -v uv"
-check A.10 "/mnt/irispen mount point"    "[ -d /mnt/irispen ]"
+# The pen's FUSE mount is private to the app user: as root, even [ -d ] on
+# it fails with EACCES, so consult /proc/mounts first.
+check A.10 "/mnt/irispen mount point"    "grep ' /mnt/irispen ' /proc/mounts || [ -d /mnt/irispen ]"
 check A.11 "Bluetooth experimental mode" \
            "grep -q 'Experimental=true' /etc/bluetooth/main.conf"
 check A.12 "bluetooth.service enabled"   \
@@ -166,17 +168,23 @@ check B.6 "werkzeug importable"             "'$VENV_PYTHON' -c 'import werkzeug'
 
 info "Running unit tests (this may take ~30 s) ..."
 if [[ -x "$VENV_PYTEST" && -d "$PROJECT_DIR/tests" ]]; then
+    # --timeout needs the pytest-timeout plugin, which is not part of the
+    # project's [dev] extras; pass it only when the plugin is installed.
+    _PYTEST_TIMEOUT=()
+    if "$VENV_PYTHON" -c "import pytest_timeout" 2>/dev/null; then
+        _PYTEST_TIMEOUT=(--timeout=60)
+    fi
     if "$VENV_PYTEST" "$PROJECT_DIR/tests" \
            --ignore="$PROJECT_DIR/tests/e2e" \
-           -q --tb=no --no-header \
-           --timeout=60 2>/dev/null | grep -qE '^\d+ passed'; then
+           -q --tb=no --no-header -p no:cacheprovider \
+           "${_PYTEST_TIMEOUT[@]}" 2>/dev/null | grep -E '^[0-9]+ passed'; then
         record_pass B.7 "pytest unit tests pass"
     else
         # Capture a brief failure summary
         PYTEST_OUT=$("$VENV_PYTEST" "$PROJECT_DIR/tests" \
             --ignore="$PROJECT_DIR/tests/e2e" \
-            -q --tb=line --no-header \
-            --timeout=60 2>&1 | tail -20 || true)
+            -q --tb=line --no-header -p no:cacheprovider \
+            "${_PYTEST_TIMEOUT[@]}" 2>&1 | tail -20 || true)
         record_fail B.7 "pytest unit tests pass"
         warn "pytest output (last 20 lines):"
         echo "$PYTEST_OUT" | sed 's/^/    /'
@@ -236,9 +244,9 @@ check F.5 "Server key permissions (0640)"      \
 check F.6 "Server cert not expired"            \
           "openssl x509 -checkend 0 -noout -in /etc/ipr-ssl/server.crt"
 check F.7 "Server cert covers 10.42.0.1"       \
-          "openssl x509 -noout -text -in /etc/ipr-ssl/server.crt | grep -q '10.42.0.1'"
+          "openssl x509 -noout -text -in /etc/ipr-ssl/server.crt | grep '10.42.0.1'"
 check F.8 "Server cert covers .local hostname" \
-          "openssl x509 -noout -text -in /etc/ipr-ssl/server.crt | grep -q '.local'"
+          "openssl x509 -noout -text -in /etc/ipr-ssl/server.crt | grep '.local'"
 
 # Warn if server cert expires within 30 days
 if [ -f /etc/ipr-ssl/server.crt ]; then
@@ -277,19 +285,27 @@ section "H — Application health"
 # Allow a few seconds for ipr_keyboard to be ready if it just started
 sleep 2
 
-info "Testing HTTPS health endpoint ..."
-HEALTH_BODY=$(curl -sk --max-time 5 https://localhost/health 2>/dev/null || true)
-if echo "$HEALTH_BODY" | grep -q '"ok"'; then
-    record_pass H.1 "HTTPS /health returns ok"
+# The dashboard listens on LogPort from config.json (443 in production; the
+# code default).  Probe that port, HTTPS first, then plain HTTP (dev, no certs).
+_LOG_PORT=443
+if [ -f "$PROJECT_DIR/config.json" ] && command -v python3 >/dev/null 2>&1; then
+    _LOG_PORT=$(python3 -c "import json;print(json.load(open('$PROJECT_DIR/config.json')).get('LogPort',443))" 2>/dev/null || echo 443)
+fi
+info "Testing health endpoint on port $_LOG_PORT (LogPort from config.json) ..."
+HEALTH_BODY=$(curl -sk --max-time 5 "https://localhost:${_LOG_PORT}/health" 2>/dev/null || true)
+if echo "$HEALTH_BODY" | grep '"ok"'; then
+    record_pass H.1 "HTTPS /health returns ok on port $_LOG_PORT"
 else
-    # Fall back to HTTP (dev mode, no certs)
-    HEALTH_BODY_HTTP=$(curl -s --max-time 5 http://localhost:8080/health 2>/dev/null || true)
-    if echo "$HEALTH_BODY_HTTP" | grep -q '"ok"'; then
-        record_pass H.1 "HTTP /health returns ok (HTTPS not available)"
+    HEALTH_BODY_HTTP=$(curl -s --max-time 5 "http://localhost:${_LOG_PORT}/health" 2>/dev/null || true)
+    if echo "$HEALTH_BODY_HTTP" | grep '"ok"'; then
+        record_pass H.1 "HTTP /health returns ok on port $_LOG_PORT (HTTPS not available)"
     else
-        record_fail H.1 "/health reachable (HTTPS and HTTP both failed)"
+        record_fail H.1 "/health reachable on port $_LOG_PORT (HTTPS and HTTP both failed)"
         warn "HTTPS response: ${HEALTH_BODY:-<empty>}"
     fi
+fi
+if [ "$_LOG_PORT" != "443" ]; then
+    warn "LogPort is $_LOG_PORT — production devices use 443 so https://<host>.local/ and https://10.42.0.1/setup/ work"
 fi
 
 check H.2 "config.json present (seeded on first run)" \
@@ -326,6 +342,87 @@ else
     for _f in "${_MISSING_X[@]}"; do
         warn "  missing +x: $_f"
     done
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+section "K — Status LED and magnet  (install_gpio_support.sh)"
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_BOOT_CFG=/boot/firmware/config.txt
+[ -f "$_BOOT_CFG" ] || _BOOT_CFG=/boot/config.txt
+check K.1 "RPi.GPIO importable from the app venv"           "'$PROJECT_DIR/.venv/bin/python' -c 'import RPi.GPIO'"
+check K.2 "config.txt drives the LED at power-on (gpio= line)"           "grep -q '^gpio=.*=op,dh' '$_BOOT_CFG'"
+check K.3 "ipr-led-boot.service installed and enabled"           "systemctl is-enabled --quiet ipr-led-boot.service"
+check K.4 "ipr_keyboard.service hands over the LED (Conflicts drop-in)"           "grep -q 'Conflicts=ipr-led-boot.service' /etc/systemd/system/ipr_keyboard.service.d/10-led-boot.conf"
+check K.5 "ipr_hotspot_ctl.sh installed"           "[ -x /usr/local/bin/ipr_hotspot_ctl.sh ]"
+check K.6 "sudoers lets $_INVOKING_USER run ipr_hotspot_ctl.sh without a password"           "sudo -n -l -U '$_INVOKING_USER' 2>/dev/null | grep ipr_hotspot_ctl.sh"
+check K.7 "ipr-provision.service has ExecStop (hotspot stops cleanly)"           "grep -q '^ExecStop=' /etc/systemd/system/ipr-provision.service"
+check K.8 "hotspot script honours the runtime request file"           "grep -q 'ipr-hotspot.request' /usr/local/sbin/ipr-provision.sh"
+check K.10 "ipr_keyboard.service has no CapabilityBoundingSet (sudo works inside the service)" \
+          "! grep -q '^CapabilityBoundingSet=' /etc/systemd/system/ipr_keyboard.service"
+if journalctl -u ipr_keyboard.service -b --no-pager 2>/dev/null | grep 'GPIO monitor started'; then
+    record_pass K.9 "GPIO monitor running in ipr_keyboard.service (this boot)"
+elif journalctl -u ipr_keyboard.service -b --no-pager 2>/dev/null | grep 'GPIO monitor disabled'; then
+    record_fail K.9 "GPIO monitor running in ipr_keyboard.service (disabled — see journal)"
+    warn "$(journalctl -u ipr_keyboard.service -b --no-pager 2>/dev/null | grep 'GPIO monitor disabled' | tail -1)"
+else
+    record_skip K.9 "GPIO monitor running — no GPIO line in this boot's journal (GpioEnabled=false?)"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+section "L — Network exposure  (install_firewall.sh)"
+# ═══════════════════════════════════════════════════════════════════════════════
+
+check L.1 "nftables installed"                       "command -v nft"
+check L.2 "ipr-firewall.sh installed"                "[ -x /usr/local/sbin/ipr-firewall.sh ]"
+check L.3 "ipr_mode_ctl.sh installed"                "[ -x /usr/local/bin/ipr_mode_ctl.sh ]"
+check L.4 "ipr-firewall.service enabled"             "systemctl is-enabled --quiet ipr-firewall.service"
+check L.5 "NetworkManager dispatcher hook installed" "[ -x /etc/NetworkManager/dispatcher.d/90-ipr-firewall ]"
+check L.6 "mode file present"                        "[ -f /var/lib/ipr-keyboard/mode ]"
+check L.7 "sudoers lets $_INVOKING_USER run ipr_mode_ctl.sh" \
+          "sudo -n -l -U '$_INVOKING_USER' 2>/dev/null | grep ipr_mode_ctl.sh"
+check L.8 "nftables table ipr_fw loaded with DROP policy" \
+          "nft list table inet ipr_fw 2>/dev/null | grep 'policy drop'"
+_MODE=$(cat /var/lib/ipr-keyboard/mode 2>/dev/null || echo production)
+_HS_UP=0; nmcli -t -f NAME con show --active 2>/dev/null | grep -x ipr-hotspot && _HS_UP=1
+if [ "$_MODE" = "development" ]; then
+    check L.9 "development mode: ssh + dashboard rule present" \
+              "nft list table inet ipr_fw 2>/dev/null | grep 'dport { 22, 443 } accept'"
+    warn "Device is in DEVELOPMENT mode — switch to production when commissioning is done:"
+    warn "  sudo ipr_mode_ctl.sh production   (or hold the magnet 6 s)"
+else
+    check L.9 "production mode: ssh/dashboard closed (reset for open sessions, drop for new)" \
+              "nft list table inet ipr_fw 2>/dev/null | grep 'dport { 22, 443 } reject with tcp reset'"
+fi
+if [ "$_HS_UP" -eq 1 ]; then
+    check L.10 "hotspot up: setup portal (443) allowed from 10.42.0.0/24 only" \
+               "nft list table inet ipr_fw 2>/dev/null | grep '10.42.0.0/24 tcp dport 443'"
+else
+    record_skip L.10 "hotspot rules (hotspot not active)"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+section "M — IrisPen automount and observability"
+# ═══════════════════════════════════════════════════════════════════════════════
+
+check M.1 "jmtpfs installed"                          "command -v jmtpfs"
+check M.2 "udev rule exposes the pen to systemd"      "grep 'SYSTEMD_ALIAS' /etc/udev/rules.d/69-irispen-mtp.rules"
+check M.3 "irispen-mount.service installed"           "[ -f /etc/systemd/system/irispen-mount.service ]"
+if ls /sys/bus/usb/devices/*/idProduct >/dev/null 2>&1 && grep -lq 2008 /sys/bus/usb/devices/*/idProduct 2>/dev/null; then
+    check M.4 "pen plugged in: mounted at /mnt/irispen" "grep ' /mnt/irispen fuse.jmtpfs ' /proc/mounts"
+    check M.5 "irispen-mount.service active"           "systemctl is-active --quiet irispen-mount.service"
+    if [ -n "${_INVOKING_USER:-}" ]; then
+        check M.6 "app user can list the pen's files" "runuser -u '$_INVOKING_USER' -- ls /mnt/irispen"
+    fi
+else
+    record_skip M.4 "pen mounted (pen not plugged in)"
+fi
+check M.7 "journal is persistent (journald.conf.d/ipr.conf)" "grep 'Storage=persistent' /etc/systemd/journald.conf.d/ipr.conf"
+check M.8 "OnFailure incident handler installed"      "[ -f /etc/systemd/system/ipr-failure@.service ]"
+check M.9 "core units carry OnFailure drop-in"        "grep OnFailure /etc/systemd/system/bt_hid_ble.service.d/20-onfailure.conf"
+if [ -s /var/lib/ipr-keyboard/incidents.log ]; then
+    warn "incidents.log is not empty — review it:"
+    tail -5 /var/lib/ipr-keyboard/incidents.log | sed 's/^/    /'
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -394,6 +491,12 @@ if manual_step \
     record_pass J.6 "BT pairing completes successfully"
 else
     record_skip J.6 "BT pairing completes successfully"
+fi
+
+if manual_step     "Status LED: power-cycle the device and watch the LED."     "Expected: solid white (power) -> white blink (booting) -> status colour for 30 s -> off."     "Tap the magnet: LED shows status again."     "Hold the magnet 3 s: LED blinks blue; release -> hotspot comes up, LED stays solid blue."     "Hold 3 s again: hotspot stops and the LED returns to the status colour."; then
+    record_pass J.7 "Status LED boot sequence and magnet gestures"
+else
+    record_skip J.7 "Status LED boot sequence and magnet gestures"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════

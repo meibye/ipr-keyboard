@@ -178,3 +178,29 @@ def test_platform_info_has_machine_and_python():
     assert info["machine"]
     assert info["python"]
     assert "model" in info
+
+
+def test_file_pipeline_ignores_implausible_pen_clock():
+    """An IrisPen with its clock at 2010 must not produce a 16-year latency."""
+    from ipr_keyboard import metrics as m
+
+    m.set_enabled(True)
+    m.reset()
+    now = 1_800_000_000.0
+    m.record_file_pipeline(file_mtime=1_262_300_000.0, detected_at=now,
+                           read_done_at=now + 0.1, send_done_at=now + 0.6, chars=10)
+    snap = m.snapshot()["kpis"]
+    assert snap["detect_latency_ms"]["p50"] == 0.0
+    assert 590 <= snap["e2e_latency_ms"]["p50"] <= 610
+
+
+def test_file_pipeline_keeps_plausible_pen_clock():
+    from ipr_keyboard import metrics as m
+
+    m.set_enabled(True)
+    m.reset()
+    now = 1_800_000_000.0
+    m.record_file_pipeline(file_mtime=now - 2.0, detected_at=now,
+                           read_done_at=now + 0.1, send_done_at=now + 0.6, chars=10)
+    snap = m.snapshot()["kpis"]
+    assert 1990 <= snap["detect_latency_ms"]["p50"] <= 2010
