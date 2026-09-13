@@ -1794,7 +1794,8 @@ def build() -> None:
     m.h3("Trin 2 — ser applikationen filerne?")
     m.code(
         "mountpoint /mnt/irispen\n"
-        "ls -l /mnt/irispen/*/\"Scan text and save\"   # * = pennens lagermappe, navnet følger pennens sprog
+        "ls -l /mnt/irispen/*/\"Scan text and save\"   # * = pennens lagermappe, navnet foelger pennens sprog
+"
 "
         "journalctl -u ipr_keyboard.service -f | grep -i 'Detected new file'"
     )
