@@ -166,6 +166,7 @@ cp "$AGENT_BIN_SRC" "$AGENT_BIN"
 cp "$BLE_BIN_SRC" "$BLE_BIN"
 chmod +x "$AGENT_BIN"
 chmod +x "$BLE_BIN"
+install -m 0755 -o root -g root "${SCRIPT_DIR}/bin/bt_adapter_prepare.sh" /usr/local/bin/bt_adapter_prepare.sh
 
 # ------------------------------------------------------------------------------
 # Install service units from svc/ directory

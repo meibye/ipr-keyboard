@@ -211,6 +211,8 @@ check C.5 "/opt/ipr_common.env present"         \
           "[ -f /opt/ipr_common.env ]"
 check C.6 "bluetooth override.conf present"     \
           "[ -f /etc/systemd/system/bluetooth.service.d/override.conf ]"
+check C.6b "adapter is LE-only (no br/edr in btmgmt current settings)" \
+          "! script -qec 'btmgmt info' /dev/null 2>/dev/null | grep 'current settings' | grep 'br/edr'"
 check C.7 "BT override disables unwanted plugins" \
           "grep -q -- '--noplugin' /etc/systemd/system/bluetooth.service.d/override.conf"
 

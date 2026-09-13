@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.9.4"
+VERSION = "1.9.5"
 DATE = "13. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -1852,6 +1852,14 @@ def build() -> None:
            "bt_hid_ble.service afbryder den aktive BLE-forbindelse; Windows genforbinder, når "
            "enheden annoncerer igen, men kan kræve et tryk på Tilslut eller Bluetooth "
            "fra/til på PC'en.", "info")
+
+    m.note("Kendt fejl, rettet september 2026: agentens ExecStartPre kørte “hciconfig up” "
+           "før bluetoothd havde anvendt ControllerMode = le, så adapteren var dual-mode "
+           "(BR/EDR + LE) efter hver opstart, men LE-only efter en genstart af tjenesten. En "
+           "PC bundet i den ene konfiguration genforbandt ikke i den anden. "
+           "bt_adapter_prepare.sh venter nu på bluetoothd og gennemtvinger LE-only "
+           "(strømcykler adapteren om nødvendigt); test_provision.sh C.6b kontrollerer det. "
+           "En PC, der blev parret FØR rettelsen, skal fjernes og parres igen én gang.", "warn")
 
     m.h2("10.3 Eskalationsstige for Bluetooth")
     m.code(

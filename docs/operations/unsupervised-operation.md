@@ -6,6 +6,12 @@ device, and (3) leave a trace an administrator can read days later.
 
 ## 1. Self-recovery
 
+- The Bluetooth adapter is brought to the same LE-only state on every start
+  (`bt_adapter_prepare.sh`, ExecStartPre of the agent), so a bonded PC
+  reconnects after boots and service restarts alike.  Before this the adapter
+  was dual-mode after a boot and LE-only after a restart, and Windows would
+  not reconnect across the two.
+
 - `bt_hid_ble.service` and `bt_hid_agent_unified.service`: `Restart=always`.
 - `ipr_keyboard.service`: `Restart=on-failure`; its web server exits the
   process after five failed binds so systemd restarts it.
