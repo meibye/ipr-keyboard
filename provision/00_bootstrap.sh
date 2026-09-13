@@ -86,6 +86,25 @@ log "  Repo Dir: $REPO_DIR"
 log "  Git Ref: $GIT_REF"
 log "  User: $APP_USER"
 
+# Make apt tolerate a dead mirror before anything else uses it.
+#
+# The 32-bit image (Zero W) fetches from raspbian.raspberrypi.com, which is a
+# redirector that bounces each download to a random community mirror. With one
+# mirror down (seen: mirrors.dotsrc.org, which took 60 of 122 packages with it)
+# a plain `apt install` fails the whole provisioning step. Retries re-request
+# through the redirector and usually land on a healthy mirror. ForceIPv4 because
+# the devices have no IPv6 route (Wi-Fi profile: ipv6.method=ignore), so every
+# download otherwise starts with a doomed IPv6 dial. The 64-bit images use the
+# deb.debian.org CDN and are unaffected, but the settings cost them nothing.
+# A drop-in covers every apt call on the device, including ones typed by hand.
+cat > /etc/apt/apt.conf.d/99ipr-resilience <<'EOF'
+// Installed by ipr-keyboard provision/00_bootstrap.sh
+Acquire::Retries "3";
+Acquire::ForceIPv4 "true";
+Acquire::http::Timeout "30";
+EOF
+log "apt: retries and IPv4-only configured (/etc/apt/apt.conf.d/99ipr-resilience)"
+
 # Update apt and install base tools
 log "Updating apt package lists..."
 apt-get update
