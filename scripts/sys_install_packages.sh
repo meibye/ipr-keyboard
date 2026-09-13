@@ -88,12 +88,15 @@ if [[ "$MODE" == "system" ]]; then
             libgirepository1.0-dev \
             jq \
             python3-rpi-lgpio \
-            gpiod
+            gpiod \
+            nftables
 
     # python3-rpi-lgpio: RPi.GPIO API over lgpio for the status LED / reed switch
     #   (works on Zero W and Zero 2 W with current kernels; the venv is created
     #   with --system-site-packages so the app can import it).
     # gpiod: gpioset, used by ipr-led-boot.service for the early white blink.
+    # nftables: the production/development port policy (install_firewall.sh);
+    #   listed here so an offline payload install does not depend on apt later.
 
     # Note: PyGObject (gi.repository) is only available for the system Python via python3-gi. For venvs, use system Python for scripts requiring gi.
 
