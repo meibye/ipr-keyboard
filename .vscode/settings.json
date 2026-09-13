@@ -6,5 +6,11 @@
 	},
 	"shfmt.executablePath": "shfmt",
 	"shfmt.executableArgs": ["-i", "4"],
-	"shellcheck.enable": true
+	"shellcheck.enable": true,
+	"chat.tools.terminal.autoApprove": {
+		"/^python -c \"import tomllib,sys; tomllib\\.load\\(open\\('\\.codex/config\\.toml','rb'\\)\\); print\\('OK'\\)\"$/": {
+			"approve": true,
+			"matchCommandLine": true
+		}
+	}
 }

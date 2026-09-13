@@ -57,6 +57,11 @@
     ]
   },
   "enabledMcpjsonServers": [
-    "ipr-rpi-dev-ssh"
+    "ipr-rpi-dev-ssh",
+    "ipr-pc-dev-ssh",
+    "ipr-rpi-dev-ssh-debug",
+    "ipr-pc-dev-ssh-debug",
+    "ipr-rpi-prod-zero2-ssh",
+    "ipr-rpi-prod-zero-ssh"
   ]
 }

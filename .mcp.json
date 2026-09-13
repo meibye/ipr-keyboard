@@ -16,6 +16,93 @@
         "--blacklist",
         "^rm .*,^shutdown.*,^reboot.*"
       ]
+    },
+    "ipr-pc-dev-ssh": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host",
+        "msi",
+        "--port",
+        "22",
+        "--username",
+        "micha",
+        "--privateKey",
+        "C:/Users/micha/.ssh/id_ed25519_ipr_kb",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*,^del .*,^poweroff.*,^logoff.*,^shutdown /.*,^format .*"
+      ]
+    },
+    "ipr-rpi-dev-ssh-debug": {
+      "command": "node",
+      "args": [
+        "D:\\mcp\\ssh-mcp\\node_modules\\@fangjunjie\\ssh-mcp-server\\build\\index.js",
+        "--host",
+        "ipr-dev-pi4",
+        "--port",
+        "22",
+        "--username",
+        "meibye",
+        "--privateKey",
+        "C:/Users/micha/.ssh/id_ed25519_ipr_kb",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*"
+      ]
+    },
+    "ipr-pc-dev-ssh-debug": {
+      "command": "node",
+      "args": [
+        "D:\\mcp\\ssh-mcp\\node_modules\\@fangjunjie\\ssh-mcp-server\\build\\index.js",
+        "--host",
+        "msi",
+        "--port",
+        "22",
+        "--username",
+        "micha",
+        "--privateKey",
+        "C:/Users/micha/.ssh/id_ed25519_ipr_kb",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*,^del .*,^poweroff.*,^logoff.*,^shutdown /.*,^format .*"
+      ]
+    },
+    "ipr-rpi-prod-zero2-ssh": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host",
+        "ipr-prod-zero2",
+        "--port",
+        "22",
+        "--username",
+        "copilotdiag",
+        "--privateKey",
+        "C:/Users/micha/.ssh/copilotdiag_rpi",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*",
+        "--whitelist",
+        "(?:/usr/local/bin/)?dbg_deploy\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_diag_bundle\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_pairing_capture\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_bt_restart\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_soft_reset\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_bond_wipe\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_stack_status\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?journalctl\\ -u\\ bluetooth(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_ble\\.service\"(\\s+.*)?$,(?:/usr/bin/)?btmgmt(\\s+.*)?$"
+      ]
+    },
+    "ipr-rpi-prod-zero-ssh": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host",
+        "ipr-prod-zero",
+        "--port",
+        "22",
+        "--username",
+        "copilotdiag",
+        "--privateKey",
+        "C:/Users/micha/.ssh/copilotdiag_rpi",
+        "--blacklist",
+        "^rm .*,^shutdown.*,^reboot.*",
+        "--whitelist",
+        "(?:/usr/local/bin/)?dbg_deploy\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_diag_bundle\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_pairing_capture\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_bt_restart\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_soft_reset\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/local/bin/)?dbg_bt_bond_wipe\\.sh(\\s+.*)?$,(?:/usr/local/bin/)?dbg_stack_status\\.sh(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ bluetooth(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ restart\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ start\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?systemctl\\ stop\\ \"bt_hid_ble\\.service\"(\\s+.*)?(\\s*\\|\\s*.+)?$,(?:/usr/bin/)?journalctl\\ -u\\ bluetooth(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_agent_unified\\.service\"(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ \"bt_hid_ble\\.service\"(\\s+.*)?$,(?:/usr/bin/)?btmgmt(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ ssh(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ -u\\ sshd(\\s+.*)?$,(?:/usr/bin/)?journalctl\\ _COMM=sshd(\\s+.*)?$,(?:/usr/bin/)?cat\\ /etc/ssh/ssh(d)?_config(\\.d/[A-Za-z0-9_.-]+)?$,(?:/usr/bin/)?ls\\ (-[a-zA-Z]+\\ )?/etc/ssh(/sshd_config\\.d)?/?$,(?:/usr/bin/)?grep\\ (-[a-zA-Z]+\\ )*('[^']*'|\\\"[^\\\"]*\\\"|[^\\s;|&]+)\\ /etc/ssh/.*$,(?:/usr/bin/)?id(\\ [a-z_][a-z0-9_-]*)?$,(?:/usr/bin/)?getent\\ (passwd|group)(\\ [a-z_][a-z0-9_-]*)?$,(?:/usr/bin/)?last(log)?(\\ -[a-zA-Z0-9\\ ]+)?(\\ [a-z_][a-z0-9_-]*)?$,(?:/usr/bin/)?systemctl\\ status\\ ssh(d)?(\\s+--no-pager)?$,(?:/usr/bin/)?localectl(\\ status)?$"
+      ]
     }
   }
 }
