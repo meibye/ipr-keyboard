@@ -29,3 +29,6 @@
 # Windows-specific files (if any)
 *.bat text eol=crlf
 *.cmd text eol=crlf
+
+# Extensionless scripts that run on the Pi
+scripts/headless/90-ipr-firewall text eol=lf
