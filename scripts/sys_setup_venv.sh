@@ -267,17 +267,25 @@ fi
 # A tiny shim so the rest of this script reads the same either way.
 if command -v uv >/dev/null 2>&1; then
     USE_UV=true
-    py_venv()  { uv venv --allow-existing "$1"; }
+    py_venv()  { uv venv --allow-existing --system-site-packages "$1"; }
     py_pip()   { uv pip "$@"; }
 else
     USE_UV=false
-    py_venv()  { python3 -m venv "$1"; }
+    py_venv()  { python3 -m venv --system-site-packages "$1"; }
     py_pip()   { "$VENV_DIR/bin/python" -m pip "$@"; }
 fi
 
 # 2. Create the venv
+#    --system-site-packages: the status LED / reed switch need RPi.GPIO, which
+#    only exists as the Debian package python3-rpi-lgpio (no wheel for ARMv6).
+#    Packages installed in the venv still take precedence over system ones.
 echo "[sys_setup_venv] Creating virtualenv at $VENV_DIR ($($USE_UV && echo uv || echo 'python3 -m venv'))..."
 py_venv "$VENV_DIR"
+if [[ -f "$VENV_DIR/pyvenv.cfg" ]] && grep -q '^include-system-site-packages = false' "$VENV_DIR/pyvenv.cfg"; then
+  # An existing venv from before the GPIO change: flip the flag in place.
+  sed -i 's/^include-system-site-packages = false/include-system-site-packages = true/' "$VENV_DIR/pyvenv.cfg"
+  echo "[sys_setup_venv] Enabled system site-packages in existing venv (for RPi.GPIO)."
+fi
 
 # 3. Activate venv
 #    Not strictly needed for uv pip, but convenient if you run more commands after.

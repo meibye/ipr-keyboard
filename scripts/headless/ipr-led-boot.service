@@ -1,0 +1,20 @@
+[Unit]
+Description=IPR Keyboard status LED — white blink while booting
+Documentation=file:///home/meibye/dev/ipr-keyboard/docs/hardware/gpio-wiring.md
+# Start as early as systemd allows so the LED reflects the boot, long before
+# the Python application (ipr_keyboard.service) is up.  The firmware has
+# already set the pins high (solid white) via the gpio= line in config.txt.
+DefaultDependencies=no
+After=sysinit.target
+Conflicts=shutdown.target
+
+[Service]
+Type=simple
+# Toggles R, G and B together at 4 Hz.  ipr_keyboard.service stops this
+# unit (ExecStartPre=+systemctl stop, plus Conflicts=) so the lines are
+# released the moment the application starts.
+ExecStart=/usr/local/sbin/ipr-led-boot.sh
+Restart=no
+
+[Install]
+WantedBy=sysinit.target

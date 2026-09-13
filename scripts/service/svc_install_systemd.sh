@@ -69,6 +69,8 @@ cat <<EOF > "$SERVICE_FILE"
 Description=IrisPen to Bluetooth Keyboard Bridge
 After=network.target bluetooth.target bt_hid_agent_unified.service ipr-provision.service
 Wants=bt_hid_agent_unified.service
+# The LED hand-over (Conflicts=ipr-led-boot.service) lives in the drop-in
+# ipr_keyboard.service.d/10-led-boot.conf written by install_gpio_support.sh.
 
 [Service]
 Type=simple
@@ -78,7 +80,10 @@ ExecStart=$VENV_DIR/bin/python -m ipr_keyboard.main
 Restart=on-failure
 RestartSec=5
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+# No CapabilityBoundingSet= here on purpose: the app runs sudo for the magnet
+# actions (ipr_hotspot_ctl.sh) and the dashboard's reboot/shutdown/cert-renew.
+# A bounding set limited to CAP_NET_BIND_SERVICE makes every sudo fail with
+# "unable to change to root gid: Operation not permitted".
 
 [Install]
 WantedBy=multi-user.target

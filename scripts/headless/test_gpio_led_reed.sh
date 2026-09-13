@@ -227,7 +227,7 @@ if python3 -c "import RPi.GPIO" 2>/dev/null; then
     record_pass P.3 "RPi.GPIO importable"
     HAS_GPIO=1
 else
-    record_fail P.3 "RPi.GPIO not importable — install: sudo apt-get install python3-rpi.gpio"
+    record_fail P.3 "RPi.GPIO not importable — install: sudo apt-get install python3-rpi-lgpio"
     HAS_GPIO=0
 fi
 

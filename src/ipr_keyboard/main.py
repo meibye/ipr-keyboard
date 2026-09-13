@@ -3,6 +3,7 @@
 This module orchestrates the USB monitoring and Bluetooth forwarding functionality,
 along with a web server for configuration and log viewing.
 """
+
 from __future__ import annotations
 
 import os
@@ -13,7 +14,7 @@ import time
 from pathlib import Path
 
 _TLS_CERT = Path("/etc/ipr-ssl/server.crt")
-_TLS_KEY  = Path("/etc/ipr-ssl/server.key")
+_TLS_KEY = Path("/etc/ipr-ssl/server.key")
 
 from .config.manager import ConfigManager, log_version_info
 from .config import manager as config_manager
@@ -29,7 +30,8 @@ from .gpio_monitor import GpioMonitor, gpio_available
 
 logger = get_logger()
 
-VERSION = '2026-04-12 19:53:57'
+VERSION = "2026-04-12 19:53:57"
+
 
 def log_version_info():
     config_manager.log_version_info()
@@ -38,6 +40,7 @@ def log_version_info():
     usb_reader.log_version_info()
     usb_deleter.log_version_info()
     web_server.log_version_info()
+
 
 _WEB_RETRY_COUNT = 5
 _WEB_RETRY_DELAY = 3  # seconds between bind retries
@@ -68,29 +71,44 @@ def run_web_server():
     else:
         logger.warning(
             "TLS cert not accessible at %s — falling back to HTTP on port %d",
-            _TLS_CERT, cfg.LogPort,
+            _TLS_CERT,
+            cfg.LogPort,
         )
 
     for attempt in range(1, _WEB_RETRY_COUNT + 1):
         try:
-            logger.info("Starting %s server on port %d (attempt %d/%d)",
-                        "HTTPS" if ssl_ctx else "HTTP",
-                        cfg.LogPort, attempt, _WEB_RETRY_COUNT)
-            app.run(host="0.0.0.0", port=cfg.LogPort, debug=False,
-                    use_reloader=False,
-                    ssl_context=ssl_ctx if ssl_ctx else None)
+            logger.info(
+                "Starting %s server on port %d (attempt %d/%d)",
+                "HTTPS" if ssl_ctx else "HTTP",
+                cfg.LogPort,
+                attempt,
+                _WEB_RETRY_COUNT,
+            )
+            app.run(
+                host="0.0.0.0",
+                port=cfg.LogPort,
+                debug=False,
+                use_reloader=False,
+                ssl_context=ssl_ctx if ssl_ctx else None,
+            )
             return  # clean exit
         except OSError as exc:
             if attempt < _WEB_RETRY_COUNT:
                 logger.warning(
                     "Web server failed to bind port %d (attempt %d/%d): %s — retrying in %ds",
-                    cfg.LogPort, attempt, _WEB_RETRY_COUNT, exc, _WEB_RETRY_DELAY,
+                    cfg.LogPort,
+                    attempt,
+                    _WEB_RETRY_COUNT,
+                    exc,
+                    _WEB_RETRY_DELAY,
                 )
                 time.sleep(_WEB_RETRY_DELAY)
             else:
                 logger.critical(
                     "Web server could not bind port %d after %d attempts: %s — terminating",
-                    cfg.LogPort, _WEB_RETRY_COUNT, exc,
+                    cfg.LogPort,
+                    _WEB_RETRY_COUNT,
+                    exc,
                 )
                 os.kill(os.getpid(), signal.SIGTERM)
 
@@ -176,7 +194,10 @@ def run_usb_bt_loop():
 
         # One call, one lock, no-op when MetricsEnabled is false.
         metrics.record_file_pipeline(
-            found_mtime, detected_at, read_done_at, send_done_at,
+            found_mtime,
+            detected_at,
+            read_done_at,
+            send_done_at,
             len(text) if text else 0,
         )
 
@@ -186,6 +207,43 @@ def run_usb_bt_loop():
                 logger.info("Deleted file after processing: %s", found_file)
             else:
                 logger.error("Failed to delete file: %s", found_file)
+
+
+_READY_WAIT_SECS = 180
+
+
+def _signal_ready_when_web_up(gpio_monitor: GpioMonitor, port: int) -> None:
+    """End the LED boot phase once the local dashboard answers /health.
+
+    Polls http(s)://127.0.0.1:<port>/health for up to _READY_WAIT_SECS.  The
+    LED keeps blinking white if the web server never comes up, which is the
+    honest signal for "still starting / startup problem".
+    """
+    import urllib.request
+
+    ctx = _ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = _ssl.CERT_NONE
+    deadline = time.monotonic() + _READY_WAIT_SECS
+    while time.monotonic() < deadline:
+        for scheme in ("https", "http"):
+            try:
+                with urllib.request.urlopen(
+                    f"{scheme}://127.0.0.1:{port}/health", timeout=3, context=ctx
+                ) as resp:
+                    if resp.status == 200:
+                        logger.info(
+                            "Dashboard answers on port %d — LED leaves boot phase", port
+                        )
+                        gpio_monitor.set_ready()
+                        return
+            except Exception:
+                pass
+        time.sleep(2)
+    logger.warning(
+        "Dashboard did not answer within %d s — LED stays in boot phase",
+        _READY_WAIT_SECS,
+    )
 
 
 def main():
@@ -199,15 +257,11 @@ def main():
     set_log_level(cfg.LogLevel)
     logger.info("Starting ipr_keyboard with config: %s", cfg.to_dict())
 
-    t_web = threading.Thread(target=run_web_server, daemon=True)
-    t_web.start()
-
-    # Main loop thread (USB + BT)
-    t_main = threading.Thread(target=run_usb_bt_loop, daemon=True)
-    t_main.start()
-
     # GPIO monitor — reed switch trigger and RGB LED status indicator.
-    # Starts only when GpioEnabled is True and RPi.GPIO is available.
+    # Started first so the white boot blink handed over from
+    # ipr-led-boot.service continues without a gap; set_ready() ends it once
+    # the dashboard answers.  Starts only when GpioEnabled is True and an
+    # RPi.GPIO-compatible module is importable.
     gpio_monitor: GpioMonitor | None = None
     if cfg.GpioEnabled:
         gpio_monitor = GpioMonitor(
@@ -218,6 +272,21 @@ def main():
             led_idle_timeout=cfg.GpioLedIdleSeconds,
         )
         gpio_monitor.start()
+
+    t_web = threading.Thread(target=run_web_server, daemon=True)
+    t_web.start()
+
+    # Main loop thread (USB + BT)
+    t_main = threading.Thread(target=run_usb_bt_loop, daemon=True)
+    t_main.start()
+
+    if gpio_monitor is not None and gpio_monitor.active:
+        threading.Thread(
+            target=_signal_ready_when_web_up,
+            args=(gpio_monitor, cfg.LogPort),
+            daemon=True,
+            name="gpio-ready-wait",
+        ).start()
 
     # Keep the main thread alive
     try:

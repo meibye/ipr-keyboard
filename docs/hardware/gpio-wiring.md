@@ -2,7 +2,8 @@
 
 Hardware guide for the Pi Zero 2 W in a Flirc aluminium case.
 The onboard ACT LED is not visible through the case; the external RGB LED
-is the sole visual indicator.
+is the sole visual indicator.  The analysis and design behind the boot-phase
+handling are in `docs/architecture/led-status-design.md`.
 
 ---
 
@@ -119,29 +120,75 @@ protrudes from one end.  Recommended approach:
 
 ## LED colour map
 
-| Colour | Pattern | Meaning |
-|--------|---------|---------|
-| White | Fast blink (4 Hz, 3 s) | Device starting up |
-| Green | Solid | All OK — WiFi connected and Bluetooth paired |
-| Amber / Yellow | Solid | WiFi connected, Bluetooth not yet connected |
-| Red | Slow blink (1 Hz) | No WiFi / no home network configured |
-| Blue | Solid | Management hotspot is active (setup mode) |
-| Blue | Fast blink | Hotspot arming — reed held ≥ 3 s |
-| Red | Fast blink | Factory reset arming — reed held ≥ 10 s |
-| Off | — | Idle — no power draw |
+| Colour | Pattern | Meaning | Driven by |
+|--------|---------|---------|-----------|
+| White | Solid | Power on — firmware and kernel are starting | `gpio=` line in `config.txt` |
+| White | Fast blink (4 Hz) | Booting — services starting, dashboard not yet answering | `ipr-led-boot.service`, then `gpio_monitor` |
+| Green | Solid | All OK — WiFi connected and Bluetooth host connected | `gpio_monitor` |
+| Amber / Yellow | Solid | WiFi connected, Bluetooth host not yet connected | `gpio_monitor` |
+| Red | Slow blink (1 Hz) | No WiFi / no home network configured | `gpio_monitor` |
+| Red | Solid | A core service (`bluetooth`, `bt_hid_ble`, `bt_hid_agent_unified`) is not running — see `/var/lib/ipr-keyboard/incidents.log` | `gpio_monitor` |
+| Blue | Fast blink | Hotspot request in progress — magnet held ≥ 3 s, or hotspot starting/stopping | `gpio_monitor` |
+| Blue | Solid | Management hotspot is active (setup mode) — stays on until the hotspot stops | `gpio_monitor` |
+| Purple | Fast blink | Mode toggle arming — magnet held ≥ 6 s | `gpio_monitor` |
+| Purple | Solid (3 s) | Mode changed (production ↔ development) | `gpio_monitor` |
+| Purple | Short blip every 4 s | **Development mode** — SSH and dashboard are open on the network. Shown on top of any other state, including off | `gpio_monitor` |
+| Red | Fast blink | Factory reset arming (magnet held ≥ 10 s) or in progress; also 3 s after a failed hotspot request | `gpio_monitor` |
+| Off | — | Idle — normal operation, no power draw | `gpio_monitor` |
+
+### Boot sequence
+
+The LED reflects the whole boot, not only the application:
+
+```
+power on ─┬─ ~1 s ──── ~14 s ──────── ~35 s ──── ~41 s ──── +30 s ──▶
+          │ solid   │ white blink   │ white blink  │ status  │ off
+          │ white   │ ipr-led-boot  │ gpio_monitor │ colour  │ (idle)
+          │ firmware│ .service      │ (app start)  │         │
+```
+
+1. **Firmware** — `config.txt` contains `gpio=22,23,24=op,dh`, so the three
+   channels go high (white) before the kernel loads.
+2. **Early boot** — `ipr-led-boot.service` (`DefaultDependencies=no`) runs
+   `gpioset --toggle 125ms` on the three pins from right after `sysinit.target`.
+3. **Application** — `ipr_keyboard.service` has a drop-in with
+   `ExecStartPre=+systemctl stop ipr-led-boot.service` (plus `Conflicts=`), so
+   the blinker is stopped and the pins released just before the app starts;
+   `GpioMonitor` starts first thing in `main()` and keeps blinking white.
+   (`Conflicts=` alone is not enough at boot: both units are in the same start
+   transaction and systemd drops a job instead of stopping the blinker.)
+4. **Ready** — when the dashboard answers `/health` on `LogPort`, the LED shows
+   the status colour for `GpioLedIdleSeconds` (default 30 s) and then goes off.
+
+If the LED blinks white for more than about three minutes, the application did
+not come up — check `journalctl -u ipr_keyboard.service`.
+
+Timings above are from a Pi Zero 2 W; a Zero W is slower but the sequence is
+the same.
 
 ---
 
 ## Reed switch interaction
 
-| Action | Duration | Result |
-|--------|----------|--------|
-| Bring magnet near (tap) | < 3 s | LED wakes and shows status for 30 s |
-| Hold magnet in place | ≥ 3 s | LED turns blue fast-blink; release to toggle hotspot |
-| Hold magnet in place | ≥ 10 s | LED turns red fast-blink; release to factory-reset |
+The magnet works at any time after the application is up (gestures during the
+white boot blink are ignored).
 
-The LED changes colour at the 3 s and 10 s thresholds so the user knows
-exactly which action will fire before releasing the magnet.
+| Action | Duration | LED while held | Result on release |
+|--------|----------|----------------|-------------------|
+| Bring magnet near (tap) | < 3 s | Status colour | Status colour stays for `GpioLedIdleSeconds`, then off |
+| Hold magnet in place | ≥ 3 s | Blue fast blink | Hotspot **starts** (blue fast blink while starting, then solid blue) — or **stops** if it was on (LED returns to the status colour) |
+| Hold magnet in place | ≥ 6 s | Purple fast blink | **Mode toggle**: production ↔ development (see `docs/operations/network-modes.md`). LED solid purple for 3 s to confirm |
+| Hold magnet in place | ≥ 10 s | Red fast blink | All WiFi profiles except the hotspot are deleted and the device reboots |
+
+The LED changes at the 3 s, 6 s and 10 s thresholds so the user knows exactly
+which action will fire before releasing the magnet.  To abort, remove the magnet
+before the LED changes to the colour of the action you do not want.
+
+While the hotspot is on, the LED stays **solid blue** regardless of how it was
+started (magnet, `ipr_hotspot_ctl.sh start`, boot marker or triple
+power-cycle), and a tap does not change it.  If a hotspot request does not
+complete within 40 s the LED flashes red for 3 s and returns to the status
+colour; the reason is in `journalctl -u ipr-provision.service`.
 
 ---
 
@@ -160,9 +207,60 @@ GPIO pin assignments and LED idle timeout are stored in `config.json`:
 }
 ```
 
-Set `GpioEnabled: false` to disable GPIO monitoring on development machines
-that lack RPi.GPIO.  The module also silently disables itself when RPi.GPIO
-cannot be imported, so no code change is needed for non-Pi hosts.
+Set `GpioEnabled: false` to disable GPIO monitoring on development machines.
+The module also disables itself — with a **warning** in the journal naming the
+import error — when no `RPi.GPIO`-compatible module can be imported.
+
+### What the LED needs on the device
+
+Installed by `scripts/headless/install_gpio_support.sh` (called from
+`provision/04_enable_services.sh` and `scripts/deploy/deploy_full_update.sh`;
+safe to re-run):
+
+| Piece | Where | Purpose |
+|---|---|---|
+| `gpio=22,23,24=op,dh` / `gpio=27=ip,pu` | `/boot/firmware/config.txt` (managed block) | Solid white from power-on; reed pull-up from the firmware |
+| `ipr-led-boot.sh` + `ipr-led-boot.service` | `/usr/local/sbin/`, `/etc/systemd/system/` | White blink during OS boot |
+| `10-led-boot.conf` | `/etc/systemd/system/ipr_keyboard.service.d/` | `ExecStartPre=+systemctl stop ipr-led-boot` + `Conflicts=` so the app takes the pins over |
+| `ipr_hotspot_ctl.sh` + sudoers | `/usr/local/bin/`, `/etc/sudoers.d/<user>-ipr-gpio` | Lets the unprivileged app start/stop the hotspot, reset WiFi, reboot |
+| `/etc/default/ipr-led` | — | Pin numbers for the boot blink (copied from `config.json`) |
+| `python3-rpi-lgpio`, `gpiod` | apt | `RPi.GPIO` API over `lgpio`; `gpioset` |
+| `include-system-site-packages = true` | `.venv/pyvenv.cfg` | Makes the Debian `RPi.GPIO` visible to the app |
+
+`rpi-lgpio` is used instead of the legacy `RPi.GPIO` because the legacy module
+does not work on current kernels, and because there is no PyPI wheel for the
+ARMv6 Zero W — the Debian package covers both boards.  Packages installed in
+the venv still take precedence over system ones.
+
+### Privileged actions
+
+`gpio_monitor.py` never calls `systemctl`, `nmcli con delete` or `reboot`
+itself.  Everything that needs root goes through
+`sudo -n /usr/local/bin/ipr_hotspot_ctl.sh {start|stop|status|factory-reset}`
+and, for the 6 s gesture, `sudo -n /usr/local/bin/ipr_mode_ctl.sh toggle`
+(sudoers from `install_firewall.sh`).
+`start` writes `/run/ipr-hotspot.request` and restarts
+`ipr-provision.service`; the hotspot script treats that file as a trigger, so
+the hotspot can be started at any time — not only at boot.  `stop` stops the
+unit, whose `ExecStop` takes the `ipr-hotspot` connection down.  Hotspot state
+is read from NetworkManager (`nmcli con show --active`), never from the unit
+state, because a oneshot unit with `RemainAfterExit` is "active" after every
+boot whether or not a hotspot is running.
+
+### Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| LED dark during the whole boot, colour appears only later | `config.txt` block missing → re-run `install_gpio_support.sh`, reboot |
+| LED never lights, app runs | `journalctl -u ipr_keyboard.service -b` and look for `GPIO monitor disabled — RPi.GPIO not importable`: the venv cannot see `python3-rpi-lgpio` |
+| LED lights but the magnet does nothing | `gpioget -c gpiochip0 27` should read `active` while the magnet is close; check the reed wiring and the pull-up |
+| Blue blink, then red flash, hotspot never up | `journalctl -u ipr_keyboard.service` — `unable to change to root gid` means the unit still has `CapabilityBoundingSet=` (re-run `install_gpio_support.sh`, then `systemctl restart ipr_keyboard`); otherwise check sudoers with `sudo -n /usr/local/bin/ipr_hotspot_ctl.sh status` as the app user, and `journalctl -u ipr-provision.service` |
+| Blue solid although no hotspot is visible | `nmcli con show --active` — the LED follows NetworkManager; if `ipr-hotspot` is listed the AP is up, check the client |
+| White blink for minutes | Either the dashboard never answered on `LogPort`, or the boot blinker was never stopped: `systemctl is-active ipr-led-boot.service` must be `inactive` once the app runs; the journal then shows `GPIO busy`. Re-run `install_gpio_support.sh` (installs the `ExecStartPre` drop-in) |
+
+`sudo bash scripts/headless/test_gpio_led_reed.sh` exercises the hardware
+directly (outside the application); `test_provision.sh` phase K checks that
+all pieces above are installed.
 
 ---
 

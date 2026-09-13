@@ -4,15 +4,18 @@
 #
 # Purpose:
 #   Starts a WPA2-secured Wi-Fi hotspot on wlan0 when triggered by one of:
-#     1. Reed switch held ≥ 3 s (handled by gpio_monitor in ipr_keyboard.service)
-#        This script is called via: systemctl start ipr-provision.service
+#     1. Request file /run/ipr-hotspot.request — written by ipr_hotspot_ctl.sh,
+#        which the reed switch (magnet held ≥ 3 s, via gpio_monitor) and
+#        administrators use to start the hotspot at ANY time, not only at boot
 #     2. Triple power-cycle: power off/on 3× within 120 s at boot
 #     3. Boot marker file: create file named IPR_SETUP on /boot/firmware (FAT32)
 #     4. GPIO gate (optional legacy): set HOTSPOT_GPIO_PIN in /etc/default/ipr-provision
 #     5. HOTSPOT_MODE=always (legacy): always start at boot (backwards compatible)
 #
-#   Hotspot is stopped by calling: systemctl stop ipr-provision.service
-#   Or by holding the reed switch ≥ 3 s again (toggles off).
+#   Start at any time:  sudo ipr_hotspot_ctl.sh start   (or hold the magnet 3 s)
+#   Stop:               sudo ipr_hotspot_ctl.sh stop    (or hold the magnet 3 s again)
+#   The unit's ExecStop runs `ipr-provision.sh --stop`, which takes the
+#   connection down, so `systemctl stop ipr-provision.service` also works.
 #
 #   Credentials are generated once and stored in /etc/ipr-hotspot.secret
 #   Management web UI: https://10.42.0.1/setup/
@@ -48,6 +51,9 @@ BOOT_COUNT_TRIGGER=3    # number of rapid reboots that triggers the hotspot
 
 # Boot marker files (FAT32 boot partition, writable from any PC/Mac)
 BOOT_MARKERS=("/boot/firmware/IPR_SETUP" "/boot/IPR_SETUP")
+
+# Runtime request file (tmpfs, root-only) — written by ipr_hotspot_ctl.sh start
+REQUEST_FILE="/run/ipr-hotspot.request"
 
 # Optional env override — defaults can be set in /etc/default/ipr-provision
 ENV_HOTSPOT_GPIO_PIN="${HOTSPOT_GPIO_PIN-}"
@@ -94,6 +100,46 @@ load_or_generate_secret() {
 
   SSID="${ssid}"
   PASS="${pass}"
+}
+
+# ---------------------------------------------------------------------------
+# Trigger 0: runtime request file (magnet / ipr_hotspot_ctl.sh start)
+# ---------------------------------------------------------------------------
+
+check_request_file() {
+  if [[ -f "${REQUEST_FILE}" ]]; then
+    log "Request file found: ${REQUEST_FILE} — starting hotspot"
+    rm -f "${REQUEST_FILE}" 2>/dev/null || true
+    return 0
+  fi
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# Stop mode (ExecStop) — take the hotspot connection down
+# ---------------------------------------------------------------------------
+
+stop_hotspot() {
+  # Do NOT remove the request file here: `systemctl restart` runs ExecStop
+  # (this) before ExecStart, and ipr_hotspot_ctl.sh start has just written the
+  # file for ExecStart to consume.  The helper's stop command removes it.
+  if nmcli -t -f NAME con show --active 2>/dev/null | grep -qx "${HOTSPOT_CON}"; then
+    log "Taking hotspot down: ${HOTSPOT_CON}"
+    nmcli con down "${HOTSPOT_CON}" || true
+  else
+    log "Hotspot not active — nothing to stop"
+  fi
+  # NetworkManager re-activates the home WiFi profile (autoconnect) on its own.
+  apply_firewall
+}
+
+# Open/close the setup-portal port on the hotspot interface.  The
+# NetworkManager dispatcher hook does the same on every connection change;
+# calling it here as well makes the change immediate and independent of it.
+apply_firewall() {
+  if [[ -x /usr/local/sbin/ipr-firewall.sh ]]; then
+    /usr/local/sbin/ipr-firewall.sh apply || log "warning: firewall apply failed"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -217,13 +263,20 @@ ensure_hotspot_connection() {
 # ---------------------------------------------------------------------------
 
 main() {
+  if [[ "${1:-}" == "--stop" ]]; then
+    stop_hotspot
+    exit 0
+  fi
+
   nmcli radio wifi on || true
 
   # Determine whether to start the hotspot.
-  # Evaluation order: marker file > boot counter > GPIO gate > mode setting.
+  # Evaluation order: request file > marker file > boot counter > GPIO gate > mode.
   local should_start=0
 
-  if check_boot_marker; then
+  if check_request_file; then
+    should_start=1
+  elif check_boot_marker; then
     should_start=1
   elif check_boot_count; then
     should_start=1
@@ -234,7 +287,7 @@ main() {
     should_start=1
   else
     log "HOTSPOT_MODE=on-demand and no trigger detected — hotspot not started"
-    log "Trigger options: reed switch (hold 3 s), triple power-cycle, or create IPR_SETUP on /boot/firmware"
+    log "Trigger options: magnet (hold 3 s), ipr_hotspot_ctl.sh start, triple power-cycle, or create IPR_SETUP on /boot/firmware"
   fi
 
   if [[ ${should_start} -eq 0 ]]; then
@@ -243,6 +296,7 @@ main() {
 
   load_or_generate_secret
   ensure_hotspot_connection
+  apply_firewall
   log "Hotspot active. Management UI: https://10.42.0.1/setup/"
 }
 

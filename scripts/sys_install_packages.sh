@@ -30,19 +30,45 @@ elif [[ "$1" == "--system-only" ]]; then
     MODE="system"
 fi
 
+# apt with retries.
+#
+# The 32-bit image (Zero W) pulls from raspbian.raspberrypi.com, which is not a
+# server but a redirector that bounces every download to a random community
+# mirror. When one of those is down - seen with mirrors.dotsrc.org, which took
+# 60 of 122 packages with it - a bare `apt install` fails the whole step. The
+# 64-bit images use the deb.debian.org CDN and never hit this. So: retry, and
+# run `apt update` in between so the redirector rolls a different mirror.
+# ForceIPv4 because the devices have no IPv6 route (the Wi-Fi profile sets
+# ipv6.method=ignore) and every attempt otherwise wastes a failed IPv6 dial.
+APT_OPTS=(-o Acquire::ForceIPv4=true -o Acquire::Retries=3)
+apt_install() {
+    local attempt
+    for attempt in 1 2 3; do
+        if sudo apt install -y "${APT_OPTS[@]}" "$@"; then
+            return 0
+        fi
+        echo "!! apt install failed (attempt $attempt/3) - refreshing mirror and retrying ..." >&2
+        sleep 5
+        sudo apt update "${APT_OPTS[@]}" || true
+    done
+    echo "!! apt install failed after 3 attempts. If the errors name a mirror" >&2
+    echo "   (e.g. mirrors.dotsrc.org), it is down: wait a few minutes and rerun." >&2
+    return 1
+}
+
 if [[ "$MODE" == "system" ]]; then
     ########################################
     # 1. System update
     ########################################
     echo "=== Updating apt packages ==="
-    sudo apt update
-    sudo apt full-upgrade -y
+    sudo apt update "${APT_OPTS[@]}"
+    sudo apt full-upgrade -y "${APT_OPTS[@]}"
 
     ########################################
     # 2. Core dependencies
     ########################################
     echo "=== Installing core system packages ==="
-    sudo apt install -y \
+    apt_install \
             git \
             unzip \
             build-essential \
@@ -60,7 +86,14 @@ if [[ "$MODE" == "system" ]]; then
             bluetooth \
             libcairo2-dev \
             libgirepository1.0-dev \
-            jq
+            jq \
+            python3-rpi-lgpio \
+            gpiod
+
+    # python3-rpi-lgpio: RPi.GPIO API over lgpio for the status LED / reed switch
+    #   (works on Zero W and Zero 2 W with current kernels; the venv is created
+    #   with --system-site-packages so the app can import it).
+    # gpiod: gpioset, used by ipr-led-boot.service for the early white blink.
 
     # Note: PyGObject (gi.repository) is only available for the system Python via python3-gi. For venvs, use system Python for scripts requiring gi.
 
@@ -68,7 +101,7 @@ if [[ "$MODE" == "system" ]]; then
     # 3. MTP support for IRISPen
     ########################################
     echo "=== Installing MTP packages ==="
-    sudo apt install -y \
+    apt_install \
             mtp-tools \
             libmtp-runtime \
             libmtp-dev \
@@ -79,7 +112,7 @@ if [[ "$MODE" == "system" ]]; then
     # 4. Optional OCR engine (for future use)
     ########################################
     echo "=== Installing optional OCR engine (Tesseract) ==="
-    sudo apt install -y tesseract-ocr tesseract-ocr-eng
+    apt_install tesseract-ocr tesseract-ocr-eng
 
     ########################################
     # 5. Bluetooth HID keyboard support
