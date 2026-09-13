@@ -256,6 +256,10 @@ def build() -> None:
              "gpio=22,23,24=op,dh — lampen lyser hvidt fra strømmen sættes til."],
             ["/run/ipr-hotspot.request",
              "Midlertidig udløserfil, som ipr_hotspot_ctl.sh start skriver."],
+            ["<projektrod>/pen_state.json",
+             "Pr. mappe: tidsstempel for den sidst afsendte skanning. Sikrer, at en genstart "
+             "eller en ind-/udstikning af pennen aldrig skriver en gammel skanning igen. En "
+             "mappe, der ses første gang, sættes som udgangspunkt uden at sende noget."],
             ["/usr/local/sbin/ipr-firewall.sh",
              "nftables-politik ud fra tilstand og hotspot (apply/status/off)."],
             ["/usr/local/bin/ipr_mode_ctl.sh",

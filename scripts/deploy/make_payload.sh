@@ -61,6 +61,7 @@ FORBIDDEN=(
     "users.json"
     "secret_key.txt"
     "admin_initial_password.txt"
+    "pen_state.json"
     ".venv"
     ".git"
     "logs"

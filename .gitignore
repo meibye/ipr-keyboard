@@ -62,3 +62,4 @@ htmlcov/
 tests/data/reports/
 # Word lock files
 ~$*
+pen_state.json

@@ -53,6 +53,12 @@ def temp_config(tmp_path, monkeypatch):
         "ipr_keyboard.config.manager.config_path",
         lambda: cfg_file,
     )
+    # The folder watcher persists "delivered up to" marks next to the config.
+    # Point it at tmp_path, and pre-mark the test pen folder as already known
+    # (mark 0.0) so a file created before the loop starts is delivered — a
+    # never-seen folder is only baselined, by design (see main._load_pen_state).
+    monkeypatch.setattr("ipr_keyboard.main._pen_state_path", lambda: tmp_path / "pen_state.json")
+    (tmp_path / "pen_state.json").write_text('{"%s": 0.0}' % str(tmp_path / "irispen").replace("\\", "\\\\"))
     
     # Reset the ConfigManager singleton
     from ipr_keyboard.config.manager import ConfigManager

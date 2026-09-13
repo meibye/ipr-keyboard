@@ -296,3 +296,62 @@ def test_usb_bt_loop_keeps_file_when_send_fails(temp_config, usb_folder, monkeyp
 
     assert test_file.exists()
     assert test_file.read_text() == "keep me"
+
+
+
+def test_usb_bt_loop_baselines_unknown_folder_and_persists_mark(temp_config, usb_folder, monkeypatch, tmp_path):
+    """A folder seen for the first time is NOT replayed; afterwards new files are
+    delivered once and the mark survives a restart (no double typing)."""
+    import json
+    from ipr_keyboard.config.manager import ConfigManager
+    from ipr_keyboard.main import run_usb_bt_loop
+
+    ConfigManager.instance().update(IrisPenFolders=[str(usb_folder)], DeleteFiles=False)
+    (tmp_path / "pen_state.json").unlink()          # never seen this folder
+    old = usb_folder / "old.txt"
+    old.write_text("already on the pen")
+
+    sent = []
+
+    class BT:
+        def is_available(self):
+            return True
+
+        def send_text(self, text):
+            sent.append(text)
+            return True
+
+    monkeypatch.setattr("ipr_keyboard.main.BluetoothKeyboard", BT)
+    ticks = {"n": 0}
+
+    def stop_after(_):
+        ticks["n"] += 1
+        if ticks["n"] >= 2:
+            raise KeyboardInterrupt()
+
+    monkeypatch.setattr("ipr_keyboard.main.time.sleep", stop_after)
+    try:
+        run_usb_bt_loop()
+    except KeyboardInterrupt:
+        pass
+    assert sent == [], "pre-existing file must only set the baseline"
+    state = json.loads((tmp_path / "pen_state.json").read_text())
+    assert str(usb_folder) in state
+
+    # A newer file is delivered; the persisted mark then blocks a second delivery
+    import os as _os, time as _time
+    new = usb_folder / "new.txt"
+    new.write_text("fresh scan")
+    _os.utime(new, (_time.time() + 5, _time.time() + 5))
+    ticks["n"] = 0
+    try:
+        run_usb_bt_loop()
+    except KeyboardInterrupt:
+        pass
+    assert sent == ["fresh scan"]
+    ticks["n"] = 0
+    try:
+        run_usb_bt_loop()   # "restart": state comes from the file
+    except KeyboardInterrupt:
+        pass
+    assert sent == ["fresh scan"], "restart must not re-type the last scan"
