@@ -58,6 +58,7 @@ reed switch, ticks the logic and renders frames to the LED.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import threading
 import time
@@ -211,15 +212,23 @@ class SystemProbe:
 
     @staticmethod
     def _bt_state() -> bool:
+        """True when a host is connected — read from sysfs, not bluetoothctl.
+
+        Every ``bluetoothctl`` invocation registers (and drops) an "Adv Monitor
+        app" with bluetoothd, which at this probe's rate flooded the journal
+        and cost CPU on a Zero.  The kernel exposes each active link as
+        /sys/class/bluetooth/<hci>/<hci>:<handle>; existence is enough.
+        """
         try:
-            out = subprocess.check_output(
-                ["bluetoothctl", "devices", "Connected"],
-                text=True,
-                stderr=subprocess.DEVNULL,
-                timeout=5,
-            )
-            return bool(out.strip())
-        except Exception:
+            root = "/sys/class/bluetooth"
+            for hci in os.listdir(root):
+                if not hci.startswith("hci"):
+                    continue
+                for entry in os.listdir(os.path.join(root, hci)):
+                    if entry.startswith(hci + ":"):
+                        return True
+            return False
+        except OSError:
             return False
 
 
