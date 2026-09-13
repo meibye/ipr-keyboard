@@ -181,6 +181,10 @@ sudo ipr_mode_ctl.sh production        # or: hold the magnet 10 s
   development mode with the magnet for the duration of the work.
 - `<host>.local` (mDNS) does not resolve in production mode; the pinned IP in
   `~/.ssh/config` is irrelevant there too, since SSH is closed.
+- In development mode avahi is configured **IPv4-only** (`use-ipv6=no`,
+  `publish-aaaa-on-ipv4=no`, set by `install_firewall.sh`).  Before that,
+  Windows resolved `<host>.local` to the Pi's SLAAC IPv6 address only, and
+  the dashboard listens on IPv4 — "the name does not work but the IP does".
 - Hotspot clients get no DNS; a phone may report "no internet" on the
   hotspot.  That is true and harmless — the portal is reached by IP.
 - The dashboard's *own* health poll (`127.0.0.1:443`) and the LED boot

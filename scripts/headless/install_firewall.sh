@@ -13,7 +13,7 @@
 # The mode file is seeded as DEVELOPMENT on purpose: this script runs during
 # provisioning over SSH, and production mode would cut that session.  Put the
 # device into production mode as the last commissioning step:
-#     sudo ipr_mode_ctl.sh production        (or hold the magnet 6 s)
+#     sudo ipr_mode_ctl.sh production        (or hold the magnet 10 s)
 #
 # Usage:  sudo ./scripts/headless/install_firewall.sh
 # Called by provision/04_enable_services.sh and deploy_full_update.sh.
@@ -72,6 +72,21 @@ install -m 0644 -o root -g root "${SCRIPT_DIR}/ipr-firewall.service" /etc/system
 install -d -m 0755 /etc/NetworkManager/dispatcher.d
 install -m 0755 -o root -g root "${SCRIPT_DIR}/90-ipr-firewall" /etc/NetworkManager/dispatcher.d/90-ipr-firewall
 log "Installed ipr-firewall.sh, ipr_mode_ctl.sh, ipr-firewall.service, dispatcher hook"
+
+# ---------------------------------------------------------------------------
+# mDNS: IPv4 only.  avahi also advertised an AAAA record (SLAAC leaks an IPv6
+# address in even with ipv6.method=ignore); Windows then resolves
+# <host>.local to that IPv6 address only, and the dashboard listens on IPv4,
+# so https://<host>.local/ "did not work" while the IP did.
+# ---------------------------------------------------------------------------
+AVAHI_CONF=/etc/avahi/avahi-daemon.conf
+if [[ -f "${AVAHI_CONF}" ]]; then
+  sed -i -E 's/^#?use-ipv6=.*/use-ipv6=no/; s/^#?publish-aaaa-on-ipv4=.*/publish-aaaa-on-ipv4=no/' "${AVAHI_CONF}"
+  grep -q '^use-ipv6=no' "${AVAHI_CONF}" || sed -i '/^\[server\]/a use-ipv6=no' "${AVAHI_CONF}"
+  grep -q '^publish-aaaa-on-ipv4=no' "${AVAHI_CONF}" || sed -i '/^\[publish\]/a publish-aaaa-on-ipv4=no' "${AVAHI_CONF}"
+  systemctl restart avahi-daemon 2>/dev/null || true
+  log "avahi: IPv4 only (<host>.local resolves to the IPv4 address the dashboard listens on)"
+fi
 
 # ---------------------------------------------------------------------------
 # Mode file (development on first install — see header)

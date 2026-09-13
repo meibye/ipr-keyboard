@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.9.1"
+VERSION = "1.9.2"
 DATE = "13. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -1679,7 +1679,8 @@ def build() -> None:
         ["Tal", "Betyder", "Bemærk"],
         [
             ["Opstart → program", "Sekunder fra kernen startede, til programmet kørte.",
-             "Læses én gang ved start. Vises altid, også når målingen er slået fra."],
+             "Måles ved første start efter hver opstart og huskes (tmpfs), så en genstart af "
+             "tjenesten ikke ændrer tallet. Vises altid, også når målingen er slået fra."],
             ["Pen → registreret", "Fra filen blev skrevet på pennen, til pollingen så den "
                                   "(kun når pennens ur er troværdigt — ellers 0).",
              "Kan ikke blive lavere end PollIntervalSeconds."],
@@ -1891,9 +1892,12 @@ def build() -> None:
              "CA-certifikatet er ikke installeret på klienten.",
              "Hent https://10.42.0.1/setup/ca.crt og installér det i klientens "
              "certifikatlager."],
-            ["Kan ikke nå <værtsnavn>.local.",
-             "mDNS er ikke tilgængeligt på nettet.",
-             "Brug IP-adressen direkte, eller opret en DNS-post."],
+            ["Kan ikke nå <værtsnavn>.local, men IP-adressen virker.",
+             "Navnet slås op til en IPv6-adresse (Windows foretrækker AAAA), og "
+             "dashboardet lytter kun på IPv4 — eller enheden er i drift (mDNS lukket).",
+             "install_firewall.sh sætter avahi til kun IPv4 (use-ipv6=no); kør den igen på "
+             "ældre enheder. I drift virker navnet ikke — brug hotspottet. Ellers brug "
+             "IP-adressen."],
             ["Enheden mistede netværket efter et statisk IP-skift.",
              "Forkert adresse, netmaske eller gateway.",
              "Tænd hotspottet med magneten, og ret indstillingerne via "

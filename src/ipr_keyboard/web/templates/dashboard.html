@@ -171,8 +171,8 @@
         </div>
         <div class="card-explanation" id="pm-note" style="margin-top:6px"></div>
         <div class="card-explanation" style="margin-top:6px">
-          <b>Boot to app</b>: from power-on until the dashboard answered, measured on the
-          first start after a boot only. <b>Pen → BT</b>: for one whole scan (one file),
+          <b>Boot to app</b>: from power-on until the application was running, measured at
+          the first start after each boot (a service restart does not change it). <b>Pen → BT</b>: for one whole scan (one file),
           from the moment the device noticed it until the last character was handed to
           Bluetooth — the median and the slowest 5 % of recent scans. <b>Send per char</b>:
           the Bluetooth hand-off time divided by the number of characters in the scan.
@@ -827,8 +827,7 @@ async function loadHomeHealth() {
       const k = m.kpis || {};
       const bootEl = document.getElementById('pm-boot-val');
       const b = m.boot && m.boot.boot_to_process_s;
-      // null after a service restart: only the first start after a boot measures it
-      bootEl.textContent = b == null ? 'n/a (app restarted)' : fmtMs(b * 1000);
+      bootEl.textContent = b == null ? '—' : fmtMs(b * 1000);
       document.getElementById('pm-e2e-p50-val').textContent = fmtMs(k.e2e_latency_ms && k.e2e_latency_ms.p50);
       document.getElementById('pm-e2e-p95-val').textContent = fmtMs(k.e2e_latency_ms && k.e2e_latency_ms.p95);
       const pc = k.send_ms_per_char && k.send_ms_per_char.p50;

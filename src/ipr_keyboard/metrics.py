@@ -64,17 +64,21 @@ _counts: Dict[str, int] = {k: 0 for k in KPIS}
 # costs nothing afterwards.
 try:
     _boot_to_process_s: Optional[float] = float(Path("/proc/uptime").read_text().split()[0])
-    # Only the FIRST start after a boot measures "boot to app".  A service
+    # Only the FIRST start after a boot measures "boot to app"; a service
     # restart hours later would otherwise report the uptime at that moment
-    # (seen as 11287 s on a device).  /dev/shm is a tmpfs, cleared by a reboot.
-    _first_start_marker = Path("/dev/shm/ipr-keyboard.started")
-    if _first_start_marker.exists():
-        _boot_to_process_s = None
-    else:
-        try:
-            _first_start_marker.touch()
-        except OSError:
-            pass
+    # (seen as 11287 s on a device).  The first start writes its figure to a
+    # tmpfs file (cleared by a reboot) and later restarts read it back, so the
+    # dashboard always shows the current boot's value.
+    _first_start_marker = Path("/dev/shm/ipr-keyboard.boot_to_process_s")
+    try:
+        if _first_start_marker.exists():
+            _boot_to_process_s = float(_first_start_marker.read_text().strip() or "nan")
+            if _boot_to_process_s != _boot_to_process_s:  # NaN from an old empty marker
+                _boot_to_process_s = None
+        else:
+            _first_start_marker.write_text(f"{_boot_to_process_s:.2f}")
+    except (OSError, ValueError):
+        pass
 except Exception:  # not Linux, or /proc unavailable
     _boot_to_process_s = None
 _process_start = time.time()
