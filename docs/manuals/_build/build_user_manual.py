@@ -6,7 +6,7 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "1.4"
+VERSION = "1.5"
 DATE = "13. september 2026"
 
 
@@ -194,7 +194,10 @@ def build() -> None:
     m.h2("4.4 Sluk, genstart og flytning")
     m.bullets([
         ("Kortvarig pause: ", "lad boksen være tændt. Der er ingen grund til at slukke."),
-        ("Genstart: ", "tag strømmen fra, vent 10 sekunder, og sæt den til igen."),
+        ("Sluk: ", "hold magneten tæt på boksen i 6 sekunder — lampen blinker turkis — og slip. "
+         "Lampen lyser turkis, mens boksen lukker ned, og slukker efter 10–20 sekunder. "
+         "Først da må du tage strømmen fra. Se afsnit 5.3."),
+        ("Genstart: ", "sluk som ovenfor, tag strømmen fra, vent 10 sekunder, og sæt den til igen."),
         ("Flytning til en anden arbejdsplads: ", "tag strøm og USB-kabel fra, flyt boksen, "
          "og tilslut igen. Parringen med PC'en huskes."),
         ("Flytning til en anden PC: ", "den nye PC skal parres. Se afsnit 3.3."),
@@ -250,9 +253,14 @@ def build() -> None:
             ["Blå, konstant", "Opsætningsnetværket er tændt. Lampen bliver ved med at lyse, "
                               "så længe det er tændt.",
              "Slå det fra igen med magneten (3 sekunder), når du er færdig."],
-            ["Lilla, hurtigt blink", "Du har holdt magneten i 6 sekunder (skift af tilstand).",
+            ["Turkis, hurtigt blink", "Du har holdt magneten i 6 sekunder (sluk).",
+             "Slip for at slukke boksen — eller hold fast, til lampen slukker (20 sekunder), "
+             "for at fortryde."],
+            ["Turkis, konstant", "Boksen lukker ned.",
+             "Vent, til lampen slukker. Så må du tage strømmen fra."],
+            ["Lilla, hurtigt blink", "Du har holdt magneten i 10 sekunder (skift af tilstand).",
              "Slip kun, hvis administratoren har bedt dig om det — ellers hold fast, til "
-             "lampen blinker rødt, og fjern så magneten, eller fjern den nu og prøv igen."],
+             "lampen slukker (20 sekunder), og slip så."],
             ["Lilla, kort blink hvert 4. sekund", "Boksen er i udviklingstilstand "
              "(administratoren arbejder på den).", "Ingenting. Giv administratoren besked, "
              "hvis det bliver ved i dagevis."],
@@ -270,7 +278,8 @@ def build() -> None:
         "færdig med at starte op — også midt i det daglige arbejde.")
     m.figure("fig04_magnet_tidslinje.png",
              "Kort berøring viser status. 3 sekunder tænder eller slukker "
-             "opsætningsnetværket. 10 sekunder nulstiller netværksindstillingerne.")
+             "opsætningsnetværket, 6 sekunder slukker boksen. 10 og 15 sekunder er "
+             "forbeholdt administratoren; 20 sekunder fortryder.")
 
     m.table(
         ["Sådan gør du", "Resultat"],
@@ -281,19 +290,25 @@ def build() -> None:
              "Opsætningsnetværket tændes: lampen blinker blåt, mens det starter, og lyser "
              "derefter konstant blåt. Var det allerede tændt, slukkes det, og lampen viser "
              "status igen."],
-            ["Hold magneten på plads i 6 sekunder — lampen blinker lilla — og slip",
+            ["Hold magneten på plads i 6 sekunder — lampen blinker turkis — og slip",
+             "Boksen lukker kontrolleret ned. Lampen lyser turkis, mens det sker, og "
+             "slukker, når du må tage strømmen fra (10–20 sekunder)."],
+            ["Hold magneten på plads i 10 sekunder — lampen blinker lilla — og slip",
              "Skifter mellem drift og udvikling (kun administratoren). Lampen lyser lilla "
              "i 3 sekunder. I udvikling blinker lampen kort lilla hvert 4. sekund."],
-            ["Hold magneten på plads i 10 sekunder — lampen blinker rødt — og slip",
+            ["Hold magneten på plads i 15 sekunder — lampen blinker rødt — og slip",
              "Alle gemte netværksforbindelser slettes, og boksen genstarter."],
+            ["Bliv ved med at holde i 20 sekunder — lampen slukker — og slip",
+             "Ingenting sker. Brug det, hvis du er kommet forbi det trin, du ville have."],
         ],
         widths=[7.4, 8.2],
-        caption="Magnetens tre funktioner.",
+        caption="Magnetens funktioner.",
     )
 
-    m.note("Skiftet efter 6 sekunder og nulstillingen efter 10 sekunder er forbeholdt "
+    m.note("Skiftet efter 10 sekunder og nulstillingen efter 15 sekunder er forbeholdt "
            "administratoren. Handlingen udføres først, når du slipper: er du i tvivl, så "
-           "fjern magneten, mens lampen stadig blinker blåt (under 6 sekunder).",
+           "bliv ved med at holde magneten, til lampen slukker (20 sekunder), og slip så — "
+           "det fortryder alt.",
            "danger")
 
     # ---------------------------------------------------------------- 6

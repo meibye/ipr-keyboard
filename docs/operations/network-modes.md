@@ -127,7 +127,7 @@ are the physical and the client-side ones:
 
 ### Testing the LED in development mode
 
-1. Switch to development (magnet 6 s → purple blink → release → solid
+1. Switch to development (magnet 10 s → purple blink → release → solid
    purple 3 s).  From then on the LED gives a short **purple blip every
    4 s**, also while it is otherwise off.  No blip = production.
 2. Tap the magnet: status colour for 30 s, the purple blip continues on top.
@@ -136,20 +136,22 @@ are the physical and the client-side ones:
 4. `sudo ipr-firewall.sh status` (over that SSH session) prints the mode,
    the hotspot state and the loaded rules; `sudo ipr_mode_ctl.sh status`
    prints the mode alone.
-5. Switch back with the magnet (6 s): the SSH session dies within seconds
+5. Switch back with the magnet (10 s): the SSH session dies within seconds
    and the blip stops.
 
 ### 3.4 Magnet and LED
 
-The hold ladder gains a step; the existing 3 s and 10 s gestures are
-unchanged:
+The hold ladder (3 s hotspot, 6 s shutdown, 10 s mode, 15 s reset, 20 s
+cancel — see `docs/hardware/gpio-wiring.md`):
 
 | Hold | LED while held | On release |
 |---|---|---|
 | < 3 s (tap) | status colour | status for 30 s |
 | ≥ 3 s | blue fast blink | hotspot on/off |
-| **≥ 6 s** | **purple fast blink** | **mode toggle**; LED solid purple 3 s to confirm, then status |
-| ≥ 10 s | red fast blink | Wi-Fi reset + reboot |
+| ≥ 6 s | cyan fast blink | controlled shutdown |
+| **≥ 10 s** | **purple fast blink** | **mode toggle**; LED solid purple 3 s to confirm, then status |
+| ≥ 15 s | red fast blink | Wi-Fi reset + reboot |
+| ≥ 20 s | off | cancel |
 
 In **development mode** the LED gives a short purple blip every 4 s — on top
 of whatever it otherwise shows, including "off" — so an open device cannot go
@@ -166,7 +168,7 @@ that session before the administrator is done.  Commissioning therefore ends
 with:
 
 ```
-sudo ipr_mode_ctl.sh production        # or: hold the magnet 6 s
+sudo ipr_mode_ctl.sh production        # or: hold the magnet 10 s
 ```
 
 `test_provision.sh` warns while a device is still in development mode.
@@ -199,7 +201,7 @@ sudo ipr_mode_ctl.sh production        # or: hold the magnet 6 s
   losing SSH is worse.  The purple heartbeat makes an open device visible;
   revisit if devices are found left in development mode.
 - **Web toggle for the mode**: deliberately not offered.  The mode is a
-  physical decision (magnet at the device) or an SSH decision by someone who
+  physical decision (magnet at the device, 10 s) or an SSH decision by someone who
   already has access.
 
 ## 5. Files
@@ -210,5 +212,5 @@ sudo ipr_mode_ctl.sh production        # or: hold the magnet 6 s
 | Mode | `scripts/headless/ipr_mode_ctl.sh` → `/usr/local/bin/ipr_mode_ctl.sh`, sudoers `/etc/sudoers.d/<user>-ipr-mode`, `/var/lib/ipr-keyboard/mode` |
 | Installer | `scripts/headless/install_firewall.sh` (from `provision/04_enable_services.sh`, `deploy_full_update.sh`) |
 | Hotspot | `scripts/headless/net_provision_hotspot.sh` calls `apply` on start/stop |
-| Application | `src/ipr_keyboard/gpio_monitor.py` (6 s gesture, purple, heartbeat), `web/setup.py` + `templates/setup/home.html` (mode display) |
+| Application | `src/ipr_keyboard/gpio_monitor.py` (10 s gesture, purple, heartbeat), `web/setup.py` + `templates/setup/home.html` (mode display) |
 | Validation | `scripts/headless/test_provision.sh` phase L |

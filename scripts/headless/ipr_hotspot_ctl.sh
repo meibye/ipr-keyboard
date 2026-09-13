@@ -14,6 +14,7 @@
 #   ipr_hotspot_ctl.sh stop           # take it down again
 #   ipr_hotspot_ctl.sh status         # exit 0 if the hotspot is up, 1 if not
 #   ipr_hotspot_ctl.sh factory-reset  # delete WiFi profiles (not the hotspot) and reboot
+#   ipr_hotspot_ctl.sh poweroff       # controlled shutdown (magnet held 6 s)
 #
 # "start" works at any time, not only at boot: it writes the request file
 # that /usr/local/sbin/ipr-provision.sh treats as a trigger, then restarts
@@ -97,8 +98,13 @@ case "${1:-}" in
     log "rebooting"
     systemctl reboot
     ;;
+  poweroff)
+    log "controlled shutdown requested"
+    sync
+    systemctl poweroff
+    ;;
   *)
-    echo "usage: $0 {start|stop|status|factory-reset}" >&2
+    echo "usage: $0 {start|stop|status|factory-reset|poweroff}" >&2
     exit 2
     ;;
 esac

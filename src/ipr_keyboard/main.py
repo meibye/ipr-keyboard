@@ -288,6 +288,15 @@ def main():
             name="gpio-ready-wait",
         ).start()
 
+    # systemd stops us with SIGTERM (service restart, or a shutdown started by
+    # the magnet).  Route it through the same path as Ctrl-C so the GPIO
+    # monitor can leave the LED in the right state (off, or cyan during a
+    # shutdown) instead of the process just vanishing.
+    def _on_sigterm(_signum, _frame):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, _on_sigterm)
+
     # Keep the main thread alive
     try:
         while True:

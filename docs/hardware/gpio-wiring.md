@@ -130,10 +130,13 @@ protrudes from one end.  Recommended approach:
 | Red | Solid | A core service (`bluetooth`, `bt_hid_ble`, `bt_hid_agent_unified`) is not running — see `/var/lib/ipr-keyboard/incidents.log` | `gpio_monitor` |
 | Blue | Fast blink | Hotspot request in progress — magnet held ≥ 3 s, or hotspot starting/stopping | `gpio_monitor` |
 | Blue | Solid | Management hotspot is active (setup mode) — stays on until the hotspot stops | `gpio_monitor` |
-| Purple | Fast blink | Mode toggle arming — magnet held ≥ 6 s | `gpio_monitor` |
+| Cyan | Fast blink | Shutdown arming — magnet held ≥ 6 s | `gpio_monitor` |
+| Cyan | Solid | Shutting down — wait; **off = safe to unplug** (`ipr-led-halt.service`) | `gpio_monitor`, then `ipr-led-halt` |
+| Purple | Fast blink | Mode toggle arming — magnet held ≥ 10 s | `gpio_monitor` |
 | Purple | Solid (3 s) | Mode changed (production ↔ development) | `gpio_monitor` |
 | Purple | Short blip every 4 s | **Development mode** — SSH and dashboard are open on the network. Shown on top of any other state, including off | `gpio_monitor` |
-| Red | Fast blink | Factory reset arming (magnet held ≥ 10 s) or in progress; also 3 s after a failed hotspot request | `gpio_monitor` |
+| Red | Fast blink | Factory reset arming (magnet held ≥ 15 s) or in progress; also 3 s after a failed hotspot request | `gpio_monitor` |
+| Off (while held) | — | Held ≥ 20 s: gesture cancelled, release does nothing | `gpio_monitor` |
 | Off | — | Idle — normal operation, no power draw | `gpio_monitor` |
 
 ### Boot sequence
@@ -166,6 +169,28 @@ not come up — check `journalctl -u ipr_keyboard.service`.
 Timings above are from a Pi Zero 2 W; a Zero W is slower but the sequence is
 the same.
 
+### Shutdown sequence
+
+The device is usually powered from a PC's USB port, so "just unplug it" is
+the tempting thing to do.  The magnet gives a controlled alternative:
+
+```
+hold 6 s ──▶ release ──▶ ~10–20 s ──▶ dark
+cyan blink   cyan solid              safe to unplug
+             (OS stopping)           (power-cycle to start again)
+```
+
+1. `gpio_monitor` arms at 6 s (cyan blink); on release it calls
+   `ipr_hotspot_ctl.sh poweroff` (`systemctl poweroff`) and shows solid cyan.
+2. When systemd stops `ipr_keyboard.service` the monitor deliberately leaves
+   the pins at cyan instead of clearing them.
+3. `ipr-led-halt.service` — started early at boot doing nothing, so that its
+   `ExecStop` runs late in the shutdown — turns the LED off (`pinctrl`) just
+   before the kernel halts.  Dark LED = the SD card is no longer being
+   written to; unplugging is safe.
+
+A halted Pi Zero cannot be started by the magnet: remove and reconnect power.
+
 ---
 
 ## Reed switch interaction
@@ -177,12 +202,15 @@ white boot blink are ignored).
 |--------|----------|----------------|-------------------|
 | Bring magnet near (tap) | < 3 s | Status colour | Status colour stays for `GpioLedIdleSeconds`, then off |
 | Hold magnet in place | ≥ 3 s | Blue fast blink | Hotspot **starts** (blue fast blink while starting, then solid blue) — or **stops** if it was on (LED returns to the status colour) |
-| Hold magnet in place | ≥ 6 s | Purple fast blink | **Mode toggle**: production ↔ development (see `docs/operations/network-modes.md`). LED solid purple for 3 s to confirm |
-| Hold magnet in place | ≥ 10 s | Red fast blink | All WiFi profiles except the hotspot are deleted and the device reboots |
+| Hold magnet in place | ≥ 6 s | Cyan fast blink | **Controlled shutdown** (`systemctl poweroff` via the helper). LED solid cyan while the OS stops, then **off = safe to unplug**; power-cycle to start again |
+| Hold magnet in place | ≥ 10 s | Purple fast blink | **Mode toggle**: production ↔ development (see `docs/operations/network-modes.md`). LED solid purple for 3 s to confirm |
+| Hold magnet in place | ≥ 15 s | Red fast blink | All WiFi profiles except the hotspot are deleted and the device reboots |
+| Keep holding | ≥ 20 s | Off | **Cancel** — release does nothing. The way out if you passed the step you wanted |
 
-The LED changes at the 3 s, 6 s and 10 s thresholds so the user knows exactly
-which action will fire before releasing the magnet.  To abort, remove the magnet
-before the LED changes to the colour of the action you do not want.
+The LED changes at the 3, 6, 10 and 15 s thresholds so the user knows exactly
+which action will fire before releasing the magnet.  To abort, either remove
+the magnet before the LED changes to the colour of the action you do not want,
+or keep holding until the LED goes off (≥ 20 s) and release then.
 
 While the hotspot is on, the LED stays **solid blue** regardless of how it was
 started (magnet, `ipr_hotspot_ctl.sh start`, boot marker or triple
@@ -221,6 +249,7 @@ safe to re-run):
 |---|---|---|
 | `gpio=22,23,24=op,dh` / `gpio=27=ip,pu` | `/boot/firmware/config.txt` (managed block) | Solid white from power-on; reed pull-up from the firmware |
 | `ipr-led-boot.sh` + `ipr-led-boot.service` | `/usr/local/sbin/`, `/etc/systemd/system/` | White blink during OS boot |
+| `ipr-led-halt.sh` + `ipr-led-halt.service` | `/usr/local/sbin/`, `/etc/systemd/system/` | LED off at the very end of a shutdown (`ExecStop`, ordered late) — the "safe to unplug" signal |
 | `10-led-boot.conf` | `/etc/systemd/system/ipr_keyboard.service.d/` | `ExecStartPre=+systemctl stop ipr-led-boot` + `Conflicts=` so the app takes the pins over |
 | `ipr_hotspot_ctl.sh` + sudoers | `/usr/local/bin/`, `/etc/sudoers.d/<user>-ipr-gpio` | Lets the unprivileged app start/stop the hotspot, reset WiFi, reboot |
 | `/etc/default/ipr-led` | — | Pin numbers for the boot blink (copied from `config.json`) |
@@ -237,7 +266,7 @@ the venv still take precedence over system ones.
 `gpio_monitor.py` never calls `systemctl`, `nmcli con delete` or `reboot`
 itself.  Everything that needs root goes through
 `sudo -n /usr/local/bin/ipr_hotspot_ctl.sh {start|stop|status|factory-reset}`
-and, for the 6 s gesture, `sudo -n /usr/local/bin/ipr_mode_ctl.sh toggle`
+and, for the 10 s gesture, `sudo -n /usr/local/bin/ipr_mode_ctl.sh toggle`
 (sudoers from `install_firewall.sh`).
 `start` writes `/run/ipr-hotspot.request` and restarts
 `ipr-provision.service`; the hotspot script treats that file as a trigger, so

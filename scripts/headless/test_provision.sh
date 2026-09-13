@@ -358,6 +358,8 @@ check K.5 "ipr_hotspot_ctl.sh installed"           "[ -x /usr/local/bin/ipr_hots
 check K.6 "sudoers lets $_INVOKING_USER run ipr_hotspot_ctl.sh without a password"           "sudo -n -l -U '$_INVOKING_USER' 2>/dev/null | grep ipr_hotspot_ctl.sh"
 check K.7 "ipr-provision.service has ExecStop (hotspot stops cleanly)"           "grep -q '^ExecStop=' /etc/systemd/system/ipr-provision.service"
 check K.8 "hotspot script honours the runtime request file"           "grep -q 'ipr-hotspot.request' /usr/local/sbin/ipr-provision.sh"
+check K.11 "ipr-led-halt.service enabled (LED off = safe to unplug)" \
+          "systemctl is-enabled --quiet ipr-led-halt.service"
 check K.10 "ipr_keyboard.service has no CapabilityBoundingSet (sudo works inside the service)" \
           "! grep -q '^CapabilityBoundingSet=' /etc/systemd/system/ipr_keyboard.service"
 if journalctl -u ipr_keyboard.service -b --no-pager 2>/dev/null | grep 'GPIO monitor started'; then
@@ -493,7 +495,8 @@ else
     record_skip J.6 "BT pairing completes successfully"
 fi
 
-if manual_step     "Status LED: power-cycle the device and watch the LED."     "Expected: solid white (power) -> white blink (booting) -> status colour for 30 s -> off."     "Tap the magnet: LED shows status again."     "Hold the magnet 3 s: LED blinks blue; release -> hotspot comes up, LED stays solid blue."     "Hold 3 s again: hotspot stops and the LED returns to the status colour."; then
+if manual_step     "Status LED: power-cycle the device and watch the LED."     "Expected: solid white (power) -> white blink (booting) -> status colour for 30 s -> off."     "Tap the magnet: LED shows status again."     "Hold the magnet 3 s: LED blinks blue; release -> hotspot comes up, LED stays solid blue."     "Hold 3 s again: hotspot stops and the LED returns to the status colour." \
+    "Hold 6 s: LED blinks cyan; release -> solid cyan while shutting down, then OFF = safe to unplug."; then
     record_pass J.7 "Status LED boot sequence and magnet gestures"
 else
     record_skip J.7 "Status LED boot sequence and magnet gestures"

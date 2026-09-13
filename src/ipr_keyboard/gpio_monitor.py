@@ -10,8 +10,10 @@ Hardware connections (BCM numbering, Flirc Pi Zero 2 W case):
 Reed switch interaction (the magnet is the only control on the device):
   Tap  (release < 3 s)   Wake LED; show system status for GpioLedIdleSeconds
   Hold ≥ 3 s             LED blinks blue; release to toggle the management hotspot
-  Hold ≥ 6 s             LED blinks purple; release to toggle production/development mode
-  Hold ≥ 10 s            LED blinks red; release to delete WiFi profiles and reboot
+  Hold ≥ 6 s             LED blinks cyan; release for a controlled shutdown
+  Hold ≥ 10 s            LED blinks purple; release to toggle production/development mode
+  Hold ≥ 15 s            LED blinks red; release to delete WiFi profiles and reboot
+  Hold ≥ 20 s            LED goes off; release does nothing (cancel)
 
 LED colour map:
   White solid        Power on — firmware / kernel (config.txt gpio= line)
@@ -24,11 +26,15 @@ LED colour map:
                      bt_hid_agent_unified) — see /var/lib/ipr-keyboard/incidents.log
   Blue fast blink    Hotspot request in progress (arming, starting or stopping)
   Blue solid         Hotspot active (setup mode) — stays on while the hotspot is up
-  Purple fast blink  Mode toggle arming (hold ≥ 6 s)
+  Cyan fast blink    Shutdown arming (hold ≥ 6 s)
+  Cyan solid         Shutting down — wait until the LED goes off before unplugging
+                     (ipr-led-halt.service turns it off just before the kernel halts)
+  Purple fast blink  Mode toggle arming (hold ≥ 10 s)
   Purple solid 3 s   Mode changed (confirmation)
   Purple blip        Every 4 s while in DEVELOPMENT mode (ports open) — on top of
                      whatever else the LED shows, including off
-  Red fast blink     Factory reset arming / in progress, or a failed hotspot request
+  Red fast blink     Factory reset arming (hold ≥ 15 s) / in progress, or a failed
+                     hotspot request
   Off                Idle — no power draw
 
 The boot phases before this module runs are driven by the firmware
@@ -96,8 +102,10 @@ _LED_G_PIN: int = 23
 _LED_B_PIN: int = 24
 
 HOLD_HOTSPOT_SECS: float = 3.0
-HOLD_MODE_SECS: float = 6.0
-HOLD_RESET_SECS: float = 10.0
+HOLD_SHUTDOWN_SECS: float = 6.0
+HOLD_MODE_SECS: float = 10.0
+HOLD_RESET_SECS: float = 15.0
+HOLD_CANCEL_SECS: float = 20.0
 MODE_CONFIRM_SECS: float = 3.0
 DEV_BLIP_PERIOD_SECS: float = 4.0    # development-mode heartbeat
 DEV_BLIP_ON_SECS: float = 0.15
@@ -122,6 +130,7 @@ GREEN: Color = (0, 1, 0)
 AMBER: Color = (1, 1, 0)
 BLUE: Color = (0, 0, 1)
 PURPLE: Color = (1, 0, 1)
+CYAN: Color = (0, 1, 1)
 
 FAST_HZ = 4.0
 SLOW_HZ = 1.0
@@ -221,6 +230,7 @@ class Actions(Protocol):
     def hotspot_stop(self) -> None: ...
     def factory_reset(self) -> None: ...
     def mode_toggle(self) -> None: ...
+    def shutdown(self) -> None: ...
 
 
 class SystemActions:
@@ -237,6 +247,9 @@ class SystemActions:
 
     def mode_toggle(self) -> None:
         self._spawn("toggle", helper=MODE_CTL)
+
+    def shutdown(self) -> None:
+        self._spawn("poweroff")
 
     @staticmethod
     def _spawn(cmd: str, helper: str = HOTSPOT_CTL) -> None:
@@ -279,6 +292,7 @@ class Phase(str, Enum):
     HOTSPOT_ON = "hotspot_on"  # blue solid while the hotspot is up
     FAIL_FLASH = "fail_flash"  # red fast blink after a failed request
     MODE_CONFIRM = "mode_confirm"  # purple solid after a mode toggle
+    SHUTTING_DOWN = "shutting_down"  # cyan solid until the kernel halts
     RESETTING = "resetting"  # red fast blink until reboot
 
 
@@ -303,6 +317,8 @@ FRAME_HOTSPOT_BUSY = Frame(BLUE, FAST_HZ)
 FRAME_HOTSPOT_ON = Frame(BLUE)
 FRAME_RESET = Frame(RED, FAST_HZ)
 FRAME_MODE_ARM = Frame(PURPLE, FAST_HZ)
+FRAME_SHUTDOWN_ARM = Frame(CYAN, FAST_HZ)
+FRAME_SHUTDOWN = Frame(CYAN)
 FRAME_MODE_CONFIRM = Frame(PURPLE)
 
 
@@ -333,16 +349,20 @@ class LedLogic:
         actions: Actions,
         idle_timeout: float = LED_IDLE_TIMEOUT_SECS,
         hold_hotspot: float = HOLD_HOTSPOT_SECS,
+        hold_shutdown: float = HOLD_SHUTDOWN_SECS,
         hold_mode: float = HOLD_MODE_SECS,
         hold_reset: float = HOLD_RESET_SECS,
+        hold_cancel: float = HOLD_CANCEL_SECS,
         request_timeout: float = HOTSPOT_REQUEST_TIMEOUT_SECS,
     ) -> None:
         self._probe = probe
         self._actions = actions
         self._idle_timeout = idle_timeout
         self._hold_hotspot = hold_hotspot
+        self._hold_shutdown = hold_shutdown
         self._hold_mode = hold_mode
         self._hold_reset = hold_reset
+        self._hold_cancel = hold_cancel
         self._request_timeout = request_timeout
 
         self.phase = Phase.BOOT
@@ -350,7 +370,7 @@ class LedLogic:
         self._next_probe = 0.0
         self._reed_was = False
         self._press_start = 0.0
-        self._armed: str | None = None  # None | "hotspot" | "mode" | "reset"
+        self._armed: str | None = None  # None | "hotspot" | "shutdown" | "mode" | "reset" | "cancel"
         self._busy_target = False  # HOTSPOT_BUSY: expected hotspot_active
         self._ready = False
 
@@ -374,7 +394,7 @@ class LedLogic:
         """
         if not self._probe.development:
             return False
-        if self.phase in (Phase.BOOT, Phase.MODE_CONFIRM, Phase.RESETTING):
+        if self.phase in (Phase.BOOT, Phase.MODE_CONFIRM, Phase.RESETTING, Phase.SHUTTING_DOWN):
             return False
         if self._armed is not None:
             return False
@@ -430,7 +450,7 @@ class LedLogic:
             else PROBE_INTERVAL_ACTIVE_SECS
         )
         self._next_probe = now + interval
-        if self.phase == Phase.RESETTING:
+        if self.phase in (Phase.RESETTING, Phase.SHUTTING_DOWN):
             return
         try:
             self._probe.refresh()
@@ -452,7 +472,11 @@ class LedLogic:
                 self._probe_now()
         elif closed:
             held = now - self._press_start
-            if held >= self._hold_reset:
+            if held >= self._hold_cancel:
+                if self._armed != "cancel":
+                    logger.info("Reed held %.0f s — gesture cancelled", held)
+                self._armed = "cancel"
+            elif held >= self._hold_reset:
                 if self._armed != "reset":
                     logger.info("Reed held %.0f s — factory reset armed", held)
                 self._armed = "reset"
@@ -460,14 +484,27 @@ class LedLogic:
                 if self._armed != "mode":
                     logger.info("Reed held %.0f s — mode toggle armed", held)
                 self._armed = "mode"
+            elif held >= self._hold_shutdown:
+                if self._armed != "shutdown":
+                    logger.info("Reed held %.0f s — shutdown armed", held)
+                self._armed = "shutdown"
             elif held >= self._hold_hotspot and self._armed is None:
                 logger.info("Reed held %.0f s — hotspot toggle armed", held)
                 self._armed = "hotspot"
         elif self._reed_was:
             # Release: fire whatever was armed
             armed, self._armed = self._armed, None
-            if self.phase in (Phase.RESETTING, Phase.BOOT):
-                pass  # ignore gestures while booting or already resetting
+            if self.phase in (Phase.RESETTING, Phase.SHUTTING_DOWN, Phase.BOOT):
+                pass  # ignore gestures while booting, resetting or shutting down
+            elif armed == "cancel":
+                logger.info("Gesture cancelled (held ≥ %.0f s)", self._hold_cancel)
+                if self.phase in (Phase.STATUS, Phase.IDLE):
+                    self._enter_status(now)
+            elif armed == "shutdown":
+                logger.warning("Shutdown triggered via reed switch (hold ≥ %.0f s)",
+                               self._hold_shutdown)
+                self.phase = Phase.SHUTTING_DOWN
+                self._actions.shutdown()
             elif armed == "reset":
                 logger.warning(
                     "Factory reset triggered via reed switch (hold ≥ %.0f s)",
@@ -512,11 +549,17 @@ class LedLogic:
     def _frame(self, reed_closed: bool) -> Frame:
         if self.phase == Phase.RESETTING:
             return FRAME_RESET
+        if self.phase == Phase.SHUTTING_DOWN:
+            return FRAME_SHUTDOWN
         if reed_closed and self.phase != Phase.BOOT:
+            if self._armed == "cancel":
+                return FRAME_OFF
             if self._armed == "reset":
                 return FRAME_RESET
             if self._armed == "mode":
                 return FRAME_MODE_ARM
+            if self._armed == "shutdown":
+                return FRAME_SHUTDOWN_ARM
             if self._armed == "hotspot":
                 return FRAME_HOTSPOT_BUSY
         if self.phase == Phase.BOOT:
@@ -668,8 +711,18 @@ class GpioMonitor:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=3)
-        if self._backend is not None:
-            self._backend.cleanup()  # type: ignore[attr-defined]
+        if self._backend is None:
+            return
+        if self._logic.phase == Phase.SHUTTING_DOWN:
+            # Leave the LED cyan while the OS finishes stopping; the pins keep
+            # their level after our lines are released, and ipr-led-halt.service
+            # turns them off just before the kernel halts ("safe to unplug").
+            try:
+                self._backend.led(CYAN)  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            return
+        self._backend.cleanup()  # type: ignore[attr-defined]
 
     @property
     def phase(self) -> Phase:

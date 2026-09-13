@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.8.2"
+VERSION = "1.9.0"
 DATE = "13. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -210,6 +210,10 @@ def build() -> None:
             ["ipr-firewall.service",
              "Indlæser nftables-politikken før netværket kommer op (afsnit 5.5).",
              "root"],
+            ["ipr-led-halt.service",
+             "ExecStop sent i nedlukningen: slukker statuslampen = strømmen må tages fra "
+             "(afsnit 4.6).",
+             "root"],
             ["irispen-mount.service",
              "Monterer IRIS-skanneren (MTP, jmtpfs) på /mnt/irispen, når udev ser den; "
              "stoppes og afmonteres, når den trækkes ud (BindsTo=).",
@@ -255,7 +259,7 @@ def build() -> None:
             ["/usr/local/sbin/ipr-firewall.sh",
              "nftables-politik ud fra tilstand og hotspot (apply/status/off)."],
             ["/usr/local/bin/ipr_mode_ctl.sh",
-             "Skifter drift/udvikling; magneten (6 s) bruger den via sudoers."],
+             "Skifter drift/udvikling; magneten (10 s) bruger den via sudoers."],
             ["/var/lib/ipr-keyboard/mode", "Tilstandsfil: production eller development."],
             ["/var/lib/ipr-keyboard/incidents.log",
              "Én linje pr. fejlet kerneenhed (tidspunkt, enhed, resultat). Overlever "
@@ -1175,6 +1179,31 @@ def build() -> None:
         "kaldes af provisioneringen og af deploy_full_update.sh og kan køres igen uden "
         "bivirkninger. Ændringen i config.txt kræver én genstart.")
 
+    m.h2("4.6 Kontrolleret nedlukning med magneten")
+    m.p("Enheden forsynes typisk fra PC'ens USB-port, og et SD-kort, der mister strømmen "
+        "under en skrivning, kan blive ødelagt. Magneten giver en kontrolleret nedlukning: "
+        "hold i 6 sekunder (lampen blinker turkis) og slip. gpio_monitor kalder "
+        "ipr_hotspot_ctl.sh poweroff (systemctl poweroff) og viser konstant turkis; når "
+        "systemd stopper ipr_keyboard.service, efterlades benene bevidst på turkis, og "
+        "ipr-led-halt.service — startet tidligt ved opstart uden at gøre noget, så dens "
+        "ExecStop kører sent i nedlukningen — slukker lampen (pinctrl) lige før kernen "
+        "standser. Mørk lampe = strømmen må tages fra. En standset Pi Zero kan ikke "
+        "startes med magneten; afbryd og tilslut strømmen.")
+    m.table(
+        ["Hold", "Lampen mens du holder", "Ved slip"],
+        [
+            ["under 3 s", "statusfarve", "status i 30 s"],
+            ["3 s", "blå blink", "hotspot tændes/slukkes"],
+            ["6 s", "turkis blink", "kontrolleret nedlukning; turkis → slukket = sikkert at afbryde"],
+            ["10 s", "lilla blink", "drift ↔ udvikling (afsnit 5.5)"],
+            ["15 s", "rød blink", "netværksnulstilling og genstart (afsnit 5.4)"],
+            ["20 s", "slukket", "fortryd — der sker ingenting"],
+        ],
+        widths=[2.2, 4.4, 9.0],
+        caption="Hele magnet-stigen. Lampen skifter ved hver tærskel, og handlingen "
+                "udføres først ved slip.",
+    )
+
     # ---------------------------------------------------------------- 5
     m.h1("5. Adgang, netværk og hotspot", new_page=True)
 
@@ -1259,7 +1288,7 @@ def build() -> None:
     )
 
     m.h2("5.4 Netværksnulstilling")
-    m.p("Magneten holdt i 10 sekunder sletter alle Wi-Fi-profiler undtagen ipr-hotspot og "
+    m.p("Magneten holdt i 15 sekunder sletter alle Wi-Fi-profiler undtagen ipr-hotspot og "
         "genstarter enheden. Applikationsindstillinger, brugerkonti og logfiler berøres ikke. "
         "Samme resultat opnås manuelt:")
     m.code("sudo ./scripts/headless/net_factory_reset.sh")
@@ -1286,7 +1315,7 @@ def build() -> None:
     m.p("Politikken anvendes ved opstart før netværket kommer op (ipr-firewall.service), "
         "ved enhver forbindelsesændring (NetworkManager-dispatcher-hook 90-ipr-firewall), "
         "når hotspottet tændes eller slukkes, og når tilstanden skiftes.")
-    m.p("Tilstanden skiftes med magneten (hold i 6 sekunder — lampen blinker lilla — og slip; "
+    m.p("Tilstanden skiftes med magneten (hold i 10 sekunder — lampen blinker lilla — og slip; "
         "lampen lyser lilla i 3 sekunder som bekræftelse) eller fra kommandolinjen:")
     m.code(
         "sudo ipr_mode_ctl.sh production     # drift: luk alt på hjemmenettet\n"
@@ -1306,14 +1335,14 @@ def build() -> None:
         "blåt, så længe hotspottet er tændt; SSID'et ipr-setup-xxxx ses på en telefon; og "
         "setup-portalens Status-side viser hotspottet som aktivt (aflæst fra NetworkManager, "
         "ikke fra systemd-enheden).")
-    m.p("Sådan afprøves lampen i udviklingstilstand: skift med magneten (6 s) — lampen lyser "
+    m.p("Sådan afprøves lampen i udviklingstilstand: skift med magneten (10 s) — lampen lyser "
         "lilla i 3 sekunder og blinker derefter kort lilla hvert 4. sekund; en berøring viser "
         "statusfarven oven i. Fra en anden maskine virker ssh og dashboardet nu; "
         "sudo ipr-firewall.sh status viser tilstand, hotspot og regler. Skift tilbage med "
         "magneten: SSH-sessionen falder, og det lilla blink stopper.")
     m.note("Provisioneringen efterlader enheden i udviklingstilstand, fordi den kører over "
            "SSH og ellers ville afbryde sig selv. Idriftsættelsen afsluttes med "
-           "sudo ipr_mode_ctl.sh production (eller magneten i 6 sekunder). Skiftet til drift "
+           "sudo ipr_mode_ctl.sh production (eller magneten i 10 sekunder). Skiftet til drift "
            "over en SSH-forbindelse på hjemmenettet afbryder forbindelsen — det er meningen. "
            "test_provision.sh advarer, så længe enheden står i udviklingstilstand.", "warn")
     m.p("Konsekvenser: i drift kan brugerne ikke åbne betjeningssiden på hjemmenettet; "
@@ -1372,8 +1401,8 @@ def build() -> None:
             ["Angrebsflade",
              "I driftstilstand er ingen port åben på hjemmenettet (nftables, politik DROP). "
              "Hotspottet er slukket som standard og kræver fysisk tilstedeværelse "
-             "(magnet, strømcykling eller SD-kort); tændt eksponerer det kun setup-portalen. "
-             "SSH og dashboard på hjemmenettet kræver udviklingstilstand (magnet 6 s). "
+             "(magnet 3 s, strømcykling eller SD-kort); tændt eksponerer det kun setup-portalen. "
+             "SSH og dashboard på hjemmenettet kræver udviklingstilstand (magnet 10 s). "
              "Se afsnit 5.5."],
             ["Trådløs sikring",
              "Hotspottet bruger WPA2 med tilfældigt genereret SSID og adgangskode. "
@@ -1411,7 +1440,7 @@ def build() -> None:
     m.bullets([
         "Skift admin-kontoens adgangskode (admin_initial_password.txt slettes automatisk).",
         "Sæt enheden i driftstilstand som det allersidste trin: sudo ipr_mode_ctl.sh "
-        "production, eller magneten i 6 sekunder. Kontrollér med sudo ipr-firewall.sh status "
+        "production, eller magneten i 10 sekunder. Kontrollér med sudo ipr-firewall.sh status "
         "og — fra en anden maskine — at SSH og dashboardet ikke længere svarer.",
         "Opret personlige konti; undgå at dele admin-kontoen.",
         "Distribuér CA-certifikatet fra https://10.42.0.1/setup/ca.crt til de PC'er, der "
@@ -1892,8 +1921,12 @@ def build() -> None:
             ["SSH og dashboard svarer ikke på hjemmenettet, men enheden kører (lampen "
              "viser status ved berøring, intet lilla blink).",
              "Enheden står i driftstilstand — det er normalt.",
-             "Hold magneten i 6 sekunder (lilla blink) og slip: udviklingstilstand, lampen "
+             "Hold magneten i 10 sekunder (lilla blink) og slip: udviklingstilstand, lampen "
              "blinker lilla hvert 4. sekund. Eller brug hotspottet (magnet 3 s)."],
+            ["Lampen lyser konstant turkis og går ikke ud.",
+             "Nedlukningen hænger, eller ipr-led-halt.service er ikke installeret/aktiveret.",
+             "Vent op til et minut. Ellers: systemctl is-enabled ipr-led-halt.service; kør "
+             "install_gpio_support.sh igen. Afbryd strømmen først, når lampen er slukket."],
             ["Lampen lyser konstant rødt.",
              "En kerneenhed er ikke aktiv.",
              "systemctl is-active bluetooth bt_hid_ble bt_hid_agent_unified; "
@@ -1956,6 +1989,7 @@ def build() -> None:
         "test_provision.sh --auto rapporterer 0 fejl, herunder fase K (lampe og magnet), "
         "fase L (netværkseksponering) og fase M (skanner-automontering og hændelseslog).",
         "Med skanneren sat i viser dashboardet “Klar”, og Debug-siden viser dens filer.",
+        "Magneten i 6 sekunder lukker enheden ned: turkis, derefter slukket lampe.",
         "Enheden står i driftstilstand, og ingen port svarer på hjemmenettet.",
     ], numbered=True)
 

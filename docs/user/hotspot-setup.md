@@ -69,10 +69,10 @@ Reboot button on the System page — the hotspot does not restart automatically.
 The device normally runs in **production mode**, in which nothing is
 reachable on the home network — not the dashboard, not SSH.  Only the
 hotspot route above works then.  An administrator can put the device into
-**development mode** (hold the magnet for 6 seconds — the LED blinks purple,
+**development mode** (hold the magnet for 10 seconds — the LED blinks purple,
 release, and it lights solid purple for 3 seconds), after which the dashboard
 and SSH are reachable on the home network.  In development mode the LED gives
-a short purple blip every 4 seconds as a reminder; hold the magnet 6 seconds
+a short purple blip every 4 seconds as a reminder; hold the magnet 10 seconds
 again to return to production mode.  Details:
 `docs/operations/network-modes.md`.
 
@@ -104,10 +104,13 @@ for as long as the hotspot is on.
 | Red solid | Something on the device is not running — power-cycle it; if it stays red, tell your administrator |
 | Blue blinking | Hotspot is being switched on or off (magnet held 3 s) |
 | Blue solid | Hotspot active — you can connect |
-| Purple blinking | Magnet held 6 s — release to switch production ↔ development mode |
+| Cyan blinking | Magnet held 6 s — release for a controlled shutdown |
+| Cyan solid | Shutting down — wait until the LED is off, then unplug |
+| Purple blinking | Magnet held 10 s — release to switch production ↔ development mode |
 | Purple solid (3 s) | Mode changed |
 | Purple blip every 4 s | Development mode — SSH and dashboard are open on the network |
-| Red blinking fast | Magnet held 10 s (network reset) — or a hotspot request failed |
+| Red blinking fast | Magnet held 15 s (network reset) — or a hotspot request failed |
+| Off while holding | Magnet held 20 s — release does nothing (cancel) |
 
 ---
 
@@ -142,16 +145,29 @@ If power-cycling is not practical:
 
 ---
 
+## Switching the device off
+
+The device is normally powered from a PC's USB port.  Pulling the plug while
+it is writing to its memory card can corrupt it, so use the magnet:
+
+1. Hold the magnet in place for **6 seconds** — the LED blinks **cyan**.
+2. Release.  The LED turns solid cyan while the device shuts down.
+3. When the LED goes **off** (10–20 seconds), it is safe to unplug.
+
+To start it again, disconnect and reconnect the power.  (The Shutdown button
+on the dashboard's Settings page does the same thing.)
+
 ## Factory reset (WiFi only)
 
 A factory reset deletes all saved WiFi profiles.  Use this when you are
 moving the device to a completely different network and want a clean start.
 
-**Hold the magnet in place for 10 seconds.**
+**Hold the magnet in place for 15 seconds.**
 
 - At 3 seconds the LED turns blue fast-blink (hotspot arm threshold).
-- At 6 seconds it turns purple fast-blink (mode toggle threshold) — keep holding.
-- At 10 seconds the LED turns **red fast-blink** — this is the reset threshold.
+- At 6 seconds it turns cyan fast-blink (shutdown), at 10 seconds purple (mode toggle) — keep holding.
+- At 15 seconds the LED turns **red fast-blink** — this is the reset threshold.
+- Holding past 20 seconds turns the LED off and cancels: release does nothing.
 - Release the magnet to confirm.
 
 The device deletes all WiFi profiles and reboots.  After reboot, activate

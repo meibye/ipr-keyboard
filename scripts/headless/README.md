@@ -47,7 +47,7 @@ DROP) driven by `/var/lib/ipr-keyboard/mode` and the hotspot state.  In
 **production** nothing is reachable on the home network and only the setup
 portal (443) on the hotspot; in **development** SSH, the dashboard and mDNS
 are reachable.  Switch with `sudo ipr_mode_ctl.sh production|development` or
-the magnet held 6 s.  Provisioning seeds *development*; commissioning ends
+the magnet held 10 s.  Provisioning seeds *development*; commissioning ends
 by switching to production.  See `docs/operations/network-modes.md`.
 
 ### Status LED
@@ -95,10 +95,11 @@ Run `sudo provision/07_show_info.sh` to display the current SSID and password.
 | `ipr_hotspot_ctl.sh` | `/usr/local/bin/` | Root helper: `start`/`stop`/`status`/`factory-reset` (sudoers for the app user) |
 | `ipr_led_boot.sh` | `/usr/local/sbin/ipr-led-boot.sh` | White blink during OS boot (`gpioset`, `pinctrl` fallback) |
 | `ipr-led-boot.service` | `/etc/systemd/system/` | Early unit for the boot blink; stopped by `ipr_keyboard.service` via `Conflicts=` |
+| `ipr_led_halt.sh` + `ipr-led-halt.service` | `/usr/local/sbin/ipr-led-halt.sh`, systemd | LED off at the end of a shutdown — safe to unplug (magnet 6 s = controlled shutdown) |
 | `install_gpio_support.sh` | — | Installs everything the LED and magnet need (idempotent) |
 | `../service/ipr_net_apply.sh` | `/usr/local/bin/` | Applies the dashboard's dhcp/static settings to the home NetworkManager profile (replaces the dhcpcd helper) |
 | `ipr_fw_ctl.sh` | `/usr/local/sbin/ipr-firewall.sh` | nftables input policy from mode + hotspot state (`apply`/`status`/`off`) |
-| `ipr_mode_ctl.sh` | `/usr/local/bin/ipr_mode_ctl.sh` | Production/development switch (sudoers for the app user; magnet 6 s) |
+| `ipr_mode_ctl.sh` | `/usr/local/bin/ipr_mode_ctl.sh` | Production/development switch (sudoers for the app user; magnet 10 s) |
 | `ipr-firewall.service` | `/etc/systemd/system/` | Applies the policy at boot before networking |
 | `90-ipr-firewall` | `/etc/NetworkManager/dispatcher.d/` | Re-applies on every connection up/down |
 | `install_firewall.sh` | — | Installs the above, seeds the mode file (development), sudoers |

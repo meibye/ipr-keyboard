@@ -210,9 +210,11 @@ def fig_led_colours():
         ((214, 60, 60), "Rød, konstant", "En tjeneste i boksen er stoppet — sluk og tænd; ellers administrator", RED),
         ((60, 120, 230), "Blå, hurtigt blink", "Magnet holdt i 3 sek., eller opsætningsnetværket tændes/slukkes", BLUE),
         ((60, 120, 230), "Blå, konstant", "Opsætningsnetværket er tændt — lyser så længe det er tændt", BLUE),
-        ((150, 70, 220), "Lilla, hurtigt blink", "Magnet holdt i 6 sek. — slip for at skifte drift/udvikling (admin)", PURPLE),
+        ((40, 170, 190), "Turkis, hurtigt blink", "Magnet holdt i 6 sek. — slip for at slukke boksen", BLUE),
+        ((40, 170, 190), "Turkis, konstant", "Boksen lukker ned — vent til lampen slukker, før du tager strømmen", BLUE),
+        ((150, 70, 220), "Lilla, hurtigt blink", "Magnet holdt i 10 sek. — slip for at skifte drift/udvikling (admin)", PURPLE),
         ((150, 70, 220), "Lilla, kort blink hvert 4. sek.", "Udviklingstilstand — administratoren arbejder på boksen", PURPLE),
-        ((214, 60, 60), "Rød, hurtigt blink", "Magnet holdt i 10 sek. — slip for at nulstille netværk", RED),
+        ((214, 60, 60), "Rød, hurtigt blink", "Magnet holdt i 15 sek. — slip for at nulstille netværk", RED),
         ((225, 228, 233), "Slukket", "Normal drift — lampen sparer strøm", MUTED),
     ]
     rh = 46
@@ -240,15 +242,17 @@ def fig_magnet_timeline():
 
     x0, x1, y = 90, 890, 150
     c.line(x0, y, x1, y, LINE, 3)
-    for frac, label in ((0.0, "0 s"), (0.3, "3 s"), (0.6, "6 s"), (1.0, "10 s")):
+    for frac, label in ((0.0, "0 s"), (0.15, "3 s"), (0.3, "6 s"), (0.5, "10 s"), (0.75, "15 s"), (1.0, "20 s")):
         x = x0 + (x1 - x0) * frac
         c.line(x, y - 10, x, y + 10, MUTED, 3)
         c.text(x, y + 18, label, F(11, True), MUTED, anchor="ma")
 
     seg = [
-        (0.0, 0.3, "Kort berøring", "Lampen viser status i 30 sek.", BLUE, BLUE_BG),
-        (0.3, 0.6, "Hold i 3 sek.", "Tænder/slukker opsætnings-\nnetværket (blå)", GREEN, GREEN_BG),
-        (0.6, 1.0, "Hold i 6 sek.", "Drift ↔ udvikling (lilla)\n— kun administrator", PURPLE, PURPLE_BG),
+        (0.0, 0.15, "Kort", "Status\n30 sek.", BLUE, BLUE_BG),
+        (0.15, 0.3, "3 sek.", "Opsætnings-\nnetværk (blå)", GREEN, GREEN_BG),
+        (0.3, 0.5, "6 sek.", "Sluk boksen\n(turkis)", (40, 140, 160), (230, 247, 250)),
+        (0.5, 0.75, "10 sek.", "Drift ↔ udvikling (lilla)\n— kun administrator", PURPLE, PURPLE_BG),
+        (0.75, 1.0, "15 sek.", "Nulstil netværk (rød)\n— kun administrator", RED, RED_BG),
     ]
     for a, b, t, s, accent, bg in seg:
         xa, xb = x0 + (x1 - x0) * a, x0 + (x1 - x0) * b
@@ -256,15 +260,15 @@ def fig_magnet_timeline():
         c.text((xa + xb) / 2, y - 72, t, F(12, True), accent, anchor="ma")
         c.text((xa + xb) / 2, y - 52, s, F(11), INK, anchor="ma")
 
-    c.line(x1, y + 36, x1 - 24, y + 52, RED, 2)
-    c.box(740, y + 52, 190, 82, fill=RED_BG, outline=RED, width=2, radius=8)
-    c.text(835, y + 64, "Hold i 10 sek.", F(12, True), RED, anchor="ma")
-    c.text(835, y + 88, "Nulstiller alle gemte\nnetværk", F(11), INK, anchor="ma")
+    c.line(x1, y + 36, x1 - 24, y + 52, MUTED, 2)
+    c.box(740, y + 52, 190, 82, fill=PANEL, outline=LINE, width=2, radius=8)
+    c.text(835, y + 64, "20 sek.: lampen slukker", F(12, True), MUTED, anchor="ma")
+    c.text(835, y + 88, "Slip nu = fortryd,\nder sker ingenting", F(11), INK, anchor="ma")
 
     c.box(60, 308, 860, 52, fill=PANEL, outline=LINE, width=1, radius=8)
     c.text(490, 334,
-           "Fortryd: fjern magneten, mens lampen stadig blinker blåt (under 6 sek.) — "
-           "handlingen udføres først, når du slipper.",
+           "Handlingen udføres først, når du slipper. Fortryd: hold fast, til lampen "
+           "slukker (20 sek.), og slip så.",
            F(12), INK, anchor="mm")
     c.save("fig04_magnet_tidslinje.png")
 

@@ -8,6 +8,7 @@ from ipr_keyboard import gpio_monitor as gm
 from ipr_keyboard.gpio_monitor import (
     AMBER,
     BLUE,
+    CYAN,
     GREEN,
     OFF,
     PURPLE,
@@ -62,6 +63,9 @@ class FakeActions:
     def mode_toggle(self):
         self.calls.append("mode")
         self.probe.pending_mode = not self.probe.development
+
+    def shutdown(self):
+        self.calls.append("shutdown")
 
 
 class Rig:
@@ -322,37 +326,71 @@ def test_repeated_hold_during_busy_is_ignored():
 # ---------------------------------------------------------------------------
 
 
-def test_hold_6s_arms_mode_and_blinks_purple():
+def test_hold_10s_arms_mode_and_blinks_purple():
     rig = Rig()
     rig.ready()
     rig.press()
     rig.advance(3.5)
     assert rig.frame == Frame(BLUE, FAST_HZ)
     rig.advance(3)
+    assert rig.frame == Frame(CYAN, FAST_HZ)
+    rig.advance(4)
     assert rig.logic.armed == "mode"
     assert rig.frame == Frame(PURPLE, FAST_HZ)
 
 
-def test_release_after_6s_toggles_mode_and_confirms_purple():
+def test_release_after_10s_toggles_mode_and_confirms_purple():
     rig = Rig()
     rig.ready()
-    rig.hold(6.5)
+    rig.hold(10.5)
     assert rig.actions.calls == ["mode"]
     assert rig.logic.phase == Phase.MODE_CONFIRM
     assert rig.frame == Frame(PURPLE)
     rig.advance(gm.MODE_CONFIRM_SECS + 0.2)
     assert rig.logic.phase == Phase.STATUS
     assert rig.probe.development is True
-    rig.hold(6.5)
+    rig.hold(10.5)
     rig.advance(gm.MODE_CONFIRM_SECS + 0.2)
     assert rig.probe.development is False
 
 
-def test_hold_between_3_and_6s_still_toggles_hotspot_not_mode():
+def test_hold_between_3_and_6s_still_toggles_hotspot():
     rig = Rig()
     rig.ready()
     rig.hold(5.0)
     assert rig.actions.calls == ["start"]
+
+
+def test_hold_6s_arms_shutdown_and_release_powers_off():
+    rig = Rig()
+    rig.ready()
+    rig.press()
+    rig.advance(6.5)
+    assert rig.logic.armed == "shutdown"
+    assert rig.frame == Frame(CYAN, FAST_HZ)
+    rig.release()
+    assert rig.actions.calls == ["shutdown"]
+    assert rig.logic.phase == Phase.SHUTTING_DOWN
+    assert rig.frame == Frame(CYAN)
+    rig.advance(30)
+    assert rig.frame == Frame(CYAN), "stays cyan until the OS halts"
+    rig.hold(3.5)
+    assert rig.actions.calls == ["shutdown"], "no gestures while shutting down"
+    assert not rig.logic.dev_blip(rig.now)
+
+
+def test_hold_20s_cancels_everything():
+    rig = Rig()
+    rig.ready()
+    rig.press()
+    rig.advance(15.5)
+    assert rig.frame == Frame(RED, FAST_HZ)
+    rig.advance(5)
+    assert rig.logic.armed == "cancel"
+    assert rig.frame == Frame(OFF)
+    rig.release()
+    assert rig.actions.calls == []
+    assert rig.logic.phase == Phase.STATUS
 
 
 def test_dev_blip_only_in_development_mode():
@@ -380,23 +418,25 @@ def test_dev_blip_suppressed_while_booting_or_arming():
 # ---------------------------------------------------------------------------
 
 
-def test_hold_10s_arms_reset_and_blinks_red():
+def test_hold_15s_arms_reset_and_blinks_red():
     rig = Rig()
     rig.ready()
     rig.press()
     rig.advance(3.5)
     assert rig.frame == Frame(BLUE, FAST_HZ)
     rig.advance(3)
-    assert rig.frame == Frame(PURPLE, FAST_HZ)
+    assert rig.frame == Frame(CYAN, FAST_HZ)
     rig.advance(4)
+    assert rig.frame == Frame(PURPLE, FAST_HZ)
+    rig.advance(5)
     assert rig.logic.armed == "reset"
     assert rig.frame == Frame(RED, FAST_HZ)
 
 
-def test_release_after_10s_triggers_reset_and_stays_red():
+def test_release_after_15s_triggers_reset_and_stays_red():
     rig = Rig()
     rig.ready()
-    rig.hold(10.5)
+    rig.hold(15.5)
     assert rig.actions.calls == ["reset"]
     assert rig.logic.phase == Phase.RESETTING
     rig.advance(30)
@@ -471,6 +511,29 @@ def test_monitor_thread_renders_boot_blink_and_stops_cleanly():
     assert backend.colors[-1] == GREEN
     mon.stop()
     assert backend.cleaned
+
+
+def test_monitor_stop_keeps_cyan_while_shutting_down():
+    import time
+
+    backend = FakeBackend()
+    probe = FakeProbe()
+    actions = FakeActions(probe)
+    mon = gm.GpioMonitor(probe=probe, actions=actions, backend=backend)
+    mon.TICK_SECS = 0.005
+    mon.start()
+    mon.set_ready()
+    time.sleep(0.05)
+    backend.closed = True
+    time.sleep(0.05)
+    mon._logic._press_start -= 7.0  # pretend the magnet was held 7 s
+    time.sleep(0.05)
+    backend.closed = False
+    time.sleep(0.05)
+    assert actions.calls == ["shutdown"]
+    mon.stop()
+    assert not backend.cleaned
+    assert backend.colors[-1] == CYAN
 
 
 def test_monitor_without_gpio_is_inert(monkeypatch):

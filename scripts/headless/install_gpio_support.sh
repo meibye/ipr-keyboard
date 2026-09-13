@@ -118,7 +118,9 @@ LED_B=${LED_B}
 EOF
 install -m 0755 -o root -g root "${SCRIPT_DIR}/ipr_led_boot.sh" /usr/local/sbin/ipr-led-boot.sh
 install -m 0644 -o root -g root "${SCRIPT_DIR}/ipr-led-boot.service" /etc/systemd/system/ipr-led-boot.service
-log "Installed /usr/local/sbin/ipr-led-boot.sh and ipr-led-boot.service"
+install -m 0755 -o root -g root "${SCRIPT_DIR}/ipr_led_halt.sh" /usr/local/sbin/ipr-led-halt.sh
+install -m 0644 -o root -g root "${SCRIPT_DIR}/ipr-led-halt.service" /etc/systemd/system/ipr-led-halt.service
+log "Installed ipr-led-boot (white blink at boot) and ipr-led-halt (LED off at the end of a shutdown)"
 
 # ---------------------------------------------------------------------------
 # 3. Hand-over: the app stops the boot blinker when it starts
@@ -211,7 +213,8 @@ fi
 # ---------------------------------------------------------------------------
 systemctl daemon-reload
 systemctl enable ipr-led-boot.service >/dev/null 2>&1 || true
-log "ipr-led-boot.service enabled (runs at next boot)"
+systemctl enable --now ipr-led-halt.service >/dev/null 2>&1 || true
+log "ipr-led-boot.service enabled (runs at next boot); ipr-led-halt.service armed for the next shutdown"
 
 # Smoke test the sudo grant as the app user
 if su -s /bin/sh "${APP_USER}" -c "sudo -n ${HELPER_DST} status" >/dev/null 2>&1 \
