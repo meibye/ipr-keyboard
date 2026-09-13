@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import time
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -18,6 +19,33 @@ VERSION = '2026-04-12 19:41:04'
 def log_version_info():
     import logging
     logging.getLogger(__name__).info(f"==== ipr_keyboard.usb.detector VERSION: {VERSION} ====")
+
+
+def expand_folders(patterns) -> List[Path]:
+    """Resolve the configured IrisPenFolders entries to existing directories.
+
+    The pen exposes its storage over MTP under a LOCALIZED name — "Intern delt
+    lagerplads" in Danish, "Internal shared storage" in English — so a literal
+    path breaks the moment the pen's language is changed.  Entries may
+    therefore contain shell wildcards ("/mnt/irispen/*/Scan text and save").
+    A literal entry that does not exist is retried with its second path
+    component replaced by "*" (old configs keep working).
+    """
+    import glob as _glob
+
+    out: List[Path] = []
+    for entry in patterns or []:
+        entry = str(entry)
+        hits = [Path(p) for p in _glob.glob(entry) if os.path.isdir(p)]
+        if not hits and not any(ch in entry for ch in "*?["):
+            parts = Path(entry).parts
+            if len(parts) >= 4:  # ('/', 'mnt', 'irispen', '<storage>', ...)
+                fallback = str(Path(*parts[:3]) / "*" / Path(*parts[4:]))
+                hits = [Path(p) for p in _glob.glob(fallback) if os.path.isdir(p)]
+        for h in hits:
+            if h not in out:
+                out.append(h)
+    return out
 
 
 def list_files(folder: Path, pattern: str = "*.txt") -> List[Path]:

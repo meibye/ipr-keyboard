@@ -22,19 +22,19 @@ from ..config.manager import ConfigManager
 from ..logging.logger import get_logger, set_log_level
 from .. import transmission
 from .. import metrics
-from ..usb.detector import list_files
+from ..usb.detector import expand_folders, list_files
 from .auth import UserStore
 
 logger = get_logger()
 
 FOLDER_OPTIONS = [
     {
-        "path": "/mnt/irispen/Intern delt lagerplads/Scan text and save",
+        "path": "/mnt/irispen/*/Scan text and save",
         "label_en": "Scan to Text & Save",
         "label_da": "Scan til tekst og gem",
     },
     {
-        "path": "/mnt/irispen/Intern delt lagerplads/picture",
+        "path": "/mnt/irispen/*/picture",
         "label_en": "Photo OCR",
         "label_da": "Foto OCR",
     },
@@ -1198,8 +1198,8 @@ def api_debug_pen_files():
     try:
         cfg = ConfigManager.instance().get()
         files_result = []
-        for folder_str in (cfg.IrisPenFolders or []):
-            folder = Path(folder_str)
+        for folder in expand_folders(cfg.IrisPenFolders):
+            folder_str = str(folder)
             for p in list_files(folder):
                 try:
                     stat = p.stat()

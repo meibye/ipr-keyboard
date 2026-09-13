@@ -76,13 +76,23 @@ class AppConfig:
 
     def __post_init__(self) -> None:
         if self.IrisPenFolders is None:
-            self.IrisPenFolders = [
-                "/mnt/irispen/Intern delt lagerplads/Scan text and save"
-            ]
+            # "*" stands for the pen's storage folder, whose name follows the
+            # pen's UI language (Intern delt lagerplads / Internal shared storage).
+            self.IrisPenFolders = ["/mnt/irispen/*/Scan text and save"]
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":
         """Create an AppConfig instance from a dictionary."""
+        # Migrate pre-September-2026 configs that hard-coded the Danish storage
+        # folder name; the wildcard form survives a change of the pen's language.
+        folders = data.get("IrisPenFolders")
+        if isinstance(folders, list):
+            data = dict(data)
+            data["IrisPenFolders"] = [
+                (f.replace("/mnt/irispen/Intern delt lagerplads/", "/mnt/irispen/*/", 1)
+                 if isinstance(f, str) else f)
+                for f in folders
+            ]
         base = cls()
         for field in asdict(base).keys():
             if field in data:

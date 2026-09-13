@@ -138,7 +138,8 @@ def run_usb_bt_loop():
         # Re-apply every iteration so the dashboard toggle takes effect without
         # a restart.  One attribute assignment; not worth guarding.
         metrics.set_enabled(cfg.MetricsEnabled)
-        folders = [Path(p) for p in (cfg.IrisPenFolders or [])]
+        # Wildcards resolve the pen's localized storage folder (see detector.expand_folders).
+        folders = detector.expand_folders(cfg.IrisPenFolders)
 
         poll = cfg.PollIntervalSeconds
         if not folders:
