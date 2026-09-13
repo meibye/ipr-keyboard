@@ -1,0 +1,32 @@
+[Unit]
+Description=IPR Keyboard — mount the IrisPen (MTP) at /mnt/irispen
+Documentation=file:///home/meibye/dev/ipr-keyboard/docs/operations/irispen-automount.md
+# Pulled in by udev when the pen appears (69-irispen-mtp.rules sets
+# SYSTEMD_WANTS and SYSTEMD_ALIAS=/dev/irispen); BindsTo stops us — and the
+# ExecStopPost unmount runs — the moment the pen is unplugged.
+BindsTo=dev-irispen.device
+After=dev-irispen.device
+# The pen enumerates before the desktop-less user session exists; give the
+# device node a moment to get its plugdev permissions from udev.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=__APP_USER__
+# No Group= here: FUSE (without allow_other) only admits callers whose uid
+# AND gid equal the mount's user_id/group_id.  With Group=plugdev the mount
+# got group_id=46 and even the app user (gid 1000) was refused with EACCES.
+# The user's supplementary plugdev membership is enough for USB access.
+Environment=HOME=/home/__APP_USER__
+# -f keeps the FUSE process in the foreground so systemd tracks it; the
+# mount disappears when the process exits.  No allow_other: only the app
+# user (which runs ipr_keyboard.service) needs to read the scans.
+ExecStartPre=/bin/sleep 2
+ExecStart=/usr/bin/jmtpfs -f /mnt/irispen
+ExecStopPost=-/usr/bin/fusermount -u -z /mnt/irispen
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=dev-irispen.device
