@@ -6,7 +6,7 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "1.6"
+VERSION = "1.7"
 DATE = "13. september 2026"
 
 
@@ -194,8 +194,8 @@ def build() -> None:
     m.h2("4.4 Sluk, genstart og flytning")
     m.bullets([
         ("Kortvarig pause: ", "lad boksen være tændt. Der er ingen grund til at slukke."),
-        ("Sluk: ", "hold magneten tæt på boksen i 6 sekunder — lampen blinker turkis — og slip. "
-         "Lampen lyser turkis, mens boksen lukker ned, og slukker efter 10–20 sekunder. "
+        ("Sluk: ", "hold magneten tæt på boksen i 6 sekunder — lampen blinker hvid — og slip. "
+         "Lampen lyser hvid, mens boksen lukker ned, og slukker efter 10–20 sekunder. "
          "Først da må du tage strømmen fra. Se afsnit 5.3."),
         ("Genstart: ", "sluk som ovenfor, tag strømmen fra, vent 10 sekunder, og sæt den til igen."),
         ("Flytning til en anden arbejdsplads: ", "tag strøm og USB-kabel fra, flyt boksen, "
@@ -254,10 +254,11 @@ def build() -> None:
                               "så længe det er tændt, og boksen er imens ikke på hjemmenettet.",
              "Slå det fra igen med magneten (3 sekunder), når du er færdig. Lampen slukker, "
              "mens du holder, og blinker blåt efter 3 sekunder."],
-            ["Turkis, hurtigt blink", "Du har holdt magneten i 6 sekunder (sluk).",
+            ["Hvid, hurtigt blink — mens du holder magneten", "Du har holdt magneten i 6 sekunder (sluk). "
+                                                           "Hvid betyder altid: boksen starter eller slukker.",
              "Slip for at slukke boksen — eller hold fast, til lampen slukker (20 sekunder), "
              "for at fortryde."],
-            ["Turkis, konstant", "Boksen lukker ned.",
+            ["Hvid, konstant — efter du slap magneten", "Boksen lukker ned.",
              "Vent, til lampen slukker. Så må du tage strømmen fra."],
             ["Lilla, hurtigt blink", "Du har holdt magneten i 10 sekunder (skift af tilstand).",
              "Slip kun, hvis administratoren har bedt dig om det — ellers hold fast, til "
@@ -292,8 +293,8 @@ def build() -> None:
              "Opsætningsnetværket tændes: lampen blinker blåt, mens det starter, og lyser "
              "derefter konstant blåt. Var det allerede tændt, slukkes det, og lampen viser "
              "status igen."],
-            ["Hold magneten på plads i 6 sekunder — lampen blinker turkis — og slip",
-             "Boksen lukker kontrolleret ned. Lampen lyser turkis, mens det sker, og "
+            ["Hold magneten på plads i 6 sekunder — lampen blinker hvid — og slip",
+             "Boksen lukker kontrolleret ned. Lampen lyser hvid, mens det sker, og "
              "slukker, når du må tage strømmen fra (10–20 sekunder)."],
             ["Hold magneten på plads i 10 sekunder — lampen blinker lilla — og slip",
              "Skifter mellem drift og udvikling (kun administratoren). Lampen lyser lilla "

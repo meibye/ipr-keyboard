@@ -13,7 +13,7 @@ Reed switch interaction (the magnet is the only control on the device):
                          when the LED was solid blue (hotspot) or solid purple
   Tap  (release < 3 s)   Wake LED; show system status for GpioLedIdleSeconds
   Hold ≥ 3 s             LED blinks blue; release to toggle the management hotspot
-  Hold ≥ 6 s             LED blinks cyan; release for a controlled shutdown
+  Hold ≥ 6 s             LED blinks white; release for a controlled shutdown
   Hold ≥ 10 s            LED blinks purple; release to toggle production/development mode
   Hold ≥ 15 s            LED blinks red; release to delete WiFi profiles and reboot
   Hold ≥ 20 s            LED goes off; release does nothing (cancel)
@@ -29,8 +29,9 @@ LED colour map:
                      bt_hid_agent_unified) — see /var/lib/ipr-keyboard/incidents.log
   Blue fast blink    Hotspot request in progress (arming, starting or stopping)
   Blue solid         Hotspot active (setup mode) — stays on while the hotspot is up
-  Cyan fast blink    Shutdown arming (hold ≥ 6 s)
-  Cyan solid         Shutting down — wait until the LED goes off before unplugging
+  White fast blink   Shutdown arming (hold ≥ 6 s) — same colour family as boot:
+                     white means the device is powering up or down
+  White solid        Shutting down — wait until the LED goes off before unplugging
                      (ipr-led-halt.service turns it off just before the kernel halts)
   Purple fast blink  Mode toggle arming (hold ≥ 10 s)
   Purple solid 3 s   Mode changed (confirmation)
@@ -134,7 +135,6 @@ GREEN: Color = (0, 1, 0)
 AMBER: Color = (1, 1, 0)
 BLUE: Color = (0, 0, 1)
 PURPLE: Color = (1, 0, 1)
-CYAN: Color = (0, 1, 1)
 
 FAST_HZ = 4.0
 SLOW_HZ = 1.0
@@ -304,7 +304,7 @@ class Phase(str, Enum):
     HOTSPOT_ON = "hotspot_on"  # blue solid while the hotspot is up
     FAIL_FLASH = "fail_flash"  # red fast blink after a failed request
     MODE_CONFIRM = "mode_confirm"  # purple solid after a mode toggle
-    SHUTTING_DOWN = "shutting_down"  # cyan solid until the kernel halts
+    SHUTTING_DOWN = "shutting_down"  # white solid until the kernel halts
     RESETTING = "resetting"  # red fast blink until reboot
 
 
@@ -329,8 +329,11 @@ FRAME_HOTSPOT_BUSY = Frame(BLUE, FAST_HZ)
 FRAME_HOTSPOT_ON = Frame(BLUE)
 FRAME_RESET = Frame(RED, FAST_HZ)
 FRAME_MODE_ARM = Frame(PURPLE, FAST_HZ)
-FRAME_SHUTDOWN_ARM = Frame(CYAN, FAST_HZ)
-FRAME_SHUTDOWN = Frame(CYAN)
+# White for the power transitions: white = booting, white = shutting down.
+# Cyan was tried first and was indistinguishable from the 3 s blue blink on
+# the small LED, so users released too early and started the hotspot.
+FRAME_SHUTDOWN_ARM = Frame(WHITE, FAST_HZ)
+FRAME_SHUTDOWN = Frame(WHITE)
 FRAME_MODE_CONFIRM = Frame(PURPLE)
 
 
@@ -731,11 +734,11 @@ class GpioMonitor:
         if self._backend is None:
             return
         if self._logic.phase == Phase.SHUTTING_DOWN:
-            # Leave the LED cyan while the OS finishes stopping; the pins keep
+            # Leave the LED white while the OS finishes stopping; the pins keep
             # their level after our lines are released, and ipr-led-halt.service
             # turns them off just before the kernel halts ("safe to unplug").
             try:
-                self._backend.led(CYAN)  # type: ignore[attr-defined]
+                self._backend.led(WHITE)  # type: ignore[attr-defined]
             except Exception:
                 pass
             return

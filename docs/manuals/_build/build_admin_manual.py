@@ -1193,9 +1193,9 @@ def build() -> None:
     m.h2("4.6 Kontrolleret nedlukning med magneten")
     m.p("Enheden forsynes typisk fra PC'ens USB-port, og et SD-kort, der mister strømmen "
         "under en skrivning, kan blive ødelagt. Magneten giver en kontrolleret nedlukning: "
-        "hold i 6 sekunder (lampen blinker turkis) og slip. gpio_monitor kalder "
-        "ipr_hotspot_ctl.sh poweroff (systemctl poweroff) og viser konstant turkis; når "
-        "systemd stopper ipr_keyboard.service, efterlades benene bevidst på turkis, og "
+        "hold i 6 sekunder (lampen blinker hvid) og slip. gpio_monitor kalder "
+        "ipr_hotspot_ctl.sh poweroff (systemctl poweroff) og viser konstant hvid; når "
+        "systemd stopper ipr_keyboard.service, efterlades benene bevidst på hvid, og "
         "ipr-led-halt.service — startet tidligt ved opstart uden at gøre noget, så dens "
         "ExecStop kører sent i nedlukningen — slukker lampen (pinctrl) lige før kernen "
         "standser. Mørk lampe = strømmen må tages fra. En standset Pi Zero kan ikke "
@@ -1205,7 +1205,9 @@ def build() -> None:
         [
             ["under 3 s", "slukket (magneten er registreret)", "status i 30 s"],
             ["3 s", "blå blink", "hotspot tændes/slukkes"],
-            ["6 s", "turkis blink", "kontrolleret nedlukning; turkis → slukket = sikkert at afbryde"],
+            ["6 s", "hvid blink", "kontrolleret nedlukning; hvid konstant → slukket = sikkert at afbryde "
+                                 "(hvid = boksen starter eller slukker; turkis blev opgivet, da det ikke "
+                                 "kunne skelnes fra det blå blink ved 3 s)"],
             ["10 s", "lilla blink", "drift ↔ udvikling (afsnit 5.5)"],
             ["15 s", "rød blink", "netværksnulstilling og genstart (afsnit 5.4)"],
             ["20 s", "slukket", "fortryd — der sker ingenting"],
@@ -1970,7 +1972,7 @@ def build() -> None:
              "Enheden står i driftstilstand — det er normalt.",
              "Hold magneten i 10 sekunder (lilla blink) og slip: udviklingstilstand, lampen "
              "blinker lilla hvert 4. sekund. Eller brug hotspottet (magnet 3 s)."],
-            ["Lampen lyser konstant turkis og går ikke ud.",
+            ["Lampen lyser konstant hvid og går ikke ud.",
              "Nedlukningen hænger, eller ipr-led-halt.service er ikke installeret/aktiveret.",
              "Vent op til et minut. Ellers: systemctl is-enabled ipr-led-halt.service; kør "
              "install_gpio_support.sh igen. Afbryd strømmen først, når lampen er slukket."],
@@ -2036,7 +2038,7 @@ def build() -> None:
         "test_provision.sh --auto rapporterer 0 fejl, herunder fase K (lampe og magnet), "
         "fase L (netværkseksponering) og fase M (skanner-automontering og hændelseslog).",
         "Med skanneren sat i viser dashboardet “Klar”, og Debug-siden viser dens filer.",
-        "Magneten i 6 sekunder lukker enheden ned: turkis, derefter slukket lampe.",
+        "Magneten i 6 sekunder lukker enheden ned: hvid, derefter slukket lampe.",
         "Enheden står i driftstilstand, og ingen port svarer på hjemmenettet.",
     ], numbered=True)
 

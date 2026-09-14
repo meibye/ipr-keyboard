@@ -22,7 +22,7 @@ device, and (3) leave a trace an administrator can read days later.
 
 | Where | What |
 |---|---|
-| Status LED | **cyan solid → off** during a controlled shutdown (magnet 6 s): off means safe to unplug. **Red solid** when a core service (`bluetooth`, `bt_hid_ble`, `bt_hid_agent_unified`) is not active — checked every few seconds while the LED is on; tap the magnet to see it |
+| Status LED | **white solid → off** during a controlled shutdown (magnet 6 s): off means safe to unplug. **Red solid** when a core service (`bluetooth`, `bt_hid_ble`, `bt_hid_agent_unified`) is not active — checked every few seconds while the LED is on; tap the magnet to see it |
 | Dashboard, Home / Connections | System state *Warning — one or more services are not running*; Pen card *Not detected* / *Connecting* / *Ready* from the USB bus and the mount |
 | Setup portal, Status page | per-service badges, hotspot state |
 

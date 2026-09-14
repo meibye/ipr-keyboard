@@ -131,8 +131,8 @@ protrudes from one end.  Recommended approach:
 | Blue | Fast blink | Hotspot request in progress — magnet held ≥ 3 s, or hotspot starting/stopping | `gpio_monitor` |
 | Blue | Solid | Management hotspot is active (setup mode) — stays on until the hotspot stops. **The device is then reachable only via the hotspot (10.42.0.1), not on the home network** | `gpio_monitor` |
 | Off (while held) | — | Magnet pressed, no threshold reached yet: "press registered". Every arming colour blinks against dark, so the 3 s blue blink is visible even when the LED was solid blue | `gpio_monitor` |
-| Cyan | Fast blink | Shutdown arming — magnet held ≥ 6 s | `gpio_monitor` |
-| Cyan | Solid | Shutting down — wait; **off = safe to unplug** (`ipr-led-halt.service`) | `gpio_monitor`, then `ipr-led-halt` |
+| White | Fast blink | Shutdown arming — magnet held ≥ 6 s | `gpio_monitor` |
+| White | Solid | Shutting down — wait; **off = safe to unplug** (`ipr-led-halt.service`) | `gpio_monitor`, then `ipr-led-halt` |
 | Purple | Fast blink | Mode toggle arming — magnet held ≥ 10 s | `gpio_monitor` |
 | Purple | Solid (3 s) | Mode changed (production ↔ development) | `gpio_monitor` |
 | Purple | Short blip every 4 s | **Development mode** — SSH and dashboard are open on the network. Shown on top of any other state, including off | `gpio_monitor` |
@@ -172,19 +172,24 @@ the same.
 
 ### Shutdown sequence
 
+White is used for both power transitions on purpose: white = the device is
+powering up or down.  (Cyan was tried first for shutdown and could not be told
+apart from the 3 s blue blink on the small LED; users released too early and
+started the hotspot instead.)
+
 The device is usually powered from a PC's USB port, so "just unplug it" is
 the tempting thing to do.  The magnet gives a controlled alternative:
 
 ```
 hold 6 s ──▶ release ──▶ ~10–20 s ──▶ dark
-cyan blink   cyan solid              safe to unplug
+white blink   white solid              safe to unplug
              (OS stopping)           (power-cycle to start again)
 ```
 
-1. `gpio_monitor` arms at 6 s (cyan blink); on release it calls
-   `ipr_hotspot_ctl.sh poweroff` (`systemctl poweroff`) and shows solid cyan.
+1. `gpio_monitor` arms at 6 s (white blink); on release it calls
+   `ipr_hotspot_ctl.sh poweroff` (`systemctl poweroff`) and shows solid white.
 2. When systemd stops `ipr_keyboard.service` the monitor deliberately leaves
-   the pins at cyan instead of clearing them.
+   the pins at white instead of clearing them.
 3. `ipr-led-halt.service` — started early at boot doing nothing, so that its
    `ExecStop` runs late in the shutdown — turns the LED off (`pinctrl`) just
    before the kernel halts.  Dark LED = the SD card is no longer being
@@ -203,7 +208,7 @@ white boot blink are ignored).
 |--------|----------|----------------|-------------------|
 | Bring magnet near (tap) | < 3 s | Dark (press registered) | Status colour for `GpioLedIdleSeconds`, then off |
 | Hold magnet in place | ≥ 3 s | Blue fast blink | Hotspot **starts** (blue fast blink while starting, then solid blue) — or **stops** if it was on (LED returns to the status colour) |
-| Hold magnet in place | ≥ 6 s | Cyan fast blink | **Controlled shutdown** (`systemctl poweroff` via the helper). LED solid cyan while the OS stops, then **off = safe to unplug**; power-cycle to start again |
+| Hold magnet in place | ≥ 6 s | White fast blink | **Controlled shutdown** (`systemctl poweroff` via the helper). LED solid white while the OS stops, then **off = safe to unplug**; power-cycle to start again |
 | Hold magnet in place | ≥ 10 s | Purple fast blink | **Mode toggle**: production ↔ development (see `docs/operations/network-modes.md`). LED solid purple for 3 s to confirm |
 | Hold magnet in place | ≥ 15 s | Red fast blink | All WiFi profiles except the hotspot are deleted and the device reboots |
 | Keep holding | ≥ 20 s | Off | **Cancel** — release does nothing. The way out if you passed the step you wanted |

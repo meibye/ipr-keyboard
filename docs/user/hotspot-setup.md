@@ -109,8 +109,8 @@ for as long as the hotspot is on.
 | Red solid | Something on the device is not running — power-cycle it; if it stays red, tell your administrator |
 | Blue blinking | Hotspot is being switched on or off (magnet held 3 s) |
 | Blue solid | Hotspot active — you can connect. The device is **not** on the home network while this is on |
-| Cyan blinking | Magnet held 6 s — release for a controlled shutdown |
-| Cyan solid | Shutting down — wait until the LED is off, then unplug |
+| White blinking | Magnet held 6 s — release for a controlled shutdown |
+| White solid | Shutting down — wait until the LED is off, then unplug |
 | Purple blinking | Magnet held 10 s — release to switch production ↔ development mode |
 | Purple solid (3 s) | Mode changed |
 | Purple blip every 4 s | Development mode — SSH and dashboard are open on the network |
@@ -155,8 +155,8 @@ If power-cycling is not practical:
 The device is normally powered from a PC's USB port.  Pulling the plug while
 it is writing to its memory card can corrupt it, so use the magnet:
 
-1. Hold the magnet in place for **6 seconds** — the LED blinks **cyan**.
-2. Release.  The LED turns solid cyan while the device shuts down.
+1. Hold the magnet in place for **6 seconds** — the LED blinks **white**.
+2. Release.  The LED turns solid white while the device shuts down.
 3. When the LED goes **off** (10–20 seconds), it is safe to unplug.
 
 To start it again, disconnect and reconnect the power.  (The Shutdown button
@@ -170,7 +170,7 @@ moving the device to a completely different network and want a clean start.
 **Hold the magnet in place for 15 seconds.**
 
 - At 3 seconds the LED turns blue fast-blink (hotspot arm threshold).
-- At 6 seconds it turns cyan fast-blink (shutdown), at 10 seconds purple (mode toggle) — keep holding.
+- At 6 seconds it turns white fast-blink (shutdown), at 10 seconds purple (mode toggle) — keep holding.
 - At 15 seconds the LED turns **red fast-blink** — this is the reset threshold.
 - Holding past 20 seconds turns the LED off and cancels: release does nothing.
 - Release the magnet to confirm.

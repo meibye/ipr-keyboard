@@ -8,7 +8,6 @@ from ipr_keyboard import gpio_monitor as gm
 from ipr_keyboard.gpio_monitor import (
     AMBER,
     BLUE,
-    CYAN,
     GREEN,
     OFF,
     PURPLE,
@@ -346,7 +345,7 @@ def test_hold_10s_arms_mode_and_blinks_purple():
     rig.advance(3.5)
     assert rig.frame == Frame(BLUE, FAST_HZ)
     rig.advance(3)
-    assert rig.frame == Frame(CYAN, FAST_HZ)
+    assert rig.frame == Frame(WHITE, FAST_HZ)
     rig.advance(4)
     assert rig.logic.armed == "mode"
     assert rig.frame == Frame(PURPLE, FAST_HZ)
@@ -374,19 +373,19 @@ def test_hold_between_3_and_6s_still_toggles_hotspot():
     assert rig.actions.calls == ["start"]
 
 
-def test_hold_6s_arms_shutdown_and_release_powers_off():
+def test_hold_6s_arms_shutdown_white_and_release_powers_off():
     rig = Rig()
     rig.ready()
     rig.press()
     rig.advance(6.5)
     assert rig.logic.armed == "shutdown"
-    assert rig.frame == Frame(CYAN, FAST_HZ)
+    assert rig.frame == Frame(WHITE, FAST_HZ)
     rig.release()
     assert rig.actions.calls == ["shutdown"]
     assert rig.logic.phase == Phase.SHUTTING_DOWN
-    assert rig.frame == Frame(CYAN)
+    assert rig.frame == Frame(WHITE)
     rig.advance(30)
-    assert rig.frame == Frame(CYAN), "stays cyan until the OS halts"
+    assert rig.frame == Frame(WHITE), "stays white until the OS halts"
     rig.hold(3.5)
     assert rig.actions.calls == ["shutdown"], "no gestures while shutting down"
     assert not rig.logic.dev_blip(rig.now)
@@ -438,7 +437,7 @@ def test_hold_15s_arms_reset_and_blinks_red():
     rig.advance(3.5)
     assert rig.frame == Frame(BLUE, FAST_HZ)
     rig.advance(3)
-    assert rig.frame == Frame(CYAN, FAST_HZ)
+    assert rig.frame == Frame(WHITE, FAST_HZ)
     rig.advance(4)
     assert rig.frame == Frame(PURPLE, FAST_HZ)
     rig.advance(5)
@@ -546,7 +545,7 @@ def test_monitor_stop_keeps_cyan_while_shutting_down():
     assert actions.calls == ["shutdown"]
     mon.stop()
     assert not backend.cleaned
-    assert backend.colors[-1] == CYAN
+    assert backend.colors[-1] == WHITE
 
 
 def test_monitor_without_gpio_is_inert(monkeypatch):

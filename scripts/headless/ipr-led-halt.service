@@ -2,7 +2,7 @@
 Description=IPR Keyboard status LED — off when it is safe to unplug
 Documentation=file:///home/meibye/dev/ipr-keyboard/docs/hardware/gpio-wiring.md
 # Started (doing nothing) early at boot so that its ExecStop runs LATE in the
-# shutdown sequence — after ipr_keyboard.service has left the LED cyan.
+# shutdown sequence — after ipr_keyboard.service has left the LED white.
 # Turning the LED off is the "safe to unplug" signal for a device powered
 # from a PC's USB port.
 DefaultDependencies=no

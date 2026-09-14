@@ -124,7 +124,7 @@ NetworkManager re-activates the home WiFi profile on its own.
 | Tap (< 3 s) | status colour | status colour for `GpioLedIdleSeconds`, then off |
 | Hold ≥ 3 s | blue 4 Hz | hotspot start (blue 4 Hz while starting → **blue solid while up, no timeout**) or stop (→ status colour); red 4 Hz for 3 s if the request fails within 40 s |
 | (status) | red solid | shown instead of the status colour while a core service is not active (`SystemProbe.services_ok`) — see `docs/operations/unsupervised-operation.md` |
-| Hold ≥ 6 s | cyan 4 Hz | controlled shutdown via `ipr_hotspot_ctl.sh poweroff`; cyan solid until `ipr-led-halt.service` turns the LED off at the end of the shutdown (safe to unplug) |
+| Hold ≥ 6 s | white 4 Hz | controlled shutdown via `ipr_hotspot_ctl.sh poweroff`; white solid until `ipr-led-halt.service` turns the LED off at the end of the shutdown (safe to unplug) |
 | Hold ≥ 10 s | purple 4 Hz | production ↔ development mode toggle via `ipr_mode_ctl.sh`; purple solid 3 s to confirm |
 | Hold ≥ 15 s | red 4 Hz | WiFi profiles deleted, reboot; red 4 Hz until the reboot |
 | Hold ≥ 20 s | off | cancel — release does nothing |

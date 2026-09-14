@@ -148,7 +148,7 @@ cancel — see `docs/hardware/gpio-wiring.md`):
 |---|---|---|
 | < 3 s (tap) | status colour | status for 30 s |
 | ≥ 3 s | blue fast blink | hotspot on/off |
-| ≥ 6 s | cyan fast blink | controlled shutdown |
+| ≥ 6 s | white fast blink | controlled shutdown |
 | **≥ 10 s** | **purple fast blink** | **mode toggle**; LED solid purple 3 s to confirm, then status |
 | ≥ 15 s | red fast blink | Wi-Fi reset + reboot |
 | ≥ 20 s | off | cancel |

@@ -210,8 +210,8 @@ def fig_led_colours():
         ((214, 60, 60), "Rød, konstant", "En tjeneste i boksen er stoppet — sluk og tænd; ellers administrator", RED),
         ((60, 120, 230), "Blå, hurtigt blink", "Magnet holdt i 3 sek., eller opsætningsnetværket tændes/slukkes", BLUE),
         ((60, 120, 230), "Blå, konstant", "Opsætningsnetværket er tændt — lyser så længe det er tændt", BLUE),
-        ((40, 170, 190), "Turkis, hurtigt blink", "Magnet holdt i 6 sek. — slip for at slukke boksen", BLUE),
-        ((40, 170, 190), "Turkis, konstant", "Boksen lukker ned — vent til lampen slukker, før du tager strømmen", BLUE),
+        ((255, 255, 255), "Hvid, hurtigt blink (magnet)", "Magnet holdt i 6 sek. — slip for at slukke boksen", MUTED),
+        ((255, 255, 255), "Hvid, konstant (efter slip)", "Boksen lukker ned — vent til lampen slukker, før du tager strømmen", MUTED),
         ((150, 70, 220), "Lilla, hurtigt blink", "Magnet holdt i 10 sek. — slip for at skifte drift/udvikling (admin)", PURPLE),
         ((150, 70, 220), "Lilla, kort blink hvert 4. sek.", "Udviklingstilstand — administratoren arbejder på boksen", PURPLE),
         ((214, 60, 60), "Rød, hurtigt blink", "Magnet holdt i 15 sek. — slip for at nulstille netværk", RED),
@@ -250,7 +250,7 @@ def fig_magnet_timeline():
     seg = [
         (0.0, 0.15, "Kort", "Status\n30 sek.", BLUE, BLUE_BG),
         (0.15, 0.3, "3 sek.", "Opsætnings-\nnetværk (blå)", GREEN, GREEN_BG),
-        (0.3, 0.5, "6 sek.", "Sluk boksen\n(turkis)", (40, 140, 160), (230, 247, 250)),
+        (0.3, 0.5, "6 sek.", "Sluk boksen\n(hvid)", MUTED, PANEL),
         (0.5, 0.75, "10 sek.", "Drift ↔ udvikling (lilla)\n— kun administrator", PURPLE, PURPLE_BG),
         (0.75, 1.0, "15 sek.", "Nulstil netværk (rød)\n— kun administrator", RED, RED_BG),
     ]

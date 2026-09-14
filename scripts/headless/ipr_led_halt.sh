@@ -3,7 +3,7 @@
 # ipr_led_halt.sh — turn the status LED off at the very end of a shutdown
 #
 # Runs from ipr-led-halt.service (ExecStop, late in the shutdown sequence).
-# The application leaves the LED cyan when it is stopped for a shutdown;
+# The application leaves the LED white when it is stopped for a shutdown;
 # once this has run the LED is dark and the device may be unplugged.
 # Uses pinctrl (pokes the registers, nothing to keep alive) and falls back
 # to gpioset with a short hold.

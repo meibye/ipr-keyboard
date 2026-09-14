@@ -347,7 +347,7 @@ def main():
 
     # systemd stops us with SIGTERM (service restart, or a shutdown started by
     # the magnet).  Route it through the same path as Ctrl-C so the GPIO
-    # monitor can leave the LED in the right state (off, or cyan during a
+    # monitor can leave the LED in the right state (off, or white during a
     # shutdown) instead of the process just vanishing.
     def _on_sigterm(_signum, _frame):
         raise KeyboardInterrupt
