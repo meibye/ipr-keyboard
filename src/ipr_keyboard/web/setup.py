@@ -489,7 +489,9 @@ def rescan():
 @bp_setup.post("/connect")
 @require_login
 def connect():
-    ssid = (request.form.get("ssid") or "").strip()
+    # A typed SSID wins over the scan list: while the hotspot is up the radio
+    # cannot scan, so the list is empty exactly when this page is needed most.
+    ssid = (request.form.get("ssid_manual") or "").strip() or (request.form.get("ssid") or "").strip()
     psk = request.form.get("psk") or ""
     sec = request.form.get("security") or "auto"
 

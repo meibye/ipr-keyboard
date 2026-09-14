@@ -254,6 +254,10 @@ _EN: dict[str, str] = {
         "The hotspot stays active; the Pi connects to this network after reboot."
     ),
     "wifi_network":      "Network",
+    "wifi_manual_ssid":  "…or type the network name (SSID)",
+    "wifi_manual_placeholder": "e.g. MyHomeWiFi",
+    "wifi_manual_hint":  ("While the hotspot is on, the device cannot scan for networks — "
+                          "type the name exactly as it appears on your router (case-sensitive)."),
     "wifi_security":     "Security",
     "wifi_sec_auto":     "Auto (WPA2)",
     "wifi_sec_open":     "Open",
@@ -388,6 +392,10 @@ _DA: dict[str, str] = {
         "Hotspottet forbliver aktivt; Pi'en forbinder til dette netværk efter genstart."
     ),
     "wifi_network":      "Netværk",
+    "wifi_manual_ssid":  "…eller skriv netværkets navn (SSID)",
+    "wifi_manual_placeholder": "fx MitHjemmenet",
+    "wifi_manual_hint":  ("Mens hotspottet er tændt, kan enheden ikke søge efter netværk — "
+                          "skriv navnet præcis som på routeren (der skelnes mellem store og små bogstaver)."),
     "wifi_security":     "Sikkerhed",
     "wifi_sec_auto":     "Auto (WPA2)",
     "wifi_sec_open":     "Åbent",

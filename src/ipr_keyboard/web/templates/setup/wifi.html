@@ -7,11 +7,15 @@
   </p>
   <form method="post" action="{{ url_for('setup.connect') }}">
     <label>{{ t['wifi_network'] }}</label>
-    <select name="ssid" required>
+    <select name="ssid">
       {% for ssid in ssids %}
       <option value="{{ ssid }}">{{ ssid }}</option>
       {% endfor %}
     </select>
+    <label>{{ t['wifi_manual_ssid'] }}</label>
+    <input name="ssid_manual" type="text" autocomplete="off" autocapitalize="none"
+           placeholder="{{ t['wifi_manual_placeholder'] }}">
+    <p style="color:#666;font-size:.8rem;margin:.1rem 0 .6rem">{{ t['wifi_manual_hint'] }}</p>
     <label>{{ t['wifi_security'] }}</label>
     <select name="security">
       <option value="auto">{{ t['wifi_sec_auto'] }}</option>
