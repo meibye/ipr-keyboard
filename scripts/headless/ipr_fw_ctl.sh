@@ -61,8 +61,13 @@ read_mode() {
 
 hotspot_iface() {
   # Interface the hotspot connection is active on, or empty.
-  nmcli -t -f NAME,DEVICE con show --active 2>/dev/null \
-    | awk -F: -v n="${HOTSPOT_CON}" '$1==n {print $2; exit}'
+  # At boot this runs BEFORE NetworkManager (Before=network-pre.target), so
+  # nmcli fails; under `set -euo pipefail` that used to abort the whole
+  # script and left the device UNFILTERED until the first connection event.
+  # A missing or failing nmcli simply means "no hotspot yet".
+  local out
+  out="$(nmcli -t -f NAME,DEVICE con show --active 2>/dev/null || true)"
+  printf '%s\n' "${out}" | awk -F: -v n="${HOTSPOT_CON}" '$1==n {print $2; exit}' || true
 }
 
 build_ruleset() {

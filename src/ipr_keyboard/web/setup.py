@@ -56,9 +56,14 @@ def _t() -> dict:
 _LOG_UNITS = [
     "ipr_keyboard.service",
     "ipr-provision.service",
+    "ipr-firewall.service",
+    "irispen-mount.service",
+    "ipr-led-boot.service",
     "bt_hid_ble.service",
     "bt_hid_agent_unified.service",
     "bluetooth.service",
+    "NetworkManager.service",
+    "kernel",
 ]
 
 # ---------------------------------------------------------------------------
@@ -514,10 +519,12 @@ def connect():
 @bp_setup.get("/logs")
 @require_login
 def logs():
-    selected = request.args.getlist("unit") or ["ipr_keyboard.service"]
-    cmd = ["journalctl", "-n", "200", "-o", "short", "--no-pager"]
+    selected = [u for u in request.args.getlist("unit") if u in _LOG_UNITS] or ["ipr_keyboard.service"]
+    newest_first = request.args.get("order", "desc") == "desc"
+    follow = request.args.get("follow") == "1"
+    cmd = ["journalctl", "-n", "300", "-o", "short", "--no-pager"]
     for u in selected:
-        cmd += ["-u", u]
+        cmd += ["-k"] if u == "kernel" else ["-u", u]
     try:
         log_content = subprocess.check_output(
             cmd, text=True, stderr=subprocess.STDOUT,
@@ -526,12 +533,18 @@ def logs():
         log_content = e.output or "(no output)"
     except Exception as e:
         log_content = f"Error reading logs: {e}"
+    if newest_first:
+        log_content = "\n".join(reversed(log_content.splitlines()))
+    from datetime import datetime as _dt
     return render_template(
         "setup/logs.html",
         page="logs",
         msg="", ok=False,
         all_units=_LOG_UNITS,
         selected_units=selected,
+        newest_first=newest_first,
+        follow=follow,
+        device_time=_dt.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z"),
         log_content=log_content,
     )
 

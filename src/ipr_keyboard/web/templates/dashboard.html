@@ -12,6 +12,7 @@
 <header id="topbar">
   <span class="title">IPR Pen Bridge</span>
   <span id="overall-badge">—</span>
+  <span id="topbar-clock" title="Device time" style="font-size:12px;color:var(--color-text-muted);margin-left:auto;margin-right:12px">—</span>
   <a href="/logout" class="topbar-logout">Sign out</a>
 </header>
 
@@ -254,6 +255,14 @@
 
     <div class="raw-logs-wrap">
       <button class="raw-logs-toggle" onclick="toggleRawLogs()">📄 Show raw logs</button>
+      <div id="raw-log-controls" hidden>
+        <div class="unit-list" id="raw-log-units"></div>
+        <div class="unit-list">
+          <label><input type="checkbox" id="raw-log-follow" onchange="rawLogFollowChanged()"> live (every 4 s, newest at the bottom)</label>
+          <label><input type="text" id="raw-log-filter" placeholder="filter text" style="width:auto;padding:.2rem .4rem;margin:0" oninput="loadRawLogs()"></label>
+          <span style="font-size:12px;color:var(--color-text-muted)">Device time: <code id="raw-log-device-time">—</code></span>
+        </div>
+      </div>
       <pre id="raw-log-area">Loading…</pre>
     </div>
   </section>
@@ -744,6 +753,22 @@ refreshStatus();
 setInterval(refreshStatus, 10000);
 
 // ---- Home health ----
+// Device clock in the top bar: seeded from /api/device, ticked locally.
+let _clockBase = null, _clockStart = 0, _clockZone = '';
+function startDeviceClock(text) {
+  const m = text.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2}):(\d{2}) (.*)$/);
+  if (!m) return;
+  _clockBase = new Date(m[1] + 'T' + m[2] + ':' + m[3] + ':' + m[4]);
+  _clockStart = Date.now(); _clockZone = m[5];
+  if (!startDeviceClock._timer) startDeviceClock._timer = setInterval(() => {
+    if (!_clockBase) return;
+    const t = new Date(_clockBase.getTime() + (Date.now() - _clockStart));
+    const p = n => String(n).padStart(2, '0');
+    document.getElementById('topbar-clock').textContent =
+      `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())} ${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())} ${_clockZone}`;
+  }, 1000);
+}
+
 async function loadHomeDevice() {
   try {
     const d = await apiFetch('/api/device');
@@ -760,6 +785,7 @@ async function loadHomeDevice() {
     incEl.className = 'hm-value ' + (d.incidents_count ? 'state-error' : 'state-ready');
     incEl.title = d.last_incident || '';
     document.getElementById('dv-reach').textContent = d.reachability || '';
+    if (d.device_time) startDeviceClock(d.device_time);
     const acts = document.getElementById('dv-actions');
     acts.hidden = !_currentIsAdmin;
     document.getElementById('dv-hotspot-on').hidden = !!d.hotspot_active;
@@ -988,18 +1014,57 @@ document.querySelectorAll('.chip').forEach(chip => {
   });
 });
 
+const RAW_LOG_DEFAULT_UNITS = ['ipr_keyboard.service'];
+let rawLogTimer = null;
+
+function rawLogSelectedUnits() {
+  return Array.from(document.querySelectorAll('#raw-log-units input:checked')).map(cb => cb.value);
+}
+
+async function loadRawLogs() {
+  const area = document.getElementById('raw-log-area');
+  const params = new URLSearchParams();
+  params.set('limit', '300');
+  rawLogSelectedUnits().forEach(u => params.append('unit', u));
+  const f = document.getElementById('raw-log-filter').value.trim();
+  if (f) params.set('contains', f);
+  try {
+    const data = await apiFetch('/api/logs/raw?' + params.toString());
+    const atBottom = area.scrollHeight - area.scrollTop - area.clientHeight < 40;
+    area.textContent = (data.items || []).map(l => l.line).join('\n') || 'No logs.';
+    document.getElementById('raw-log-device-time').textContent = data.device_time || '—';
+    // tail-like: keep the newest line in view unless the user scrolled up
+    if (atBottom || !rawLogTimer) area.scrollTop = area.scrollHeight;
+    // first load: build the unit checkboxes once
+    const box = document.getElementById('raw-log-units');
+    if (!box.children.length && data.available_units) {
+      box.innerHTML = data.available_units.map(u =>
+        `<label><input type="checkbox" value="${u}" ${RAW_LOG_DEFAULT_UNITS.includes(u) ? 'checked' : ''} onchange="loadRawLogs()"> ${u}</label>`
+      ).join('');
+    }
+  } catch (e) {
+    area.textContent = 'Failed to load logs.';
+  }
+}
+
+function rawLogFollowChanged() {
+  const on = document.getElementById('raw-log-follow').checked;
+  if (rawLogTimer) { clearInterval(rawLogTimer); rawLogTimer = null; }
+  if (on) rawLogTimer = setInterval(loadRawLogs, 4000);
+}
+
 async function toggleRawLogs() {
   rawLogsVisible = !rawLogsVisible;
   const area = document.getElementById('raw-log-area');
   area.style.display = rawLogsVisible ? 'block' : 'none';
+  document.getElementById('raw-log-controls').hidden = !rawLogsVisible;
   if (rawLogsVisible) {
     area.textContent = 'Loading…';
-    try {
-      const data = await apiFetch('/api/logs/raw?limit=100');
-      area.textContent = (data.items || []).map(l => l.line).join('\n') || 'No logs.';
-    } catch (e) {
-      area.textContent = 'Failed to load logs.';
-    }
+    // the unit boxes exist only after the first load; seed the defaults then
+    await loadRawLogs();
+  } else if (rawLogTimer) {
+    clearInterval(rawLogTimer); rawLogTimer = null;
+    document.getElementById('raw-log-follow').checked = false;
   }
 }
 

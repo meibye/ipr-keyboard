@@ -180,9 +180,13 @@ def create_app() -> Flask:
         units = [
             "ipr_keyboard.service",
             "ipr-provision.service",
+            "ipr-firewall.service",
+            "irispen-mount.service",
+            "ipr-led-boot.service",
             "bt_hid_ble.service",
             "bt_hid_agent_unified.service",
             "bluetooth.service",
+            "NetworkManager.service",
             "dbus.service",
             "systemd-udevd.service",
         ]

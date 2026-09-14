@@ -267,6 +267,10 @@ _EN: dict[str, str] = {
     # Logs
     "logs_title":   "Log Viewer",
     "logs_refresh": "Refresh",
+    "logs_device_time":  "Device time",
+    "logs_lines_note":   "last 300 lines per selection; timestamps are device local time",
+    "logs_newest_first": "newest first",
+    "logs_follow":       "live (reload every 4 s)",
 
     # System — Certificate card
     "sys_cert_title":          "Certificate",
@@ -397,6 +401,10 @@ _DA: dict[str, str] = {
     # Logs
     "logs_title":   "Logviser",
     "logs_refresh": "Opdater",
+    "logs_device_time":  "Enhedens klokkeslæt",
+    "logs_lines_note":   "seneste 300 linjer pr. valg; tidsstempler er enhedens lokale tid",
+    "logs_newest_first": "nyeste først",
+    "logs_follow":       "live (genindlæs hvert 4. sekund)",
 
     # System — Certificate card
     "sys_cert_title":          "Certifikat",

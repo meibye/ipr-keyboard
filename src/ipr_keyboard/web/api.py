@@ -452,6 +452,7 @@ def _build_device_data() -> dict[str, Any]:
         "reachability": reach,
         "incidents_count": count,
         "last_incident": last,
+        "device_time": _device_local_time(),
     }
 
 
@@ -543,12 +544,40 @@ def api_events_latest():
 # Log endpoints
 # ---------------------------------------------------------------------------
 
+LOG_UNITS = [
+    "ipr_keyboard.service",
+    "ipr-provision.service",
+    "ipr-firewall.service",
+    "irispen-mount.service",
+    "ipr-led-boot.service",
+    "bt_hid_ble.service",
+    "bt_hid_agent_unified.service",
+    "bluetooth.service",
+    "NetworkManager.service",
+    "kernel",
+]
+
+
+def _device_local_time() -> str:
+    """The device's wall clock, local zone, for correlating with journal lines."""
+    return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+
+
 @bp_api.get("/logs/raw")
 def api_logs_raw():
+    """Tail of the journal, oldest first (newest at the bottom, like `tail`).
+
+    ?unit=<name> may repeat (see LOG_UNITS; "kernel" = -k); ?limit=N (<=1000);
+    ?contains=text filters lines.  The response carries the device's local
+    time so the reader can relate the timestamps to "now" on the device.
+    """
     try:
-        limit = min(int(request.args.get("limit", 100)), 1000)
+        limit = min(int(request.args.get("limit", 200)), 1000)
         contains = request.args.get("contains") or None
+        units = [u for u in request.args.getlist("unit") if u in LOG_UNITS]
         cmd = ["journalctl", "-n", str(limit), "-o", "short", "--no-pager"]
+        for u in units:
+            cmd += ["-k"] if u == "kernel" else ["-u", u]
         try:
             out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=10)
         except Exception:
@@ -560,8 +589,9 @@ def api_logs_raw():
                 continue
             if contains and contains.lower() not in line.lower():
                 continue
-            items.append({"timestamp": _now(), "line": line})
-        return jsonify({"items": items})
+            items.append({"line": line})
+        return jsonify({"items": items, "units": units or ["(all)"], "available_units": LOG_UNITS,
+                        "device_time": _device_local_time()})
     except Exception:
         logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
 

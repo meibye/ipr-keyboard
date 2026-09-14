@@ -267,6 +267,9 @@
 
   .raw-logs-wrap { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
   .raw-logs-toggle { font-size: 13px; font-weight: 600; color: var(--color-primary); cursor: pointer; background: none; border: none; padding: 0; text-align: left; }
+  .unit-list { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0; font-size: 12px; align-items: center; }
+  .unit-list label { display: flex; align-items: center; gap: 4px; margin: 0; font-weight: normal; }
+  .unit-list input[type="checkbox"] { width: auto; margin: 0; padding: 0; }
   #raw-log-area {
     display: none;
     background: #1e272e; color: #dfe6e9;
