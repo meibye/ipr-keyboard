@@ -45,6 +45,41 @@ home_profile() {
   printf '%s' "${name}"
 }
 
+# NEVER `nmcli con modify` a generated profile.  On this OS NetworkManager
+# uses its netplan backend: modifying a profile that netplan generated at
+# boot (netplan-<iface>-<ssid>, keyfile under /run) makes NM rewrite the
+# netplan YAML — and on ipr-prod-zero2 that rewrite LOST the Wi-Fi YAML
+# together with its password; the device came up with no home network after
+# the next boot.  Instead, the settings go into an NM-owned copy named
+# ipr-home (secrets included), with a higher autoconnect priority so it
+# wins over the generated one, which stays untouched.
+OWNED_CON="ipr-home"
+
+is_generated() {  # profile has its keyfile under /run (netplan/cloud-init generated)
+  [[ -f "/run/NetworkManager/system-connections/$1.nmconnection" ]] || [[ "$1" == netplan-* ]]
+}
+
+writable_profile() {
+  local src
+  src="$(home_profile)"
+  if [[ "${src}" == "${OWNED_CON}" ]] || ! is_generated "${src}"; then
+    printf '%s' "${src}"; return
+  fi
+  if nmcli -t -f NAME con show 2>/dev/null | grep -qx "${OWNED_CON}"; then
+    printf '%s' "${OWNED_CON}"; return
+  fi
+  log "cloning generated profile ${src} -> ${OWNED_CON} (the original is left as is)" >&2
+  nmcli con clone "${src}" "${OWNED_CON}" >/dev/null
+  # clone does not copy secrets held by the agent; copy the PSK explicitly
+  local psk
+  psk="$(nmcli -s -g 802-11-wireless-security.psk con show "${src}" 2>/dev/null || true)"
+  if [[ -n "${psk}" ]]; then
+    nmcli con modify "${OWNED_CON}" wifi-sec.psk "${psk}"
+  fi
+  nmcli con modify "${OWNED_CON}" connection.autoconnect yes connection.autoconnect-priority 10
+  printf '%s' "${OWNED_CON}"
+}
+
 mask_to_prefix() {
   local m="$1"
   if [[ "${m}" =~ ^[0-9]+$ ]]; then
@@ -67,7 +102,9 @@ is_active() {
 
 reactivate() {
   local con="$1"
-  if is_active "${con}"; then
+  # Activating the owned copy also takes over from a generated profile that
+  # is currently up (same interface).
+  if is_active "${con}" || is_active "$(home_profile)"; then
     log "re-activating ${con} so the change takes effect (an SSH session on the old address will drop)"
     nmcli -w 20 con up "${con}" >/dev/null || log "warning: re-activation failed; the profile is saved and applies at the next connect"
   else
@@ -77,7 +114,7 @@ reactivate() {
 
 case "${1:-}" in
   dhcp)
-    con="$(home_profile)"
+    con="$(writable_profile)"
     nmcli con modify "${con}" ipv4.method auto ipv4.addresses "" ipv4.gateway "" ipv4.dns "" ipv4.ignore-auto-dns no
     log "${con}: ipv4.method=auto"
     reactivate "${con}"
@@ -90,7 +127,7 @@ case "${1:-}" in
     if [[ -n "${gw}" ]]; then
       [[ "${gw}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || die "bad gateway: ${gw}"
     fi
-    con="$(home_profile)"
+    con="$(writable_profile)"
     nmcli con modify "${con}" ipv4.method manual ipv4.addresses "${ip}/${prefix}" \
       ipv4.gateway "${gw}" ipv4.dns "${gw}" ipv4.ignore-auto-dns yes
     log "${con}: ipv4.method=manual ${ip}/${prefix} gw=${gw:-none}"

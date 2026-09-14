@@ -1926,6 +1926,11 @@ def build() -> None:
              "CA-certifikatet er ikke installeret på klienten.",
              "Hent https://10.42.0.1/setup/ca.crt og installér det i klientens "
              "certifikatlager."],
+            ["Lampen blinker langsomt rødt efter genstart; nmcli con show viser ingen "
+             "netplan-wlan0-profil.",
+             "Wi-Fi-profilen er væk (se noten under 10.5 om netplan).",
+             "Tænd hotspottet (magnet 3 s), setup-portalen → Wi-Fi → vælg nettet og indtast "
+             "adgangskoden; sluk hotspottet igen (magnet 3 s)."],
             ["Kan ikke nå <værtsnavn>.local, men IP-adressen virker.",
              "Navnet slås op til en IPv6-adresse (Windows foretrækker AAAA), og "
              "dashboardet lytter kun på IPv4 — eller enheden er i drift (mDNS lukket).",
@@ -1990,6 +1995,15 @@ def build() -> None:
         caption="Fejlmønstre for statuslampen og reed-kontakten. Fase K i "
                 "test_provision.sh kontrollerer, at alle dele er installeret.",
     )
+
+    m.note("Kendt fejl, rettet 14. september 2026: dashboardets netværksindstillinger ændrede "
+           "den profil, som netplan genererer ved opstart (netplan-wlan0-<SSID>). "
+           "NetworkManager bruger her sin netplan-backend, og omskrivningen mistede "
+           "Wi-Fi-YAML'en inklusive adgangskoden — enheden kom op uden hjemmenet efter næste "
+           "genstart. ipr_net_apply.sh rører nu aldrig en genereret profil, men kloner den "
+           "til en NM-ejet profil (ipr-home) med højere autoconnect-prioritet. Er "
+           "hjemmenettet forsvundet: sæt det op igen via setup-portalens Wi-Fi-side "
+           "(via hotspottet) eller nmcli con add type wifi …", "warn")
 
     m.h2("10.6 Indsaml en diagnosepakke")
     m.code("sudo ./scripts/rpi-debug/dbg_diag_bundle.sh")
