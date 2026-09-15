@@ -12,11 +12,14 @@ Reed switch interaction (the magnet is the only control on the device):
                          arming colour below blinks against dark — visible even
                          when the LED was solid blue (hotspot) or solid purple
   Tap  (release < 3 s)   Wake LED; show system status for GpioLedIdleSeconds
-  Hold ≥ 3 s             LED blinks blue; release to toggle the management hotspot
-  Hold ≥ 6 s             LED blinks white; release for a controlled shutdown
-  Hold ≥ 10 s            LED blinks purple; release to toggle production/development mode
-  Hold ≥ 15 s            LED blinks red; release to delete WiFi profiles and reboot
+  Hold ≥ 3 s             LED solid blue; release to toggle the management hotspot
+  Hold ≥ 6 s             LED solid white; release for a controlled shutdown
+  Hold ≥ 10 s            LED solid purple; release to toggle production/development mode
+  Hold ≥ 15 s            LED solid red; release to delete WiFi profiles and reboot
   Hold ≥ 20 s            LED goes off; release does nothing (cancel)
+  While held the phases are STEADY colours, each entered through a short off
+  gap, so a step is visible as a "click" even between similar hues.  Blinking
+  is reserved for things in progress after release.
 
 LED colour map:
   White solid        Power on — firmware / kernel (config.txt gpio= line)
@@ -27,18 +30,20 @@ LED colour map:
   Red slow blink     No WiFi configured / cannot connect
   Red solid          A core service is not running (bluetooth, bt_hid_ble,
                      bt_hid_agent_unified) — see /var/lib/ipr-keyboard/incidents.log
-  Blue fast blink    Hotspot request in progress (arming, starting or stopping)
+  Blue solid (held)  Hotspot arming (hold ≥ 3 s)
+  Blue fast blink    Hotspot starting or stopping (after release)
   Blue solid         Hotspot active (setup mode) — stays on while the hotspot is up
-  White fast blink   Shutdown arming (hold ≥ 6 s) — same colour family as boot:
-                     white means the device is powering up or down
+  White solid        Shutdown arming (hold ≥ 6 s, while held) — same colour family
+                     as boot: white means the device is powering up or down
   White solid        Shutting down — wait until the LED goes off before unplugging
                      (ipr-led-halt.service turns it off just before the kernel halts)
-  Purple fast blink  Mode toggle arming (hold ≥ 10 s)
+  Purple solid       Mode toggle arming (hold ≥ 10 s, while held)
   Purple solid 3 s   Mode changed (confirmation)
   Purple blip        Every 4 s while in DEVELOPMENT mode (ports open) — on top of
                      whatever else the LED shows, including off
-  Red fast blink     Factory reset arming (hold ≥ 15 s) / in progress, or a failed
-                     hotspot request
+  Red solid (held)   Factory reset arming (hold ≥ 15 s); also, when not held, a
+                     core service down
+  Red fast blink     Factory reset in progress, or a failed hotspot request
   Off                Idle — no power draw
 
 The boot phases before this module runs are driven by the firmware
@@ -111,6 +116,7 @@ HOLD_SHUTDOWN_SECS: float = 6.0
 HOLD_MODE_SECS: float = 10.0
 HOLD_RESET_SECS: float = 15.0
 HOLD_CANCEL_SECS: float = 20.0
+PHASE_GAP_SECS: float = 0.3          # dark gap when a held phase changes
 MODE_CONFIRM_SECS: float = 3.0
 DEV_BLIP_PERIOD_SECS: float = 4.0    # development-mode heartbeat
 DEV_BLIP_ON_SECS: float = 0.15
@@ -326,13 +332,15 @@ class Frame:
 FRAME_OFF = Frame(OFF)
 FRAME_BOOT = Frame(WHITE, FAST_HZ)
 FRAME_HOTSPOT_BUSY = Frame(BLUE, FAST_HZ)
+FRAME_ARM_HOTSPOT = Frame(BLUE)
+FRAME_ARM_SHUTDOWN = Frame(WHITE)
+FRAME_ARM_MODE = Frame(PURPLE)
+FRAME_ARM_RESET = Frame(RED)
 FRAME_HOTSPOT_ON = Frame(BLUE)
 FRAME_RESET = Frame(RED, FAST_HZ)
-FRAME_MODE_ARM = Frame(PURPLE, FAST_HZ)
 # White for the power transitions: white = booting, white = shutting down.
 # Cyan was tried first and was indistinguishable from the 3 s blue blink on
 # the small LED, so users released too early and started the hotspot.
-FRAME_SHUTDOWN_ARM = Frame(WHITE, FAST_HZ)
 FRAME_SHUTDOWN = Frame(WHITE)
 FRAME_MODE_CONFIRM = Frame(PURPLE)
 
@@ -386,6 +394,7 @@ class LedLogic:
         self._reed_was = False
         self._press_start = 0.0
         self._armed: str | None = None  # None | "hotspot" | "shutdown" | "mode" | "reset" | "cancel"
+        self._armed_at = 0.0            # when the current held phase began (for the off gap)
         self._busy_target = False  # HOTSPOT_BUSY: expected hotspot_active
         self._ready = False
 
@@ -452,7 +461,7 @@ class LedLogic:
         elif self.phase == Phase.IDLE and self._probe.hotspot_active:
             self.phase = Phase.HOTSPOT_ON
 
-        return self._frame(reed_closed)
+        return self._frame(reed_closed, now)
 
     # -- helpers ----------------------------------------------------------
 
@@ -488,24 +497,15 @@ class LedLogic:
         elif closed:
             held = now - self._press_start
             if held >= self._hold_cancel:
-                if self._armed != "cancel":
-                    logger.info("Reed held %.0f s — gesture cancelled", held)
-                self._armed = "cancel"
+                self._arm("cancel", now, held, "gesture cancelled")
             elif held >= self._hold_reset:
-                if self._armed != "reset":
-                    logger.info("Reed held %.0f s — factory reset armed", held)
-                self._armed = "reset"
+                self._arm("reset", now, held, "factory reset armed")
             elif held >= self._hold_mode:
-                if self._armed != "mode":
-                    logger.info("Reed held %.0f s — mode toggle armed", held)
-                self._armed = "mode"
+                self._arm("mode", now, held, "mode toggle armed")
             elif held >= self._hold_shutdown:
-                if self._armed != "shutdown":
-                    logger.info("Reed held %.0f s — shutdown armed", held)
-                self._armed = "shutdown"
-            elif held >= self._hold_hotspot and self._armed is None:
-                logger.info("Reed held %.0f s — hotspot toggle armed", held)
-                self._armed = "hotspot"
+                self._arm("shutdown", now, held, "shutdown armed")
+            elif held >= self._hold_hotspot:
+                self._arm("hotspot", now, held, "hotspot toggle armed")
         elif self._reed_was:
             # Release: fire whatever was armed
             armed, self._armed = self._armed, None
@@ -555,33 +555,37 @@ class LedLogic:
                 self._enter_status(now)
         self._reed_was = closed
 
+    def _arm(self, what: str, now: float, held: float, what_log: str) -> None:
+        if self._armed != what:
+            logger.info("Reed held %.0f s — %s", held, what_log)
+            self._armed = what
+            self._armed_at = now
+
     def _probe_now(self) -> None:
         try:
             self._probe.refresh()
         except Exception as exc:
             logger.debug("probe refresh failed: %s", exc)
 
-    def _frame(self, reed_closed: bool) -> Frame:
+    def _frame(self, reed_closed: bool, now: float = 0.0) -> Frame:
         if self.phase == Phase.RESETTING:
             return FRAME_RESET
         if self.phase == Phase.SHUTTING_DOWN:
             return FRAME_SHUTDOWN
         if reed_closed and self.phase != Phase.BOOT:
-            if self._armed is None:
-                # Dark while held before the first threshold: the press is
-                # acknowledged and the 3 s blue blink is unmistakable even
-                # when the LED was solid blue (hotspot on) a moment ago.
+            # Held: dark before the first threshold (press acknowledged), then
+            # one STEADY colour per phase, each entered through a short dark
+            # gap so the step registers even between similar hues.
+            if self._armed is None or self._armed == "cancel":
                 return FRAME_OFF
-            if self._armed == "cancel":
+            if now - self._armed_at < PHASE_GAP_SECS:
                 return FRAME_OFF
-            if self._armed == "reset":
-                return FRAME_RESET
-            if self._armed == "mode":
-                return FRAME_MODE_ARM
-            if self._armed == "shutdown":
-                return FRAME_SHUTDOWN_ARM
-            if self._armed == "hotspot":
-                return FRAME_HOTSPOT_BUSY
+            return {
+                "hotspot": FRAME_ARM_HOTSPOT,
+                "shutdown": FRAME_ARM_SHUTDOWN,
+                "mode": FRAME_ARM_MODE,
+                "reset": FRAME_ARM_RESET,
+            }[self._armed]
         if self.phase == Phase.BOOT:
             return FRAME_BOOT
         if self.phase == Phase.HOTSPOT_BUSY:

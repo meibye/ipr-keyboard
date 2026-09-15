@@ -1193,7 +1193,7 @@ def build() -> None:
     m.h2("4.6 Kontrolleret nedlukning med magneten")
     m.p("Enheden forsynes typisk fra PC'ens USB-port, og et SD-kort, der mister strømmen "
         "under en skrivning, kan blive ødelagt. Magneten giver en kontrolleret nedlukning: "
-        "hold i 6 sekunder (lampen blinker hvid) og slip. gpio_monitor kalder "
+        "hold i 6 sekunder (lampen lyser hvidt) og slip. gpio_monitor kalder "
         "ipr_hotspot_ctl.sh poweroff (systemctl poweroff) og viser konstant hvid; når "
         "systemd stopper ipr_keyboard.service, efterlades benene bevidst på hvid, og "
         "ipr-led-halt.service — startet tidligt ved opstart uden at gøre noget, så dens "
@@ -1204,19 +1204,20 @@ def build() -> None:
         ["Hold", "Lampen mens du holder", "Ved slip"],
         [
             ["under 3 s", "slukket (magneten er registreret)", "status i 30 s"],
-            ["3 s", "blå blink", "hotspot tændes/slukkes"],
-            ["6 s", "hvid blink", "kontrolleret nedlukning; hvid konstant → slukket = sikkert at afbryde "
+            ["3–6 s", "blå, konstant", "hotspot tændes/slukkes"],
+            ["6–10 s", "hvid, konstant", "kontrolleret nedlukning; hvid konstant → slukket = sikkert at afbryde "
                                  "(hvid = boksen starter eller slukker; turkis blev opgivet, da det ikke "
                                  "kunne skelnes fra det blå blink ved 3 s)"],
-            ["10 s", "lilla blink", "drift ↔ udvikling (afsnit 5.5)"],
-            ["15 s", "rød blink", "netværksnulstilling og genstart (afsnit 5.4)"],
+            ["10–15 s", "lilla, konstant", "drift ↔ udvikling (afsnit 5.5)"],
+            ["15–20 s", "rød, konstant", "netværksnulstilling og genstart (afsnit 5.4)"],
             ["20 s", "slukket", "fortryd — der sker ingenting"],
         ],
         widths=[2.2, 4.4, 9.0],
-        caption="Hele magnet-stigen. Lampen slukker, så snart magneten registreres, og "
-                "skifter ved hver tærskel — blinkene ses derfor altid mod en mørk lampe, "
-                "også når den lyste konstant blåt (hotspot) inden. Handlingen udføres først "
-                "ved slip.",
+        caption="Hele magnet-stigen. Lampen slukker, så snart magneten registreres, og viser "
+                "derefter én FAST farve pr. trin; hvert skift indledes med et mørkt blink på "
+                "0,3 s, så trinnet kan tælles. Blink er forbeholdt handlinger i gang efter slip "
+                "(hurtige blink i beslægtede farver kunne ikke skelnes). Handlingen udføres "
+                "først ved slip.",
     )
 
     # ---------------------------------------------------------------- 5
@@ -1334,7 +1335,7 @@ def build() -> None:
     m.p("Politikken anvendes ved opstart før netværket kommer op (ipr-firewall.service), "
         "ved enhver forbindelsesændring (NetworkManager-dispatcher-hook 90-ipr-firewall), "
         "når hotspottet tændes eller slukkes, og når tilstanden skiftes.")
-    m.p("Tilstanden skiftes med magneten (hold i 10 sekunder — lampen blinker lilla — og slip; "
+    m.p("Tilstanden skiftes med magneten (hold i 10 sekunder — lampen lyser lilla — og slip; "
         "lampen lyser lilla i 3 sekunder som bekræftelse) eller fra kommandolinjen:")
     m.code(
         "sudo ipr_mode_ctl.sh production     # drift: luk alt på hjemmenettet\n"
@@ -1986,7 +1987,7 @@ def build() -> None:
             ["SSH og dashboard svarer ikke på hjemmenettet, men enheden kører (lampen "
              "viser status ved berøring, intet lilla blink).",
              "Enheden står i driftstilstand — det er normalt.",
-             "Hold magneten i 10 sekunder (lilla blink) og slip: udviklingstilstand, lampen "
+             "Hold magneten i 10 sekunder (lampen lyser lilla) og slip: udviklingstilstand, lampen "
              "blinker lilla hvert 4. sekund. Eller brug hotspottet (magnet 3 s)."],
             ["Lampen lyser konstant hvid og går ikke ud.",
              "Nedlukningen hænger, eller ipr-led-halt.service er ikke installeret/aktiveret.",

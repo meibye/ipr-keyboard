@@ -128,16 +128,17 @@ protrudes from one end.  Recommended approach:
 | Amber / Yellow | Solid | WiFi connected, Bluetooth host not yet connected | `gpio_monitor` |
 | Red | Slow blink (1 Hz) | No WiFi / no home network configured | `gpio_monitor` |
 | Red | Solid | A core service (`bluetooth`, `bt_hid_ble`, `bt_hid_agent_unified`) is not running — see `/var/lib/ipr-keyboard/incidents.log` | `gpio_monitor` |
-| Blue | Fast blink | Hotspot request in progress — magnet held ≥ 3 s, or hotspot starting/stopping | `gpio_monitor` |
+| Blue | Solid (while held) | Hotspot arming — magnet held 3–6 s | `gpio_monitor` |
+| Blue | Fast blink | Hotspot starting or stopping (after release) | `gpio_monitor` |
 | Blue | Solid | Management hotspot is active (setup mode) — stays on until the hotspot stops. **The device is then reachable only via the hotspot (10.42.0.1), not on the home network** | `gpio_monitor` |
-| Off (while held) | — | Magnet pressed, no threshold reached yet: "press registered". Every arming colour blinks against dark, so the 3 s blue blink is visible even when the LED was solid blue | `gpio_monitor` |
-| White | Fast blink | Shutdown arming — magnet held ≥ 6 s | `gpio_monitor` |
+| Off (while held) | — | Magnet pressed, no threshold reached yet ("press registered"), or the 0.3 s gap at a phase change, or held ≥ 20 s (cancel) | `gpio_monitor` |
+| White | Solid (while held) | Shutdown arming — magnet held 6–10 s | `gpio_monitor` |
 | White | Solid | Shutting down — wait; **off = safe to unplug** (`ipr-led-halt.service`) | `gpio_monitor`, then `ipr-led-halt` |
-| Purple | Fast blink | Mode toggle arming — magnet held ≥ 10 s | `gpio_monitor` |
+| Purple | Solid (while held) | Mode toggle arming — magnet held 10–15 s | `gpio_monitor` |
 | Purple | Solid (3 s) | Mode changed (production ↔ development) | `gpio_monitor` |
 | Purple | Short blip every 4 s | **Development mode** — SSH and dashboard are open on the network. Shown on top of any other state, including off | `gpio_monitor` |
-| Red | Fast blink | Factory reset arming (magnet held ≥ 15 s) or in progress; also 3 s after a failed hotspot request | `gpio_monitor` |
-| Off (while held) | — | Held ≥ 20 s: gesture cancelled, release does nothing | `gpio_monitor` |
+| Red | Solid (while held) | Factory reset arming — magnet held 15–20 s | `gpio_monitor` |
+| Red | Fast blink | Factory reset in progress; also 3 s after a failed hotspot request | `gpio_monitor` |
 | Off | — | Idle — normal operation, no power draw | `gpio_monitor` |
 
 ### Boot sequence
@@ -202,24 +203,24 @@ A halted Pi Zero cannot be started by the magnet: remove and reconnect power.
 ## Reed switch interaction
 
 The magnet works at any time after the application is up (gestures during the
-white boot blink are ignored).
+white boot blink are ignored).  **While the magnet is held the LED shows one
+steady colour per phase**, and every phase change starts with a 0.3 s dark
+gap so the step registers as a "click" even between similar hues.  Blinking
+is reserved for things in progress after release.
 
-| Action | Duration | LED while held | Result on release |
-|--------|----------|----------------|-------------------|
-| Bring magnet near (tap) | < 3 s | Dark (press registered) | Status colour for `GpioLedIdleSeconds`, then off |
-| Hold magnet in place | ≥ 3 s | Blue fast blink | Hotspot **starts** (blue fast blink while starting, then solid blue) — or **stops** if it was on (LED returns to the status colour) |
-| Hold magnet in place | ≥ 6 s | White fast blink | **Controlled shutdown** (`systemctl poweroff` via the helper). LED solid white while the OS stops, then **off = safe to unplug**; power-cycle to start again |
-| Hold magnet in place | ≥ 10 s | Purple fast blink | **Mode toggle**: production ↔ development (see `docs/operations/network-modes.md`). LED solid purple for 3 s to confirm |
-| Hold magnet in place | ≥ 15 s | Red fast blink | All WiFi profiles except the hotspot are deleted and the device reboots |
-| Keep holding | ≥ 20 s | Off | **Cancel** — release does nothing. The way out if you passed the step you wanted |
+| Hold | LED while held | Release → |
+|------|----------------|-----------|
+| < 3 s (tap) | dark (press registered) | status colour for `GpioLedIdleSeconds`, then off |
+| 3–6 s | **solid blue** | hotspot **starts** (blue fast blink while starting, then solid blue) — or **stops** if it was on |
+| 6–10 s | **solid white** | **controlled shutdown**: white solid while the OS stops, then **off = safe to unplug** |
+| 10–15 s | **solid purple** | **mode toggle** production ↔ development; purple solid 3 s to confirm |
+| 15–20 s | **solid red** | all WiFi profiles except the hotspot are deleted, reboot |
+| ≥ 20 s | dark | **cancel** — release does nothing |
 
-The LED goes dark the moment the magnet is detected and changes at the 3, 6,
-10 and 15 s thresholds, so the user knows exactly which action will fire
-before releasing the magnet — the blinks are always against a dark LED, never
-against the colour it showed before (an early version armed "blue blink" on
-top of "solid blue", which could not be told apart).  To abort, either remove
-the magnet before the LED changes to the colour of the action you do not want,
-or keep holding until the LED goes off (≥ 20 s) and release then.
+To abort, keep holding until the LED goes dark (≥ 20 s) and release then, or
+release during the dark first 3 s.  (Earlier versions blinked the phase
+colours; a blue 4 Hz blink and a cyan 4 Hz blink were not distinguishable on
+the small LED and users released in the wrong phase.)
 
 While the hotspot is on, the LED stays **solid blue** regardless of how it was
 started (magnet, `ipr_hotspot_ctl.sh start`, boot marker or triple

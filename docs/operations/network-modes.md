@@ -127,7 +127,7 @@ are the physical and the client-side ones:
 
 ### Testing the LED in development mode
 
-1. Switch to development (magnet 10 s → purple blink → release → solid
+1. Switch to development (magnet 10 s → solid purple → release → solid
    purple 3 s).  From then on the LED gives a short **purple blip every
    4 s**, also while it is otherwise off.  No blip = production.
 2. Tap the magnet: status colour for 30 s, the purple blip continues on top.
@@ -147,10 +147,10 @@ cancel — see `docs/hardware/gpio-wiring.md`):
 | Hold | LED while held | On release |
 |---|---|---|
 | < 3 s (tap) | status colour | status for 30 s |
-| ≥ 3 s | blue fast blink | hotspot on/off |
-| ≥ 6 s | white fast blink | controlled shutdown |
-| **≥ 10 s** | **purple fast blink** | **mode toggle**; LED solid purple 3 s to confirm, then status |
-| ≥ 15 s | red fast blink | Wi-Fi reset + reboot |
+| 3–6 s | solid blue | hotspot on/off |
+| 6–10 s | solid white | controlled shutdown |
+| **10–15 s** | **solid purple** | **mode toggle**; purple stays 3 s after release to confirm, then status |
+| 15–20 s | solid red | Wi-Fi reset + reboot |
 | ≥ 20 s | off | cancel |
 
 In **development mode** the LED gives a short purple blip every 4 s — on top

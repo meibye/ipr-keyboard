@@ -229,7 +229,21 @@ def test_press_while_hotspot_on_goes_dark_so_blue_blink_is_visible():
     rig.advance(1)
     assert rig.frame == Frame(OFF)
     rig.advance(2.5)
-    assert rig.frame == Frame(BLUE, FAST_HZ)
+    assert rig.frame == Frame(BLUE)
+
+
+def test_phase_change_shows_a_dark_gap():
+    rig = Rig()
+    rig.ready()
+    rig.press()
+    rig.advance(3.05)              # ~3.1 s held: just past the threshold, inside the gap
+    assert rig.frame == Frame(OFF)
+    rig.advance(0.5)
+    assert rig.frame == Frame(BLUE)
+    rig.advance(2.6)               # ~6.2 s held: shutdown phase, gap again
+    assert rig.frame == Frame(OFF)
+    rig.advance(0.5)
+    assert rig.frame == Frame(WHITE)
 
 
 def test_long_hold_does_not_time_out_status():
@@ -251,9 +265,9 @@ def test_hold_3s_arms_hotspot_and_blinks_blue():
     rig = Rig()
     rig.ready()
     rig.press()
-    rig.advance(3.1)
+    rig.advance(3.5)
     assert rig.logic.armed == "hotspot"
-    assert rig.frame == Frame(BLUE, FAST_HZ)
+    assert rig.frame == Frame(BLUE), "steady colour while held"
 
 
 def test_release_after_3s_starts_hotspot_then_solid_blue():
@@ -343,12 +357,12 @@ def test_hold_10s_arms_mode_and_blinks_purple():
     rig.ready()
     rig.press()
     rig.advance(3.5)
-    assert rig.frame == Frame(BLUE, FAST_HZ)
+    assert rig.frame == Frame(BLUE)
     rig.advance(3)
-    assert rig.frame == Frame(WHITE, FAST_HZ)
+    assert rig.frame == Frame(WHITE)
     rig.advance(4)
     assert rig.logic.armed == "mode"
-    assert rig.frame == Frame(PURPLE, FAST_HZ)
+    assert rig.frame == Frame(PURPLE)
 
 
 def test_release_after_10s_toggles_mode_and_confirms_purple():
@@ -379,7 +393,7 @@ def test_hold_6s_arms_shutdown_white_and_release_powers_off():
     rig.press()
     rig.advance(6.5)
     assert rig.logic.armed == "shutdown"
-    assert rig.frame == Frame(WHITE, FAST_HZ)
+    assert rig.frame == Frame(WHITE)
     rig.release()
     assert rig.actions.calls == ["shutdown"]
     assert rig.logic.phase == Phase.SHUTTING_DOWN
@@ -396,7 +410,7 @@ def test_hold_20s_cancels_everything():
     rig.ready()
     rig.press()
     rig.advance(15.5)
-    assert rig.frame == Frame(RED, FAST_HZ)
+    assert rig.frame == Frame(RED)
     rig.advance(5)
     assert rig.logic.armed == "cancel"
     assert rig.frame == Frame(OFF)
@@ -435,14 +449,14 @@ def test_hold_15s_arms_reset_and_blinks_red():
     rig.ready()
     rig.press()
     rig.advance(3.5)
-    assert rig.frame == Frame(BLUE, FAST_HZ)
+    assert rig.frame == Frame(BLUE)
     rig.advance(3)
-    assert rig.frame == Frame(WHITE, FAST_HZ)
+    assert rig.frame == Frame(WHITE)
     rig.advance(4)
-    assert rig.frame == Frame(PURPLE, FAST_HZ)
+    assert rig.frame == Frame(PURPLE)
     rig.advance(5)
     assert rig.logic.armed == "reset"
-    assert rig.frame == Frame(RED, FAST_HZ)
+    assert rig.frame == Frame(RED)
 
 
 def test_release_after_15s_triggers_reset_and_stays_red():

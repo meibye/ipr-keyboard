@@ -6,7 +6,7 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "1.7"
+VERSION = "1.8"
 DATE = "13. september 2026"
 
 
@@ -247,20 +247,22 @@ def build() -> None:
             ["Rød, konstant", "Noget inde i boksen kører ikke (en tjeneste er stoppet).",
              "Tag strømmen fra i 10 sekunder og sæt den til igen. Lyser den stadig rødt "
              "efter opstart, så giv administratoren besked."],
-            ["Blå, hurtigt blink", "Opsætningsnetværket er ved at blive tændt eller slukket "
-                                   "(du har holdt magneten i 3 sekunder).",
+            ["Blå, konstant — mens du holder magneten", "Du har holdt magneten i 3 sekunder "
+                                                       "(opsætningsnetværk).",
+             "Slip for at tænde eller slukke opsætningsnetværket."],
+            ["Blå, hurtigt blink", "Opsætningsnetværket er ved at blive tændt eller slukket.",
              "Vent nogle sekunder."],
             ["Blå, konstant", "Opsætningsnetværket er tændt. Lampen bliver ved med at lyse, "
                               "så længe det er tændt, og boksen er imens ikke på hjemmenettet.",
              "Slå det fra igen med magneten (3 sekunder), når du er færdig. Lampen slukker, "
              "mens du holder, og blinker blåt efter 3 sekunder."],
-            ["Hvid, hurtigt blink — mens du holder magneten", "Du har holdt magneten i 6 sekunder (sluk). "
-                                                           "Hvid betyder altid: boksen starter eller slukker.",
+            ["Hvid, konstant — mens du holder magneten", "Du har holdt magneten i 6 sekunder (sluk). "
+                                                        "Hvid betyder altid: boksen starter eller slukker.",
              "Slip for at slukke boksen — eller hold fast, til lampen slukker (20 sekunder), "
              "for at fortryde."],
             ["Hvid, konstant — efter du slap magneten", "Boksen lukker ned.",
              "Vent, til lampen slukker. Så må du tage strømmen fra."],
-            ["Lilla, hurtigt blink", "Du har holdt magneten i 10 sekunder (skift af tilstand).",
+            ["Lilla, konstant — mens du holder magneten", "Du har holdt magneten i 10 sekunder (skift af tilstand).",
              "Slip kun, hvis administratoren har bedt dig om det — ellers hold fast, til "
              "lampen slukker (20 sekunder), og slip så."],
             ["Lilla, kort blink hvert 4. sekund", "Boksen er i udviklingstilstand "
@@ -277,7 +279,10 @@ def build() -> None:
     m.h2("5.3 Magneten")
     m.p("Magneten er boksens eneste betjeningsknap. Hvor længe du holder den tæt på "
         "boksen, bestemmer hvad der sker. Den virker når som helst, når boksen er "
-        "færdig med at starte op — også midt i det daglige arbejde.")
+        "færdig med at starte op — også midt i det daglige arbejde. Mens du holder, "
+        "er lampen først mørk og skifter derefter til én fast farve pr. trin — blå, hvid, "
+        "lilla, rød — med et kort mørkt blink ved hvert skift, så du kan tælle trinnene. "
+        "Slip, når lampen har den farve, du vil have.")
     m.figure("fig04_magnet_tidslinje.png",
              "Kort berøring viser status. 3 sekunder tænder eller slukker "
              "opsætningsnetværket, 6 sekunder slukker boksen. 10 og 15 sekunder er "
@@ -289,17 +294,17 @@ def build() -> None:
             ["Hold magneten tæt på og fjern den igen (under 3 sekunder)",
              "Lampen slukker, mens magneten holdes (så du ved, den er registreret), og "
              "viser status i 30 sekunder, når du fjerner den."],
-            ["Hold magneten på plads i 3 sekunder — lampen blinker blåt — og slip",
-             "Opsætningsnetværket tændes: lampen blinker blåt, mens det starter, og lyser "
+            ["Hold magneten på plads i 3 sekunder — lampen lyser blåt — og slip",
+             "Opsætningsnetværket tændes: lampen lyser blåt, mens det starter, og lyser "
              "derefter konstant blåt. Var det allerede tændt, slukkes det, og lampen viser "
              "status igen."],
-            ["Hold magneten på plads i 6 sekunder — lampen blinker hvid — og slip",
+            ["Hold magneten på plads i 6 sekunder — lampen lyser hvidt — og slip",
              "Boksen lukker kontrolleret ned. Lampen lyser hvid, mens det sker, og "
              "slukker, når du må tage strømmen fra (10–20 sekunder)."],
-            ["Hold magneten på plads i 10 sekunder — lampen blinker lilla — og slip",
+            ["Hold magneten på plads i 10 sekunder — lampen lyser lilla — og slip",
              "Skifter mellem drift og udvikling (kun administratoren). Lampen lyser lilla "
              "i 3 sekunder. I udvikling blinker lampen kort lilla hvert 4. sekund."],
-            ["Hold magneten på plads i 15 sekunder — lampen blinker rødt — og slip",
+            ["Hold magneten på plads i 15 sekunder — lampen lyser rødt — og slip",
              "Alle gemte netværksforbindelser slettes, og boksen genstarter."],
             ["Bliv ved med at holde i 20 sekunder — lampen slukker — og slip",
              "Ingenting sker. Brug det, hvis du er kommet forbi det trin, du ville have."],

@@ -499,8 +499,8 @@ else
     record_skip J.6 "BT pairing completes successfully"
 fi
 
-if manual_step     "Status LED: power-cycle the device and watch the LED."     "Expected: solid white (power) -> white blink (booting) -> status colour for 30 s -> off."     "Tap the magnet: LED shows status again."     "Hold the magnet 3 s: LED blinks blue; release -> hotspot comes up, LED stays solid blue."     "Hold 3 s again: hotspot stops and the LED returns to the status colour." \
-    "Hold 6 s: LED blinks white; release -> solid white while shutting down, then OFF = safe to unplug."; then
+if manual_step     "Status LED: power-cycle the device and watch the LED."     "Expected: solid white (power) -> white blink (booting) -> status colour for 30 s -> off."     "Tap the magnet: LED shows status again."     "Hold the magnet: dark, then solid blue at 3 s; release -> hotspot comes up, LED stays solid blue."     "Hold 3 s again: hotspot stops and the LED returns to the status colour." \
+    "Hold on to 6 s: solid white; release -> white while shutting down, then OFF = safe to unplug."; then
     record_pass J.7 "Status LED boot sequence and magnet gestures"
 else
     record_skip J.7 "Status LED boot sequence and magnet gestures"

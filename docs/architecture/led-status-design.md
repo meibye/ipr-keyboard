@@ -122,18 +122,20 @@ NetworkManager re-activates the home WiFi profile on its own.
 | Gesture | LED while held | On release |
 |---|---|---|
 | Tap (< 3 s) | status colour | status colour for `GpioLedIdleSeconds`, then off |
-| Hold ≥ 3 s | blue 4 Hz | hotspot start (blue 4 Hz while starting → **blue solid while up, no timeout**) or stop (→ status colour); red 4 Hz for 3 s if the request fails within 40 s |
+| Hold 3–6 s | solid blue (held) | hotspot start (blue 4 Hz while starting → **blue solid while up, no timeout**) or stop (→ status colour); red 4 Hz for 3 s if the request fails within 40 s |
 | (status) | red solid | shown instead of the status colour while a core service is not active (`SystemProbe.services_ok`) — see `docs/operations/unsupervised-operation.md` |
-| Hold ≥ 6 s | white 4 Hz | controlled shutdown via `ipr_hotspot_ctl.sh poweroff`; white solid until `ipr-led-halt.service` turns the LED off at the end of the shutdown (safe to unplug) |
-| Hold ≥ 10 s | purple 4 Hz | production ↔ development mode toggle via `ipr_mode_ctl.sh`; purple solid 3 s to confirm |
-| Hold ≥ 15 s | red 4 Hz | WiFi profiles deleted, reboot; red 4 Hz until the reboot |
+| Hold 6–10 s | solid white (held) | controlled shutdown via `ipr_hotspot_ctl.sh poweroff`; white solid until `ipr-led-halt.service` turns the LED off at the end of the shutdown (safe to unplug) |
+| Hold 10–15 s | solid purple (held) | production ↔ development mode toggle via `ipr_mode_ctl.sh`; purple solid 3 s to confirm |
+| Hold 15–20 s | solid red (held) | WiFi profiles deleted, reboot; red 4 Hz until the reboot |
 | Hold ≥ 20 s | off | cancel — release does nothing |
 
 In development mode a 150 ms purple blip every 4 s is rendered on top of
 every frame (including off), except while booting, arming or confirming.
 See `docs/operations/network-modes.md`.
 
-Gestures are ignored during the boot phase and while a reset is in progress.
+Each held phase is a steady colour entered through a 0.3 s dark gap (blinks
+of similar hues were not distinguishable on the LED).  Gestures are ignored
+during the boot phase and while a reset is in progress.
 
 ## 5. Alternatives considered
 

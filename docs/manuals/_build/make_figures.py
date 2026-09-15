@@ -208,13 +208,13 @@ def fig_led_colours():
         ((240, 180, 40), "Gul/ravfarvet, konstant", "Netværk OK, men PC'en er ikke forbundet endnu", AMBER),
         ((214, 60, 60), "Rød, langsomt blink", "Intet netværk — kontakt din administrator", RED),
         ((214, 60, 60), "Rød, konstant", "En tjeneste i boksen er stoppet — sluk og tænd; ellers administrator", RED),
-        ((60, 120, 230), "Blå, hurtigt blink", "Magnet holdt i 3 sek., eller opsætningsnetværket tændes/slukkes", BLUE),
+        ((60, 120, 230), "Blå, konstant (mens magneten holdes)", "Magnet holdt i 3 sek. — slip for at tænde/slukke opsætningsnetværket", BLUE),
         ((60, 120, 230), "Blå, konstant", "Opsætningsnetværket er tændt — lyser så længe det er tændt", BLUE),
-        ((255, 255, 255), "Hvid, hurtigt blink (magnet)", "Magnet holdt i 6 sek. — slip for at slukke boksen", MUTED),
+        ((255, 255, 255), "Hvid, konstant (mens magneten holdes)", "Magnet holdt i 6 sek. — slip for at slukke boksen", MUTED),
         ((255, 255, 255), "Hvid, konstant (efter slip)", "Boksen lukker ned — vent til lampen slukker, før du tager strømmen", MUTED),
-        ((150, 70, 220), "Lilla, hurtigt blink", "Magnet holdt i 10 sek. — slip for at skifte drift/udvikling (admin)", PURPLE),
+        ((150, 70, 220), "Lilla, konstant (mens magneten holdes)", "Magnet holdt i 10 sek. — slip for at skifte drift/udvikling (admin)", PURPLE),
         ((150, 70, 220), "Lilla, kort blink hvert 4. sek.", "Udviklingstilstand — administratoren arbejder på boksen", PURPLE),
-        ((214, 60, 60), "Rød, hurtigt blink", "Magnet holdt i 15 sek. — slip for at nulstille netværk", RED),
+        ((214, 60, 60), "Rød, konstant (mens magneten holdes)", "Magnet holdt i 15 sek. — slip for at nulstille netværk", RED),
         ((225, 228, 233), "Slukket", "Normal drift — lampen sparer strøm", MUTED),
     ]
     rh = 46
@@ -238,7 +238,7 @@ def fig_led_colours():
 def fig_magnet_timeline():
     c = Canvas(980, 380)
     c.title("Magneten: hvor længe du holder, bestemmer hvad der sker",
-            "Lampen skifter farve, før du slipper — så du kan nå at fortryde")
+            "Mens du holder: mørk, så én fast farve pr. trin med et kort mørkt blink ved hvert skift")
 
     x0, x1, y = 90, 890, 150
     c.line(x0, y, x1, y, LINE, 3)
