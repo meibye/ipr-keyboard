@@ -14,7 +14,13 @@
     </select>
     <label>{{ t['wifi_manual_ssid'] }}</label>
     <input name="ssid_manual" type="text" autocomplete="off" autocapitalize="none"
-           placeholder="{{ t['wifi_manual_placeholder'] }}">
+           placeholder="{{ t['wifi_manual_placeholder'] }}" value="{{ pending_ssid or '' }}">
+    {% if pending_ssid %}
+    <label style="font-weight:600;color:#a15c00">
+      <input type="checkbox" name="confirm_ssid" value="1" style="width:auto;margin:0 .4rem 0 0">
+      {{ t['wifi_confirm_ssid'] }} <code>{{ pending_ssid }}</code>
+    </label>
+    {% endif %}
     <p style="color:#666;font-size:.8rem;margin:.1rem 0 .6rem">{{ t['wifi_manual_hint'] }}</p>
     <label>{{ t['wifi_security'] }}</label>
     <select name="security">

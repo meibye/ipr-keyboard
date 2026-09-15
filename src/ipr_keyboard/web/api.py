@@ -142,15 +142,37 @@ def _pen_mounted() -> bool:
         return False
 
 
+def _usb_port_disabled() -> bool:
+    """True when the kernel has disabled the Pi's USB port after repeated
+    enumeration errors (seen as `device descriptor read/64, error -71` then
+    `attempt power cycle` in the kernel log).  A disabled port ignores
+    anything plugged in; only a reboot brings it back."""
+    try:
+        for root, _dirs, files in os.walk("/sys/bus/usb/devices"):
+            if "disable" in files and os.path.basename(root).startswith("usb") and "-port" in root:
+                with open(os.path.join(root, "disable"), encoding="utf-8") as fh:
+                    if fh.read().strip() == "1":
+                        return True
+            if root.count("/") > 6:
+                break
+    except OSError:
+        pass
+    return False
+
+
 def _build_pen_state() -> dict[str, Any]:
     """Pen state from what is physically there, not from the Bluetooth agent.
 
     ready    plugged in and its files are mounted (the app can read scans)
     busy     plugged in, mount not up yet (irispen-mount.service starting)
-    missing  not plugged in
+    missing  not plugged in — or the USB port itself is disabled
     """
     present = _pen_usb_present()
     mounted = _pen_mounted()
+    if not present and _usb_port_disabled():
+        return {"state": "error", "label": "USB port off",
+                "explanation": "The device's USB port was switched off after connection errors — restart the device, then check the pen's cable",
+                "device_name": "IR Pen Scanner"}
     if present and mounted:
         state, label, explanation = "ready", "Ready", "Scanner connected"
     elif present:

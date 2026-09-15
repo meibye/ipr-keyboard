@@ -255,6 +255,9 @@ _EN: dict[str, str] = {
     ),
     "wifi_network":      "Network",
     "wifi_manual_ssid":  "…or type the network name (SSID)",
+    "wifi_ssid_unknown": ("<strong>{ssid}</strong> was not seen in the last network scan — check the "
+                          "spelling (case matters). Tick the confirmation to save it anyway."),  # HTML
+    "wifi_confirm_ssid": "Yes, save the network name exactly as typed:",
     "wifi_manual_placeholder": "e.g. MyHomeWiFi",
     "wifi_manual_hint":  ("While the hotspot is on, the device cannot scan for networks — "
                           "type the name exactly as it appears on your router (case-sensitive)."),
@@ -266,7 +269,7 @@ _EN: dict[str, str] = {
     "wifi_show":         "Show",
     "wifi_save":         "Save & Connect on Reboot",
     "wifi_rescan":       "Rescan Networks",
-    "wifi_saved":        "Wi-Fi credentials saved for <strong>{ssid}</strong>. The Pi will connect after reboot. The hotspot remains active.",  # HTML
+    "wifi_saved":        "Wi-Fi credentials saved for <strong>{ssid}</strong> (exact name as stored). The Pi connects when the hotspot is stopped (magnet 3 s) or after a reboot.",  # HTML
 
     # Logs
     "logs_title":   "Log Viewer",
@@ -393,6 +396,9 @@ _DA: dict[str, str] = {
     ),
     "wifi_network":      "Netværk",
     "wifi_manual_ssid":  "…eller skriv netværkets navn (SSID)",
+    "wifi_ssid_unknown": ("<strong>{ssid}</strong> blev ikke set i den seneste netværkssøgning — kontrollér "
+                          "stavningen (store/små bogstaver). Sæt flueben for at gemme alligevel."),  # HTML
+    "wifi_confirm_ssid": "Ja, gem netværksnavnet præcis som skrevet:",
     "wifi_manual_placeholder": "fx MitHjemmenet",
     "wifi_manual_hint":  ("Mens hotspottet er tændt, kan enheden ikke søge efter netværk — "
                           "skriv navnet præcis som på routeren (der skelnes mellem store og små bogstaver)."),
@@ -404,7 +410,7 @@ _DA: dict[str, str] = {
     "wifi_show":         "Vis",
     "wifi_save":         "Gem og forbind ved genstart",
     "wifi_rescan":       "Søg efter netværk igen",
-    "wifi_saved":        "Wi-Fi-loginoplysninger gemt for <strong>{ssid}</strong>. Pi'en forbinder efter genstart. Hotspottet forbliver aktivt.",  # HTML
+    "wifi_saved":        "Wi-Fi-loginoplysninger gemt for <strong>{ssid}</strong> (præcis det gemte navn). Pi'en forbinder, når hotspottet slukkes (magnet 3 s) eller efter genstart.",  # HTML
 
     # Logs
     "logs_title":   "Logviser",

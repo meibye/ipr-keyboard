@@ -503,6 +503,19 @@ def connect():
             ssids=ssids, msg="No SSID selected.", ok=False,
         )
 
+    # A typed SSID that is not in the last scan is most likely a typo (one
+    # missing letter cost a day of "no network" on a production device).  When
+    # a scan exists, ask for an explicit confirmation before saving.
+    with _scan_lock:
+        known = list(_scan_cache)
+    typed = bool((request.form.get("ssid_manual") or "").strip())
+    if typed and known and ssid not in known and not request.form.get("confirm_ssid"):
+        return render_template(
+            "setup/wifi.html", page="wifi", ssids=known,
+            msg=_t()["wifi_ssid_unknown"].format(ssid=ssid), ok=False,
+            pending_ssid=ssid, pending_psk=psk, pending_sec=sec,
+        )
+
     try:
         _save_wifi_profile(ssid, psk, sec)
         return redirect(

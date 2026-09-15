@@ -1277,6 +1277,10 @@ def build() -> None:
     m.p("Når hotspottet tændes, overtager det wlan0. En SSH-forbindelse over hjemmenettet "
         "falder, og enheden nås derefter kun via hotspottet (10.42.0.1), indtil det "
         "slukkes igen. NetworkManager genoptager selv hjemmenettet.")
+    m.p("Mens hotspottet er tændt, kan enheden ikke søge efter netværk (radioen er optaget "
+        "som accesspoint). Wi-Fi-siden har derfor et felt til at skrive SSID'et; et navn, der "
+        "ikke sås i seneste søgning, kræver en bekræftelse — ét manglende bogstav i SSID'et "
+        "gav “ssid-not-found” og en dag uden hjemmenet.")
     m.p("Tilslut derefter til SSID'et ipr-setup-xxxx og åbn https://10.42.0.1/setup/. "
         "Log ind som brugeren ipr med adgangskoden fra PASS-linjen i "
         "/etc/ipr-hotspot.secret. Selve dashboardet nås på hotspottet via "
@@ -1931,6 +1935,13 @@ def build() -> None:
              "Wi-Fi-profilen er væk (se noten under 10.5 om netplan).",
              "Tænd hotspottet (magnet 3 s), setup-portalen → Wi-Fi → vælg nettet og indtast "
              "adgangskoden; sluk hotspottet igen (magnet 3 s)."],
+            ["Skanneren ses ikke, og dashboardets pen-kort viser “USB port off”.",
+             "Kernen har slukket Pi'ens USB-port efter gentagne fejl ved tilslutning "
+             "(journalctl -k: “device descriptor read/64, error -71” og "
+             "“attempt power cycle”). En slukket port ser intet, uanset kabel.",
+             "Genstart enheden (magnet 6 s, strøm fra/til). Kommer -71 igen efter genstart, "
+             "er det pennen, kablet eller OTG-adapteren — test pennen på PC'en. Forsøg ALDRIG "
+             "at gen-binde dwc_otg-driveren; det crasher kernen."],
             ["Kan ikke nå <værtsnavn>.local, men IP-adressen virker.",
              "Navnet slås op til en IPv6-adresse (Windows foretrækker AAAA), og "
              "dashboardet lytter kun på IPv4 — eller enheden er i drift (mDNS lukket).",
