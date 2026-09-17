@@ -67,7 +67,7 @@ class BluetoothKeyboard:
             len(text),
         )
 
-        transmission.set_sending("keyboard")
+        transmission.set_sending("keyboard", chars=len(text))
         try:
             subprocess.run(
                 [self.helper_path, text],

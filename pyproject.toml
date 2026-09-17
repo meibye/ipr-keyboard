@@ -17,6 +17,9 @@ dev = [
     "pytest-cov",
     "requests",
     "ruff",
+    # OLED renderer tests only.  At runtime Pillow comes from Debian
+    # python3-pil (no ARMv6 wheel on PyPI); tests skip when it is absent.
+    "pillow>=9.4",
 ]
 
 [project.scripts]

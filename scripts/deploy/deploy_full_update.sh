@@ -11,6 +11,7 @@
 #   1. Reinstall Python package in editable mode  (only with --install-python)
 #   2. Install BLE daemon binaries and service files
 #   3. Install Bluetooth keyboard helpers
+#   3b/3b2. Status LED and OLED display support (config.txt, units, packages)
 #   4. Reload systemd unit files
 #   4b. Generate TLS certificates if not present
 #   5. Restart all services in dependency order
@@ -95,6 +96,12 @@ echo ""
 # ---- 3b. Status LED / magnet support ----
 echo "[3b/5] Installing status LED and hotspot helper (config.txt, ipr-led-boot, sudoers)…"
 bash "$SCRIPT_DIR/../headless/install_gpio_support.sh"
+echo "      OK"
+echo ""
+
+# ---- 3b2. OLED status display ----
+echo "[3b2/5] Installing OLED status display support (config.txt i2c, Pillow, halt blanking)…"
+bash "$SCRIPT_DIR/../headless/install_oled_support.sh"
 echo "      OK"
 echo ""
 

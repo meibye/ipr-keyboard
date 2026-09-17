@@ -293,7 +293,7 @@ def test_send_text_sets_transmission_sending_then_success(temp_config, monkeypat
 
     monkeypatch.setattr("ipr_keyboard.bluetooth.keyboard.subprocess.run",
                         lambda args, **kw: subprocess.CompletedProcess(args=args, returncode=0))
-    monkeypatch.setattr(tx_module, "set_sending", lambda source="keyboard": calls.append(("sending", source)))
+    monkeypatch.setattr(tx_module, "set_sending", lambda source="keyboard", chars=0: calls.append(("sending", source)))
     monkeypatch.setattr(tx_module, "set_success", lambda: calls.append(("success",)))
     monkeypatch.setattr(tx_module, "set_failed", lambda reason="": calls.append(("failed", reason)))
 
@@ -315,7 +315,7 @@ def test_send_text_sets_transmission_failed_on_error(temp_config, monkeypatch):
         raise subprocess.CalledProcessError(returncode=1, cmd=args)
 
     monkeypatch.setattr("ipr_keyboard.bluetooth.keyboard.subprocess.run", fake_run)
-    monkeypatch.setattr(tx_module, "set_sending", lambda source="keyboard": calls.append("sending"))
+    monkeypatch.setattr(tx_module, "set_sending", lambda source="keyboard", chars=0: calls.append("sending"))
     monkeypatch.setattr(tx_module, "set_success", lambda: calls.append("success"))
     monkeypatch.setattr(tx_module, "set_failed", lambda reason="": calls.append("failed"))
 
@@ -333,7 +333,7 @@ def test_send_text_empty_skips_transmission(temp_config, monkeypatch):
     import ipr_keyboard.transmission as tx_module
     calls = []
 
-    monkeypatch.setattr(tx_module, "set_sending", lambda source="keyboard": calls.append("sending"))
+    monkeypatch.setattr(tx_module, "set_sending", lambda source="keyboard", chars=0: calls.append("sending"))
     monkeypatch.setattr(tx_module, "set_success", lambda: calls.append("success"))
     monkeypatch.setattr(tx_module, "set_failed", lambda reason="": calls.append("failed"))
 

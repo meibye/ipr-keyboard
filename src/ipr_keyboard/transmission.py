@@ -19,6 +19,7 @@ _state: dict = {
     "items_sent": 0,
     "retry_count": 0,
     "last_success_at": None,
+    "chars": 0,
 }
 _history: list[dict] = []
 _HISTORY_MAX = 10
@@ -36,10 +37,11 @@ def get_history() -> list[dict]:
         return list(_history)
 
 
-def set_sending(source: str = "keyboard") -> None:
-    """Mark transmission as in-progress."""
+def set_sending(source: str = "keyboard", chars: int = 0) -> None:
+    """Mark transmission as in-progress (``chars`` = length of the text)."""
     with _lock:
         _state["state"] = "sending"
+        _state["chars"] = int(chars)
         _state["label"] = "Sending"
         _state["explanation"] = f"Transmitting via {source}"
         _state["progress_percent"] = None

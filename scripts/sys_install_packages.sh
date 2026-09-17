@@ -89,7 +89,10 @@ if [[ "$MODE" == "system" ]]; then
             jq \
             python3-rpi-lgpio \
             gpiod \
-            nftables
+            nftables \
+            i2c-tools \
+            python3-pil \
+            fonts-dejavu-core
 
     # python3-rpi-lgpio: RPi.GPIO API over lgpio for the status LED / reed switch
     #   (works on Zero W and Zero 2 W with current kernels; the venv is created
@@ -97,6 +100,11 @@ if [[ "$MODE" == "system" ]]; then
     # gpiod: gpioset, used by ipr-led-boot.service for the early white blink.
     # nftables: the production/development port policy (install_firewall.sh);
     #   listed here so an offline payload install does not depend on apt later.
+    # python3-pil + fonts-dejavu-core: rendering for the OLED status display
+    #   (Pillow has no ARMv6 wheel on PyPI; the Debian package covers both
+    #   boards and is visible through the venv's system-site-packages).
+    # i2c-tools: i2cdetect for install_oled_support.sh / test_provision.sh and
+    #   i2cset for blanking the panel at halt (ipr_led_halt.sh).
 
     # Note: PyGObject (gi.repository) is only available for the system Python via python3-gi. For venvs, use system Python for scripts requiring gi.
 

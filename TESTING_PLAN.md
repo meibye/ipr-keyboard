@@ -138,6 +138,15 @@ Verifies that the app starts, the web server responds, and `/health` returns `ok
 sudo bash scripts/headless/test_gpio_led_reed.sh --auto
 ```
 
+### 3d — OLED display hardware test
+
+```bash
+sudo bash scripts/headless/test_oled.sh --auto
+```
+
+Bus, driver probe, full-frame writes, contrast/sleep/wake and every screen
+(one with a rolling line).  Visual steps are skipped with `--auto`.
+
 Expected output:
 
 ```
@@ -295,6 +304,7 @@ The script validates all provisioning artifacts in phases:
 | **G — Service health** | NetworkManager, bluetooth, bt_hid_agent_unified, bt_hid_ble, ipr_keyboard all active | `deploy_full_update.sh` |
 | **H — Application health** | /health returns ok, config.json and users.json seeded, admin_initial_password.txt written | First start of ipr_keyboard |
 | **I — Script permissions** | All .sh and .py under scripts/ have executable flag | `fix-script-permissions` skill |
+| **N — OLED display** | I²C dtparam + 400 kHz, `i2c-dev` loaded, `/dev/i2c-1`, user in `i2c`, Pillow importable from the venv, halt blanking; panel at 0x3c and the journal line are skip-not-fail when no display is fitted | `install_oled_support.sh` |
 
 **Pass criteria:** 0 failures in phases A–I.
 

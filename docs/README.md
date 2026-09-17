@@ -11,6 +11,8 @@ This repository keeps tool-facing control files at the repository root and human
 ## Documentation sections
 
 - `docs/architecture/ARCHITECTURE.md` — canonical architecture baseline and cleanup decision rules
+- `docs/architecture/led-status-design.md`, `docs/architecture/oled-display-design.md` — design notes for the status LED / magnet and the OLED display
+- `docs/hardware/gpio-wiring.md`, `docs/hardware/oled-display.md` — wiring, behaviour, configuration and troubleshooting of the LED, reed switch and OLED
 - `docs/development/development-workflow.md` — day-to-day development loop and common commands
 - `docs/development/testing-plan.md` — test inventory, validation commands, and acceptance criteria
 - `docs/operations/device-bringup.md` — provisioning and bring-up procedure

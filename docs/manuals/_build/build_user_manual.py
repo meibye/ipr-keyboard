@@ -6,8 +6,8 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "1.8"
-DATE = "13. september 2026"
+VERSION = "1.9"
+DATE = "17. september 2026"
 
 
 def build() -> None:
@@ -318,6 +318,38 @@ def build() -> None:
            "bliv ved med at holde magneten, til lampen slukker (20 sekunder), og slip så — "
            "det fortryder alt.",
            "danger")
+
+    m.h2("5.4 Displayet")
+    m.p("Nogle bokse har et lille display ved siden af lampen. Det viser det samme som "
+        "lampen — men med ord. Displayet er slukket, når der ikke sker noget; hold "
+        "magneten kort tæt på, så viser det status i 30 sekunder. Det tænder også af sig "
+        "selv, når noget ændrer sig (PC'en forbinder, pennen sættes i eller tages ud, "
+        "netværket forsvinder), mens en skanning sendes, så længe opsætningsnetværket er "
+        "tændt, og mens du holder magneten — så kan du se, hvad der sker, når du slipper.")
+    m.figure("fig13_display.png",
+             "Den gule bjælke øverst siger, hvilken tilstand boksen er i; linjerne "
+             "nedenunder forklarer. Lange navne ruller langsomt hen over linjen.")
+    m.table(
+        ["Øverste linje", "Betydning"],
+        [
+            ["STARTING…", "Boksen starter. De tre linjer får et flueben, efterhånden som "
+                          "tjenesterne kommer op."],
+            ["READY", "Alt er i orden. Linjerne viser PC'ens navn, pennen og netværket."],
+            ["PROBLEM", "En linje har et ✗ og siger, hvad der er galt: intet netværk, "
+                        "pennens USB-port slået fra, en tjeneste stoppet."],
+            ["SENDING… / SENT ✓ / SEND FAILED",
+             "En skanning skrives ind i PC'en, blev skrevet ind, eller kunne ikke (teksten "
+             "bliver liggende på pennen)."],
+            ["HOLD… / RELEASE → …", "Du holder magneten: den markerede linje er det, der sker, "
+                                    "når du slipper."],
+            ["SETUP MODE", "Opsætningsnetværket er tændt. Displayet viser netværkets navn og "
+                           "adressen, du skal åbne."],
+            ["SHUTTING DOWN", "Vent, til både lampen og displayet er slukket, før du tager "
+                              "strømmen fra."],
+        ],
+        widths=[5.0, 10.6],
+        caption="Displayets øverste linje oversat til handling.",
+    )
 
     # ---------------------------------------------------------------- 6
     m.h1("6. Betjeningssiden i browseren", new_page=True)

@@ -27,6 +27,7 @@ from . import metrics
 from .web.server import create_app
 from .web import server as web_server
 from .gpio_monitor import GpioMonitor, gpio_available
+from .oled.manager import OledManager
 
 logger = get_logger()
 
@@ -269,12 +270,13 @@ def run_usb_bt_loop():
 _READY_WAIT_SECS = 180
 
 
-def _signal_ready_when_web_up(gpio_monitor: GpioMonitor, port: int) -> None:
-    """End the LED boot phase once the local dashboard answers /health.
+def _signal_ready_when_web_up(targets: list, port: int) -> None:
+    """End the boot phase (LED blink, OLED "Starting…") once /health answers.
 
-    Polls http(s)://127.0.0.1:<port>/health for up to _READY_WAIT_SECS.  The
-    LED keeps blinking white if the web server never comes up, which is the
-    honest signal for "still starting / startup problem".
+    Polls http(s)://127.0.0.1:<port>/health for up to _READY_WAIT_SECS and
+    calls ``set_ready()`` on every target.  The LED keeps blinking white if
+    the web server never comes up, which is the honest signal for "still
+    starting / startup problem".
     """
     import urllib.request
 
@@ -290,9 +292,10 @@ def _signal_ready_when_web_up(gpio_monitor: GpioMonitor, port: int) -> None:
                 ) as resp:
                     if resp.status == 200:
                         logger.info(
-                            "Dashboard answers on port %d — LED leaves boot phase", port
+                            "Dashboard answers on port %d — leaving boot phase", port
                         )
-                        gpio_monitor.set_ready()
+                        for target in targets:
+                            target.set_ready()
                         return
             except Exception:
                 pass
@@ -330,6 +333,23 @@ def main():
         )
         gpio_monitor.start()
 
+    # OLED status display.  Follows the LED phase (magnet tap, hotspot,
+    # shutdown…) through gpio_monitor.snapshot(); without GPIO it keeps a
+    # minimal boot → status → idle cycle of its own.  Inert with a warning
+    # when Pillow, /dev/i2c-N or the panel itself is missing.
+    oled = OledManager(
+        enabled=cfg.OledEnabled,
+        bus=cfg.OledI2cBus,
+        address=cfg.OledI2cAddress,
+        contrast=cfg.OledContrast,
+        rotate=cfg.OledRotate,
+        idle_seconds=cfg.GpioLedIdleSeconds,
+        send_hold_seconds=cfg.OledSendHoldSeconds,
+        marquee_fps=cfg.OledMarqueeFps,
+        source=gpio_monitor if (gpio_monitor is not None and gpio_monitor.active) else None,
+    )
+    oled.start()
+
     t_web = threading.Thread(target=run_web_server, daemon=True)
     t_web.start()
 
@@ -337,10 +357,11 @@ def main():
     t_main = threading.Thread(target=run_usb_bt_loop, daemon=True)
     t_main.start()
 
-    if gpio_monitor is not None and gpio_monitor.active:
+    ready_targets = [m for m in (gpio_monitor, oled) if m is not None and m.active]
+    if ready_targets:
         threading.Thread(
             target=_signal_ready_when_web_up,
-            args=(gpio_monitor, cfg.LogPort),
+            args=(ready_targets, cfg.LogPort),
             daemon=True,
             name="gpio-ready-wait",
         ).start()
@@ -360,6 +381,7 @@ def main():
             time.sleep(10)
     except KeyboardInterrupt:
         logger.info("Shutting down ipr_keyboard")
+        oled.stop()  # before the LED: it reads the LED phase (SHUTTING_DOWN keeps the screen)
         if gpio_monitor:
             gpio_monitor.stop()
 

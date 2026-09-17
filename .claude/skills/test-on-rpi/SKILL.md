@@ -42,6 +42,16 @@ Interpret results:
 - Any `FAIL` → report pin, symptom, and likely cause
 - Known skips at `--auto`: visual LED confirmations (B.2, B.3) and manual magnet steps
 
+## Tier 3b — OLED display hardware test
+
+```bash
+cd /home/meibye/dev/ipr-keyboard
+sudo bash scripts/headless/test_oled.sh --auto
+```
+
+- `P.*` prerequisites and `A.1` (driver probe) must PASS when a panel is fitted; `A.2`, `A.3`, `B.1` are visual and skip at `--auto`
+- No panel on the board: `P.5`/`A.1` FAIL is expected — say so instead of reporting a defect
+
 ## Tier 4 — Service health check
 
 ```bash
@@ -56,6 +66,7 @@ All three services must be `active (running)` and health must return `ok`.
 # Quality bar
 - Zero pytest failures
 - GPIO test: 6+ PASS, 0 FAIL (skips are acceptable for visual steps)
+- OLED test: 6 PASS, 0 FAIL when a panel is fitted (visual steps skipped)
 - All three systemd services healthy
 - Health endpoint responds
 

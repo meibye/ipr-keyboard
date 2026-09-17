@@ -628,6 +628,47 @@ def fig_admin_troubleshoot():
            F(11), INK, anchor="ma")
     c.save("fig12_admin_fejlfinding.png")
 
+# ---------------------------------------------------------------------------
+# 13. Displayet  (bruger + admin)
+# ---------------------------------------------------------------------------
+def fig_display():
+    """Four mock screens of the 128x64 OLED: yellow header band, blue body."""
+    YELLOW_BG = (255, 214, 64)
+    BLUE_PANEL = (18, 24, 48)
+    BLUE_INK = (140, 190, 255)
+    screens = [
+        ("READY", "", ["\u2022 Laptop-MSE", "\u2022 Pen ready", "\u2022 HomeNet 192.168.1.23"],
+         "Efter en berøring: PC, pen og netværk"),
+        ("PROBLEM", "", ["\u00d7 No Wi-Fi \u2014 hold 3 s", "\u2022 Plug in the pen", "\u2022 Waiting for PC\u2026"],
+         "Linjen med \u00d7 siger, hvad der er galt"),
+        ("SENDING\u2026", "bar", ["\u2192 Laptop-MSE", "142 characters"],
+         "Skanningen skrives ind i PC'en"),
+        ("RELEASE \u2192 HOTSPOT", "", ["\u00bb 3 s  Hotspot", "   6 s  Shutdown", "  10 s Mode  15 s Reset"],
+         "Magneten holdes: den markerede linje sker ved slip"),
+    ]
+    sw, sh = 256, 128  # one screen at 2x logical size
+    gap = 40
+    c = Canvas(2 * sw + 3 * gap, 100 + 2 * (sh + 58) + 10)
+    c.title("Hvad viser displayet?",
+            "Den gule bjælke er tilstanden; de blå linjer forklarer. Displayet er slukket, når intet sker.")
+    for i, (header, body, lines, cap) in enumerate(screens):
+        x = gap + (i % 2) * (sw + gap)
+        y = 90 + (i // 2) * (sh + 58)
+        c.box(x - 6, y - 6, sw + 12, sh + 12, fill=(40, 40, 44), outline=(40, 40, 44), radius=6)
+        c.box(x, y, sw, 32, fill=YELLOW_BG, outline=YELLOW_BG, radius=0)
+        c.box(x, y + 32, sw, sh - 32, fill=BLUE_PANEL, outline=BLUE_PANEL, radius=0)
+        c.text(x + 8, y + 16, header, F(15, True), (40, 30, 0), anchor="lm")
+        ly = y + 44
+        if body == "bar":
+            c.box(x + 8, ly, sw - 16, 14, fill=BLUE_PANEL, outline=BLUE_INK, width=1, radius=3)
+            c.box(x + 60, ly + 3, 60, 8, fill=BLUE_INK, outline=BLUE_INK, radius=2)
+            ly += 26
+        for ln in lines:
+            c.text(x + 8, ly, ln, F(12), BLUE_INK, anchor="lm")
+            ly += 24
+        c.text(x + sw / 2, y + sh + 22, cap, F(11), MUTED, anchor="mm")
+    c.save("fig13_display.png")
+
 
 def main() -> None:
     print("Generating manual figures…")
@@ -635,6 +676,7 @@ def main() -> None:
         fig_system_overview, fig_connections, fig_led_colours, fig_magnet_timeline,
         fig_dashboard, fig_user_troubleshoot, fig_architecture, fig_provisioning,
         fig_access_paths, fig_update_flow, fig_security, fig_admin_troubleshoot,
+        fig_display,
     ):
         fn()
     print("Done.")

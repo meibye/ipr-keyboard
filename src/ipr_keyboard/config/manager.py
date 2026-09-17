@@ -71,6 +71,16 @@ class AppConfig:
     GpioLedGPin: int = 23
     GpioLedBPin: int = 24
     GpioLedIdleSeconds: int = 30
+    # OLED status display (SSD1306 128x64 on I2C).  Auto-detected: the app
+    # runs without it when nothing answers at OledI2cAddress.  The idle
+    # window is GpioLedIdleSeconds (the display follows the LED phase).
+    OledEnabled: bool = True
+    OledI2cBus: int = 1
+    OledI2cAddress: int = 0x3C
+    OledContrast: int = 128  # 0-255
+    OledRotate: int = 0  # 0 or 180
+    OledSendHoldSeconds: int = 10  # keep SENT / FAILED on screen this long
+    OledMarqueeFps: int = 8  # redraw rate while a long line rolls (6 on a Zero W)
     # Performance KPIs. Off by default; see ipr_keyboard/metrics.py.
     MetricsEnabled: bool = False
 

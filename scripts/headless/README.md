@@ -59,6 +59,15 @@ for the early blink, a systemd drop-in that hands the pins to the app, the
 `ipr_hotspot_ctl.sh` helper with its sudoers entry, and the GPIO packages.
 See `docs/hardware/gpio-wiring.md` for the colour map and gestures.
 
+### Status display
+
+An optional SSD1306 OLED on I²C bus 1 shows the same state in words plus
+gesture help while the magnet is held.  `install_oled_support.sh` enables
+I²C in `config.txt`, autoloads `i2c-dev`, installs `python3-pil`,
+`fonts-dejavu-core` and `i2c-tools`, adds the app user to group `i2c`, and
+extends `ipr-led-halt.sh` so the panel is blanked at halt.  No display
+connected is fine.  See `docs/hardware/oled-display.md`.
+
 ## Credentials
 
 Generated once by `net_provision_hotspot.sh` or `provision/04_enable_services.sh`
@@ -95,8 +104,9 @@ Run `sudo provision/07_show_info.sh` to display the current SSID and password.
 | `ipr_hotspot_ctl.sh` | `/usr/local/bin/` | Root helper: `start`/`stop`/`status`/`factory-reset` (sudoers for the app user) |
 | `ipr_led_boot.sh` | `/usr/local/sbin/ipr-led-boot.sh` | White blink during OS boot (`gpioset`, `pinctrl` fallback) |
 | `ipr-led-boot.service` | `/etc/systemd/system/` | Early unit for the boot blink; stopped by `ipr_keyboard.service` via `Conflicts=` |
-| `ipr_led_halt.sh` + `ipr-led-halt.service` | `/usr/local/sbin/ipr-led-halt.sh`, systemd | LED off at the end of a shutdown — safe to unplug (magnet 6 s = controlled shutdown) |
+| `ipr_led_halt.sh` + `ipr-led-halt.service` | `/usr/local/sbin/ipr-led-halt.sh`, systemd | LED off and OLED blanked at the end of a shutdown — safe to unplug (magnet 6 s = controlled shutdown) |
 | `install_gpio_support.sh` | — | Installs everything the LED and magnet need (idempotent) |
+| `install_oled_support.sh` | — | Installs everything the OLED display needs: I²C dtparam, `i2c-dev`, Pillow/font/i2c-tools, group `i2c`, `/etc/default/ipr-oled` (idempotent) |
 | `../service/ipr_net_apply.sh` | `/usr/local/bin/` | Applies the dashboard's dhcp/static settings to the home NetworkManager profile (replaces the dhcpcd helper) |
 | `ipr_fw_ctl.sh` | `/usr/local/sbin/ipr-firewall.sh` | nftables input policy from mode + hotspot state (`apply`/`status`/`off`) |
 | `ipr_mode_ctl.sh` | `/usr/local/bin/ipr_mode_ctl.sh` | Production/development switch (sudoers for the app user; magnet 10 s) |
@@ -109,8 +119,9 @@ Run `sudo provision/07_show_info.sh` to display the current SSID and password.
 | `install_provision_service.sh` | — | Installs the hotspot script, unit, cert generation and renewal |
 | `gen_ipr_ssl_cert.sh`, `ipr-cert-renew.*` | `/usr/local/sbin/`, systemd | TLS certificates and renewal |
 | `net_factory_reset.sh` | `/usr/local/sbin/ipr-factory-reset.sh` | Resets Wi-Fi profiles when `IPR_RESET_WIFI` boot marker is present |
-| `test_provision.sh` | — | Post-provision validation (phase K covers the LED / magnet pieces) |
+| `test_provision.sh` | — | Post-provision validation (phase K covers the LED / magnet pieces, phase N the display) |
 | `test_gpio_led_reed.sh` | — | Hardware test of the LED and reed switch outside the application |
+| `test_oled.sh` | — | Hardware test of the OLED: bus, driver, every screen, rolling lines |
 
 ### Development / lab only — **not installed to production device**
 
@@ -130,3 +141,4 @@ Run `sudo provision/07_show_info.sh` to display the current SSID and password.
 - `/etc/default/ipr-provision` — optional provisioning defaults with a commented `HOTSPOT_GPIO_PIN` example
 - `/etc/ipr-hotspot.secret` — generated with a random password on first run
 - via `install_gpio_support.sh`: `/usr/local/bin/ipr_hotspot_ctl.sh`, `/etc/sudoers.d/<user>-ipr-gpio`, `/usr/local/sbin/ipr-led-boot.sh`, `ipr-led-boot.service`, `/etc/systemd/system/ipr_keyboard.service.d/10-led-boot.conf`, `/etc/default/ipr-led`, and the `gpio=` block in `/boot/firmware/config.txt`
+- via `install_oled_support.sh`: the `dtparam=i2c_arm` block in `/boot/firmware/config.txt`, `/etc/modules-load.d/ipr-oled.conf`, `/etc/default/ipr-oled`, `python3-pil`/`fonts-dejavu-core`/`i2c-tools`, the app user in group `i2c`

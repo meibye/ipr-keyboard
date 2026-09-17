@@ -65,6 +65,7 @@ reed switch, ticks the logic and renders frames to the LED.
 from __future__ import annotations
 
 import os
+import socket
 import subprocess
 import threading
 import time
@@ -165,24 +166,46 @@ class SystemProbe:
         self.bt_connected = False
         self.development = False
         self.services_ok = True
+        # Extra detail for the OLED display; the LED only uses the booleans.
+        self.failed_services: tuple[str, ...] = ()
+        self.ssid = ""  # active WiFi profile name (empty when not connected)
+        self.ip = ""  # our address on the route out (empty without a route)
 
     def refresh(self) -> None:
-        self.hotspot_active, self.wifi_connected = self._network_state()
+        self.hotspot_active, self.wifi_connected, self.ssid = self._network_state()
         self.bt_connected = self._bt_state()
         self.development = self._mode_state()
-        self.services_ok = self._services_state()
+        self.failed_services = self._failed_services()
+        self.services_ok = not self.failed_services
+        self.ip = self._ip_state()
 
     @staticmethod
-    def _services_state() -> bool:
-        """True when every core service is active (one systemctl call)."""
+    def _failed_services() -> tuple[str, ...]:
+        """Core services that are not active (one systemctl call); () = all OK."""
         try:
             out = subprocess.run(
                 ["systemctl", "is-active", *CORE_SERVICES],
                 capture_output=True, text=True, timeout=5,
             ).stdout.split()
-            return bool(out) and all(s == "active" for s in out)
+            if len(out) != len(CORE_SERVICES):
+                return ()  # cannot tell — do not raise a false alarm
+            return tuple(svc for svc, st in zip(CORE_SERVICES, out) if st != "active")
         except Exception:
-            return True  # cannot tell — do not raise a false alarm
+            return ()
+
+    @staticmethod
+    def _ip_state() -> str:
+        """Our IPv4 address on the default route, without a subprocess.
+
+        A UDP connect() sends nothing; the kernel just picks the source
+        address it would use.  Empty when there is no route at all.
+        """
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sk:
+                sk.connect(("10.255.255.255", 1))
+                return sk.getsockname()[0]
+        except OSError:
+            return ""
 
     @staticmethod
     def _mode_state() -> bool:
@@ -194,8 +217,9 @@ class SystemProbe:
             return False
 
     @staticmethod
-    def _network_state() -> tuple[bool, bool]:
+    def _network_state() -> tuple[bool, bool, str]:
         hotspot = wifi = False
+        ssid = ""
         try:
             out = subprocess.check_output(
                 ["nmcli", "-t", "-f", "NAME,TYPE,DEVICE", "con", "show", "--active"],
@@ -212,9 +236,10 @@ class SystemProbe:
                     hotspot = True
                 elif "wireless" in ctype:
                     wifi = True
+                    ssid = name
         except Exception:
             pass
-        return hotspot, wifi
+        return hotspot, wifi, ssid
 
     @staticmethod
     def _bt_state() -> bool:
@@ -345,6 +370,28 @@ FRAME_SHUTDOWN = Frame(WHITE)
 FRAME_MODE_CONFIRM = Frame(PURPLE)
 
 
+@dataclass(frozen=True)
+class LedSnapshot:
+    """What the OLED display needs to know about the LED/magnet state.
+
+    Read from the display thread; a torn read between two ticks is harmless
+    (the next frame corrects it).
+    """
+
+    phase: Phase
+    armed: str | None
+    held_secs: float  # 0 when the magnet is not on the switch
+    ready: bool
+    hotspot_active: bool
+    wifi_connected: bool
+    bt_connected: bool
+    development: bool
+    services_ok: bool
+    failed_services: tuple[str, ...] = ()
+    ssid: str = ""
+    ip: str = ""
+
+
 def status_frame(probe: SystemProbe) -> Frame:
     """Colour for the normal operational status (hotspot handled separately)."""
     if probe.hotspot_active:
@@ -407,6 +454,24 @@ class LedLogic:
     @property
     def armed(self) -> str | None:
         return self._armed
+
+    def snapshot(self, now: float) -> LedSnapshot:
+        """Current phase, gesture and probe state for the display."""
+        p = self._probe
+        return LedSnapshot(
+            phase=self.phase,
+            armed=self._armed,
+            held_secs=(now - self._press_start) if self._reed_was else 0.0,
+            ready=self._ready,
+            hotspot_active=p.hotspot_active,
+            wifi_connected=p.wifi_connected,
+            bt_connected=p.bt_connected,
+            development=p.development,
+            services_ok=getattr(p, "services_ok", True),
+            failed_services=tuple(getattr(p, "failed_services", ())),
+            ssid=getattr(p, "ssid", ""),
+            ip=getattr(p, "ip", ""),
+        )
 
     def dev_blip(self, now: float) -> bool:
         """True during the short purple blip that marks DEVELOPMENT mode.
@@ -751,6 +816,10 @@ class GpioMonitor:
     @property
     def phase(self) -> Phase:
         return self._logic.phase
+
+    def snapshot(self) -> LedSnapshot:
+        """State for the OLED display (see oled/manager.py)."""
+        return self._logic.snapshot(self._clock())
 
     # -- loop -------------------------------------------------------------
 

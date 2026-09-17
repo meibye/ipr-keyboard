@@ -21,6 +21,78 @@ def log_version_info():
     logging.getLogger(__name__).info(f"==== ipr_keyboard.usb.detector VERSION: {VERSION} ====")
 
 
+# IrisPen USB ids (see provision/01_os_base.sh udev rule 69-irispen-mtp.rules)
+_PEN_USB_IDS = {("0e8d", "2008")}
+_PEN_MOUNTPOINT = "/mnt/irispen"
+
+
+def _pen_usb_present() -> bool:
+    """True when the IrisPen is plugged in (sysfs scan, no external tools)."""
+    try:
+        for dev in Path("/sys/bus/usb/devices").iterdir():
+            try:
+                vid = (dev / "idVendor").read_text().strip().lower()
+                pid = (dev / "idProduct").read_text().strip().lower()
+            except OSError:
+                continue
+            if (vid, pid) in _PEN_USB_IDS:
+                return True
+    except OSError:
+        pass
+    return False
+
+
+def _pen_mounted() -> bool:
+    """True when the MTP filesystem is mounted at the configured mountpoint."""
+    try:
+        with open("/proc/mounts", encoding="utf-8") as fh:
+            return any(line.split()[1] == _PEN_MOUNTPOINT for line in fh if len(line.split()) > 1)
+    except OSError:
+        return False
+
+
+def _usb_port_disabled() -> bool:
+    """True when the kernel has disabled the Pi's USB port after repeated
+    enumeration errors (seen as `device descriptor read/64, error -71` then
+    `attempt power cycle` in the kernel log).  A disabled port ignores
+    anything plugged in; only a reboot brings it back."""
+    try:
+        for root, _dirs, files in os.walk("/sys/bus/usb/devices"):
+            if "disable" in files and os.path.basename(root).startswith("usb") and "-port" in root:
+                with open(os.path.join(root, "disable"), encoding="utf-8") as fh:
+                    if fh.read().strip() == "1":
+                        return True
+            if root.count("/") > 6:
+                break
+    except OSError:
+        pass
+    return False
+
+
+def pen_presence() -> str:
+    """What is physically there, from sysfs and /proc/mounts (no subprocess).
+
+    ready     plugged in and its files are mounted (the app can read scans)
+    busy      plugged in, mount not up yet (irispen-mount.service starting)
+    stale     not plugged in but a FUSE mount is left over (cleared by the unit)
+    disabled  not plugged in and the USB port itself is switched off — reboot
+    missing   not plugged in
+
+    Shared by the dashboard (web/api.py) and the OLED display.
+    """
+    present = _pen_usb_present()
+    mounted = _pen_mounted()
+    if present and mounted:
+        return "ready"
+    if present:
+        return "busy"
+    if _usb_port_disabled():
+        return "disabled"
+    if mounted:
+        return "stale"
+    return "missing"
+
+
 def expand_folders(patterns) -> List[Path]:
     """Resolve the configured IrisPenFolders entries to existing directories.
 

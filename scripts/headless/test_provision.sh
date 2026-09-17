@@ -10,6 +10,7 @@
 #   Step 4  ble_install_helper.sh        → bt_kb_send helper scripts
 #   Step 5  install_provision_service.sh → hotspot service + TLS certificates
 #   Step 6  deploy_full_update.sh        → all services up, health endpoint OK
+#           (…which also runs install_gpio_support.sh and install_oled_support.sh)
 #
 # Can be run on the Pi directly or uploaded and executed via ipr-rpi-dev-ssh MCP.
 # Pass --auto to skip all manual/interactive steps (suitable for MCP sessions).
@@ -432,6 +433,33 @@ if [ -s /var/lib/ipr-keyboard/incidents.log ]; then
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
+section "N — OLED status display  (install_oled_support.sh)"
+# ═══════════════════════════════════════════════════════════════════════════════
+# A device without a display is a valid configuration: N.9/N.10 skip instead
+# of failing when nothing answers on the bus.
+
+check N.1 "config.txt enables I2C (dtparam=i2c_arm=on)"        "grep -q '^dtparam=i2c_arm=on' '$_BOOT_CFG'"
+check N.2 "I2C bus runs at 400 kHz (i2c_arm_baudrate)"          "grep -q '^dtparam=i2c_arm_baudrate=400000' '$_BOOT_CFG'"
+check N.3 "i2c-dev autoloaded (modules-load.d/ipr-oled.conf)"   "[ -f /etc/modules-load.d/ipr-oled.conf ] && lsmod | grep -q '^i2c_dev'"
+check N.4 "/dev/i2c-1 present"                                  "[ -c /dev/i2c-1 ]"
+check N.5 "$_INVOKING_USER in group i2c"                        "id -nG '$_INVOKING_USER' | tr ' ' '\n' | grep -qx i2c"
+check N.6 "python3-pil, fonts-dejavu-core, i2c-tools installed" "dpkg -s python3-pil fonts-dejavu-core i2c-tools"
+check N.7 "Pillow importable from the app venv"                 "'$PROJECT_DIR/.venv/bin/python' -c 'from PIL import Image, ImageDraw, ImageFont'"
+check N.8 "ipr-led-halt.sh blanks the OLED at halt (0xAE)"      "grep -q '0xAE' /usr/local/sbin/ipr-led-halt.sh"
+if [ -c /dev/i2c-1 ] && /usr/sbin/i2cdetect -y 1 2>/dev/null | grep -iE ' (3c|UU)( |$)' >/dev/null; then
+    record_pass N.9 "SSD1306 answers at 0x3c (or is held by the app)"
+else
+    record_skip N.9 "no device at 0x3c — display not connected"
+fi
+if journalctl -u ipr_keyboard.service -b --no-pager 2>/dev/null | grep 'OLED display started' >/dev/null; then
+    record_pass N.10 "OLED display running in ipr_keyboard.service (this boot)"
+elif journalctl -u ipr_keyboard.service -b --no-pager 2>/dev/null | grep 'OLED display disabled' >/dev/null; then
+    record_skip N.10 "OLED display disabled — $(journalctl -u ipr_keyboard.service -b --no-pager 2>/dev/null | grep 'OLED display disabled' | tail -1 | sed 's/.*OLED display disabled//')"
+else
+    record_skip N.10 "OLED display — no OLED line in this boot's journal"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
 section "J — Manual / interactive checks  (skipped with --auto)"
 # ═══════════════════════════════════════════════════════════════════════════════
 # These steps cannot be automated from SSH — they require a phone, browser, or
@@ -504,6 +532,17 @@ if manual_step     "Status LED: power-cycle the device and watch the LED."     "
     record_pass J.7 "Status LED boot sequence and magnet gestures"
 else
     record_skip J.7 "Status LED boot sequence and magnet gestures"
+fi
+
+if manual_step \
+    "OLED display: watch the panel through a boot and a magnet tap." \
+    "Expected: STARTING… with a checklist while booting -> READY (or PROBLEM) with PC, pen and Wi-Fi lines -> blank after 30 s." \
+    "Tap the magnet: the status page comes back.  Hold it: the gesture help shows which action a release triggers." \
+    "Long lines (a long network name or IP) roll slowly instead of being cut." \
+    "Hold 6 s and release: SHUTTING DOWN stays until the LED goes off, then the panel is dark too."; then
+    record_pass J.8 "OLED display boot, status, gestures and blanking"
+else
+    record_skip J.8 "OLED display boot, status, gestures and blanking"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════

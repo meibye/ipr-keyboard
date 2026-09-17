@@ -119,6 +119,25 @@ for as long as the hotspot is on.
 | Red blinking fast | Network reset in progress — or a hotspot request failed |
 | Off while holding | Magnet held 20 s — release does nothing (cancel) |
 
+## Display
+
+Devices with the small screen show the same things in words.  The screen is
+dark when nothing is happening — bring the magnet near to see the status.
+It stays on while the hotspot is on, while a scan is being sent, and while
+you hold the magnet (it tells you what a release will do).
+
+| Top line | Meaning |
+|---|---|
+| STARTING… | The device is starting; the three lines tick off as services come up |
+| READY | Everything is fine — the lines show the connected PC, the pen and the WiFi network |
+| PROBLEM | One of the lines has a ✗ and says what is wrong (no WiFi, pen port off, a service down) |
+| SENDING… / SENT ✓ / SEND FAILED | A scan is being typed into the PC, was typed, or could not be (the text stays on the pen) |
+| HOLD… / RELEASE → … | You are holding the magnet: the marked line is what happens when you let go |
+| SETUP MODE | The hotspot is on — the screen shows its WiFi name and the address to open |
+| SHUTTING DOWN | Wait until the LED and the screen are off, then unplug |
+
+Long names roll slowly across the line so nothing is cut off.
+
 ---
 
 ## Activating the hotspot without a magnet

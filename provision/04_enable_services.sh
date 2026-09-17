@@ -151,6 +151,11 @@ bash "$REPO_DIR/scripts/service/install_network_helper.sh"
 log "Installing status LED / reed switch support..."
 bash "$REPO_DIR/scripts/headless/install_gpio_support.sh"
 
+# OLED status display: I2C dtparam block, i2c-dev autoload, Pillow + font,
+# app user in group i2c, panel blanked at halt.  No display = no-op.
+log "Installing OLED status display support..."
+bash "$REPO_DIR/scripts/headless/install_oled_support.sh"
+
 # Network exposure: nftables policy + production/development mode switch.
 # Seeds DEVELOPMENT mode so this SSH session survives; commissioning ends
 # with `sudo ipr_mode_ctl.sh production` (or the magnet held 6 s).

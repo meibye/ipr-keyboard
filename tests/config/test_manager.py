@@ -23,6 +23,16 @@ def test_appconfig_defaults():
     assert cfg.LogPort == 443
 
 
+def test_appconfig_oled_defaults_and_override():
+    cfg = AppConfig()
+    assert cfg.OledEnabled is True
+    assert (cfg.OledI2cBus, cfg.OledI2cAddress) == (1, 0x3C)
+    assert (cfg.OledContrast, cfg.OledRotate) == (128, 0)
+    assert (cfg.OledSendHoldSeconds, cfg.OledMarqueeFps) == (10, 8)
+    cfg = AppConfig.from_dict({"OledEnabled": False, "OledI2cAddress": 61, "OledMarqueeFps": 6})
+    assert cfg.OledEnabled is False and cfg.OledI2cAddress == 0x3D and cfg.OledMarqueeFps == 6
+
+
 def test_appconfig_from_dict():
     """Test creating config from dictionary."""
     data = {

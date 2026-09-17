@@ -35,8 +35,9 @@ use 150 Ω.  Software behaviour is identical; yellow maps to the "green" states.
 | RGB LED — Blue | **GPIO 24** | Pin 18 | 22 Ω series |
 | Factory reset (existing) | GPIO 17 | Pin 11 | Do not reuse |
 
-All five signals are in the safe zone — no conflicts with I²C (GPIO 2/3),
-UART (GPIO 14/15), or SPI (GPIO 7–11).
+All five signals are in the safe zone — no conflicts with I²C (GPIO 2/3,
+used by the OLED status display — see `oled-display.md`), UART (GPIO 14/15),
+or SPI (GPIO 7–11).
 
 ---
 
@@ -259,7 +260,7 @@ safe to re-run):
 |---|---|---|
 | `gpio=22,23,24=op,dh` / `gpio=27=ip,pu` | `/boot/firmware/config.txt` (managed block) | Solid white from power-on; reed pull-up from the firmware |
 | `ipr-led-boot.sh` + `ipr-led-boot.service` | `/usr/local/sbin/`, `/etc/systemd/system/` | White blink during OS boot |
-| `ipr-led-halt.sh` + `ipr-led-halt.service` | `/usr/local/sbin/`, `/etc/systemd/system/` | LED off at the very end of a shutdown (`ExecStop`, ordered late) — the "safe to unplug" signal |
+| `ipr-led-halt.sh` + `ipr-led-halt.service` | `/usr/local/sbin/`, `/etc/systemd/system/` | LED off — and the OLED blanked — at the very end of a shutdown (`ExecStop`, ordered late): the "safe to unplug" signal |
 | `10-led-boot.conf` | `/etc/systemd/system/ipr_keyboard.service.d/` | `ExecStartPre=+systemctl stop ipr-led-boot` + `Conflicts=` so the app takes the pins over |
 | `ipr_hotspot_ctl.sh` + sudoers | `/usr/local/bin/`, `/etc/sudoers.d/<user>-ipr-gpio` | Lets the unprivileged app start/stop the hotspot, reset WiFi, reboot |
 | `/etc/default/ipr-led` | — | Pin numbers for the boot blink (copied from `config.json`) |

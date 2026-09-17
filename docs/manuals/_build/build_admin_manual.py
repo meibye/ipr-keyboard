@@ -10,8 +10,8 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.9.5"
-DATE = "13. september 2026"
+VERSION = "1.10.0"
+DATE = "17. september 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
 # make_payload.sh — this maps them to manual prose.  The keys are checked
@@ -211,8 +211,8 @@ def build() -> None:
              "Indlæser nftables-politikken før netværket kommer op (afsnit 5.5).",
              "root"],
             ["ipr-led-halt.service",
-             "ExecStop sent i nedlukningen: slukker statuslampen = strømmen må tages fra "
-             "(afsnit 4.6).",
+             "ExecStop sent i nedlukningen: slukker statuslampen og displayet = strømmen "
+             "må tages fra (afsnit 4.6, 4.7).",
              "root"],
             ["irispen-mount.service",
              "Monterer IRIS-skanneren (MTP, jmtpfs) på /mnt/irispen, når udev ser den; "
@@ -254,6 +254,11 @@ def build() -> None:
              "Drop-in: stopper ipr-led-boot.service, så appen overtager lampen."],
             ["/boot/firmware/config.txt (blok)",
              "gpio=22,23,24=op,dh — lampen lyser hvidt fra strømmen sættes til."],
+            ["/boot/firmware/config.txt (blok)",
+             "dtparam=i2c_arm=on og i2c_arm_baudrate=400000 — I²C-bussen til displayet "
+             "(afsnit 4.7)."],
+            ["/etc/modules-load.d/ipr-oled.conf", "Indlæser i2c-dev ved opstart (/dev/i2c-1)."],
+            ["/etc/default/ipr-oled", "Bus og adresse for displayet til ipr-led-halt.sh."],
             ["/run/ipr-hotspot.request",
              "Midlertidig udløserfil, som ipr_hotspot_ctl.sh start skriver."],
             ["<projektrod>/pen_state.json",
@@ -1064,7 +1069,16 @@ def build() -> None:
             ["GpioReedPin", "27", "BCM-nummer for reed-kontakten."],
             ["GpioLedRPin / GpioLedGPin / GpioLedBPin", "22 / 23 / 24",
              "BCM-numre for LED'ens tre farvekanaler."],
-            ["GpioLedIdleSeconds", "30", "Hvor længe LED'en viser status efter en berøring."],
+            ["GpioLedIdleSeconds", "30", "Hvor længe LED'en (og displayet) viser status efter en "
+                                        "berøring."],
+            ["OledEnabled", "true", "Slå displayet fra. Mangler displayet, deaktiverer modulet sig "
+                                    "selv med en advarsel i journalen."],
+            ["OledI2cBus / OledI2cAddress", "1 / 60", "I²C-bus og adresse (60 = 0x3C; 61 = 0x3D "
+                                                     "med loddebroen sat)."],
+            ["OledContrast / OledRotate", "128 / 0", "Lysstyrke 0–255; 180 hvis modulet sidder "
+                                                    "på hovedet."],
+            ["OledSendHoldSeconds", "10", "Hvor længe SENT/SEND FAILED bliver stående."],
+            ["OledMarqueeFps", "8", "Gentegningsrate, mens en lang linje ruller; 6 på Zero W."],
             ["MetricsEnabled", "false", "Registrér ydelsestal (opstartstid, forsinkelse fra pen "
                                         "til Bluetooth). Slået fra som standard; se afsnit 9.4."],
         ],
@@ -1219,6 +1233,57 @@ def build() -> None:
                 "(hurtige blink i beslægtede farver kunne ikke skelnes). Handlingen udføres "
                 "først ved slip.",
     )
+
+    m.h2("4.7 OLED-statusdisplay")
+    m.p("Et 0,96\" OLED-display (128 × 64, SSD1306, I²C-adresse 0x3C, de øverste 16 rækker "
+        "gule, resten blå) kan sidde ved siden af lampen. Det er valgfrit: en enhed uden "
+        "display logger én linje (“OLED display disabled — …”) og kører som før. "
+        "Analysen bag — strømforbrug, hvornår displayet er tændt, og lampens rolle — står "
+        "i docs/architecture/oled-display-design.md; skærmbillederne i "
+        "docs/hardware/oled-display.md.")
+    m.table(
+        ["Signal", "BCM", "Fysisk ben", "Note"],
+        [
+            ["VCC", "—", "1", "3,3 V — aldrig 5 V"],
+            ["GND", "—", "6", "eller et andet GND-ben"],
+            ["SDA", "2", "3", "Pi'ens indbyggede pull-ups"],
+            ["SCL", "3", "5", ""],
+        ],
+        widths=[3.0, 2.0, 2.6, 8.0],
+        caption="Displayets fire ledninger. GPIO 2/3 var reserveret til I²C fra starten; "
+                "lampen og reed-kontakten er uberørte. i2cdetect -y 1 viser 3c.",
+    )
+    m.p("Strøm er ikke et problem: et tekstskærmbillede trækker 5–8 mA mod Pi'ens 100 mA "
+        "og mere, langt inden for PC'ens USB-port. Displayet er alligevel slukket, når intet "
+        "sker — af hensyn til indbrænding i OLED-panelet, CPU på Zero W (en hel "
+        "billedramme er 1 KB over I²C) og for at følge lampens “stille, indtil du kigger”. "
+        "Det følger lampens fase: tændt under opstart, i GpioLedIdleSeconds efter en "
+        "berøring eller enhver statusændring, mens magneten holdes (med hjælpetekst om "
+        "hvad et slip udløser), så længe hotspottet er oppe (SSID og adresse), under en "
+        "afsendelse og OledSendHoldSeconds efter, og under nedlukning. Efter fem minutter "
+        "konstant tændt dæmpes kontrasten.")
+    m.p("Lampen er uændret: den virker før og efter Python (firmware, ipr-led-boot, "
+        "ipr-led-halt), ses på afstand og gennem kabinettet, og enheder uden display skal "
+        "virke som hidtil. Lampe = tilstand og armeringsfarve; display = forklaring, navne, "
+        "tal og gestushjælp.")
+    m.p("Rendering sker med Pillow fra Debian-pakken python3-pil (ingen ARMv6-wheel på "
+        "PyPI) og skrifttypen DejaVu; SSD1306-driveren er ca. 100 linjer i "
+        "src/ipr_keyboard/oled/ssd1306.py oven på /dev/i2c-1 med standardbiblioteket — "
+        "luma.oled bruges ikke. Adgangen går gennem gruppen i2c (/dev/i2c-1 er root:i2c "
+        "0660); ingen sudoers-linje. Lange linjer (netværksnavn, IP) ruller langsomt i "
+        "stedet for at blive klippet.")
+    m.p("Alt installeres af scripts/headless/install_oled_support.sh (kaldt af "
+        "provisioneringen og af deploy_full_update.sh efter install_gpio_support.sh): "
+        "dtparam-blokken i config.txt, i2c-dev, pakkerne i2c-tools, python3-pil og "
+        "fonts-dejavu-core, gruppen i2c, /etc/default/ipr-oled og en udvidet "
+        "ipr-led-halt.sh, der også slukker panelet (0xAE) ved nedlukning. Én genstart "
+        "kræves, hvis I²C ikke var slået til i forvejen. test_provision.sh fase N og "
+        "test_oled.sh verificerer det.")
+    m.note("Venv'et skal køre systemets Python, for at Debian-pakker (python3-pil, "
+           "python3-rpi-lgpio) er synlige. På produktionsbilledet opfylder systemets Python "
+           "kravet, og uv bruger den. På et udviklingskort med ældre system-Python henter "
+           "uv sin egen fortolker; installationsskriptet advarer, og dér er "
+           "uv pip install pillow den pragmatiske løsning.", "info")
 
     # ---------------------------------------------------------------- 5
     m.h1("5. Adgang, netværk og hotspot", new_page=True)
@@ -1989,6 +2054,22 @@ def build() -> None:
              "Enheden står i driftstilstand — det er normalt.",
              "Hold magneten i 10 sekunder (lampen lyser lilla) og slip: udviklingstilstand, lampen "
              "blinker lilla hvert 4. sekund. Eller brug hotspottet (magnet 3 s)."],
+            ["Displayet er mørkt, journalen siger “OLED display disabled — /dev/i2c-1 missing”.",
+             "dtparam=i2c_arm=on er ikke aktiv endnu, eller i2c-dev er ikke indlæst.",
+             "sudo bash scripts/headless/install_oled_support.sh og genstart. "
+             "lsmod | grep i2c_dev."],
+            ["Journalen siger “nothing answers at 0x3C”.",
+             "Ledninger (SDA/SCL byttet er klassikeren), 3,3 V, adresse-loddebro, eller "
+             "applikationsbrugeren mangler i gruppen i2c.",
+             "i2cdetect -y 1 skal vise 3c (3d → OledI2cAddress 61). id -nG <bruger> skal "
+             "indeholde i2c; genstart appen efter usermod."],
+            ["Journalen siger “Pillow not importable”.",
+             "python3-pil mangler, venv'et ser ikke systempakker, eller venv'ets Python er "
+             "ikke systemets.",
+             "install_oled_support.sh igen; se noten i afsnit 4.7."],
+            ["Displayet viser aldrig noget, selv om journalen siger “OLED display started”.",
+             "Panelet sover, når intet sker — det er normalt.",
+             "Berør med magneten. Tjek OledEnabled."],
             ["Lampen lyser konstant hvid og går ikke ud.",
              "Nedlukningen hænger, eller ipr-led-halt.service er ikke installeret/aktiveret.",
              "Vent op til et minut. Ellers: systemctl is-enabled ipr-led-halt.service; kør "
@@ -2246,6 +2327,10 @@ def build() -> None:
              "Foto af GPIO-headeren med farvekodede ledninger til ben 13, 15, 16 og 18 samt "
              "GND, med indtegnede modstandsværdier 150 Ω, 150 Ω og 22 Ω. Alternativt en ren "
              "tegning baseret på skemaet i docs/hardware/gpio-wiring.md."],
+            ["B10", "OLED-displayet monteret og tændt",
+             "Administratormanual, afsnit 4.7; brugermanual, afsnit 5.4",
+             "Enheden set forfra med displayet tændt på READY-skærmen (gul overskrift, tre "
+             "blå linjer) og lampen ved siden af, så størrelsesforholdet fremgår."],
             ["B9", "Reed-kontakt og LED monteret",
              "Administratormanual, afsnit 4.5",
              "Åbnet kabinet set ovenfra, hvor reed-kontaktens placering langs kabinetkanten "

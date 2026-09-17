@@ -24,6 +24,15 @@ def test_set_sending_updates_state():
     state = tx.get()
     assert state["state"] == "sending"
     assert "test" in state["explanation"]
+    assert state["chars"] == 0
+
+
+def test_set_sending_records_character_count_for_the_display():
+    tx = _reset()
+    tx.set_sending("keyboard", chars=142)
+    assert tx.get()["chars"] == 142
+    tx.set_success()
+    assert tx.get()["chars"] == 142  # kept for the SENT screen
 
 
 def test_set_success_increments_items_sent():
