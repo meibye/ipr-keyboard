@@ -285,9 +285,13 @@ def test_setup_system_renders(setup_client, monkeypatch):
     assert res.status_code == 200
 
 
-def test_setup_renew_cert_no_script(setup_client):
+def test_setup_renew_cert_no_script(setup_client, monkeypatch, tmp_path):
     """POST /setup/renew-cert when the renewal script is absent returns 200."""
-    # _CERT_RENEW_SCRIPT won't exist in test env; route handles this gracefully
+    # Point at a path that does not exist.  On a provisioned device the real
+    # script IS present, and without this the test renewed the certificate
+    # and restarted ipr_keyboard.service mid test-run (sudo, no prompt).
+    from ipr_keyboard.web import setup as setup_mod
+    monkeypatch.setattr(setup_mod, "_CERT_RENEW_SCRIPT", tmp_path / "absent-renew.sh")
     res = setup_client.post("/setup/renew-cert")
     assert res.status_code == 200
 

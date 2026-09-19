@@ -175,14 +175,19 @@ if [[ -x "$VENV_PYTEST" && -d "$PROJECT_DIR/tests" ]]; then
     if "$VENV_PYTHON" -c "import pytest_timeout" 2>/dev/null; then
         _PYTEST_TIMEOUT=(--timeout=60)
     fi
-    if "$VENV_PYTEST" "$PROJECT_DIR/tests" \
+    # Run as the invoking user, never as root: the tests write
+    # logs/ipr_keyboard.log through the app logger, and a root-owned log file
+    # makes ipr_keyboard.service crash-loop with "Permission denied" at its
+    # next restart.  (Seen on the dev board after a sudo run of this script.)
+    _AS_USER=(sudo -u "$_INVOKING_USER" -H)
+    if "${_AS_USER[@]}" "$VENV_PYTEST" "$PROJECT_DIR/tests" \
            --ignore="$PROJECT_DIR/tests/e2e" \
            -q --tb=no --no-header -p no:cacheprovider \
            "${_PYTEST_TIMEOUT[@]}" 2>/dev/null | grep -E '^[0-9]+ passed'; then
         record_pass B.7 "pytest unit tests pass"
     else
         # Capture a brief failure summary
-        PYTEST_OUT=$("$VENV_PYTEST" "$PROJECT_DIR/tests" \
+        PYTEST_OUT=$("${_AS_USER[@]}" "$VENV_PYTEST" "$PROJECT_DIR/tests" \
             --ignore="$PROJECT_DIR/tests/e2e" \
             -q --tb=line --no-header -p no:cacheprovider \
             "${_PYTEST_TIMEOUT[@]}" 2>&1 | tail -20 || true)

@@ -250,6 +250,7 @@ def test_stop_blanks_panel_except_during_shutdown():
     assert rig.display.calls[-2:] == ["sleep", "close"]
 
     rig = Rig(phase=Phase.SHUTTING_DOWN)
+    rig.tick()  # the loop has seen the phase
     rig.mgr.stop()
     assert "sleep" not in rig.display.calls and rig.display.calls[-1] == "close"
 

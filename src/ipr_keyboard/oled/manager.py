@@ -191,6 +191,7 @@ class OledManager:
         self._bt_host_name = ""
         self._hotspot_was = False
         self._hotspot_name = ""
+        self._last_phase = screens.BOOT  # phase seen by the last tick
         self.frames = 0
 
     # -- lifecycle --------------------------------------------------------
@@ -260,14 +261,10 @@ class OledManager:
             self._thread.join(timeout=3)
         if self._display is None:
             return
+        # Decide from what the loop last saw — never probe here: stop() runs
+        # from the SIGTERM handler, and a probe's subprocess wait sleeps.
         try:
-            snap = self._source.snapshot() if self._source else None
-            shutting_down = (
-                snap is not None
-                and str(getattr(snap.phase, "value", snap.phase))
-                == screens.SHUTTING_DOWN
-            )
-            if shutting_down:
+            if self._last_phase == screens.SHUTTING_DOWN:
                 # Leave "SHUTTING DOWN" on; ipr-led-halt.service blanks the
                 # panel at the same moment it turns the LED off.
                 return
@@ -353,6 +350,7 @@ class OledManager:
     def _snapshot(self, now: float) -> screens.Snapshot:
         led = self._source.snapshot()
         phase = str(getattr(led.phase, "value", led.phase))
+        self._last_phase = phase
 
         if led.bt_connected and not self._bt_was:
             self._bt_host_name = self._bt_host()
