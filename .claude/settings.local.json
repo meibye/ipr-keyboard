@@ -53,7 +53,9 @@
       "Bash(git update-index *)",
       "Skill(schedule)",
       "Skill(schedule:*)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "mcp__ipr-rpi-prod-zero2-ssh__list-servers",
+      "mcp__ipr-rpi-prod-zero2-ssh__execute-command"
     ]
   },
   "enabledMcpjsonServers": [
@@ -62,6 +64,7 @@
     "ipr-rpi-dev-ssh-debug",
     "ipr-pc-dev-ssh-debug",
     "ipr-rpi-prod-zero2-ssh",
-    "ipr-rpi-prod-zero-ssh"
+    "ipr-rpi-prod-zero-ssh",
+    "konnect"
   ]
 }
