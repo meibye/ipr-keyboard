@@ -63,3 +63,13 @@ tests/data/reports/
 # Word lock files
 ~$*
 pen_state.json
+
+# KiCad — editor lock files, autosaves and local project state
+*.lck
+~*.lck
+*.kicad_prl
+*-backups/
+fp-info-cache
+IprSense.bak
+# VS Code Local History extension
+.history/
