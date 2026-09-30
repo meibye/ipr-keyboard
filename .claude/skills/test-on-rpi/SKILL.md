@@ -37,10 +37,20 @@ cd /home/meibye/dev/ipr-keyboard
 sudo bash scripts/headless/test_gpio_led_reed.sh --auto
 ```
 
+To cover the reed switch without interactive prompts (prints every magnet
+transition live for 40 s, then reports W.1/W.2):
+
+```bash
+sudo bash scripts/headless/test_gpio_led_reed.sh --watch-reed 40
+```
+
 Interpret results:
 - `Passed: N | Failed: 0 | Skipped: M` where M are visual/manual steps → OK
 - Any `FAIL` → report pin, symptom, and likely cause
-- Known skips at `--auto`: visual LED confirmations (B.2, B.3) and manual magnet steps
+- Known skips at `--auto`: the LED colour confirmations (A.1–A.7) and every
+  magnet step (B.2, B.3, C.1–C.3)
+- The script stops `ipr_keyboard.service` for the whole run and restarts it on
+  exit; a `GPIO busy` error means something restarted it mid-run
 
 ## Tier 3b — OLED display hardware test
 

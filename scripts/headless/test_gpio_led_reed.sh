@@ -4,6 +4,11 @@
 # Usage (run on the Pi directly or via SSH):
 #   sudo bash ~/dev/ipr-keyboard/scripts/headless/test_gpio_led_reed.sh
 #   sudo bash ~/dev/ipr-keyboard/scripts/headless/test_gpio_led_reed.sh --auto
+#   sudo bash ~/dev/ipr-keyboard/scripts/headless/test_gpio_led_reed.sh --watch-reed 40
+#
+# --watch-reed [SECS] runs only the live reed monitor (default 20 s) and exits.
+# It prints every magnet transition as it happens, which is how B.2/B.3 get real
+# coverage over SSH, where the interactive prompts auto-skip.
 #
 # The script is designed to be run via the ipr-rpi-dev-ssh MCP server.
 # LED colour tests pause for manual visual confirmation; in --auto / piped / MCP
@@ -53,16 +58,39 @@ LED_G=23
 LED_B=24
 
 AUTO=0
-for _arg in "$@"; do [[ "$_arg" == "--auto" || "$_arg" == "-y" ]] && AUTO=1; done
+WATCH_REED=""
+_prev=""
+for _arg in "$@"; do
+    case "$_arg" in
+        --auto|-y)      AUTO=1 ;;
+        --watch-reed)   WATCH_REED=20 ;;
+        --watch-reed=*) WATCH_REED="${_arg#*=}" ;;
+        [0-9]*)         [[ "$_prev" == "--watch-reed" ]] && WATCH_REED="$_arg" ;;
+    esac
+    _prev="$_arg"
+done
 
-# ── service restore ───────────────────────────────────────────────────────────
-# Section C stops ipr_keyboard.service to free the GPIO pins.  Restore it on
-# every exit path -- normal end, failure, or Ctrl-C -- otherwise the device is
-# left with no web server and no USB->BT bridge until someone notices.
-# Only restart it if it was running to begin with, so a deliberately stopped
-# service stays stopped.
+# ── service ownership of the GPIO lines ───────────────────────────────────────
+# rpi-lgpio claims each line exclusively, so while ipr_keyboard.service runs its
+# GPIO monitor holds GPIO 22/23/24/27 and every claim made here dies with
+# lgpio.error: GPIO busy.  TESTS A, B AND C ALL NEED THE SERVICE STOPPED --
+# not just C, as an earlier version of this script assumed: with the service up,
+# section A drove nothing and section B could not read the reed pin.
+#
+# Restore it on every exit path -- normal end, failure, or Ctrl-C -- otherwise
+# the device is left with no web server and no USB->BT bridge until someone
+# notices.  Only restart it if it was running to begin with, so a deliberately
+# stopped service stays stopped.
 _IPR_WAS_ACTIVE=0
 systemctl is-active --quiet ipr_keyboard 2>/dev/null && _IPR_WAS_ACTIVE=1
+
+_stop_ipr_service() {
+    if systemctl is-active --quiet ipr_keyboard 2>/dev/null; then
+        sudo systemctl stop ipr_keyboard 2>/dev/null || true
+        sleep 1
+        info "Stopped ipr_keyboard.service — it holds the LED and reed pins"
+    fi
+}
 
 _restore_ipr_service() {
     if (( _IPR_WAS_ACTIVE )) && ! systemctl is-active --quiet ipr_keyboard 2>/dev/null; then
@@ -244,6 +272,71 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# --watch-reed [SECS] — live reed monitor, then exit
+# ═══════════════════════════════════════════════════════════════════════════════
+
+if [[ -n "$WATCH_REED" ]]; then
+    section "WATCH — reed switch (GPIO${REED_PIN}) for ${WATCH_REED} s"
+
+    if [[ "$HAS_GPIO" -eq 0 ]]; then
+        record_fail W.1 "RPi.GPIO unavailable — cannot watch the reed switch"
+        exit 1
+    fi
+
+    _stop_ipr_service
+    info "Move the magnet on and off the glass.  Every transition is printed live."
+
+    _WATCH_LOG=$(mktemp)
+    gpio_py "
+import RPi.GPIO as GPIO, time
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup($REED_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+last = GPIO.input($REED_PIN)
+t0 = time.monotonic()
+print('  t=  0.0s  start: %s' % ('OPEN (no magnet)' if last else 'CLOSED (magnet)'), flush=True)
+end = t0 + $WATCH_REED
+try:
+    while time.monotonic() < end:
+        val = GPIO.input($REED_PIN)
+        if val != last:
+            t = time.monotonic() - t0
+            print('  t=%5.1fs  %s' % (t, 'OPEN   (magnet removed)' if val else 'CLOSED (magnet present)'), flush=True)
+            last = val
+        time.sleep(0.02)
+except KeyboardInterrupt:
+    pass
+finally:
+    GPIO.cleanup()
+" 2>&1 | tee "$_WATCH_LOG"
+
+    _closes=$(grep -c "CLOSED (magnet present)" "$_WATCH_LOG" 2>/dev/null || true)
+    _opens=$(grep -c "OPEN   (magnet removed)" "$_WATCH_LOG" 2>/dev/null || true)
+    rm -f "$_WATCH_LOG"
+
+    if [[ "${_closes:-0}" -gt 0 ]]; then
+        record_pass W.1 "Reed read LOW with the magnet (${_closes}x) — switch and wiring OK"
+    else
+        record_fail W.1 "Reed never read LOW — no magnet seen in ${WATCH_REED} s, or the switch is open-circuit"
+    fi
+
+    if [[ "${_opens:-0}" -gt 0 ]]; then
+        record_pass W.2 "Reed returned HIGH after the magnet left (${_opens}x) — NO behaviour confirmed"
+    else
+        record_skip W.2 "Reed never returned HIGH — magnet still present, or the switch is stuck closed"
+    fi
+
+    echo ""
+    echo -e "  ${GREEN}Passed: $PASS_COUNT${RESET}  |  ${RED}Failed: $FAIL_COUNT${RESET}  |  ${YELLOW}Skipped: $SKIP_COUNT${RESET}"
+    echo ""
+    [ "$FAIL_COUNT" -eq 0 ] && exit 0 || exit 1
+fi
+
+# Every section below drives or reads the LED and reed pins, so the service has
+# to let go of them first (see "service ownership of the GPIO lines" above).
+_stop_ipr_service
+
+# ═══════════════════════════════════════════════════════════════════════════════
 section "TEST A — Individual LED channels"
 # ═══════════════════════════════════════════════════════════════════════════════
 info "Each channel is driven HIGH for 2 s then released. Watch the LED."
@@ -258,8 +351,9 @@ else
     # A.1 — Red channel
     prep_step "The LED will light RED for 2 s."
     info "A.1  Red ON for 2 s (GPIO${LED_R})..."
-    led_show 1 0 0 2
-    if manual_step "Did you see RED light?"; then
+    if ! led_show 1 0 0 2; then
+        record_fail A.1 "Red channel — GPIO error driving the LED (is ipr_keyboard still holding the pins?)"
+    elif manual_step "Did you see RED light?"; then
         record_pass A.1 "Red channel — LED lit"
     else
         record_skip A.1 "Red channel — visual confirmation not provided"
@@ -268,8 +362,9 @@ else
     # A.2 — Green channel
     prep_step "The LED will light GREEN for 2 s (test rig: may appear yellow)."
     info "A.2  Green ON for 2 s (GPIO${LED_G})..."
-    led_show 0 1 0 2
-    if manual_step "Did you see GREEN (or yellow on test rig) light?"; then
+    if ! led_show 0 1 0 2; then
+        record_fail A.2 "Green channel — GPIO error driving the LED (is ipr_keyboard still holding the pins?)"
+    elif manual_step "Did you see GREEN (or yellow on test rig) light?"; then
         record_pass A.2 "Green channel — LED lit"
     else
         record_skip A.2 "Green channel — visual confirmation not provided"
@@ -278,8 +373,9 @@ else
     # A.3 — Blue channel
     prep_step "The LED will light BLUE for 2 s."
     info "A.3  Blue ON for 2 s (GPIO${LED_B})..."
-    led_show 0 0 1 2
-    if manual_step "Did you see BLUE light?"; then
+    if ! led_show 0 0 1 2; then
+        record_fail A.3 "Blue channel — GPIO error driving the LED (is ipr_keyboard still holding the pins?)"
+    elif manual_step "Did you see BLUE light?"; then
         record_pass A.3 "Blue channel — LED lit"
     else
         record_skip A.3 "Blue channel — visual confirmation not provided"
@@ -288,8 +384,9 @@ else
     # A.4 — Amber (R+G = no-WiFi state)
     prep_step "The LED will light AMBER / YELLOW (R+G) for 2 s."
     info "A.4  Amber ON for 2 s (R+G, GPIO${LED_R}+${LED_G})..."
-    led_show 1 1 0 2
-    if manual_step "Did you see AMBER / YELLOW light?"; then
+    if ! led_show 1 1 0 2; then
+        record_fail A.4 "Amber — GPIO error driving the LED (is ipr_keyboard still holding the pins?)"
+    elif manual_step "Did you see AMBER / YELLOW light?"; then
         record_pass A.4 "Amber (R+G) — LED lit"
     else
         record_skip A.4 "Amber — visual confirmation not provided"
@@ -298,8 +395,9 @@ else
     # A.5 — White (R+G+B = boot state)
     prep_step "The LED will light WHITE (all three channels) for 2 s."
     info "A.5  White ON for 2 s (R+G+B)..."
-    led_show 1 1 1 2
-    if manual_step "Did you see WHITE light (all three channels)?"; then
+    if ! led_show 1 1 1 2; then
+        record_fail A.5 "White — GPIO error driving the LED (is ipr_keyboard still holding the pins?)"
+    elif manual_step "Did you see WHITE light (all three channels)?"; then
         record_pass A.5 "White (R+G+B) — LED lit"
     else
         record_skip A.5 "White — visual confirmation not provided"
@@ -308,8 +406,9 @@ else
     # A.6 — All off
     prep_step "The LED will turn OFF."
     info "A.6  All OFF..."
-    led_show 0 0 0 1
-    if manual_step "Is the LED now OFF?"; then
+    if ! led_show 0 0 0 1; then
+        record_fail A.6 "LED off — GPIO error driving the LED (is ipr_keyboard still holding the pins?)"
+    elif manual_step "Is the LED now OFF?"; then
         record_pass A.6 "LED off — all channels LOW"
     else
         record_skip A.6 "LED off — visual confirmation not provided"
@@ -318,8 +417,9 @@ else
     # A.7 — White fast blink (boot sequence, 4 Hz, 3 s)
     prep_step "The LED will BLINK WHITE rapidly (4 Hz) for 3 s — the boot sequence."
     info "A.7  White fast blink 4 Hz for 3 s (boot sequence)..."
-    led_blink 1 1 1 4 3
-    if manual_step "Did you see fast white blinking for ~3 s?"; then
+    if ! led_blink 1 1 1 4 3; then
+        record_fail A.7 "White fast blink — GPIO error driving the LED (is ipr_keyboard still holding the pins?)"
+    elif manual_step "Did you see fast white blinking for ~3 s?"; then
         record_pass A.7 "White fast blink (4 Hz / 3 s) — boot sequence verified"
     else
         record_skip A.7 "White fast blink — visual confirmation not provided"
@@ -432,7 +532,7 @@ section "TEST C — GpioMonitor integration (reed switch interactions)"
 # ═══════════════════════════════════════════════════════════════════════════════
 info "Starts GpioMonitor from the installed source and exercises the three reed interactions."
 info "Boot blink runs first (white, 3 s), then the monitor enters idle mode."
-warn "ipr_keyboard.service must NOT be running — stop it first to avoid GPIO conflicts."
+info "ipr_keyboard.service was stopped before TEST A, so the pins are free."
 
 if [[ "$HAS_GPIO" -eq 0 ]]; then
     for sub in C.1 C.2 C.3 C.4; do
@@ -443,9 +543,8 @@ elif [ ! -f "$SRC_MONITOR" ]; then
         record_skip "$sub" "gpio_monitor.py source not found"
     done
 else
-    # Stop production service so pins are free
-    sudo systemctl stop ipr_keyboard 2>/dev/null && info "Stopped ipr_keyboard.service" || true
-    sleep 1
+    # Normally a no-op: TEST A stopped it.  Guards against anything restarting it.
+    _stop_ipr_service
 
     # Write a small driver that starts GpioMonitor and runs for a fixed duration.
     _DRIVER=$(mktemp /tmp/gpio_monitor_driver_XXXX.py)
@@ -496,7 +595,7 @@ DRIVER_EOF
     sudo kill "$_MON_PID" 2>/dev/null; wait "$_MON_PID" 2>/dev/null || true
     sleep 1
 
-    # C.2 — Hold ≥ 3 s (hotspot arm): LED shows blue fast blink, then status colour / off on release
+    # C.2 — Hold ≥ 3 s (hotspot arm): LED goes steady blue, then status colour / off on release
     info "C.2  Starting GpioMonitor for hotspot-arm test (30 s window)..."
     sudo python3 "$_DRIVER" "$PROJECT_SRC" 30 &
     _MON_PID=$!
@@ -506,10 +605,10 @@ DRIVER_EOF
         "Hold the magnet near the reed switch for ≥ 3 s then release." \
         "Watch for a colour change at the 3 s mark."; then
         if manual_step \
-            "At 3 s: did the LED change to BLUE FAST BLINK (hotspot arming)?" \
+            "At 3 s: did the LED change to STEADY BLUE, after a short dark gap (hotspot arming)?" \
             "On release: did it show the current status colour then turn off?" \
             "(Hotspot toggle is real — check 'systemctl is-active ipr-provision.service' if needed.)"; then
-            record_pass C.2 "Hold ≥ 3 s — blue fast blink seen; hotspot toggle fired on release"
+            record_pass C.2 "Hold ≥ 3 s — steady blue seen; hotspot toggle fired on release"
         else
             record_skip C.2 "Hotspot-arm hold — visual confirmation not provided"
         fi
@@ -560,13 +659,16 @@ SAFE_DRIVER_EOF
     sleep 4  # wait for boot blink
 
     if manual_step \
-        "Hold the magnet near the reed switch for ≥ 10 s then release." \
-        "Watch for TWO colour changes: at 3 s and again at 10 s."; then
+        "Hold the magnet near the reed switch for ≥ 15 s then release." \
+        "Watch for FOUR steady colours, each entered through a short dark gap." \
+        "Thresholds: 3 s hotspot, 6 s shutdown, 10 s mode, 15 s factory reset."; then
         if manual_step \
-            "At 3 s: did the LED change to BLUE FAST BLINK (hotspot arm)?" \
-            "At 10 s: did the LED change to RED FAST BLINK (factory reset arm)?" \
+            "At  3 s: STEADY BLUE (hotspot arm)?" \
+            "At  6 s: STEADY WHITE (shutdown arm)?" \
+            "At 10 s: STEADY PURPLE (mode-toggle arm)?" \
+            "At 15 s: STEADY RED (factory-reset arm)?" \
             "On release: did the Pi stay up (reboot suppressed in this safe run)?"; then
-            record_pass C.3 "Hold ≥ 10 s — red fast blink seen at 10 s threshold"
+            record_pass C.3 "Hold ≥ 15 s — the 3/6/10/15 s steady phases seen; reset armed at 15 s"
         else
             record_skip C.3 "Factory-reset-arm hold — visual confirmation not provided"
         fi
@@ -577,21 +679,25 @@ SAFE_DRIVER_EOF
     sudo kill "$_MON_PID" 2>/dev/null; wait "$_MON_PID" 2>/dev/null || true
     rm -f "$_SAFE_DRIVER"
 
-    # C.4 — State colour accuracy: check that _state_color() returns a sensible tuple
-    C4_OUT=$(sudo python3 - <<PYEOF 2>/dev/null
+    # C.4 — Status colour: status_frame() must return a Frame with a valid colour.
+    # (_state_color() was removed when the LED gained explicit phases and frames.)
+    C4_OUT=$(sudo python3 - <<PYEOF 2>&1
 import sys
 sys.path.insert(0, "$PROJECT_SRC")
-from ipr_keyboard.gpio_monitor import _state_color
-r, g, b = _state_color()
-assert isinstance(r, int) and isinstance(g, int) and isinstance(b, int)
-assert all(v in (0, 1) for v in (r, g, b))
-print(f"state_color=({r},{g},{b})")
+from ipr_keyboard.gpio_monitor import SystemProbe, status_frame
+probe = SystemProbe()
+probe.refresh()
+frame = status_frame(probe)
+r, g, b = frame.color
+assert all(isinstance(v, int) and v in (0, 1) for v in (r, g, b)), frame
+assert frame.hz >= 0, frame
+print(f"status_frame=({r},{g},{b}) hz={frame.hz}")
 PYEOF
 )
-    if echo "$C4_OUT" | grep -q "state_color="; then
-        record_pass C.4 "_state_color() returned a valid (R,G,B) tuple: $C4_OUT"
+    if echo "$C4_OUT" | grep -q "status_frame="; then
+        record_pass C.4 "status_frame() returned a valid Frame: $(echo "$C4_OUT" | tail -1)"
     else
-        record_fail C.4 "_state_color() did not return a valid tuple"
+        record_fail C.4 "status_frame() did not return a valid Frame: $(echo "$C4_OUT" | tail -1)"
     fi
 
     rm -f "$_DRIVER"

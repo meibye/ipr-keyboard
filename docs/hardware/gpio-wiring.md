@@ -302,6 +302,20 @@ boot whether or not a hotspot is running.
 directly (outside the application); `test_provision.sh` phase K checks that
 all pieces above are installed.
 
+The script stops `ipr_keyboard.service` before the first test and restarts it on
+exit (only if it was running).  It has to: `rpi-lgpio` claims each line
+exclusively, so with the service up its GPIO monitor owns GPIO 22/23/24/27 and
+every claim the test makes fails with `lgpio.error: 'GPIO busy'`.
+
+For the magnet over SSH, where the interactive prompts auto-skip:
+
+```bash
+sudo bash scripts/headless/test_gpio_led_reed.sh --watch-reed 40
+```
+
+prints every reed transition live for 40 s (default 20) and reports W.1 (closed
+with the magnet) and W.2 (open again after it leaves) instead of B.2/B.3.
+
 ---
 
 ## Migrating from test rig to final RGB LED

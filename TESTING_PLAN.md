@@ -138,6 +138,13 @@ Verifies that the app starts, the web server responds, and `/health` returns `ok
 sudo bash scripts/headless/test_gpio_led_reed.sh --auto
 ```
 
+The magnet steps (B.2, B.3, C.1–C.3) auto-skip in `--auto`.  To cover the reed
+switch without a terminal prompt, watch the pin live instead:
+
+```bash
+sudo bash scripts/headless/test_gpio_led_reed.sh --watch-reed 40
+```
+
 ### 3d — OLED display hardware test
 
 ```bash
