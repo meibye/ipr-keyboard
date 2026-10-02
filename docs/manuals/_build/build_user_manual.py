@@ -6,8 +6,8 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "1.9"
-DATE = "17. september 2026"
+VERSION = "1.11"
+DATE = "2. oktober 2026"
 
 
 def build() -> None:
@@ -238,6 +238,8 @@ def build() -> None:
         [
             ["Hvid, konstant", "Strømmen er lige sat til.", "Vent."],
             ["Hvid, hurtigt blink", "Boksen starter op.", "Vent ca. 1 minut."],
+            ["Hvid, tre korte blink", "Magneten er registreret.",
+             "Bliv ved med at holde magneten, eller fjern den igen."],
             ["Grøn, konstant", "Alt er klar.", "Ingenting — bare skan."],
             ["Gul, konstant", "Boksen kører, men PC'en er ikke forbundet.",
              "Kontrollér at PC'en er tændt og har Bluetooth slået til."],
@@ -265,9 +267,6 @@ def build() -> None:
             ["Lilla, konstant — mens du holder magneten", "Du har holdt magneten i 10 sekunder (skift af tilstand).",
              "Slip kun, hvis administratoren har bedt dig om det — ellers hold fast, til "
              "lampen slukker (20 sekunder), og slip så."],
-            ["Lilla, kort blink hvert 4. sekund", "Boksen er i udviklingstilstand "
-             "(administratoren arbejder på den).", "Ingenting. Giv administratoren besked, "
-             "hvis det bliver ved i dagevis."],
             ["Rød, hurtigt blink (kort)", "Opsætningsnetværket kunne ikke tændes.",
              "Prøv igen. Sker det igen, så giv administratoren besked."],
             ["Slukket", "Normal drift.", "Ingenting."],
@@ -275,14 +274,23 @@ def build() -> None:
         widths=[3.8, 5.8, 6.0],
         caption="Lampens farver oversat til handling.",
     )
+    m.note("Lampen viser ikke, om boksen er i drift eller udvikling. Tidligere blinkede "
+           "den kort lilla hvert 4. sekund i udviklingstilstand; det blev opfattet som en "
+           "fejl på en boks, der ellers stod stille. Tilstanden står i stedet altid i "
+           "displayet øverst til højre — DEV (udvikling) eller PROD (drift).", "info")
 
     m.h2("5.3 Magneten")
     m.p("Magneten er boksens eneste betjeningsknap. Hvor længe du holder den tæt på "
         "boksen, bestemmer hvad der sker. Den virker når som helst, når boksen er "
-        "færdig med at starte op — også midt i det daglige arbejde. Mens du holder, "
-        "er lampen først mørk og skifter derefter til én fast farve pr. trin — blå, hvid, "
-        "lilla, rød — med et kort mørkt blink ved hvert skift, så du kan tælle trinnene. "
-        "Slip, når lampen har den farve, du vil have.")
+        "færdig med at starte op — også midt i det daglige arbejde. I det øjeblik "
+        "magneten når boksen, blinker lampen hvidt tre gange: så ved du, at den er "
+        "registreret. Derefter er lampen mørk og skifter til én fast farve pr. trin — blå, "
+        "hvid, lilla, rød — med et kort mørkt blink ved hvert skift, så du kan tælle "
+        "trinnene. Slip, når lampen har den farve, du vil have.")
+    m.p("Har boksen et display, behøver du ikke tælle: displayet viser handlingerne — én "
+        "pr. linje — og fremhæver med fed skrift den, der sker, hvis du slipper nu. "
+        "Handlinger, du er kommet forbi, forsvinder fra listen, så der kun står det "
+        "tilbage, du stadig kan vælge.")
     m.figure("fig04_magnet_tidslinje.png",
              "Kort berøring viser status. 3 sekunder tænder eller slukker "
              "opsætningsnetværket, 6 sekunder slukker boksen. 10 og 15 sekunder er "
@@ -292,8 +300,9 @@ def build() -> None:
         ["Sådan gør du", "Resultat"],
         [
             ["Hold magneten tæt på og fjern den igen (under 3 sekunder)",
-             "Lampen slukker, mens magneten holdes (så du ved, den er registreret), og "
-             "viser status i 30 sekunder, når du fjerner den."],
+             "Lampen blinker hvidt tre gange (magneten er registreret) og er derefter "
+             "mørk, mens du holder. Når du fjerner magneten, viser den status i "
+             "30 sekunder."],
             ["Hold magneten på plads i 3 sekunder — lampen lyser blåt — og slip",
              "Opsætningsnetværket tændes: lampen lyser blåt, mens det starter, og lyser "
              "derefter konstant blåt. Var det allerede tændt, slukkes det, og lampen viser "
@@ -303,7 +312,8 @@ def build() -> None:
              "slukker, når du må tage strømmen fra (10–20 sekunder)."],
             ["Hold magneten på plads i 10 sekunder — lampen lyser lilla — og slip",
              "Skifter mellem drift og udvikling (kun administratoren). Lampen lyser lilla "
-             "i 3 sekunder. I udvikling blinker lampen kort lilla hvert 4. sekund."],
+             "i 3 sekunder, og displayet skriver MODE: DEV eller MODE: PROD. "
+             "Derefter står tilstanden øverst til højre i displayet: DEV eller PROD."],
             ["Hold magneten på plads i 15 sekunder — lampen lyser rødt — og slip",
              "Alle gemte netværksforbindelser slettes, og boksen genstarter."],
             ["Bliv ved med at holde i 20 sekunder — lampen slukker — og slip",
@@ -321,7 +331,10 @@ def build() -> None:
 
     m.h2("5.4 Displayet")
     m.p("Nogle bokse har et lille display ved siden af lampen. Det viser det samme som "
-        "lampen — men med ord. Displayet er slukket, når der ikke sker noget; hold "
+        "lampen — men med ord. Det tænder allerede få sekunder efter, du sætter strøm til, "
+        "og viser, hvor langt opstarten er nået. Øverst til højre står altid, hvilken "
+        "tilstand boksen er i: DEV (udvikling) eller PROD (drift). "
+        "Displayet er slukket, når der ikke sker noget; hold "
         "magneten kort tæt på, så viser det status i 30 sekunder. Det tænder også af sig "
         "selv, når noget ændrer sig (PC'en forbinder, pennen sættes i eller tages ud, "
         "netværket forsvinder), mens en skanning sendes, så længe opsætningsnetværket er "
@@ -332,16 +345,17 @@ def build() -> None:
     m.table(
         ["Øverste linje", "Betydning"],
         [
-            ["STARTING…", "Boksen starter. De tre linjer får et flueben, efterhånden som "
-                          "tjenesterne kommer op."],
+            ["STARTING…", "Boksen starter — fra få sekunder efter strømmen blev sat til. "
+                          "Linjerne får et flueben, efterhånden som delene kommer op."],
             ["READY", "Alt er i orden. Linjerne viser PC'ens navn, pennen og netværket."],
             ["PROBLEM", "En linje har et ✗ og siger, hvad der er galt: intet netværk, "
                         "pennens USB-port slået fra, en tjeneste stoppet."],
             ["SENDING… / SENT ✓ / SEND FAILED",
              "En skanning skrives ind i PC'en, blev skrevet ind, eller kunne ikke (teksten "
              "bliver liggende på pennen)."],
-            ["HOLD… / RELEASE → …", "Du holder magneten: den markerede linje er det, der sker, "
-                                    "når du slipper."],
+            ["HOLD… / RELEASE →", "Du holder magneten. Handlingerne står én pr. linje, og "
+                                    "den med fed skrift og en trekant er den, der sker, når du "
+                                    "slipper. Handlinger, du er kommet forbi, forsvinder."],
             ["SETUP MODE", "Opsætningsnetværket er tændt. Displayet viser netværkets navn og "
                            "adressen, du skal åbne."],
             ["SHUTTING DOWN", "Vent, til både lampen og displayet er slukket, før du tager "
@@ -354,7 +368,7 @@ def build() -> None:
     # ---------------------------------------------------------------- 6
     m.h1("6. Betjeningssiden i browseren", new_page=True)
     m.note("Betjeningssiden kan kun åbnes på hjemmenettet, når administratoren har sat boksen "
-           "i udviklingstilstand (lampen blinker kort lilla hvert 4. sekund). I normal drift er "
+           "i udviklingstilstand (der står DEV øverst til højre i displayet). I normal drift er "
            "boksen lukket for netværket, og siden nås kun via opsætningsnetværket.", "info")
     m.p("Boksen har en indbygget side, du kan åbne i en browser. Den er ikke nødvendig for "
         "daglig brug, men er nyttig, hvis du vil se, om alt er som det skal være. "
@@ -434,9 +448,13 @@ def build() -> None:
              "En tjeneste i boksen er stoppet.",
              "Tag strømmen fra i 10 sekunder, og sæt den til igen. Hjælper det ikke, så "
              "giv administratoren besked — boksen husker selv, hvad der gik galt."],
-            ["Betjeningssiden viser skanneren som “Ikke fundet”, selv om den sidder i.",
-             "Boksen har endnu ikke åbnet skanneren (tager nogle sekunder efter tilslutning).",
-             "Vent 10 sekunder. Står der stadig “Ikke fundet”, så tag USB-stikket ud og i."],
+            ["Betjeningssiden eller displayet siger, at skanneren ikke er fundet, "
+             "selv om den sidder i.",
+             "Enten har boksen endnu ikke åbnet skanneren (det tager nogle sekunder efter "
+             "tilslutning), eller også har boksen været genstartet, mens pennen sad i: "
+             "pennen melder sig ikke selv igen bagefter.",
+             "Vent 10 sekunder. Står der stadig “Ikke fundet” eller “Plug in the pen”, "
+             "så tag pennens USB-stik ud og i igen — så findes den inden for få sekunder."],
             ["Lampen lyser blåt hele tiden.",
              "Opsætningstilstand er blevet slået til ved et uheld.",
              "Hold magneten tæt på boksen i 3 sekunder og slip. Lampen skifter tilbage."],

@@ -10,8 +10,8 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.10.0"
-DATE = "17. september 2026"
+VERSION = "1.11.1"
+DATE = "2. oktober 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
 # make_payload.sh — this maps them to manual prose.  The keys are checked
@@ -258,7 +258,8 @@ def build() -> None:
              "dtparam=i2c_arm=on og i2c_arm_baudrate=400000 — I²C-bussen til displayet "
              "(afsnit 4.7)."],
             ["/etc/modules-load.d/ipr-oled.conf", "Indlæser i2c-dev ved opstart (/dev/i2c-1)."],
-            ["/etc/default/ipr-oled", "Bus og adresse for displayet til ipr-led-halt.sh."],
+            ["/etc/default/ipr-oled", "Bus, adresse, rotation og REPO_DIR for displayet — "
+                                     "bruges af ipr-led-halt.sh og ipr-oled-boot.py."],
             ["/run/ipr-hotspot.request",
              "Midlertidig udløserfil, som ipr_hotspot_ctl.sh start skriver."],
             ["<projektrod>/pen_state.json",
@@ -1217,7 +1218,8 @@ def build() -> None:
     m.table(
         ["Hold", "Lampen mens du holder", "Ved slip"],
         [
-            ["under 3 s", "slukket (magneten er registreret)", "status i 30 s"],
+            ["ved kontakt", "hvid, tre korte blink (0,6 s)", "— (kvittering: magneten er registreret)"],
+            ["under 3 s", "slukket", "status i 30 s"],
             ["3–6 s", "blå, konstant", "hotspot tændes/slukkes"],
             ["6–10 s", "hvid, konstant", "kontrolleret nedlukning; hvid konstant → slukket = sikkert at afbryde "
                                  "(hvid = boksen starter eller slukker; turkis blev opgivet, da det ikke "
@@ -1227,10 +1229,10 @@ def build() -> None:
             ["20 s", "slukket", "fortryd — der sker ingenting"],
         ],
         widths=[2.2, 4.4, 9.0],
-        caption="Hele magnet-stigen. Lampen slukker, så snart magneten registreres, og viser "
-                "derefter én FAST farve pr. trin; hvert skift indledes med et mørkt blink på "
-                "0,3 s, så trinnet kan tælles. Blink er forbeholdt handlinger i gang efter slip "
-                "(hurtige blink i beslægtede farver kunne ikke skelnes). Handlingen udføres "
+        caption="Hele magnet-stigen. Lampen kvitterer med tre hvide blink, når magneten "
+                "registreres, er derefter mørk og viser én FAST farve pr. trin; hvert skift "
+                "indledes med et mørkt blink på 0,3 s, så trinnet kan tælles. Displayet viser "
+                "samtidig handlingerne én pr. linje med den valgte i fed. Handlingen udføres "
                 "først ved slip.",
     )
 
@@ -1262,10 +1264,29 @@ def build() -> None:
         "hvad et slip udløser), så længe hotspottet er oppe (SSID og adresse), under en "
         "afsendelse og OledSendHoldSeconds efter, og under nedlukning. Efter fem minutter "
         "konstant tændt dæmpes kontrasten.")
+    m.p("Øverst til højre står enhedens tilstand på hvert enkelt skærmbillede: DEV eller "
+        "PROD, læst fra /var/lib/ipr-keyboard/mode. Det er samtidig den eneste løbende "
+        "visning af tilstanden: lampens tidligere lilla blink hvert 4. sekund er fjernet, "
+        "fordi det blev læst som en fejl på en enhed, der ellers stod stille (afsnit 5.5).")
+    m.p("Mens magneten holdes, vises handlingerne én pr. linje — 3 s hotspot, 6 s "
+        "nedlukning, 10 s tilstandsskift, 15 s netværksnulstilling. Den valgte er i fed "
+        "med en trekant, og de trin, brugeren er kommet forbi, forsvinder, så listen "
+        "skrumper ned mod den handling, et slip udløser. Skærmbilleder med fire linjer "
+        "bruger en lidt mindre skrift i stedet for at udelade en linje.")
+    m.p("Displayet venter ikke på applikationen: ipr-oled-boot.service "
+        "(DefaultDependencies=no, kører scripts/headless/ipr_oled_boot.py som root) viser "
+        "STARTING… og markerer System, Network, Bluetooth og Application, efterhånden som "
+        "de kommer op — fra få sekunder efter strømmen blev sat til. Overdragelsen følger "
+        "lampens mønster: en drop-in (11-oled-boot.conf) med Conflicts= og "
+        "ExecStartPre=+systemctl stop, fordi Conflicts= alene taber i opstartstransaktionen. "
+        "Skriptet henter SSD1306-driveren fra depotet via REPO_DIR i /etc/default/ipr-oled, "
+        "afslutter selv, når ipr_keyboard.service er aktiv, og slukker aldrig panelet — "
+        "en hængende opstart efterlader derfor sin sidste skærm på displayet "
+        "(journalctl -u ipr-oled-boot.service -b).")
     m.p("Lampen er uændret: den virker før og efter Python (firmware, ipr-led-boot, "
         "ipr-led-halt), ses på afstand og gennem kabinettet, og enheder uden display skal "
         "virke som hidtil. Lampe = tilstand og armeringsfarve; display = forklaring, navne, "
-        "tal og gestushjælp.")
+        "tal, tilstand og gestushjælp.")
     m.p("Rendering sker med Pillow fra Debian-pakken python3-pil (ingen ARMv6-wheel på "
         "PyPI) og skrifttypen DejaVu; SSD1306-driveren er ca. 100 linjer i "
         "src/ipr_keyboard/oled/ssd1306.py oven på /dev/i2c-1 med standardbiblioteket — "
@@ -1275,7 +1296,8 @@ def build() -> None:
     m.p("Alt installeres af scripts/headless/install_oled_support.sh (kaldt af "
         "provisioneringen og af deploy_full_update.sh efter install_gpio_support.sh): "
         "dtparam-blokken i config.txt, i2c-dev, pakkerne i2c-tools, python3-pil og "
-        "fonts-dejavu-core, gruppen i2c, /etc/default/ipr-oled og en udvidet "
+        "fonts-dejavu-core, gruppen i2c, /etc/default/ipr-oled (bus, adresse, rotation og "
+        "REPO_DIR), ipr-oled-boot.service med drop-in til overdragelsen, og en udvidet "
         "ipr-led-halt.sh, der også slukker panelet (0xAE) ved nedlukning. Én genstart "
         "kræves, hvis I²C ikke var slået til i forvejen. test_provision.sh fase N og "
         "test_oled.sh verificerer det.")
@@ -1400,17 +1422,22 @@ def build() -> None:
     m.p("Politikken anvendes ved opstart før netværket kommer op (ipr-firewall.service), "
         "ved enhver forbindelsesændring (NetworkManager-dispatcher-hook 90-ipr-firewall), "
         "når hotspottet tændes eller slukkes, og når tilstanden skiftes.")
-    m.p("Tilstanden skiftes med magneten (hold i 10 sekunder — lampen lyser lilla — og slip; "
-        "lampen lyser lilla i 3 sekunder som bekræftelse) eller fra kommandolinjen:")
+    m.p("Tilstanden skiftes med magneten (hold i 10 sekunder — lampen lyser lilla, og "
+        "displayet fremhæver linjen med tilstandsskiftet — og slip; lampen lyser lilla i "
+        "3 sekunder, og displayet skriver MODE: DEV eller MODE: PROD) eller "
+        "fra kommandolinjen:")
     m.code(
         "sudo ipr_mode_ctl.sh production     # drift: luk alt på hjemmenettet\n"
         "sudo ipr_mode_ctl.sh development    # udvikling: åbn SSH og dashboard\n"
         "sudo ipr_mode_ctl.sh status         # viser tilstanden\n"
         "sudo ipr-firewall.sh status         # tilstand, hotspot og indlæste regler"
     )
-    m.p("I udviklingstilstand blinker lampen kort lilla hvert fjerde sekund — også når den "
-        "ellers er slukket — så en åben enhed ikke overses. Setup-portalens forside viser "
-        "tilstanden ved siden af værtsnavnet.")
+    m.p("I udviklingstilstand står DEV øverst til højre på hvert skærmbillede i displayet "
+        "(PROD i drift), så en åben enhed ikke overses. Lampen har bevidst ingen visning af "
+        "tilstanden: det tidligere lilla blink hvert fjerde sekund blev læst som en fejl på "
+        "en enhed, der ellers stod stille. På en enhed uden display ses tilstanden i "
+        "dashboardet, i setup-portalen ved siden af værtsnavnet og på den lilla "
+        "bekræftelse i 3 sekunder efter et skift.")
     m.p("Skiftet til drift lukker også forbindelser, der allerede var åbne: ipr_mode_ctl.sh "
         "nedlægger enhedens egne sockets på port 22 og 443 (ss -K) og afslutter "
         "sshd-sessionerne, så SSH-klienten straks melder “Connection reset by peer”. "
@@ -1420,11 +1447,12 @@ def build() -> None:
         "blåt, så længe hotspottet er tændt; SSID'et ipr-setup-xxxx ses på en telefon; og "
         "setup-portalens Status-side viser hotspottet som aktivt (aflæst fra NetworkManager, "
         "ikke fra systemd-enheden).")
-    m.p("Sådan afprøves lampen i udviklingstilstand: skift med magneten (10 s) — lampen lyser "
-        "lilla i 3 sekunder og blinker derefter kort lilla hvert 4. sekund; en berøring viser "
-        "statusfarven oven i. Fra en anden maskine virker ssh og dashboardet nu; "
-        "sudo ipr-firewall.sh status viser tilstand, hotspot og regler. Skift tilbage med "
-        "magneten: SSH-sessionen falder, og det lilla blink stopper.")
+    m.p("Sådan afprøves tilstandsvisningen: skift med magneten (10 s) — lampen lyser lilla "
+        "i 3 sekunder, displayet skriver MODE: DEV og bærer derefter mærket DEV; en "
+        "berøring kvitteres med tre hvide blink og viser statusfarven. Fra en anden maskine "
+        "virker ssh og dashboardet nu; sudo ipr-firewall.sh status viser tilstand, hotspot "
+        "og regler. Skift tilbage med magneten: SSH-sessionen falder, og mærket bliver "
+        "PROD igen.")
     m.note("Provisioneringen efterlader enheden i udviklingstilstand, fordi den kører over "
            "SSH og ellers ville afbryde sig selv. Idriftsættelsen afsluttes med "
            "sudo ipr_mode_ctl.sh production (eller magneten i 10 sekunder). Skiftet til drift "
@@ -2050,10 +2078,20 @@ def build() -> None:
              "Lampen følger NetworkManager: ipr-hotspot er aktiv.",
              "nmcli con show --active. Er ipr-hotspot med, er AP'et oppe — kontrollér klienten."],
             ["SSH og dashboard svarer ikke på hjemmenettet, men enheden kører (lampen "
-             "viser status ved berøring, intet lilla blink).",
+             "viser status ved berøring, displayet siger PROD).",
              "Enheden står i driftstilstand — det er normalt.",
-             "Hold magneten i 10 sekunder (lampen lyser lilla) og slip: udviklingstilstand, lampen "
-             "blinker lilla hvert 4. sekund. Eller brug hotspottet (magnet 3 s)."],
+             "Hold magneten i 10 sekunder (lampen lyser lilla, og linjen med tilstandsskiftet "
+             "er fremhævet i displayet) og slip: udviklingstilstand, og mærket bliver DEV. "
+             "Eller brug hotspottet (magnet 3 s)."],
+            ["Pennen vises som ikke fundet, selv om den sidder i — typisk efter en genstart.",
+             "MTP-enheden melder sig kun, når den tændes, og melder sig ikke igen til en "
+             "vært, der er genstartet under den. Kernen har derfor aldrig set den: ingen "
+             "enumerering, ingen udev-hændelse, ingen montering.",
+             "Tag pennens USB-stik ud og i igen; irispen-mount.service er BindsTo= enheden "
+             "og monterer selv inden for få sekunder. Skeln fra en portfejl med "
+             "journalctl -k -b | grep 'usb 1-1': helt tom = enheden har aldrig været "
+             "tilsluttet; error -71 eller USB disconnect = portproblem. Se "
+             "docs/operations/irispen-automount.md."],
             ["Displayet er mørkt, journalen siger “OLED display disabled — /dev/i2c-1 missing”.",
              "dtparam=i2c_arm=on er ikke aktiv endnu, eller i2c-dev er ikke indlæst.",
              "sudo bash scripts/headless/install_oled_support.sh og genstart. "
@@ -2329,8 +2367,9 @@ def build() -> None:
              "tegning baseret på skemaet i docs/hardware/gpio-wiring.md."],
             ["B10", "OLED-displayet monteret og tændt",
              "Administratormanual, afsnit 4.7; brugermanual, afsnit 5.4",
-             "Enheden set forfra med displayet tændt på READY-skærmen (gul overskrift, tre "
-             "blå linjer) og lampen ved siden af, så størrelsesforholdet fremgår."],
+             "Enheden set forfra med displayet tændt på READY-skærmen (gul overskrift med "
+             "mærket PROD til højre, tre blå linjer) og lampen ved siden af, så "
+             "størrelsesforholdet fremgår."],
             ["B9", "Reed-kontakt og LED monteret",
              "Administratormanual, afsnit 4.5",
              "Åbnet kabinet set ovenfra, hvor reed-kontaktens placering langs kabinetkanten "

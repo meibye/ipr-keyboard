@@ -204,6 +204,7 @@ def fig_led_colours():
     rows = [
         ((255, 255, 255), "Hvid, konstant", "Strømmen er lige sat til", MUTED),
         ((255, 255, 255), "Hvid, hurtigt blink", "Brotoget starter op — vent ca. 1 minut", MUTED),
+        ((255, 255, 255), "Hvid, tre korte blink", "Magneten er registreret — hold fast, eller fjern den igen", MUTED),
         ((46, 160, 87), "Grøn, konstant", "Alt er klar — netværk og Bluetooth er forbundet", GREEN),
         ((240, 180, 40), "Gul/ravfarvet, konstant", "Netværk OK, men PC'en er ikke forbundet endnu", AMBER),
         ((214, 60, 60), "Rød, langsomt blink", "Intet netværk — kontakt din administrator", RED),
@@ -213,14 +214,14 @@ def fig_led_colours():
         ((255, 255, 255), "Hvid, konstant (mens magneten holdes)", "Magnet holdt i 6 sek. — slip for at slukke boksen", MUTED),
         ((255, 255, 255), "Hvid, konstant (efter slip)", "Boksen lukker ned — vent til lampen slukker, før du tager strømmen", MUTED),
         ((150, 70, 220), "Lilla, konstant (mens magneten holdes)", "Magnet holdt i 10 sek. — slip for at skifte drift/udvikling (admin)", PURPLE),
-        ((150, 70, 220), "Lilla, kort blink hvert 4. sek.", "Udviklingstilstand — administratoren arbejder på boksen", PURPLE),
         ((214, 60, 60), "Rød, konstant (mens magneten holdes)", "Magnet holdt i 15 sek. — slip for at nulstille netværk", RED),
         ((225, 228, 233), "Slukket", "Normal drift — lampen sparer strøm", MUTED),
     ]
     rh = 46
     c = Canvas(940, 100 + rh * len(rows) + 30)
     c.title("Hvad betyder lampens farve?",
-            "Lampen lyser selv under opstart og i setup-tilstand — ellers vækker magneten den i 30 sek.")
+            "Lampen lyser selv under opstart og i setup-tilstand — ellers vækker magneten den i 30 sek. "
+            "Tilstanden drift/udvikling står i displayet, ikke på lampen.")
 
     y = 90
     for colour, name, meaning, accent in rows:
@@ -238,7 +239,7 @@ def fig_led_colours():
 def fig_magnet_timeline():
     c = Canvas(980, 380)
     c.title("Magneten: hvor længe du holder, bestemmer hvad der sker",
-            "Mens du holder: mørk, så én fast farve pr. trin med et kort mørkt blink ved hvert skift")
+            "Tre hvide blink når magneten registreres, derefter mørk og én fast farve pr. trin")
 
     x0, x1, y = 90, 890, 150
     c.line(x0, y, x1, y, LINE, 3)
@@ -632,40 +633,67 @@ def fig_admin_troubleshoot():
 # 13. Displayet  (bruger + admin)
 # ---------------------------------------------------------------------------
 def fig_display():
-    """Four mock screens of the 128x64 OLED: yellow header band, blue body."""
+    """Four mock screens of the 128x64 OLED: yellow header band, blue body.
+
+    A line is a string, or ``(text, bold, mark)`` where ``mark`` is
+    ``"done"`` / ``"wait"`` (the checklist glyphs, drawn rather than typed:
+    the UI font has no check mark) and ``bold`` marks the activity a release
+    would trigger.
+    """
     YELLOW_BG = (255, 214, 64)
     BLUE_PANEL = (18, 24, 48)
     BLUE_INK = (140, 190, 255)
     screens = [
-        ("READY", "", ["\u2022 Laptop-MSE", "\u2022 Pen ready", "\u2022 HomeNet 192.168.1.23"],
+        ("STARTING…", "PROD", "",
+         [("System", False, "done"), ("Network", False, "done"),
+          ("Bluetooth", False, "done"), ("Dashboard", False, "wait")],
+         "Få sekunder efter strømmen: hvor langt opstarten er nået"),
+        ("READY", "PROD", "",
+         ["• Laptop-MSE", "• Pen ready", "• HomeNet 192.168.1.23"],
          "Efter en berøring: PC, pen og netværk"),
-        ("PROBLEM", "", ["\u00d7 No Wi-Fi \u2014 hold 3 s", "\u2022 Plug in the pen", "\u2022 Waiting for PC\u2026"],
-         "Linjen med \u00d7 siger, hvad der er galt"),
-        ("SENDING\u2026", "bar", ["\u2192 Laptop-MSE", "142 characters"],
+        ("SENDING…", "PROD", "bar",
+         ["→ Laptop-MSE", "142 characters"],
          "Skanningen skrives ind i PC'en"),
-        ("RELEASE \u2192 HOTSPOT", "", ["\u00bb 3 s  Hotspot", "   6 s  Shutdown", "  10 s Mode  15 s Reset"],
-         "Magneten holdes: den markerede linje sker ved slip"),
+        ("RELEASE →", "DEV", "",
+         [("» 6 s  Shutdown", True, ""), ("   10 s  To production", False, ""),
+          ("   15 s  Factory reset", False, "")],
+         "Magneten holdes: den fede linje sker ved slip — hotspot er passeret"),
     ]
     sw, sh = 256, 128  # one screen at 2x logical size
     gap = 40
     c = Canvas(2 * sw + 3 * gap, 100 + 2 * (sh + 58) + 10)
     c.title("Hvad viser displayet?",
-            "Den gule bjælke er tilstanden; de blå linjer forklarer. Displayet er slukket, når intet sker.")
-    for i, (header, body, lines, cap) in enumerate(screens):
+            "Den gule bjælke er tilstanden, mærket til højre er drift (PROD) eller udvikling (DEV); "
+            "de blå linjer forklarer.")
+    for i, (header, badge, body, lines, cap) in enumerate(screens):
         x = gap + (i % 2) * (sw + gap)
         y = 90 + (i // 2) * (sh + 58)
         c.box(x - 6, y - 6, sw + 12, sh + 12, fill=(40, 40, 44), outline=(40, 40, 44), radius=6)
         c.box(x, y, sw, 32, fill=YELLOW_BG, outline=YELLOW_BG, radius=0)
         c.box(x, y + 32, sw, sh - 32, fill=BLUE_PANEL, outline=BLUE_PANEL, radius=0)
         c.text(x + 8, y + 16, header, F(15, True), (40, 30, 0), anchor="lm")
+        if badge:
+            bw = 26 + 8 * len(badge)
+            c.box(x + sw - bw - 6, y + 5, bw, 22, fill=(40, 30, 0), outline=(40, 30, 0), radius=4)
+            c.text(x + sw - bw / 2 - 6, y + 16, badge, F(12, True), YELLOW_BG, anchor="mm")
         ly = y + 44
         if body == "bar":
             c.box(x + 8, ly, sw - 16, 14, fill=BLUE_PANEL, outline=BLUE_INK, width=1, radius=3)
             c.box(x + 60, ly + 3, 60, 8, fill=BLUE_INK, outline=BLUE_INK, radius=2)
             ly += 26
+        pitch = 24 if len(lines) <= 3 else 19
         for ln in lines:
-            c.text(x + 8, ly, ln, F(12), BLUE_INK, anchor="lm")
-            ly += 24
+            text, bold, mark = ln if isinstance(ln, tuple) else (ln, False, "")
+            tx = x + 8
+            if mark:
+                tx = x + 26
+                if mark == "done":
+                    c.line(x + 8, ly, x + 12, ly + 5, BLUE_INK, 2)
+                    c.line(x + 12, ly + 5, x + 19, ly - 5, BLUE_INK, 2)
+                else:
+                    c.circle(x + 13, ly, 2, BLUE_INK, BLUE_INK, 1)
+            c.text(tx, ly, text, F(12, bold), BLUE_INK, anchor="lm")
+            ly += pitch
         c.text(x + sw / 2, y + sh + 22, cap, F(11), MUTED, anchor="mm")
     c.save("fig13_display.png")
 
