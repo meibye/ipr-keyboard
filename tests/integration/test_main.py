@@ -67,9 +67,18 @@ def test_main_initializes_config(temp_config, monkeypatch):
             raise KeyboardInterrupt()
     
     monkeypatch.setattr("time.sleep", mock_sleep)
-    
+
+    # Keep main() away from the hardware.  On a provisioned device the running
+    # service owns GPIO 22/23/24/27 and the I2C panel, so a real
+    # GpioMonitor.start() here spins in its claim-retry loop -- whose
+    # time.sleep() is the mock above, which raises KeyboardInterrupt out of
+    # main() and aborts the whole pytest session.  This test is about main()
+    # wiring up its parts, not about the hardware.
+    monkeypatch.setattr("ipr_keyboard.main.GpioMonitor", lambda **kw: MagicMock())
+    monkeypatch.setattr("ipr_keyboard.main.OledManager", lambda **kw: MagicMock())
+
     from ipr_keyboard.main import main
-    
+
     # Run main - it should handle KeyboardInterrupt
     main()
     
