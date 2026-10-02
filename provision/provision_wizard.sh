@@ -424,7 +424,8 @@ if (( UNATTENDED )); then
     exit 1
   fi
   success "Unattended preflight: using $_cfg"
-  for _k in INSTALL_COPILOT_TOOLS RECLONE_REPO SKIP_GITHUB_SSH AUTO_REBOOT; do
+  for _k in INSTALL_COPILOT_TOOLS INSTALL_TMUX RECLONE_REPO SKIP_GITHUB_SSH \
+            AUTO_REBOOT FINAL_VERIFY; do
     echo "    $_k=$(answer_for "$_k" "(default)")"
   done
 fi

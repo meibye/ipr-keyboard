@@ -41,7 +41,7 @@ set -eo pipefail
 # plugin manager cloned from GitHub; a development board usually does.
 INSTALL_TMUX_VAL="no"
 if [[ -r /opt/ipr_common.env ]]; then
-  _v="$(awk -F= '/^[[:space:]]*INSTALL_TMUX[[:space:]]*=/ {gsub(/[" ]/,"",$2); print $2; exit}' /opt/ipr_common.env)"
+  _v="$(awk -F= '/^[[:space:]]*INSTALL_TMUX[[:space:]]*=/ {gsub(/["\r ]/,"",$2); print $2; exit}' /opt/ipr_common.env)"
   [[ -n "$_v" ]] && INSTALL_TMUX_VAL="$_v"
 fi
 

@@ -36,9 +36,39 @@ set -uo pipefail
 
 # ── invoking user resolution ───────────────────────────────────────────────────
 
-_INVOKING_USER="${SUDO_USER:-$USER}"
+# Which account is this audit about?
+#
+# Not "whoever typed the command": the checks are about the account that runs
+# the application -- its venv, its home, its group membership, its sudoers
+# grants.  `${SUDO_USER:-$USER}` got that right only for a human typing
+# `sudo test_provision.sh`.  Started from the provisioning wizard's systemd
+# resume unit there is no SUDO_USER, so it resolved to root and then checked
+# /root/dev/ipr-keyboard: 14 checks failed on a perfectly good device, and the
+# unattended run reported failure when it had succeeded.
+#
+# APP_USER from /opt/ipr_common.env is the authoritative answer and wins when
+# it is there; SUDO_USER and $USER remain the fallbacks for a device that has
+# not been provisioned yet.
+# IPR_COMMON_ENV exists so this is testable off-device; it is the real path
+# everywhere else.
+IPR_COMMON_ENV="${IPR_COMMON_ENV:-/opt/ipr_common.env}"
+
+_env_value() {  # _env_value KEY -- from the env file, empty if absent
+    [ -r "$IPR_COMMON_ENV" ] || return 0
+    awk -F= -v k="$1" '
+        $0 ~ "^[[:space:]]*"k"[[:space:]]*=" { gsub(/["\r ]/,"",$2); print $2; exit }
+    ' "$IPR_COMMON_ENV"
+}
+
+_INVOKING_USER="$(_env_value APP_USER)"
+if [ -z "$_INVOKING_USER" ]; then
+    _INVOKING_USER="${SUDO_USER:-$USER}"
+fi
 _INVOKING_HOME=$(getent passwd "$_INVOKING_USER" | cut -d: -f6)
-PROJECT_DIR="${IPR_PROJECT_ROOT:-$_INVOKING_HOME/dev}/ipr-keyboard"
+
+_REPO_DIR="$(_env_value REPO_DIR)"
+PROJECT_DIR="${IPR_PROJECT_ROOT:+$IPR_PROJECT_ROOT/ipr-keyboard}"
+PROJECT_DIR="${PROJECT_DIR:-${_REPO_DIR:-$_INVOKING_HOME/dev/ipr-keyboard}}"
 VENV_PYTHON="$PROJECT_DIR/.venv/bin/python"
 VENV_PYTEST="$PROJECT_DIR/.venv/bin/pytest"
 

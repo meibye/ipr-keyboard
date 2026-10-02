@@ -129,7 +129,7 @@ if [[ "$MODE" == "system" ]]; then
     # a production device has no use for it.
     _tmux="no"
     if [[ -r /opt/ipr_common.env ]]; then
-        _v="$(awk -F= '/^[[:space:]]*INSTALL_TMUX[[:space:]]*=/ {gsub(/[" ]/,"",$2); print $2; exit}' /opt/ipr_common.env)"
+        _v="$(awk -F= '/^[[:space:]]*INSTALL_TMUX[[:space:]]*=/ {gsub(/["\r ]/,"",$2); print $2; exit}' /opt/ipr_common.env)"
         [[ -n "$_v" ]] && _tmux="$_v"
     fi
     if [[ "${_tmux,,}" =~ ^(y|yes|true|1)$ ]]; then

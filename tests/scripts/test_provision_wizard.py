@@ -7,6 +7,7 @@ read from stdin, and every answer comes from the answer file or its documented
 default.
 """
 
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -219,7 +220,9 @@ def test_the_audit_writes_a_colour_free_report_and_keeps_its_exit_code():
     not swallow the failure count, and must never turn an unwritable path into
     a failed audit.
     """
-    text = AUDIT.read_text(encoding="utf-8")
+    # The scripts are stored with CRLF; bash would take the stray CR as part
+    # of the last token on every line.
+    text = AUDIT.read_text(encoding="utf-8").replace("\r\n", "\n")
     start = text.index('REPORT_FILE="${REPORT_FILE:-')
     end = text.index("# ── result tracking")
     harness = (
@@ -261,3 +264,60 @@ def test_the_audit_writes_a_colour_free_report_and_keeps_its_exit_code():
         )
         assert res.returncode == 3
         assert "cannot write" in res.stderr
+
+
+@requires_bash
+def test_the_audit_targets_the_app_user_not_whoever_ran_it(tmp_path):
+    """Started from the wizard's systemd unit there is no SUDO_USER.
+
+    The audit then resolved to root and checked /root/dev/ipr-keyboard: 14
+    checks failed on a healthy device and the unattended run reported failure
+    when it had in fact succeeded.  APP_USER from the env file is the
+    authoritative answer to "which account is this audit about".
+    """
+    import os
+    import subprocess
+
+    # The scripts are stored with CRLF; bash would take the stray CR as part
+    # of the last token on every line.
+    text = AUDIT.read_text(encoding="utf-8").replace("\r\n", "\n")
+    block = text[
+        text.index('IPR_COMMON_ENV="${IPR_COMMON_ENV:-') : text.index("# ── arguments")
+    ]
+
+    env_file = tmp_path / "ipr_common.env"
+    env_file.write_text(
+        'APP_USER="someapp"\nREPO_DIR="/srv/elsewhere/ipr-keyboard"\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    script = tmp_path / "resolve.sh"
+    script.write_text(
+        "#!/usr/bin/env bash\nset -uo pipefail\n"
+        + block
+        + '\necho "USER=$_INVOKING_USER"\necho "DIR=$PROJECT_DIR"\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    def resolve(**overrides):
+        env = {**os.environ, "USER": "nobody"}
+        env.pop("SUDO_USER", None)
+        env.update(overrides)
+        return subprocess.run(
+            [BASH, script.as_posix()],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=60,
+        ).stdout
+
+    # No SUDO_USER at all -- the resume-unit case.  The env file decides.
+    out = resolve(IPR_COMMON_ENV=env_file.as_posix())
+    assert "USER=someapp" in out, out
+    assert "DIR=/srv/elsewhere/ipr-keyboard" in out, out
+
+    # Without an env file it falls back to SUDO_USER, then $USER.
+    absent = (tmp_path / "absent").as_posix()
+    assert "USER=admin" in resolve(IPR_COMMON_ENV=absent, SUDO_USER="admin")
+    assert "USER=nobody" in resolve(IPR_COMMON_ENV=absent)
