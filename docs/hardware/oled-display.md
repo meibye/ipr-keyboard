@@ -75,7 +75,46 @@ A line wider than the panel (a long network name, host name or IP) is never
 cut: it rolls slowly to the left, pauses when the end is in view, and starts
 over.  Lines that fit never move.
 
-### The activity list while the magnet is held
+### The magnet menu
+
+On a device with a working panel the magnet opens a **menu** instead of the
+timed activity list: hold 3 s, then tap to move and hold again to choose.  The
+list below is what the ladder does on a device **without** a display, where a
+menu could not be read — see `docs/architecture/magnet-menu-design.md`.
+
+| Input | In the menu |
+|---|---|
+| Tap (< 1 s) | next item, wrapping at the end |
+| Hold ≥ 1.5 s, then release | activate the highlighted item |
+| Nothing for 20 s | leave the menu |
+
+```
+MENU
+ ├ Hotspot on / off        acts at once
+ ├ Display ▸ Timeout: 5 / 15 / 30 / 60 min
+ ├ Recovery info           one tap to confirm, limited reveals
+ ├ Mode: to dev / prod     one tap to confirm
+ ├ Shutdown                one tap to confirm
+ ├ Factory reset           TWO taps to confirm
+ └ Exit
+```
+
+The LED is steady blue while the menu is open.  Before any confirmation the
+panel says what the action does — the factory reset names what it deletes —
+and a confirmation that times out always cancels.
+
+**Recovery info** shows the hotspot name and key for a device that has lost
+its Wi-Fi settings.  It is limited: `RecoveryRevealLimit` (default 3) reveals
+per boot, each after a confirming tap, and **none at all once the credentials
+have been used** — the setup portal records that, and only a regenerated key
+makes them showable again.
+
+**Display ▸ Timeout** sets how long the panel stays on after the last magnet
+contact: 5, 15, 30 (default) or 60 minutes, written back to `config.json`.
+Any tap starts a fresh period.  Dimming is unchanged — the contrast still
+drops after five minutes on, which is what protects the panel.
+
+### The activity list while the magnet is held (no display)
 
 The magnet is the only control on the device, so the panel spells the hold
 ladder out and narrows it down as the magnet stays on:
@@ -141,6 +180,8 @@ contrast is lowered.
 | `OledContrast` | 0–255 |
 | `OledRotate` | `0` or `180` (module mounted upside down) |
 | `OledSendHoldSeconds` | how long `SENT ✓` / `SEND FAILED` stay on |
+| `OledDisplayTimeoutMinutes` | how long the panel stays on after the last magnet contact: 5, 15, 30 (default) or 60.  Set from the magnet menu |
+| `RecoveryRevealLimit` | how many times the recovery credentials may be shown per boot (default 3) |
 | `OledMarqueeFps` | redraw rate while a long line rolls; `6` on a Zero W |
 
 The idle window is shared with the LED (`GpioLedIdleSeconds`).  These keys

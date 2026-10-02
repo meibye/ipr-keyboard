@@ -81,6 +81,15 @@ class AppConfig:
     OledRotate: int = 0  # 0 or 180
     OledSendHoldSeconds: int = 10  # keep SENT / FAILED on screen this long
     OledMarqueeFps: int = 8  # redraw rate while a long line rolls (6 on a Zero W)
+    # How long the panel stays on after the last interaction, in minutes.
+    # Chosen from the magnet menu (Display -> Timeout); 5, 15, 30 or 60.
+    # Dimming is unaffected: the contrast still drops after five minutes
+    # on, which is what protects the panel from burn-in.
+    OledDisplayTimeoutMinutes: int = 30
+    # How many times the recovery credentials may be shown on the panel
+    # per boot.  Each reveal needs a confirming tap; once the credentials
+    # have actually been used they are never shown again.
+    RecoveryRevealLimit: int = 3
     # Performance KPIs. Off by default; see ipr_keyboard/metrics.py.
     MetricsEnabled: bool = False
 

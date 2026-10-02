@@ -67,6 +67,7 @@ class Snapshot:
     tx_total: int = 0
     tx_reason: str = ""
     tx_last_at: float | None = None  # wall-clock time of the last success
+    menu: object | None = None  # menu.MenuView while the magnet menu is open
 
 
 @dataclass(frozen=True)
@@ -100,6 +101,8 @@ def status_key(snap: Snapshot) -> tuple:
 
 def wants_display(snap: Snapshot) -> bool:
     """Phases during which the panel is on regardless of any timer."""
+    if snap.menu is not None:
+        return True
     if snap.held_secs > 0 and snap.phase != BOOT:
         return True
     if snap.tx_state == "sending":
@@ -140,6 +143,8 @@ def compose(snap: Snapshot) -> Screen:
         return Screen(
             "RESETTING…", badge, (Line("Wi-Fi profiles deleted"), Line("Rebooting…"))
         )
+    if snap.menu is not None:
+        return _menu_screen(snap, badge)
     if snap.held_secs > 0:
         return _gesture_screen(snap, badge)
     if snap.tx_state == "sending":
@@ -220,6 +225,29 @@ def _boot_lines(snap: Snapshot) -> tuple[Line, ...]:
         Line("Bluetooth", ICON_OK if bt_ok else ICON_WAIT),
         Line("Dashboard", ICON_OK if snap.ready else ICON_WAIT),
     )
+
+
+def _menu_screen(snap: Snapshot, badge: str) -> Screen:
+    """The magnet menu: a list to step through, or a confirmation / reveal.
+
+    Uses the same compact four-line grid as the gesture list, so the selected
+    line is bold with a marker and nothing changes size as the list scrolls.
+    """
+    view = snap.menu
+    if view.detail:
+        # compact here too: the confirmation and the recovery key are
+        # longer than the 114 px slot allows at the larger face.
+        return Screen(
+            view.title,
+            badge,
+            tuple(Line(t) for t in view.detail),
+            compact=True,
+        )
+    lines = tuple(
+        Line(text, ICON_MARK if i == view.selected else "", bold=i == view.selected)
+        for i, text in enumerate(view.lines)
+    )
+    return Screen(view.title, badge, lines, compact=True)
 
 
 def _gesture_screen(snap: Snapshot, badge: str) -> Screen:

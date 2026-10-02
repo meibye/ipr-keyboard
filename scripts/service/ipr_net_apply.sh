@@ -11,7 +11,15 @@
 # Usage (root, or via sudo -n from the app user):
 #   ipr_net_apply.sh dhcp
 #   ipr_net_apply.sh static <ip> <netmask|prefix> [gateway]
-#   ipr_net_apply.sh show         # profile name, method, addresses
+#   ipr_net_apply.sh show               # profile name, method, addresses
+#   ipr_net_apply.sh scan               # rescan and list visible SSIDs
+#   ipr_net_apply.sh wifi-save <ssid> [psk]   # create/replace the home profile
+#
+# The last two exist because NetworkManager requires polkit authorisation for
+# scanning and for writing a connection, which the setup portal -- a web
+# process running as the app user -- does not have: it failed with
+# "insufficient privileges" exactly when a device with no network needed it.
+# The portal calls these through the existing NOPASSWD sudo grant instead.
 #
 # The netmask may be dotted (255.255.255.0) or a prefix length (24).
 # DNS follows the gateway for static, and DHCP for dhcp.
@@ -132,6 +140,28 @@ case "${1:-}" in
       ipv4.gateway "${gw}" ipv4.dns "${gw}" ipv4.ignore-auto-dns yes
     log "${con}: ipv4.method=manual ${ip}/${prefix} gw=${gw:-none}"
     reactivate "${con}"
+    ;;
+  scan)
+    # A rescan needs root; without it nmcli returns an empty list and the
+    # portal cannot tell "denied" from "no networks in range".
+    nmcli radio wifi on >/dev/null 2>&1 || true
+    nmcli dev wifi rescan >/dev/null 2>&1 || true
+    sleep 3
+    nmcli -t -f SSID dev wifi list
+    ;;
+  wifi-save)
+    ssid="${2:-}"; psk="${3:-}"
+    [[ -n "${ssid}" ]] || die "wifi-save needs an SSID"
+    # One profile name, always: HOME_CON.  The portal used to invent
+    # ipr-wifi-<ssid>, which the dhcp/static commands above then did not
+    # recognise as the home profile.
+    nmcli con delete "${OWNED_CON}" >/dev/null 2>&1 || true
+    if [[ -n "${psk}" ]]; then
+      nmcli con add type wifi con-name "${OWNED_CON}" ifname "" ssid "${ssid}"         wifi-sec.key-mgmt wpa-psk wifi-sec.psk "${psk}"         connection.autoconnect yes connection.autoconnect-priority 10
+    else
+      nmcli con add type wifi con-name "${OWNED_CON}" ifname "" ssid "${ssid}"         connection.autoconnect yes connection.autoconnect-priority 10
+    fi
+    log "saved ${OWNED_CON} for SSID ${ssid}"
     ;;
   show)
     con="$(home_profile)"

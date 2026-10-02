@@ -143,6 +143,7 @@ class OledManager:
         contrast: int = 128,
         rotate: int = 0,
         idle_seconds: float = 30.0,
+        display_timeout_minutes: int = 30,
         send_hold_seconds: float = 10.0,
         marquee_fps: float = 8.0,
         source=None,
@@ -161,6 +162,10 @@ class OledManager:
         self._contrast = contrast
         self._rotate = rotate
         self._idle = float(idle_seconds)
+        # How long the panel stays on after the last magnet contact or status
+        # change.  Separate from the LED's idle window on purpose: the LED is
+        # glanceable and costs nothing, the panel is read and wears out.
+        self._display_hold = max(60.0, float(display_timeout_minutes) * 60.0)
         self._send_hold = float(send_hold_seconds)
         self._marquee_tick = 1.0 / max(1.0, float(marquee_fps))
         self._source = source
@@ -250,6 +255,11 @@ class OledManager:
         self._thread.start()
         logger.info("%s (bus %d, 0x%02X)", LOG_STARTED, self._bus, self._address)
 
+    def set_display_timeout(self, minutes: int) -> None:
+        """Change the on-time, from the magnet menu.  Takes effect at once."""
+        self._display_hold = max(60.0, float(minutes) * 60.0)
+        logger.info("OLED display timeout set to %d minutes", minutes)
+
     def set_ready(self) -> None:
         """Forwarded to a StandaloneSource; GpioMonitor has its own set_ready()."""
         if isinstance(self._source, StandaloneSource):
@@ -293,12 +303,17 @@ class OledManager:
         """One poll: returns True when a long line is rolling (redraw faster)."""
         snap = self._snapshot(now)
 
+        # Any contact with the magnet starts a fresh display period -- a tap
+        # is how the user says "I am looking at this".
+        if snap.held_secs > 0:
+            self._wake_until = max(self._wake_until, now + self._display_hold)
+
         key = screens.status_key(snap)
         if self._last_key is None:
             self._last_key = key
         elif key != self._last_key:
             self._last_key = key
-            self._wake_until = now + self._idle
+            self._wake_until = now + self._display_hold
 
         tx_mark = (snap.tx_state, snap.tx_last_at, snap.tx_total, snap.tx_reason)
         if snap.tx_state in ("success", "failed") and tx_mark != self._last_tx_mark:

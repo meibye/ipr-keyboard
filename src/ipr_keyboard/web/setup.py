@@ -36,6 +36,11 @@ _SECRET_FILE = Path("/etc/ipr-hotspot.secret")
 _CA_CERT_FILE = Path("/etc/ipr-ssl/ca.crt")
 _SERVER_CERT_FILE = Path("/etc/ipr-ssl/server.crt")
 _CERT_RENEW_SCRIPT = Path("/usr/local/sbin/ipr-cert-renew.sh")
+# The privileged network helper: NetworkManager needs root (polkit) to
+# scan and to write a connection, and this process runs as the app user.
+# Installed by scripts/service/install_network_helper.sh with a NOPASSWD
+# sudoers grant for exactly this path.
+_NET_HELPER = Path("/usr/local/bin/ipr_net_apply.sh")
 _SETUP_USER = "ipr"
 _SESSION_KEY = "setup_ok"
 
@@ -300,17 +305,20 @@ def _do_scan() -> None:
     # check=False does not suppress.
     result = ["(scan failed — try rescan)"]
     try:
-        subprocess.run(["nmcli", "radio", "wifi", "on"], check=False)
-        subprocess.run(["nmcli", "dev", "wifi", "rescan"], check=False)
-        time.sleep(3)
+        # Through the privileged helper: NetworkManager needs polkit
+        # authorisation to rescan, and a web process running as the app user
+        # has none -- nmcli then returns an empty list, which the portal used
+        # to show as "no networks" on a device surrounded by them.
         own_ssid = _hotspot_ssid()
-        out = _sh(["nmcli", "-t", "-f", "SSID", "dev", "wifi", "list"])
+        out = _sh(["sudo", "-n", str(_NET_HELPER), "scan"])
         ssids: list[str] = []
         for line in out.splitlines():
             s = line.strip()
             if s and s not in ssids and s != own_ssid:
                 ssids.append(s)
-        result = ssids or ["(no networks found — try rescan)"]
+        result = ssids or [
+            "(no networks found — note: 2.4 GHz only)"
+        ]
     except (subprocess.CalledProcessError, OSError):
         result = ["(scan failed — try rescan)"]
     finally:
@@ -329,27 +337,19 @@ def _trigger_scan_background() -> None:
 
 
 def _save_wifi_profile(ssid: str, psk: str, sec: str) -> None:
-    con_name = f"ipr-wifi-{ssid}"
-    subprocess.run(
-        ["nmcli", "con", "delete", con_name],
-        check=False, capture_output=True,
-    )
-    if sec == "open" or (sec == "auto" and not psk):
-        _sh([
-            "nmcli", "con", "add", "type", "wifi",
-            "con-name", con_name, "ssid", ssid,
-            "connection.autoconnect", "yes",
-            "connection.autoconnect-priority", "10",
-        ])
-    else:
-        _sh([
-            "nmcli", "con", "add", "type", "wifi",
-            "con-name", con_name, "ssid", ssid,
-            "wifi-sec.key-mgmt", "wpa-psk",
-            "wifi-sec.psk", psk,
-            "connection.autoconnect", "yes",
-            "connection.autoconnect-priority", "10",
-        ])
+    """Write the home Wi-Fi profile through the privileged helper.
+
+    `nmcli con add` straight from here needs polkit authorisation the app user
+    does not have, and failed with "insufficient privileges" on the one device
+    that had no other way back onto the network.  The helper also owns the
+    profile name: one `ipr-home`, which the dhcp/static commands already
+    manage, instead of a per-SSID name nothing else recognised.
+    """
+    open_network = sec == "open" or (sec == "auto" and not psk)
+    args = ["sudo", "-n", str(_NET_HELPER), "wifi-save", ssid]
+    if not open_network:
+        args.append(psk)
+    _sh(args)
 
 
 # ---------------------------------------------------------------------------

@@ -27,7 +27,9 @@ from . import metrics
 from .web.server import create_app
 from .web import server as web_server
 from .gpio_monitor import GpioMonitor, gpio_available
+from .menu import MenuLogic
 from .oled.manager import OledManager
+from .recovery import RecoveryInfo
 
 logger = get_logger()
 
@@ -306,6 +308,33 @@ def _signal_ready_when_web_up(targets: list, port: int) -> None:
     )
 
 
+def _attach_menu(gpio_monitor, oled, cfg) -> None:
+    """Give the LED logic a menu, and the callbacks its actions need."""
+    recovery = RecoveryInfo(limit=cfg.RecoveryRevealLimit)
+    logic = gpio_monitor._logic
+    probe = logic._probe
+
+    def set_timeout(minutes: int) -> None:
+        oled.set_display_timeout(minutes)
+        try:
+            ConfigManager.instance().update(OledDisplayTimeoutMinutes=minutes)
+        except Exception as exc:  # a read-only config must not break the menu
+            logger.warning("Could not persist the display timeout: %s", exc)
+
+    def timeout_now() -> int:
+        return ConfigManager.instance().get().OledDisplayTimeoutMinutes
+
+    logic._menu = MenuLogic(
+        hotspot_active=lambda: probe.hotspot_active,
+        development=lambda: probe.development,
+        display_timeout_min=timeout_now,
+        reveals_left=recovery.reveals_left,
+    )
+    logic._on_display_timeout = set_timeout
+    logic._recovery_info = recovery.lines
+    logger.info("Magnet menu enabled (display present)")
+
+
 def main():
     """Main entry point for the ipr-keyboard application.
 
@@ -344,11 +373,18 @@ def main():
         contrast=cfg.OledContrast,
         rotate=cfg.OledRotate,
         idle_seconds=cfg.GpioLedIdleSeconds,
+        display_timeout_minutes=cfg.OledDisplayTimeoutMinutes,
         send_hold_seconds=cfg.OledSendHoldSeconds,
         marquee_fps=cfg.OledMarqueeFps,
         source=gpio_monitor if (gpio_monitor is not None and gpio_monitor.active) else None,
     )
     oled.start()
+
+    # The magnet menu replaces the timed gesture ladder, but only where it can
+    # be read: with no working panel the LED keeps the ladder exactly as it
+    # was (docs/architecture/magnet-menu-design.md section 3.2).
+    if gpio_monitor is not None and gpio_monitor.active and oled.active:
+        _attach_menu(gpio_monitor, oled, cfg)
 
     t_web = threading.Thread(target=run_web_server, daemon=True)
     t_web.start()

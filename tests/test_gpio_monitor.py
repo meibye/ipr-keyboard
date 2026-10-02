@@ -247,11 +247,11 @@ def test_phase_change_shows_a_dark_gap():
     rig = Rig()
     rig.ready()
     rig.press()
-    rig.advance(3.05)              # ~3.1 s held: just past the threshold, inside the gap
+    rig.advance(3.05)  # ~3.1 s held: just past the threshold, inside the gap
     assert rig.frame == Frame(OFF)
     rig.advance(0.5)
     assert rig.frame == Frame(BLUE)
-    rig.advance(2.6)               # ~6.2 s held: shutdown phase, gap again
+    rig.advance(2.6)  # ~6.2 s held: shutdown phase, gap again
     assert rig.frame == Frame(OFF)
     rig.advance(0.5)
     assert rig.frame == Frame(WHITE)
@@ -567,3 +567,135 @@ def test_monitor_without_gpio_is_inert(monkeypatch):
     mon.start()
     assert not mon.active
     mon.stop()  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# The magnet menu (only where a display can show it)
+# ---------------------------------------------------------------------------
+
+
+def _menu_rig(**probe_kw):
+    """A rig whose LedLogic has a menu, as on a device with a working panel."""
+    from ipr_keyboard.menu import MenuLogic
+
+    rig = Rig(FakeProbe(**probe_kw))
+    timeouts = []
+    menu = MenuLogic(
+        hotspot_active=lambda: rig.probe.hotspot_active,
+        development=lambda: rig.probe.development,
+        display_timeout_min=lambda: 30,
+        reveals_left=lambda: 3,
+    )
+    rig.logic._menu = menu
+    rig.logic._on_display_timeout = timeouts.append
+    rig.logic._recovery_info = lambda: ("Wi-Fi ipr-setup-abcd", "Key 0123456789")
+    rig.menu = menu
+    rig.timeouts = timeouts
+    rig.ready()
+    return rig
+
+
+def _menu_tap(rig):
+    rig.press()
+    rig.advance(0.3)
+    rig.release()
+
+
+def _menu_select(rig):
+    rig.press()
+    rig.advance(2.0)
+    rig.release()
+
+
+def test_a_three_second_hold_opens_the_menu_instead_of_arming_the_ladder():
+    rig = _menu_rig()
+    rig.press()
+    rig.advance(3.5)
+    assert rig.logic.armed == "menu", "the ladder is not used when a menu exists"
+    rig.release()
+    assert rig.logic.phase == Phase.MENU and rig.menu.open
+    assert rig.frame == Frame(BLUE), "steady blue says: in a menu"
+
+
+def test_the_ladder_still_works_without_a_display():
+    rig = Rig()  # no menu wired: the panel-less case
+    rig.ready()
+    rig.press()
+    rig.advance(3.5)
+    assert rig.logic.armed == "hotspot"
+    rig.advance(3)
+    assert rig.logic.armed == "shutdown"
+
+
+def test_taps_move_and_a_long_press_activates():
+    rig = _menu_rig()
+    rig.press()
+    rig.advance(3.5)
+    rig.release()
+    assert rig.menu.view().lines[rig.menu.view().selected] == "Hotspot on"
+    _menu_select(rig)
+    assert rig.logic.phase == Phase.HOTSPOT_BUSY
+    assert rig.actions.calls == ["start"]
+
+
+def test_the_menu_can_set_the_display_timeout():
+    rig = _menu_rig()
+    rig.press()
+    rig.advance(3.5)
+    rig.release()
+    while rig.menu.view().lines[rig.menu.view().selected] != "Display":
+        _menu_tap(rig)
+    _menu_select(rig)
+    while "5 min" not in rig.menu.view().lines[rig.menu.view().selected]:
+        _menu_tap(rig)
+    _menu_select(rig)
+    assert rig.timeouts == [5]
+
+
+def test_a_factory_reset_from_the_menu_needs_two_taps():
+    rig = _menu_rig()
+    rig.press()
+    rig.advance(3.5)
+    rig.release()
+    while rig.menu.view().lines[rig.menu.view().selected] != "Factory reset":
+        _menu_tap(rig)
+    _menu_select(rig)
+    assert rig.actions.calls == [], "selection alone does nothing"
+    _menu_tap(rig)
+    assert rig.actions.calls == [], "one tap is not enough"
+    _menu_tap(rig)
+    assert rig.actions.calls == ["reset"]
+    assert rig.logic.phase == Phase.RESETTING
+
+
+def test_recovery_info_reaches_the_panel_only_after_a_confirming_tap():
+    rig = _menu_rig()
+    rig.press()
+    rig.advance(3.5)
+    rig.release()
+    while not rig.menu.view().lines[rig.menu.view().selected].startswith("Recovery"):
+        _menu_tap(rig)
+    _menu_select(rig)
+    assert rig.menu.view().title == "CONFIRM?"
+    _menu_tap(rig)
+    view = rig.menu.view()
+    assert view.title == "RECOVERY" and "ipr-setup-abcd" in view.detail[0]
+
+
+def test_the_menu_closes_itself_and_the_led_returns_to_status():
+    rig = _menu_rig()
+    rig.press()
+    rig.advance(3.5)
+    rig.release()
+    rig.advance(25)
+    assert not rig.menu.open
+    assert rig.logic.phase == Phase.STATUS
+
+
+def test_the_snapshot_carries_the_menu_for_the_display():
+    rig = _menu_rig()
+    assert rig.logic.snapshot(rig.now).menu is None
+    rig.press()
+    rig.advance(3.5)
+    rig.release()
+    assert rig.logic.snapshot(rig.now).menu is not None

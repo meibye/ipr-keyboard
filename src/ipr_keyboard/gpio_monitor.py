@@ -124,6 +124,8 @@ HOLD_RESET_SECS: float = 15.0
 HOLD_CANCEL_SECS: float = 20.0
 PHASE_GAP_SECS: float = 0.3          # dark gap when a held phase changes
 MODE_CONFIRM_SECS: float = 3.0
+HOLD_MENU_SECS: float = 3.0          # open the menu (display present)
+MENU_SELECT_SECS: float = 1.5        # hold inside the menu = activate
 ACK_BLINK_SECS: float = 0.6          # "magnet registered" blink after a press
 ACK_BLINK_HALF_SECS: float = 0.12    # 0.6 s / 0.12 s = on-off-on-off-on
 LED_IDLE_TIMEOUT_SECS: int = 30
@@ -342,6 +344,7 @@ class Phase(str, Enum):
     MODE_CONFIRM = "mode_confirm"  # purple solid after a mode toggle
     SHUTTING_DOWN = "shutting_down"  # white solid until the kernel halts
     RESETTING = "resetting"  # red fast blink until reboot
+    MENU = "menu"  # the magnet menu is open on the display
 
 
 @dataclass(frozen=True)
@@ -374,6 +377,9 @@ FRAME_RESET = Frame(RED, FAST_HZ)
 # the small LED, so users released too early and started the hotspot.
 FRAME_SHUTDOWN = Frame(WHITE)
 FRAME_MODE_CONFIRM = Frame(PURPLE)
+# Steady blue while the menu is open: a glance says "this device is in a
+# menu", and the panel is what is read.
+FRAME_MENU = Frame(BLUE)
 
 
 @dataclass(frozen=True)
@@ -396,6 +402,7 @@ class LedSnapshot:
     failed_services: tuple[str, ...] = ()
     ssid: str = ""
     ip: str = ""
+    menu: object | None = None  # menu.MenuView while the menu is open
 
 
 def status_frame(probe: SystemProbe) -> Frame:
@@ -440,7 +447,16 @@ class LedLogic:
         hold_reset: float = HOLD_RESET_SECS,
         hold_cancel: float = HOLD_CANCEL_SECS,
         request_timeout: float = HOTSPOT_REQUEST_TIMEOUT_SECS,
+        menu=None,
+        on_display_timeout=None,
+        recovery_info=None,
     ) -> None:
+        # The menu replaces the timed ladder, but only where it can be read:
+        # the application passes one in when the display is live, and a device
+        # without a panel keeps the ladder exactly as it was.
+        self._menu = menu
+        self._on_display_timeout = on_display_timeout
+        self._recovery_info = recovery_info
         self._probe = probe
         self._actions = actions
         self._idle_timeout = idle_timeout
@@ -487,6 +503,7 @@ class LedLogic:
             failed_services=tuple(getattr(p, "failed_services", ())),
             ssid=getattr(p, "ssid", ""),
             ip=getattr(p, "ip", ""),
+            menu=self._menu.view() if (self._menu and self._menu.open) else None,
         )
 
     # -- main step --------------------------------------------------------
@@ -496,6 +513,14 @@ class LedLogic:
         self._handle_reed(now, reed_closed)
 
         if self.phase == Phase.BOOT and self._ready:
+            self._enter_status(now)
+
+        if self._menu is not None and self._menu.open:
+            self._menu.tick(now)
+            self._drain_menu(now)
+            if not self._menu.open and self.phase == Phase.MENU:
+                self._enter_status(now)
+        elif self.phase == Phase.MENU:
             self._enter_status(now)
 
         # Phase transitions driven by time / probe results
@@ -552,6 +577,14 @@ class LedLogic:
         self._next_probe = 0.0  # refresh immediately on the next tick
 
     def _handle_reed(self, now: float, closed: bool) -> None:
+        # The menu owns the magnet while it is open: a tap moves, a long press
+        # activates.  Everything below (the timed ladder) is what a device
+        # without a display still uses.
+        if self._menu is not None and self._menu.open:
+            self._handle_reed_in_menu(now, closed)
+            self._reed_was = closed
+            return
+
         if closed and not self._reed_was:
             # Press: show status right away (hotspot/reset phases keep their frame)
             self._press_start = now
@@ -561,6 +594,13 @@ class LedLogic:
                 self._probe_now()
         elif closed:
             held = now - self._press_start
+            if self._menu is not None:
+                # With a display, one hold opens the menu and the ladder below
+                # is not used at all: no second-counting, and the destructive
+                # actions sit behind a confirmation instead of a threshold.
+                if held >= HOLD_MENU_SECS:
+                    self._arm("menu", now, held, "menu armed")
+                return
             if held >= self._hold_cancel:
                 self._arm("cancel", now, held, "gesture cancelled")
             elif held >= self._hold_reset:
@@ -576,6 +616,8 @@ class LedLogic:
             armed, self._armed = self._armed, None
             if self.phase in (Phase.RESETTING, Phase.SHUTTING_DOWN, Phase.BOOT):
                 pass  # ignore gestures while booting, resetting or shutting down
+            elif armed == "menu":
+                self._open_menu(now)
             elif armed == "cancel":
                 logger.info("Gesture cancelled (held ≥ %.0f s)", self._hold_cancel)
                 if self.phase in (Phase.STATUS, Phase.IDLE):
@@ -603,28 +645,89 @@ class LedLogic:
                 self._deadline = now + MODE_CONFIRM_SECS
                 self._next_probe = now + 1.0  # pick the new mode up soon
             elif armed == "hotspot" and self.phase != Phase.HOTSPOT_BUSY:
-                self._probe_now()
-                self._busy_target = not self._probe.hotspot_active
-                logger.info(
-                    "Hotspot %s requested via reed switch",
-                    "start" if self._busy_target else "stop",
-                )
-                self.phase = Phase.HOTSPOT_BUSY
-                self._deadline = now + self._request_timeout
-                self._next_probe = now + PROBE_INTERVAL_ACTIVE_SECS
-                if self._busy_target:
-                    self._actions.hotspot_start()
-                else:
-                    self._actions.hotspot_stop()
+                self._start_hotspot_request(now)
             elif self.phase in (Phase.STATUS, Phase.IDLE):
                 self._enter_status(now)
         self._reed_was = closed
+
+    def _handle_reed_in_menu(self, now: float, closed: bool) -> None:
+        """Reed events while the menu is open: tap = next, long press = select.
+
+        The press is classified on RELEASE, so the user can let go as soon as
+        the panel highlights what they want; holding on past
+        MENU_SELECT_SECS and releasing activates it.
+        """
+        if closed and not self._reed_was:
+            self._press_start = now
+            return
+        if not closed and self._reed_was:
+            held = now - self._press_start
+            if held >= MENU_SELECT_SECS:
+                self._menu.select(now)
+            else:
+                self._menu.tap(now)
+            self._drain_menu(now)
+
+    def _drain_menu(self, now: float) -> None:
+        """Run whatever the menu asked for."""
+        while True:
+            action = self._menu.take_action()
+            if action is None:
+                return
+            logger.info("Menu action: %s", action)
+            if action == "hotspot":
+                self._start_hotspot_request(now)
+            elif action == "mode":
+                self._actions.mode_toggle()
+                self.phase = Phase.MODE_CONFIRM
+                self._deadline = now + MODE_CONFIRM_SECS
+                self._next_probe = now + 1.0
+                self._menu.leave()
+            elif action == "shutdown":
+                logger.warning("Shutdown requested from the menu")
+                self.phase = Phase.SHUTTING_DOWN
+                self._actions.shutdown()
+            elif action == "reset":
+                logger.warning("Factory reset confirmed from the menu")
+                self.phase = Phase.RESETTING
+                self._actions.factory_reset()
+            elif action.startswith("timeout:"):
+                minutes = int(action.split(":", 1)[1])
+                if self._on_display_timeout:
+                    self._on_display_timeout(minutes)
+            elif action == "recovery":
+                if self._recovery_info:
+                    lines = self._recovery_info()
+                    if lines:
+                        self._menu.show_detail(tuple(lines), now)
+
+    def _open_menu(self, now: float) -> None:
+        self._menu.enter(now)
+        self.phase = Phase.MENU
+        logger.info("Magnet menu opened")
 
     def _arm(self, what: str, now: float, held: float, what_log: str) -> None:
         if self._armed != what:
             logger.info("Reed held %.0f s — %s", held, what_log)
             self._armed = what
             self._armed_at = now
+
+    def _start_hotspot_request(self, now: float) -> None:
+        """Toggle the hotspot.  Shared by the timed ladder and the menu."""
+        if self.phase == Phase.HOTSPOT_BUSY:
+            return
+        self._probe_now()
+        self._busy_target = not self._probe.hotspot_active
+        logger.info(
+            "Hotspot %s requested", "start" if self._busy_target else "stop"
+        )
+        self.phase = Phase.HOTSPOT_BUSY
+        self._deadline = now + self._request_timeout
+        self._next_probe = now + PROBE_INTERVAL_ACTIVE_SECS
+        if self._busy_target:
+            self._actions.hotspot_start()
+        else:
+            self._actions.hotspot_stop()
 
     def _probe_now(self) -> None:
         try:
@@ -649,6 +752,9 @@ class LedLogic:
             if now - self._armed_at < PHASE_GAP_SECS:
                 return FRAME_OFF
             return {
+                # Blue while the menu is being armed, the same colour it
+                # shows once open, so the hold reads as one gesture.
+                "menu": FRAME_MENU,
                 "hotspot": FRAME_ARM_HOTSPOT,
                 "shutdown": FRAME_ARM_SHUTDOWN,
                 "mode": FRAME_ARM_MODE,
@@ -656,6 +762,8 @@ class LedLogic:
             }[self._armed]
         if self.phase == Phase.BOOT:
             return FRAME_BOOT
+        if self.phase == Phase.MENU:
+            return FRAME_MENU
         if self.phase == Phase.HOTSPOT_BUSY:
             return FRAME_HOTSPOT_BUSY
         if self.phase == Phase.FAIL_FLASH:

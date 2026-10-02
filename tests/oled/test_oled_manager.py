@@ -95,6 +95,7 @@ class Rig:
 
         self.mgr = mg.OledManager(
             idle_seconds=30,
+            display_timeout_minutes=1,  # the floor; keeps these tests short
             send_hold_seconds=10,
             source=self.source,
             display=self.display,
@@ -149,7 +150,7 @@ def test_sleeps_when_led_goes_idle_and_wakes_on_tap():
     assert rig.display.calls[-2] == "wake" and rig.screen.header == "READY"
 
 
-def test_status_change_wakes_idle_panel_for_the_idle_window():
+def test_status_change_wakes_idle_panel_for_the_display_period():
     rig = Rig()
     rig.tick()
     rig.source.set(phase=Phase.IDLE)
@@ -158,7 +159,7 @@ def test_status_change_wakes_idle_panel_for_the_idle_window():
     rig.source.set(bt_connected=True)  # PC connects
     rig.tick()
     assert "wake" in rig.display.calls and rig.screen.lines[0].text == "Laptop"
-    rig.run(29)
+    rig.run(59)
     assert rig.display.calls[-1] != "sleep"
     rig.run(2)
     assert rig.display.calls[-1] == "sleep"
@@ -230,7 +231,7 @@ def test_dims_after_five_minutes_on_and_restores_on_next_wake():
     rig.run(mg.LOW_CONTRAST_AFTER_SECS + 2)
     assert ("contrast", 128 // mg.LOW_CONTRAST_DIVISOR) in rig.display.calls
     rig.source.set(phase=Phase.IDLE, hotspot_active=False)
-    rig.run(31)  # the hotspot going down is a status change: idle window first
+    rig.run(61)  # the hotspot going down is a status change: display period first
     assert rig.display.calls[-1] == "sleep"
     rig.source.set(phase=Phase.STATUS)
     rig.tick()
@@ -346,3 +347,42 @@ def test_phase_enum_maps_to_screen_names(phase):
         Phase.RESETTING: "RESETTING…",
     }[phase]
     assert rig.screen.header == expected
+
+
+def test_a_magnet_tap_starts_a_fresh_display_period():
+    """Any contact restarts it -- a tap is how the user says "I am looking"."""
+    rig = Rig()
+    rig.tick()
+    rig.source.set(phase=Phase.IDLE)
+    rig.tick()
+    assert rig.display.calls[-1] == "sleep"
+
+    rig.source.set(phase=Phase.STATUS, held_secs=0.5)  # magnet on the switch
+    rig.tick()
+    assert "wake" in rig.display.calls
+    # The LED returns to IDLE after its own window; the panel must then stay
+    # on for the display period, not the LED's.
+    rig.source.set(held_secs=0.0, phase=Phase.IDLE)
+    rig.run(55)
+    assert rig.display.calls[-1] != "sleep", "still inside the minute"
+    rig.run(7)
+    assert rig.display.calls[-1] == "sleep"
+
+
+def test_the_display_timeout_can_be_changed_at_runtime():
+    rig = Rig()
+    rig.tick()
+    rig.mgr.set_display_timeout(15)
+    rig.source.set(phase=Phase.IDLE)
+    rig.tick()
+    rig.source.set(phase=Phase.STATUS, held_secs=0.5)
+    rig.tick()
+    rig.source.set(held_secs=0.0, phase=Phase.IDLE)
+    rig.run(120)
+    assert rig.display.calls[-1] != "sleep", "15 minutes, not one"
+
+
+def test_the_timeout_never_goes_below_a_minute():
+    rig = Rig()
+    rig.mgr.set_display_timeout(0)
+    assert rig.mgr._display_hold >= 60.0
