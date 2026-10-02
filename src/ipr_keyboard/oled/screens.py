@@ -1,10 +1,13 @@
 """What the display shows — pure data, no Pillow, no hardware.
 
 ``compose(snapshot)`` turns a :class:`Snapshot` of the device into a
-:class:`Screen`: a header word for the 16 yellow rows, an optional badge,
-and up to three body lines (or a progress bar) for the 48 blue rows.  The
-renderer decides fonts and pixels; nothing here knows the display size
-except the intent "three short lines".
+:class:`Screen`: a header word for the 16 yellow rows, a mode badge, and up
+to four body lines (or a progress bar) for the 48 blue rows.  The renderer
+decides fonts and pixels; nothing here knows the display size except the
+intent "a few short lines" — it packs four by using a smaller font.
+
+A line may ask to be emphasised (``Line.bold``); the gesture screen uses it
+for the activity that is currently selected.
 
 The screen map (user-facing) is in docs/hardware/oled-display.md; the
 reasoning in docs/architecture/oled-display-design.md.
@@ -70,14 +73,16 @@ class Snapshot:
 class Line:
     text: str
     icon: str = ""
+    bold: bool = False  # the renderer draws this line in the bold face
 
 
 @dataclass(frozen=True)
 class Screen:
     header: str
-    badge: str = ""
+    badge: str = ""  # mode badge: "DEV" or "PROD"
     lines: tuple[Line, ...] = ()
     progress: float | None = None  # None: no bar; < 0: indeterminate; 0..1
+    compact: bool = False  # keep the four-line grid even with fewer lines
 
 
 def status_key(snap: Snapshot) -> tuple:
@@ -107,8 +112,21 @@ def wants_display(snap: Snapshot) -> bool:
 # ---------------------------------------------------------------------------
 
 
+BADGE_DEV = "DEV"
+BADGE_PROD = "PROD"
+
+# The magnet gestures, in the order they arm while the magnet is held.
+GESTURES: tuple[tuple[str, int, str], ...] = (
+    ("hotspot", 3, "Hotspot"),
+    ("shutdown", 6, "Shutdown"),
+    ("mode", 10, "Switch mode"),
+    ("reset", 15, "Factory reset"),
+)
+
+
 def compose(snap: Snapshot) -> Screen:
-    badge = "DEV" if snap.development else ""
+    # The badge is the mode, on every screen: the LED no longer signals it.
+    badge = BADGE_DEV if snap.development else BADGE_PROD
 
     if snap.phase == BOOT:
         return Screen("STARTING…", badge, _boot_lines(snap))
@@ -145,10 +163,10 @@ def compose(snap: Snapshot) -> Screen:
         )
     if snap.phase == MODE_CONFIRM:
         if snap.development:
-            return Screen(
-                "MODE: DEVELOPMENT", badge, (Line("Ports open (SSH, dev)", ICON_OK),)
-            )
-        return Screen("MODE: PRODUCTION", badge, (Line("Ports closed", ICON_OK),))
+            # "Ports open (SSH, dev)" was 120 px on the device font and rolled
+            # through the whole three-second confirmation; the slot is 114 px.
+            return Screen("MODE: DEV", badge, (Line("Ports open (SSH)", ICON_OK),))
+        return Screen("MODE: PROD", badge, (Line("Ports closed", ICON_OK),))
     if snap.phase == HOTSPOT_ON or snap.hotspot_active:
         return Screen(
             "SETUP MODE",
@@ -184,44 +202,75 @@ def compose(snap: Snapshot) -> Screen:
 
 
 def _boot_lines(snap: Snapshot) -> tuple[Line, ...]:
+    """The boot checklist — it continues the one ipr_oled_boot.py starts.
+
+    ``scripts/headless/ipr_oled_boot.py`` owns the panel from a few seconds
+    after power-on (System / Network / Bluetooth / Application); the
+    application takes it over here and keeps ticking items off until the
+    dashboard answers.
+    """
     bt_ok = (
         "bt_hid_ble.service" not in snap.failed_services
         and "bluetooth.service" not in snap.failed_services
     )
+    net_ok = snap.wifi_connected or snap.hotspot_active
     return (
         Line("Services", ICON_OK if snap.services_ok else ICON_WAIT),
+        Line("Network", ICON_OK if net_ok else ICON_WAIT),
         Line("Bluetooth", ICON_OK if bt_ok else ICON_WAIT),
         Line("Dashboard", ICON_OK if snap.ready else ICON_WAIT),
     )
 
 
 def _gesture_screen(snap: Snapshot, badge: str) -> Screen:
+    """The activity list while the magnet is held.
+
+    The selected activity is bold and marked; activities already passed are
+    dropped and the rest roll up, so the list shrinks towards the one that
+    will fire on release and never needs to be read out of order.  The screen
+    is ``compact`` at every stage: the lines keep their size and position
+    while the list shrinks.
+    """
     armed = snap.armed
+    if armed == "cancel":
+        return Screen(
+            "CANCELLED",
+            badge,
+            (Line("Nothing will happen", ICON_ERR), Line("Take the magnet off")),
+        )
+
     if armed is None:
         header = "HOLD…"
-    elif armed == "cancel":
-        header = "CANCELLED"
-    elif armed == "hotspot":
-        header = "RELEASE → HOTSPOT OFF" if snap.hotspot_active else "RELEASE → HOTSPOT"
-    elif armed == "shutdown":
-        header = "RELEASE → SHUTDOWN"
-    elif armed == "mode":
-        header = "RELEASE → MODE"
+        remaining = GESTURES
     else:
-        header = "RELEASE → RESET"
-    hotspot_word = "Hotspot off" if snap.hotspot_active else "Hotspot"
-    return Screen(
-        header,
-        badge,
-        (
-            Line(f"3 s   {hotspot_word}", ICON_MARK if armed == "hotspot" else ""),
-            Line("6 s   Shutdown", ICON_MARK if armed == "shutdown" else ""),
-            Line(
-                "10 s Mode   15 s Reset",
-                ICON_MARK if armed in ("mode", "reset") else "",
-            ),
-        ),
+        # The header stays short and still ("RELEASE →"); the bold body line
+        # names the activity.  Spelling the activity out in the header made it
+        # too wide for the band beside the mode badge, so it rolled while the
+        # user was counting seconds.
+        header = "RELEASE →"
+        start = next(i for i, (key, _, _) in enumerate(GESTURES) if key == armed)
+        remaining = GESTURES[start:]
+
+    lines = tuple(
+        Line(
+            f"{secs} s  {_gesture_label(snap, key, label)}",
+            ICON_MARK if key == armed else "",
+            bold=key == armed,
+        )
+        for key, secs, label in remaining
     )
+    # compact: every stage of the gesture keeps the four-line grid, so the
+    # remaining activities move up a slot instead of changing size as the
+    # list shrinks.
+    return Screen(header, badge, lines, compact=True)
+
+
+def _gesture_label(snap: Snapshot, key: str, label: str) -> str:
+    if key == "hotspot" and snap.hotspot_active:
+        return "Hotspot off"
+    if key == "mode":
+        return "To production" if snap.development else "To development"
+    return label
 
 
 def _status_screen(snap: Snapshot, badge: str) -> Screen:

@@ -9,16 +9,16 @@ no C extension: the same code runs on the ARMv6 Zero W and on the Zero 2 W.
 Pillow is only needed to turn an image into the page-ordered framebuffer;
 the import is guarded so the application starts without it (the display is
 then disabled with a warning — see manager.py).
+
+This module deliberately imports nothing from the rest of the package (not
+even the logger): ``scripts/headless/ipr_oled_boot.py`` loads it by path, as
+root, before the application exists.
 """
 
 from __future__ import annotations
 
 import os
 import time
-
-from ..logging.logger import get_logger
-
-logger = get_logger()
 
 _PIL_IMPORT_ERROR: str | None = None
 try:

@@ -132,15 +132,21 @@ protrudes from one end.  Recommended approach:
 | Blue | Solid (while held) | Hotspot arming — magnet held 3–6 s | `gpio_monitor` |
 | Blue | Fast blink | Hotspot starting or stopping (after release) | `gpio_monitor` |
 | Blue | Solid | Management hotspot is active (setup mode) — stays on until the hotspot stops. **The device is then reachable only via the hotspot (10.42.0.1), not on the home network** | `gpio_monitor` |
-| Off (while held) | — | Magnet pressed, no threshold reached yet ("press registered"), or the 0.3 s gap at a phase change, or held ≥ 20 s (cancel) | `gpio_monitor` |
+| White | 3 quick blinks (0.6 s) | **Magnet registered** — the press is acknowledged the moment the magnet lands, before any threshold | `gpio_monitor` |
+| Off (while held) | — | Magnet held after the acknowledgement, no threshold reached yet, or the 0.3 s gap at a phase change, or held ≥ 20 s (cancel) | `gpio_monitor` |
 | White | Solid (while held) | Shutdown arming — magnet held 6–10 s | `gpio_monitor` |
 | White | Solid | Shutting down — wait; **off = safe to unplug** (`ipr-led-halt.service`) | `gpio_monitor`, then `ipr-led-halt` |
 | Purple | Solid (while held) | Mode toggle arming — magnet held 10–15 s | `gpio_monitor` |
 | Purple | Solid (3 s) | Mode changed (production ↔ development) | `gpio_monitor` |
-| Purple | Short blip every 4 s | **Development mode** — SSH and dashboard are open on the network. Shown on top of any other state, including off | `gpio_monitor` |
 | Red | Solid (while held) | Factory reset arming — magnet held 15–20 s | `gpio_monitor` |
 | Red | Fast blink | Factory reset in progress; also 3 s after a failed hotspot request | `gpio_monitor` |
 | Off | — | Idle — normal operation, no power draw | `gpio_monitor` |
+
+The LED has **no pattern for the device mode**.  A periodic blip on an
+otherwise idle device was read as a fault, so production/development is shown
+on the OLED instead — permanently, as a `DEV` / `PROD` badge in the top right
+corner of every screen (`docs/hardware/oled-display.md`).  A device without a
+display shows the mode on the dashboard and after a mode toggle (purple 3 s).
 
 ### Boot sequence
 

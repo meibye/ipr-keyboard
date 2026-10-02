@@ -150,3 +150,66 @@ def test_every_composed_screen_renders(renderer):
     for snap in snaps:
         img, _ = renderer.render(sc.compose(snap), 0.0)
         assert lit_pixels(img) > 0
+
+
+def test_four_lines_are_drawn_in_the_smaller_face(renderer):
+    scr = Screen(
+        "HOLD…",
+        "PROD",
+        tuple(
+            Line(t)
+            for t in ("3 s  Hotspot", "6 s  Shutdown", "10 s  Mode", "15 s  Reset")
+        ),
+    )
+    img, rolling = renderer.render(scr, 0.0)
+    assert not rolling, "the gesture lines fit at this size"
+    for y in rd.LINE_Y_4:
+        assert lit_pixels(img, (0, y, 128, y + rd.LINE_H_4)) > 0
+    assert lit_pixels(img, (0, rd.HEIGHT - 1, 128, rd.HEIGHT)) == 0  # nothing clipped
+
+
+def test_bold_line_is_heavier_than_the_plain_one(renderer):
+    plain, _ = renderer.render(Screen("HOLD…", "", (Line("6 s  Shutdown"),)), 0.0)
+    renderer.reset()
+    bold, _ = renderer.render(
+        Screen("HOLD…", "", (Line("6 s  Shutdown", bold=True),)), 0.0
+    )
+    assert lit_pixels(bold, (0, 18, 128, 33)) > lit_pixels(plain, (0, 18, 128, 33))
+
+
+def test_a_rolling_line_stays_inside_its_own_four_line_slot(renderer):
+    long_text = "15 s  Factory reset of every Wi-Fi profile"
+    lines = (Line("a"), Line(long_text), Line("c"), Line("d"))
+    scr = Screen("HOLD…", "", lines)
+    img0, rolling = renderer.render(scr, 0.0)
+    assert rolling
+    img1, _ = renderer.render(scr, rd.MARQUEE_HOLD_START + 1.0)
+    y = rd.LINE_Y_4[2]  # the slot below the rolling line is untouched
+    assert (
+        img1.crop((0, y, 128, y + rd.LINE_H_4)).tobytes()
+        == img0.crop((0, y, 128, y + rd.LINE_H_4)).tobytes()
+    )
+
+
+def test_every_gesture_stage_renders(renderer):
+    for armed in (None, "hotspot", "shutdown", "mode", "reset", "cancel"):
+        renderer.reset()
+        snap = sc.Snapshot(phase=sc.STATUS, held_secs=4.0, armed=armed)
+        img, _ = renderer.render(sc.compose(snap), 0.0)
+        assert lit_pixels(img) > 0
+
+
+def test_the_gesture_grid_does_not_change_size_as_the_list_shrinks(renderer):
+    """A compact screen keeps the four-line grid, so nothing jumps or rolls."""
+    four = sc.compose(sc.Snapshot(phase=sc.STATUS, held_secs=4.0, armed="hotspot"))
+    one = sc.compose(sc.Snapshot(phase=sc.STATUS, held_secs=16.0, armed="reset"))
+    assert four.compact and one.compact
+    img4, rolling4 = renderer.render(four, 0.0)
+    renderer.reset()
+    img1, rolling1 = renderer.render(one, 0.0)
+    assert not rolling4 and not rolling1
+    # The last activity sits in the top slot in both, drawn the same way.
+    band = (0, rd.LINE_Y_4[0], 128, rd.LINE_Y_4[0] + rd.LINE_H_4)
+    assert lit_pixels(img1, band) > 0
+    assert lit_pixels(img1, (0, rd.LINE_Y_4[1], 128, 64)) == 0  # nothing below
+    assert lit_pixels(img4, (0, rd.LINE_Y_4[3], 128, 64)) > 0  # four slots used

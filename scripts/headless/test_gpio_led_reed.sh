@@ -605,6 +605,7 @@ DRIVER_EOF
         "Hold the magnet near the reed switch for ≥ 3 s then release." \
         "Watch for a colour change at the 3 s mark."; then
         if manual_step \
+            "On contact: did the LED blink WHITE three times (magnet registered), then go dark?" \
             "At 3 s: did the LED change to STEADY BLUE, after a short dark gap (hotspot arming)?" \
             "On release: did it show the current status colour then turn off?" \
             "(Hotspot toggle is real — check 'systemctl is-active ipr-provision.service' if needed.)"; then
@@ -660,7 +661,7 @@ SAFE_DRIVER_EOF
 
     if manual_step \
         "Hold the magnet near the reed switch for ≥ 15 s then release." \
-        "Watch for FOUR steady colours, each entered through a short dark gap." \
+        "Watch for three white blinks on contact, then FOUR steady colours, each entered through a short dark gap." \
         "Thresholds: 3 s hotspot, 6 s shutdown, 10 s mode, 15 s factory reset."; then
         if manual_step \
             "At  3 s: STEADY BLUE (hotspot arm)?" \

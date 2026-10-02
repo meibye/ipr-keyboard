@@ -209,16 +209,27 @@ def test_status_refreshes_while_shown():
     assert rig.frame == Frame(GREEN)
 
 
-def test_press_goes_dark_before_arming_then_status_on_release():
+def test_press_blinks_white_then_goes_dark_before_arming():
     rig = Rig()
     rig.ready()
     rig.advance(40)  # idle
     rig.press()
+    assert rig.frame == Frame(WHITE), "magnet registered"
+    seen = {rig.frame}
+    for _ in range(int(gm.ACK_BLINK_SECS / 0.05)):
+        seen.add(rig.advance(0.05))
+    assert seen == {Frame(WHITE), Frame(OFF)}, "the blink toggles"
     rig.advance(1)
-    assert rig.frame == Frame(OFF), "press acknowledged by going dark"
+    assert rig.frame == Frame(OFF), "dark after the acknowledgement"
     assert rig.logic.armed is None
     rig.release()
     assert rig.frame == Frame(GREEN)
+
+
+def test_ack_blink_pattern_starts_lit_and_toggles():
+    assert gm.ack_frame(0.0) == Frame(WHITE)
+    assert gm.ack_frame(gm.ACK_BLINK_HALF_SECS + 0.01) == Frame(OFF)
+    assert gm.ack_frame(2 * gm.ACK_BLINK_HALF_SECS + 0.01) == Frame(WHITE)
 
 
 def test_press_while_hotspot_on_goes_dark_so_blue_blink_is_visible():
@@ -226,7 +237,7 @@ def test_press_while_hotspot_on_goes_dark_so_blue_blink_is_visible():
     rig.ready()
     assert rig.frame == Frame(BLUE)
     rig.press()
-    rig.advance(1)
+    rig.advance(1)  # past the acknowledgement blink
     assert rig.frame == Frame(OFF)
     rig.advance(2.5)
     assert rig.frame == Frame(BLUE)
@@ -402,7 +413,6 @@ def test_hold_6s_arms_shutdown_white_and_release_powers_off():
     assert rig.frame == Frame(WHITE), "stays white until the OS halts"
     rig.hold(3.5)
     assert rig.actions.calls == ["shutdown"], "no gestures while shutting down"
-    assert not rig.logic.dev_blip(rig.now)
 
 
 def test_hold_20s_cancels_everything():
@@ -419,24 +429,13 @@ def test_hold_20s_cancels_everything():
     assert rig.logic.phase == Phase.STATUS
 
 
-def test_dev_blip_only_in_development_mode():
-    rig = Rig(FakeProbe(development=False))
-    rig.ready()
-    assert not any(rig.logic.dev_blip(100.0 + k * 0.05) for k in range(200))
-    rig.probe.development = True
-    ons = [rig.logic.dev_blip(t / 100) for t in range(0, int(gm.DEV_BLIP_PERIOD_SECS * 100))]
-    assert any(ons) and not all(ons)
-    assert ons[0] and not ons[int(gm.DEV_BLIP_ON_SECS * 100) + 2]
-
-
-def test_dev_blip_suppressed_while_booting_or_arming():
+def test_development_mode_never_blinks_the_led():
+    """The mode is shown on the OLED badge; the LED has no blink for it."""
     rig = Rig(FakeProbe(development=True))
-    assert not rig.logic.dev_blip(100.0)  # BOOT
     rig.ready()
-    assert rig.logic.dev_blip(100.0)
-    rig.press()
-    rig.advance(3.5)  # armed: hotspot
-    assert not rig.logic.dev_blip(rig.now - rig.now % gm.DEV_BLIP_PERIOD_SECS)
+    frames = {rig.advance(0.05) for _ in range(400)}  # 20 s of idle status
+    assert frames == {Frame(GREEN)}, "no periodic blip on top of the status"
+    assert not hasattr(rig.logic, "dev_blip")
 
 
 # ---------------------------------------------------------------------------

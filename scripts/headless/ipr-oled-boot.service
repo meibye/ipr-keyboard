@@ -1,0 +1,32 @@
+[Unit]
+Description=IPR Keyboard OLED — boot progress before the application starts
+Documentation=file:///home/meibye/dev/ipr-keyboard/docs/hardware/oled-display.md
+# Start as early as systemd allows so the panel shows the boot instead of
+# staying dark until ipr_keyboard.service is up.
+#
+# Ordered on what the screen actually needs, not on sysinit.target: the i2c
+# node (systemd-modules-load.service loads i2c-dev) and the local filesystems
+# holding the fonts and REPO_DIR.  Measured on a Zero 2 W: local-fs.target at
+# 14.2 s, sysinit.target at 19.2 s — the 5 s in between are cloud-init-local,
+# fsck and the swap resize, none of which the panel waits for.  The script
+# still waits for the device node and for the panel to answer, so starting
+# early is safe; ipr-led-boot.service keeps sysinit.target ordering because
+# it needs nothing from the filesystem.
+DefaultDependencies=no
+After=local-fs.target systemd-modules-load.service
+Conflicts=shutdown.target
+
+[Service]
+Type=simple
+# Stopped by ipr_keyboard.service (ExecStartPre=+systemctl stop, plus
+# Conflicts=) so the application can claim the panel.  Exits by itself once
+# the application is active.
+ExecStart=/usr/local/sbin/ipr-oled-boot.py
+Restart=no
+# A missing display, missing Pillow or a missing repo is not an error: the
+# script logs one line and exits 0.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target

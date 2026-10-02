@@ -8,9 +8,10 @@ Hardware connections (BCM numbering, Flirc Pi Zero 2 W case):
   RGB LED blu  GPIO 24  Pin 18    22 Ω series resistor, common cathode to GND
 
 Reed switch interaction (the magnet is the only control on the device):
-  Press                  LED goes dark at once ("press registered"), so every
-                         arming colour below blinks against dark — visible even
-                         when the LED was solid blue (hotspot) or solid purple
+  Press                  LED blinks white three times ("magnet registered"),
+                         then goes dark, so every arming colour below appears
+                         against dark — visible even when the LED was solid
+                         blue (hotspot) before the magnet arrived
   Tap  (release < 3 s)   Wake LED; show system status for GpioLedIdleSeconds
   Hold ≥ 3 s             LED solid blue; release to toggle the management hotspot
   Hold ≥ 6 s             LED solid white; release for a controlled shutdown
@@ -39,12 +40,16 @@ LED colour map:
                      (ipr-led-halt.service turns it off just before the kernel halts)
   Purple solid       Mode toggle arming (hold ≥ 10 s, while held)
   Purple solid 3 s   Mode changed (confirmation)
-  Purple blip        Every 4 s while in DEVELOPMENT mode (ports open) — on top of
-                     whatever else the LED shows, including off
+  White blink x3     Magnet registered (press acknowledged), then dark
   Red solid (held)   Factory reset arming (hold ≥ 15 s); also, when not held, a
                      core service down
   Red fast blink     Factory reset in progress, or a failed hotspot request
   Off                Idle — no power draw
+
+The LED does not signal DEVELOPMENT mode: it has no blink of its own for the
+mode, because a periodic blink on an idle device is read as a fault.  The mode
+is shown on the OLED instead — permanently, in the header badge (``DEV`` /
+``PROD``) — see docs/hardware/oled-display.md.
 
 The boot phases before this module runs are driven by the firmware
 (``gpio=22,23,24=op,dh`` in config.txt) and by ``ipr-led-boot.service``;
@@ -119,8 +124,8 @@ HOLD_RESET_SECS: float = 15.0
 HOLD_CANCEL_SECS: float = 20.0
 PHASE_GAP_SECS: float = 0.3          # dark gap when a held phase changes
 MODE_CONFIRM_SECS: float = 3.0
-DEV_BLIP_PERIOD_SECS: float = 4.0    # development-mode heartbeat
-DEV_BLIP_ON_SECS: float = 0.15
+ACK_BLINK_SECS: float = 0.6          # "magnet registered" blink after a press
+ACK_BLINK_HALF_SECS: float = 0.12    # 0.6 s / 0.12 s = on-off-on-off-on
 LED_IDLE_TIMEOUT_SECS: int = 30
 
 HOTSPOT_REQUEST_TIMEOUT_SECS: float = 40.0  # nmcli con up on a Zero W can be slow
@@ -355,6 +360,7 @@ class Frame:
 
 
 FRAME_OFF = Frame(OFF)
+FRAME_ACK = Frame(WHITE)  # one "on" slot of the press-acknowledge blink
 FRAME_BOOT = Frame(WHITE, FAST_HZ)
 FRAME_HOTSPOT_BUSY = Frame(BLUE, FAST_HZ)
 FRAME_ARM_HOTSPOT = Frame(BLUE)
@@ -403,6 +409,16 @@ def status_frame(probe: SystemProbe) -> Frame:
     if probe.bt_connected:
         return Frame(GREEN)
     return Frame(AMBER)
+
+
+def ack_frame(elapsed: float) -> Frame:
+    """The "magnet registered" blink: white on/off slots from the press itself.
+
+    Timed against the press rather than the wall clock so the user always sees
+    the same three flashes, whenever the magnet happens to land.
+    """
+    on = int(elapsed / ACK_BLINK_HALF_SECS) % 2 == 0
+    return FRAME_ACK if on else FRAME_OFF
 
 
 class LedLogic:
@@ -472,22 +488,6 @@ class LedLogic:
             ssid=getattr(p, "ssid", ""),
             ip=getattr(p, "ip", ""),
         )
-
-    def dev_blip(self, now: float) -> bool:
-        """True during the short purple blip that marks DEVELOPMENT mode.
-
-        Shown every DEV_BLIP_PERIOD_SECS on top of whatever the LED shows
-        (including off), except while booting, arming a gesture or confirming
-        a mode change — the user must be able to tell at a glance that the
-        device has open ports.
-        """
-        if not self._probe.development:
-            return False
-        if self.phase in (Phase.BOOT, Phase.MODE_CONFIRM, Phase.RESETTING, Phase.SHUTTING_DOWN):
-            return False
-        if self._armed is not None:
-            return False
-        return (now % DEV_BLIP_PERIOD_SECS) < DEV_BLIP_ON_SECS
 
     # -- main step --------------------------------------------------------
 
@@ -638,10 +638,13 @@ class LedLogic:
         if self.phase == Phase.SHUTTING_DOWN:
             return FRAME_SHUTDOWN
         if reed_closed and self.phase != Phase.BOOT:
-            # Held: dark before the first threshold (press acknowledged), then
-            # one STEADY colour per phase, each entered through a short dark
-            # gap so the step registers even between similar hues.
+            # Held: the press is acknowledged by a short white blink, then dark
+            # until the first threshold, then one STEADY colour per phase, each
+            # entered through a short dark gap so the step registers even
+            # between similar hues.
             if self._armed is None or self._armed == "cancel":
+                if self._armed is None and now - self._press_start < ACK_BLINK_SECS:
+                    return ack_frame(now - self._press_start)
                 return FRAME_OFF
             if now - self._armed_at < PHASE_GAP_SECS:
                 return FRAME_OFF
@@ -831,10 +834,7 @@ class GpioMonitor:
             try:
                 closed = backend.reed_closed()  # type: ignore[attr-defined]
                 frame = self._logic.tick(now, closed)
-                if self._logic.dev_blip(now):
-                    color = PURPLE
-                else:
-                    color = frame.color if frame.is_on(now) else OFF
+                color = frame.color if frame.is_on(now) else OFF
                 backend.led(color)  # type: ignore[attr-defined]
             except Exception as exc:
                 logger.error("GPIO monitor loop error: %s", exc)

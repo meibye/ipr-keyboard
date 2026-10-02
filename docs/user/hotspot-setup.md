@@ -76,9 +76,9 @@ reachable on the home network — not the dashboard, not SSH.  Only the
 hotspot route above works then.  An administrator can put the device into
 **development mode** (hold the magnet for 10 seconds — the LED turns solid purple,
 release, and it lights solid purple for 3 seconds), after which the dashboard
-and SSH are reachable on the home network.  In development mode the LED gives
-a short purple blip every 4 seconds as a reminder; hold the magnet 10 seconds
-again to return to production mode.  Details:
+and SSH are reachable on the home network.  In development mode the small
+display carries a **`DEV`** badge in its top right corner as a reminder; hold
+the magnet 10 seconds again to return to production mode.  Details:
 `docs/operations/network-modes.md`.
 
 If the device is in development mode and connected to your home network, you
@@ -101,6 +101,7 @@ for as long as the hotspot is on.
 | LED colour | Meaning |
 |------------|---------|
 | Off | Device running normally, no action needed (also: dark while you hold the magnet, until a threshold is reached) |
+| White, three quick blinks | The magnet was registered — keep holding it, or take it off |
 | White solid | Power is on, the device is starting (first seconds) |
 | White blinking | Device is starting up (about a minute) |
 | Green solid | WiFi connected and Bluetooth paired — all good |
@@ -114,7 +115,6 @@ for as long as the hotspot is on.
 | White solid | Shutting down — wait until the LED is off, then unplug |
 | Purple solid while you hold | 10 s reached — release to switch production ↔ development mode |
 | Purple solid (3 s) | Mode changed |
-| Purple blip every 4 s | Development mode — SSH and dashboard are open on the network |
 | Red solid while you hold | 15 s reached — release for the network reset |
 | Red blinking fast | Network reset in progress — or a hotspot request failed |
 | Off while holding | Magnet held 20 s — release does nothing (cancel) |
@@ -132,7 +132,7 @@ you hold the magnet (it tells you what a release will do).
 | READY | Everything is fine — the lines show the connected PC, the pen and the WiFi network |
 | PROBLEM | One of the lines has a ✗ and says what is wrong (no WiFi, pen port off, a service down) |
 | SENDING… / SENT ✓ / SEND FAILED | A scan is being typed into the PC, was typed, or could not be (the text stays on the pen) |
-| HOLD… / RELEASE → … | You are holding the magnet: the marked line is what happens when you let go |
+| HOLD… / RELEASE → | You are holding the magnet: the bold, marked line is what happens when you let go; activities you have passed disappear |
 | SETUP MODE | The hotspot is on — the screen shows its WiFi name and the address to open |
 | SHUTTING DOWN | Wait until the LED and the screen are off, then unplug |
 

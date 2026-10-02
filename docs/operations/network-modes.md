@@ -125,19 +125,21 @@ are the physical and the client-side ones:
   shows the hotspot as *up* — read from NetworkManager, not from the unit.
 - After switching to development mode: `sudo ipr-firewall.sh status`.
 
-### Testing the LED in development mode
+### Testing the mode indication
 
 1. Switch to development (magnet 10 s → solid purple → release → solid
-   purple 3 s).  From then on the LED gives a short **purple blip every
-   4 s**, also while it is otherwise off.  No blip = production.
-2. Tap the magnet: status colour for 30 s, the purple blip continues on top.
+   purple 3 s).  The OLED then shows **`MODE: DEV`** for 3 s, and
+   from then on a **`DEV`** badge in the top right corner of every screen.
+   A `PROD` badge = production.  The LED has no pattern for the mode.
+2. Tap the magnet: the LED blinks white to acknowledge it, then shows the
+   status colour for 30 s; the OLED status screen carries the badge.
 3. From another machine `ssh` to the device and open the dashboard — both
    work in development, both time out in production.
 4. `sudo ipr-firewall.sh status` (over that SSH session) prints the mode,
    the hotspot state and the loaded rules; `sudo ipr_mode_ctl.sh status`
    prints the mode alone.
 5. Switch back with the magnet (10 s): the SSH session dies within seconds
-   and the blip stops.
+   and the badge returns to `PROD`.
 
 ### 3.4 Magnet and LED
 
@@ -146,6 +148,7 @@ cancel — see `docs/hardware/gpio-wiring.md`):
 
 | Hold | LED while held | On release |
 |---|---|---|
+| any press | 3 white blinks (0.6 s), then dark | — |
 | < 3 s (tap) | status colour | status for 30 s |
 | 3–6 s | solid blue | hotspot on/off |
 | 6–10 s | solid white | controlled shutdown |
@@ -153,9 +156,16 @@ cancel — see `docs/hardware/gpio-wiring.md`):
 | 15–20 s | solid red | Wi-Fi reset + reboot |
 | ≥ 20 s | off | cancel |
 
-In **development mode** the LED gives a short purple blip every 4 s — on top
-of whatever it otherwise shows, including "off" — so an open device cannot go
-unnoticed.  No blip in production mode.
+In **development mode** the OLED carries a `DEV` badge in the top right
+corner of every screen (`PROD` in production mode), so an open device cannot
+go unnoticed.  The LED deliberately has no pattern for the mode: a periodic
+blip on an idle device was read as a fault.  On a device without a display,
+the mode shows on the dashboard, in the setup portal and in the purple 3 s
+confirmation after a toggle.
+
+While the magnet is held, the OLED lists the activities one per line and puts
+the one that a release will trigger in bold; activities already passed
+disappear from the list.
 
 The setup portal home page shows the mode next to the hostname.
 

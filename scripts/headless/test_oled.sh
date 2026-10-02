@@ -225,7 +225,7 @@ fi
 section "B — Screens  (ipr_keyboard.oled.screens + render)"
 # ═══════════════════════════════════════════════════════════════════════════════
 
-info "B.1  Every screen for 3 s each (one has a long rolling line)…"
+info "B.1  Every screen for 3 s each (one rolls a long line, five are gesture stages)…"
 if py 'import time
 from ipr_keyboard.oled import screens as sc
 from ipr_keyboard.oled.render import Renderer
@@ -241,7 +241,11 @@ snaps = [
     sc.Snapshot(**{**ready, "tx_state": "sending", "tx_chars": 142}),
     sc.Snapshot(**{**ready, "tx_state": "success", "tx_recent": True, "tx_chars": 142, "tx_total": 13, "tx_last_at": time.time()}),
     sc.Snapshot(**{**ready, "phase": sc.HOTSPOT_ON, "hotspot_active": True, "hotspot_ssid": "ipr-setup-a1b2"}),
+    sc.Snapshot(**{**ready, "held_secs": 1.0}),
     sc.Snapshot(**{**ready, "held_secs": 4.0, "armed": "hotspot"}),
+    sc.Snapshot(**{**ready, "held_secs": 7.0, "armed": "shutdown"}),
+    sc.Snapshot(**{**ready, "held_secs": 12.0, "armed": "mode"}),
+    sc.Snapshot(**{**ready, "held_secs": 16.0, "armed": "reset"}),
     sc.Snapshot(**{**ready, "phase": sc.SHUTTING_DOWN}),
 ]
 t0 = time.monotonic()
@@ -255,6 +259,8 @@ for snap in snaps:
         time.sleep(0.125 if rolling else 0.5)
 d.sleep(); d.close()'; then
     if manual_step "Did each screen show a header in the yellow band and readable lines below?" \
+                   "Did every screen carry a DEV or PROD badge in the top right corner?" \
+                   "On the HOLD screens: one activity per line, the selected one in bold with a marker, and the list shrinking as the selection moved down?" \
                    "Did the long network line on the DEV screen roll slowly left, pause, and restart?"; then
         record_pass B.1 "All screens render; long line rolls"
     else

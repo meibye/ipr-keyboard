@@ -11,6 +11,8 @@
 #   4. app user in group i2c                    → /dev/i2c-1 without root
 #   5. /etc/default/ipr-oled + ipr-led-halt.sh  → panel blanked at halt
 #   6. include-system-site-packages in the venv → Pillow importable by the app
+#   7. ipr-oled-boot.py + ipr-oled-boot.service → boot progress on the panel
+#      (+ a drop-in so ipr_keyboard.service takes the panel over)
 #
 # Usage:
 #   sudo ./scripts/headless/install_oled_support.sh
@@ -58,13 +60,14 @@ log "App user: ${APP_USER}   repo: ${REPO_DIR}"
 # ---------------------------------------------------------------------------
 # Bus and address — from config.json when present, else the defaults
 # ---------------------------------------------------------------------------
-OLED_BUS=1; OLED_ADDR=60
+OLED_BUS=1; OLED_ADDR=60; OLED_ROTATE=0; OLED_CONTRAST=128
 CONFIG_JSON="${REPO_DIR}/config.json"
 if [[ -f "${CONFIG_JSON}" ]] && command -v python3 >/dev/null 2>&1; then
-  read -r OLED_BUS OLED_ADDR < <(python3 - "${CONFIG_JSON}" <<'PY' || echo "1 60"
+  read -r OLED_BUS OLED_ADDR OLED_ROTATE OLED_CONTRAST < <(python3 - "${CONFIG_JSON}" <<'PY' || echo "1 60 0 128"
 import json, sys
 d = json.load(open(sys.argv[1]))
-print(d.get("OledI2cBus", 1), d.get("OledI2cAddress", 60))
+print(d.get("OledI2cBus", 1), d.get("OledI2cAddress", 60),
+      d.get("OledRotate", 0), d.get("OledContrast", 128))
 PY
 )
 fi
@@ -145,9 +148,14 @@ fi
 # 5. Halt hook: ipr-led-halt.sh also blanks the panel (0xAE via i2cset)
 # ---------------------------------------------------------------------------
 cat > /etc/default/ipr-oled <<EOF
-# Bus/address for ipr-led-halt.sh — managed by install_oled_support.sh
+# Bus/address for ipr-led-halt.sh and ipr-oled-boot.py, plus the repository
+# the boot screen loads the SSD1306 driver from.
+# Managed by install_oled_support.sh
 OLED_BUS=${OLED_BUS}
 OLED_ADDR=${OLED_ADDR_HEX}
+OLED_ROTATE=${OLED_ROTATE}
+OLED_CONTRAST=${OLED_CONTRAST}
+REPO_DIR=${REPO_DIR}
 EOF
 install -m 0755 -o root -g root "${SCRIPT_DIR}/ipr_led_halt.sh" /usr/local/sbin/ipr-led-halt.sh
 log "Installed /etc/default/ipr-oled and refreshed ipr-led-halt.sh (panel off at the end of a shutdown)"
@@ -180,9 +188,33 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 7. Boot screen: the panel shows the boot long before the application starts
+# ---------------------------------------------------------------------------
+install -m 0755 -o root -g root "${SCRIPT_DIR}/ipr_oled_boot.py" /usr/local/sbin/ipr-oled-boot.py
+install -m 0644 -o root -g root "${SCRIPT_DIR}/ipr-oled-boot.service" /etc/systemd/system/ipr-oled-boot.service
+
+# Hand-over, same pattern as 10-led-boot.conf (install_gpio_support.sh):
+# Conflicts= alone loses to the boot transaction, so stop it explicitly.
+DROPIN_DIR=/etc/systemd/system/ipr_keyboard.service.d
+mkdir -p "${DROPIN_DIR}"
+cat > "${DROPIN_DIR}/11-oled-boot.conf" <<'EOF'
+# Managed by scripts/headless/install_oled_support.sh
+# Stop the early boot-progress screen so the application can claim the panel.
+[Unit]
+Conflicts=ipr-oled-boot.service
+After=ipr-oled-boot.service
+
+[Service]
+ExecStartPre=-+/usr/bin/systemctl stop ipr-oled-boot.service
+EOF
+log "Installed ipr-oled-boot.service (+ ${DROPIN_DIR}/11-oled-boot.conf)"
+
+# ---------------------------------------------------------------------------
 # Verify (non-fatal: no display is a valid configuration)
 # ---------------------------------------------------------------------------
 systemctl daemon-reload
+systemctl enable ipr-oled-boot.service >/dev/null 2>&1 || true
+log "ipr-oled-boot.service enabled (shows the boot on the panel from the next boot)"
 DEV="/dev/i2c-${OLED_BUS}"
 ADDR_SHORT="${OLED_ADDR_HEX#0x}"
 if [[ -c "${DEV}" ]]; then

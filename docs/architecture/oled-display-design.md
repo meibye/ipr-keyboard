@@ -81,21 +81,30 @@ still there in the status window.
 ### 4.1 Layout
 
 The 16 yellow rows are a **header**: one big state word on the left, a small
-badge on the right (`DEV` in development mode).  The 48 blue rows are the
-**body**: up to three 12-px lines with a fixed 10-px icon column, or a
-progress bar.  Text is plain language and mirrors the dashboard labels in
+badge on the right — the **device mode**, `DEV` or `PROD`, on every screen.
+The 48 blue rows are the **body**: up to three 12-px lines with a fixed 10-px
+icon column, or a progress bar; a screen that needs four lines (the magnet
+activity list, the boot checklist) packs them in a 9-px face instead of
+cutting one.  A line may be **bold** — used for the selected activity.  Text
+is plain language and mirrors the dashboard labels in
 `docs/ui/user-states.md`.
+
+The mode is on the display because the LED no longer signals it: a purple
+blip every 4 s read as a fault on an idle device
+(`docs/architecture/led-status-design.md` § 4.5).  A badge costs nothing, is
+always present, and cannot be mistaken for an alarm.
 
 ### 4.2 Screens
 
 ```
-Boot                         Ready (tap)                   Problem (tap / on change)
+Boot (ipr-oled-boot.service) Ready (tap)                   Problem (tap / on change)
 ┌──────────────────────┐    ┌──────────────────────┐     ┌──────────────────────┐
-│ STARTING…        DEV │    │ READY            DEV │     │ PROBLEM              │
+│ STARTING…        DEV │    │ READY            DEV │     │ PROBLEM         PROD │
 ├──────────────────────┤    ├──────────────────────┤     ├──────────────────────┤
-│ Services     ✓       │    │ ᛒ  Laptop-MSE        │     │ ✗ Service down:      │
-│ Bluetooth    …       │    │ ✎  Pen ready         │     │   bt_hid_ble         │
-│ Dashboard    …       │    │ ⌂  HomeNet 192.168.1.23│   │ ⌂  HomeNet 192.168.1.23│
+│ ✓ Services           │    │ ᛒ  Laptop-MSE        │     │ ✗ Service down:      │
+│ ✓ Network            │    │ ✎  Pen ready         │     │   bt_hid_ble         │
+│ … Bluetooth          │    │ ⌂  HomeNet 192.168.1.23│     │ ⌂  HomeNet 192.168.1.23│
+│ … Dashboard          │    │                      │     │                      │
 └──────────────────────┘    └──────────────────────┘     └──────────────────────┘
 
 Sending                      Sent                          Setup mode (hotspot up)
@@ -107,20 +116,35 @@ Sending                      Sent                          Setup mode (hotspot u
 │ 142 characters       │    │ Total 13             │     │ Hold 3 s to stop     │
 └──────────────────────┘    └──────────────────────┘     └──────────────────────┘
 
-Magnet held                  Shutting down
-┌──────────────────────┐    ┌──────────────────────┐
-│ RELEASE → HOTSPOT    │    │ SHUTTING DOWN        │
-├──────────────────────┤    ├──────────────────────┤
-│ ▶ 3 s  Hotspot       │    │ Wait for the LED to  │
-│   6 s  Shutdown      │    │ go off, then unplug  │
-│  10 s  Mode  15 s Rst│    │                      │
-└──────────────────────┘    └──────────────────────┘
+Magnet held (3 s reached)    Magnet held past 6 s          Shutting down
+┌──────────────────────┐    ┌──────────────────────┐     ┌──────────────────────┐
+│ RELEASE →            │    │ RELEASE →            │     │ SHUTTING DOWN        │
+├──────────────────────┤    ├──────────────────────┤     ├──────────────────────┤
+│ ▶ 3 s  Hotspot       │    │ ▶ 6 s  Shutdown      │     │ Wait for the LED to  │
+│   6 s  Shutdown      │    │   10 s  To developm. │     │ go off, then unplug  │
+│   10 s  To developm. │    │   15 s  Factory reset│     │                      │
+│   15 s  Factory reset│    │                      │     │                      │
+└──────────────────────┘    └──────────────────────┘     └──────────────────────┘
 ```
 
+The selected activity is bold and marked `▶`; the activities already passed
+are gone, so the list only ever shrinks and the next threshold is always the
+line below the selection.  One activity per line: the old
+"`10 s Mode  15 s Reset`" line had to be parsed, and four items fit because a
+four-line screen uses the smaller face.
+
 Header words: `STARTING…`, `READY`, `PROBLEM`, `SENDING…`, `SENT ✓`,
-`SEND FAILED`, `SETUP MODE`, `HOLD…`, `RELEASE → HOTSPOT / SHUTDOWN / MODE /
-RESET`, `CANCELLED`, `SHUTTING DOWN`, `RESETTING…`, `MODE: DEVELOPMENT` /
-`MODE: PRODUCTION`, `HOTSPOT…` (starting / stopping), `HOTSPOT FAILED`.
+`SEND FAILED`, `SETUP MODE`, `HOLD…`, `RELEASE →`, `CANCELLED`,
+`SHUTTING DOWN`, `RESETTING…`, `MODE: DEV` / `MODE: PROD`, `HOTSPOT…`
+(starting / stopping), `HOTSPOT FAILED`.
+
+Header words are short on purpose.  The mode badge takes a third of the
+band, and at 12 px bold the slot left over is ~91 px: `RELEASE → SHUTDOWN`
+(157 px) would roll for as long as the magnet is held, which is exactly when
+the user is reading.  The header therefore says only that a release acts,
+the bold body line says what, and a header that still does not fit (for
+example `SHUTTING DOWN`, 117 px) is stepped down to the 9-px face by the
+renderer before anything rolls.
 
 Body lines by state:
 
@@ -131,7 +155,9 @@ Body lines by state:
 | Network | `<ssid>  <ip>` · `No Wi-Fi — hold 3 s` · `Setup mode` |
 
 The magnet help screen is the display's biggest usability gain: the hold
-thresholds are hard to remember, and the LED can only show a colour.
+thresholds are hard to remember, and the LED can only show a colour.  The
+press itself is still acknowledged on the LED (three white blinks), because
+the magnet is often placed while the panel is asleep.
 
 ### 4.3 Progress
 
@@ -156,10 +182,15 @@ The LED stays exactly as it is.
 
 1. It works **before and after Python**: firmware white at ~1 s,
    `ipr-led-boot.service` at ~14 s, `ipr-led-halt.service` "safe to unplug".
-   The display can only start with the application (~35 s).  An early boot
-   unit for the display was considered and rejected: Python + Pillow start-up
-   costs seconds on the Zero W for one static frame, and the LED already
-   covers that window.
+   The display no longer waits for the application: `ipr-oled-boot.service`
+   (§ 6, *Boot screen*) owns the panel from a few seconds after power-on.
+   This reverses the original decision to let the LED cover the whole boot
+   window because Python + Pillow start-up costs a second or two on a
+   Zero W.  That cost is real, but it is paid **beside** the boot rather
+   than inside it — systemd starts the unit early and stops it before
+   `ipr_keyboard.service` claims the panel — while a panel that stays dark
+   for 35 s reads as a dead device, which is what prompted the change.
+   Measured on a Zero 2 W: the panel lights at 15.9 s instead of 38.2 s.
 2. It is glanceable from across the room and through the case; the display
    has to be read.
 3. Zero W units without a display must keep working, and the gestures and
@@ -200,6 +231,25 @@ usb.detector.pen_presence() ────────────────▶ 
   returns when `OledEnabled` is false, Pillow is not importable,
   `/dev/i2c-N` is missing, or nothing answers at the address — the same
   pattern as `GpioMonitor` without `RPi.GPIO`.
+- **Boot screen.**  `scripts/headless/ipr_oled_boot.py`, run by
+  `ipr-oled-boot.service` (`DefaultDependencies=no`, `After=local-fs.target
+  systemd-modules-load.service` — ordered on what the screen needs, the i2c
+  node and the filesystems holding the fonts and `REPO_DIR`, rather than on
+  `sysinit.target`, which on a Zero 2 W costs another 5 s of cloud-init,
+  fsck and swap resize), shows `STARTING…` and the milestones
+  System / Network / Bluetooth / Application, polling `systemctl is-active`
+  at 2 Hz and writing a frame only when something changes.  It runs as root,
+  so it must not import the application (its logger would create root-owned
+  files in the repo's `logs/`) and cannot use the venv: it loads the in-repo
+  driver **by path** (`importlib`, `REPO_DIR` from `/etc/default/ipr-oled`),
+  which is why `oled/ssd1306.py` imports nothing from the rest of the
+  package.  The hand-over copies the LED's pattern exactly: a drop-in
+  `11-oled-boot.conf` with `Conflicts=` **and**
+  `ExecStartPre=+systemctl stop`, because `Conflicts=` alone loses inside the
+  boot transaction.  The script also exits by itself once the application is
+  active, never blanks the panel (the application's own checklist continues
+  on it), and treats a missing display, missing Pillow or missing repo as one
+  journal line and exit 0.
 - **Halt.**  `OledManager.stop()` blanks the panel, except during a
   shutdown where it leaves "SHUTTING DOWN" and `ipr_led_halt.sh` (the
   existing `ipr-led-halt.service`) sends `0xAE` with `i2cset` at the same
@@ -214,15 +264,15 @@ usb.detector.pen_presence() ────────────────▶ 
 | Area | Files |
 |---|---|
 | Application | `src/ipr_keyboard/oled/{ssd1306,screens,render,manager}.py`, `gpio_monitor.py` (snapshot, probe fields), `usb/detector.py` (`pen_presence`), `transmission.py` (chars), `main.py`, `config/manager.py`, `config.default.json` |
-| Tests | `tests/oled/test_{screens,render,ssd1306,manager}.py`, `tests/config/test_manager.py` |
-| Device pieces | `scripts/headless/install_oled_support.sh`, `ipr_led_halt.sh`, `test_oled.sh`, `test_provision.sh` (phase N) |
+| Tests | `tests/oled/test_{screens,render,ssd1306,manager}.py`, `tests/scripts/test_oled_boot_screen.py`, `tests/config/test_manager.py` |
+| Device pieces | `scripts/headless/install_oled_support.sh`, `ipr_oled_boot.py`, `ipr-oled-boot.service`, `ipr_led_halt.sh`, `test_oled.sh`, `test_provision.sh` (phase N) |
 | Provisioning | `provision/04_enable_services.sh`, `scripts/deploy/deploy_full_update.sh`, `scripts/sys_install_packages.sh` |
 | Docs | `docs/hardware/oled-display.md`, `docs/hardware/gpio-wiring.md`, `docs/architecture/ARCHITECTURE.md`, `docs/user/hotspot-setup.md`, `scripts/headless/README.md`, both manuals |
 
 ## 8. Rolling out to an existing device
 
 ```bash
-sudo bash scripts/headless/install_oled_support.sh   # config.txt, i2c-dev, packages, group, halt hook
+sudo bash scripts/headless/install_oled_support.sh   # config.txt, i2c-dev, packages, group, halt hook, boot screen
 sudo systemctl restart ipr_keyboard.service           # picks up the i2c group
 sudo reboot                                           # only if /dev/i2c-1 did not exist before
 sudo bash scripts/headless/test_provision.sh --auto   # phase N must be all green

@@ -121,6 +121,7 @@ NetworkManager re-activates the home WiFi profile on its own.
 
 | Gesture | LED while held | On release |
 |---|---|---|
+| Press (any gesture) | 3 white blinks over 0.6 s, then dark | — (the acknowledgement is immediate, so the user knows the magnet landed) |
 | Tap (< 3 s) | status colour | status colour for `GpioLedIdleSeconds`, then off |
 | Hold 3–6 s | solid blue (held) | hotspot start (blue 4 Hz while starting → **blue solid while up, no timeout**) or stop (→ status colour); red 4 Hz for 3 s if the request fails within 40 s |
 | (status) | red solid | shown instead of the status colour while a core service is not active (`SystemProbe.services_ok`) — see `docs/operations/unsupervised-operation.md` |
@@ -129,9 +130,18 @@ NetworkManager re-activates the home WiFi profile on its own.
 | Hold 15–20 s | solid red (held) | WiFi profiles deleted, reboot; red 4 Hz until the reboot |
 | Hold ≥ 20 s | off | cancel — release does nothing |
 
-In development mode a 150 ms purple blip every 4 s is rendered on top of
-every frame (including off), except while booting, arming or confirming.
+The mode (production/development) is **not** on the LED.  A 150 ms purple
+blip every 4 s used to be rendered on top of every frame; on an otherwise
+idle device it read as a fault, and it made the "off = idle, all is well"
+rule untrue.  The mode is now shown on the OLED, permanently, as a `DEV` /
+`PROD` badge on every screen (`docs/architecture/oled-display-design.md`
+§ 4.2), and the purple 3 s confirmation after a toggle is unchanged.
 See `docs/operations/network-modes.md`.
+
+The press itself is acknowledged by three quick white blinks (0.6 s, timed
+from the press so the pattern is the same every time) before the LED goes
+dark: going straight to dark was ambiguous on a device that was already dark
+or blue, and users could not tell whether the magnet had registered.
 
 Each held phase is a steady colour entered through a 0.3 s dark gap (blinks
 of similar hues were not distinguishable on the LED).  Gestures are ignored

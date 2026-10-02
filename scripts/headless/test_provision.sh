@@ -451,6 +451,9 @@ check N.5 "$_INVOKING_USER in group i2c"                        "id -nG '$_INVOK
 check N.6 "python3-pil, fonts-dejavu-core, i2c-tools installed" "dpkg -s python3-pil fonts-dejavu-core i2c-tools"
 check N.7 "Pillow importable from the app venv"                 "'$PROJECT_DIR/.venv/bin/python' -c 'from PIL import Image, ImageDraw, ImageFont'"
 check N.8 "ipr-led-halt.sh blanks the OLED at halt (0xAE)"      "grep -q '0xAE' /usr/local/sbin/ipr-led-halt.sh"
+check N.11 "/etc/default/ipr-oled names the repo (boot screen)"  "grep -q '^REPO_DIR=' /etc/default/ipr-oled"
+check N.12 "ipr-oled-boot.service installed and enabled"         "systemctl is-enabled --quiet ipr-oled-boot.service"
+check N.13 "ipr_keyboard.service takes the panel over (drop-in)" "grep -q 'Conflicts=ipr-oled-boot.service' /etc/systemd/system/ipr_keyboard.service.d/11-oled-boot.conf"
 if [ -c /dev/i2c-1 ] && /usr/sbin/i2cdetect -y 1 2>/dev/null | grep -iE ' (3c|UU)( |$)' >/dev/null; then
     record_pass N.9 "SSD1306 answers at 0x3c (or is held by the app)"
 else
@@ -532,7 +535,7 @@ else
     record_skip J.6 "BT pairing completes successfully"
 fi
 
-if manual_step     "Status LED: power-cycle the device and watch the LED."     "Expected: solid white (power) -> white blink (booting) -> status colour for 30 s -> off."     "Tap the magnet: LED shows status again."     "Hold the magnet: dark, then solid blue at 3 s; release -> hotspot comes up, LED stays solid blue."     "Hold 3 s again: hotspot stops and the LED returns to the status colour." \
+if manual_step     "Status LED: power-cycle the device and watch the LED."     "Expected: solid white (power) -> white blink (booting) -> status colour for 30 s -> off.  In development mode there is no periodic blip: the mode is on the OLED badge."     "Tap the magnet: LED shows status again."     "Hold the magnet: three quick white blinks (magnet registered), then dark, then solid blue at 3 s; release -> hotspot comes up, LED stays solid blue."     "Hold 3 s again: hotspot stops and the LED returns to the status colour." \
     "Hold on to 6 s: solid white; release -> white while shutting down, then OFF = safe to unplug."; then
     record_pass J.7 "Status LED boot sequence and magnet gestures"
 else
@@ -541,8 +544,10 @@ fi
 
 if manual_step \
     "OLED display: watch the panel through a boot and a magnet tap." \
-    "Expected: STARTING… with a checklist while booting -> READY (or PROBLEM) with PC, pen and Wi-Fi lines -> blank after 30 s." \
-    "Tap the magnet: the status page comes back.  Hold it: the gesture help shows which action a release triggers." \
+    "Expected: STARTING… with a checklist a few seconds after power-on (ipr-oled-boot.service), continuing into the application's own checklist -> READY (or PROBLEM) with PC, pen and Wi-Fi lines -> blank after 30 s." \
+    "The mode badge (DEV / PROD) sits in the top right corner of every screen." \
+    "Tap the magnet: the LED blinks white to acknowledge it and the status page comes back." \
+    "Hold the magnet: the activity list shows one activity per line, the selected one in bold with a marker; activities already passed disappear and the rest roll up." \
     "Long lines (a long network name or IP) roll slowly instead of being cut." \
     "Hold 6 s and release: SHUTTING DOWN stays until the LED goes off, then the panel is dark too."; then
     record_pass J.8 "OLED display boot, status, gestures and blanking"

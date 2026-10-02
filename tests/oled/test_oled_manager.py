@@ -171,7 +171,8 @@ def test_gesture_screen_while_held():
     rig.tick()
     rig.source.set(held_secs=4.0, armed="hotspot")
     rig.tick()
-    assert rig.screen.header == "RELEASE → HOTSPOT"
+    assert rig.screen.header == "RELEASE →"
+    assert rig.screen.lines[0].text == "3 s  Hotspot" and rig.screen.lines[0].bold
 
 
 def test_send_shows_sending_then_sent_for_hold_then_status():

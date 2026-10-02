@@ -26,16 +26,21 @@ def test_boot_checklist_reflects_ready_and_services():
         )
     )
     assert s.header == "STARTING…"
-    assert [ln.text for ln in s.lines] == ["Services", "Bluetooth", "Dashboard"]
-    assert [ln.icon for ln in s.lines] == [sc.ICON_WAIT, sc.ICON_WAIT, sc.ICON_WAIT]
-    s = compose(Snapshot(phase=sc.BOOT, ready=True))
-    assert [ln.icon for ln in s.lines] == [sc.ICON_OK, sc.ICON_OK, sc.ICON_OK]
+    assert [ln.text for ln in s.lines] == [
+        "Services",
+        "Network",
+        "Bluetooth",
+        "Dashboard",
+    ]
+    assert [ln.icon for ln in s.lines] == [sc.ICON_WAIT] * 4
+    s = compose(Snapshot(phase=sc.BOOT, ready=True, wifi_connected=True))
+    assert [ln.icon for ln in s.lines] == [sc.ICON_OK] * 4
 
 
 def test_ready_screen_shows_host_pen_and_network():
     s = compose(ready_snapshot())
     assert s.header == "READY"
-    assert s.badge == ""
+    assert s.badge == sc.BADGE_PROD
     assert s.lines == (
         Line("Laptop-MSE", sc.ICON_BT),
         Line("Pen ready", sc.ICON_PEN),
@@ -43,8 +48,17 @@ def test_ready_screen_shows_host_pen_and_network():
     )
 
 
-def test_dev_badge():
+def test_mode_badge_is_on_every_screen():
+    """The LED no longer signals the mode, so the badge always states it."""
     assert compose(ready_snapshot(development=True)).badge == "DEV"
+    assert compose(ready_snapshot(development=False)).badge == "PROD"
+    for snap in (
+        Snapshot(phase=sc.BOOT, development=True),
+        ready_snapshot(development=True, held_secs=4.0, armed="hotspot"),
+        ready_snapshot(development=True, phase=sc.SHUTTING_DOWN),
+        ready_snapshot(development=True, tx_state="sending"),
+    ):
+        assert compose(snap).badge == "DEV"
 
 
 def test_problem_header_when_service_down_pen_port_off_or_no_wifi():
@@ -126,26 +140,53 @@ def test_hotspot_busy_and_failed():
     assert compose(ready_snapshot(phase=sc.FAIL_FLASH)).header == "HOTSPOT FAILED"
 
 
-def test_gesture_screen_marks_the_armed_action():
+def test_gesture_screen_lists_every_activity_on_its_own_line():
     s = compose(ready_snapshot(held_secs=1.0, armed=None))
     assert s.header == "HOLD…"
-    assert all(ln.icon == "" for ln in s.lines)
+    assert [ln.text for ln in s.lines] == [
+        "3 s  Hotspot",
+        "6 s  Shutdown",
+        "10 s  To development",
+        "15 s  Factory reset",
+    ]
+    assert all(ln.icon == "" and not ln.bold for ln in s.lines)
 
+
+def test_gesture_screen_bolds_and_marks_the_selected_activity():
+    """The header only says a release acts; the bold line says what."""
     s = compose(ready_snapshot(held_secs=4.0, armed="hotspot"))
-    assert s.header == "RELEASE → HOTSPOT"
-    assert s.lines[0].icon == sc.ICON_MARK and s.lines[1].icon == ""
+    assert s.header == "RELEASE →"
+    assert s.lines[0].bold and s.lines[0].icon == sc.ICON_MARK
+    assert all(not ln.bold and ln.icon == "" for ln in s.lines[1:])
 
     s = compose(ready_snapshot(held_secs=4.0, armed="hotspot", hotspot_active=True))
-    assert s.header == "RELEASE → HOTSPOT OFF"
+    assert s.header == "RELEASE →"
+    assert s.lines[0].text == "3 s  Hotspot off"
 
+
+def test_gesture_screen_drops_passed_activities_and_rolls_up():
     s = compose(ready_snapshot(held_secs=7.0, armed="shutdown"))
-    assert s.header == "RELEASE → SHUTDOWN" and s.lines[1].icon == sc.ICON_MARK
+    assert s.header == "RELEASE →"
+    assert [ln.text for ln in s.lines] == [
+        "6 s  Shutdown",
+        "10 s  To development",
+        "15 s  Factory reset",
+    ]
+    assert s.lines[0].bold and s.lines[0].icon == sc.ICON_MARK
 
-    for armed in ("mode", "reset"):
-        s = compose(ready_snapshot(held_secs=12.0, armed=armed))
-        assert s.lines[2].icon == sc.ICON_MARK
+    s = compose(ready_snapshot(held_secs=12.0, armed="mode", development=True))
+    assert [ln.text for ln in s.lines] == ["10 s  To production", "15 s  Factory reset"]
+    assert s.lines[0].bold
 
-    assert compose(ready_snapshot(held_secs=21.0, armed="cancel")).header == "CANCELLED"
+    s = compose(ready_snapshot(held_secs=16.0, armed="reset"))
+    assert [ln.text for ln in s.lines] == ["15 s  Factory reset"]
+    assert s.lines[0].bold and s.lines[0].icon == sc.ICON_MARK
+
+
+def test_gesture_screen_cancelled_lists_nothing():
+    s = compose(ready_snapshot(held_secs=21.0, armed="cancel"))
+    assert s.header == "CANCELLED"
+    assert not any(ln.bold or ln.icon == sc.ICON_MARK for ln in s.lines)
 
 
 def test_gesture_screen_overrides_sending_but_not_boot():
@@ -160,9 +201,9 @@ def test_shutdown_reset_and_mode_confirm():
     assert compose(ready_snapshot(phase=sc.RESETTING)).header == "RESETTING…"
     assert (
         compose(ready_snapshot(phase=sc.MODE_CONFIRM, development=True)).header
-        == "MODE: DEVELOPMENT"
+        == "MODE: DEV"
     )
-    assert compose(ready_snapshot(phase=sc.MODE_CONFIRM)).header == "MODE: PRODUCTION"
+    assert compose(ready_snapshot(phase=sc.MODE_CONFIRM)).header == "MODE: PROD"
 
 
 def test_wants_display_follows_phase_gesture_and_sending():
