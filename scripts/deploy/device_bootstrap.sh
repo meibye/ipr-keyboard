@@ -20,6 +20,12 @@
 #   --check-only     run the preflight checks and stop
 #   --yes            skip this script's own confirmation prompt.  The wizard
 #                    itself is interactive and still asks its own questions.
+#   --unattended     hands --unattended to the wizard as well, so the whole
+#                    provisioning runs without a keyboard: answers come from
+#                    /opt/ipr_common.env and the reboots chain themselves.
+#                    Implies --yes.  See provision/README.md.
+#   --resume         hands --resume to the wizard (continue, no start-over menu)
+#   --from-step N    hands --from-step N to the wizard
 #
 # category: Deploy
 # purpose: Verify prerequisites and run provisioning on a freshly seeded device
@@ -38,11 +44,16 @@ log()  { echo "[device_bootstrap] $*"; }
 warn() { echo "[device_bootstrap] WARNING: $*" >&2; }
 die()  { echo "[device_bootstrap] ERROR: $*" >&2; exit 1; }
 
+WIZARD_ARGS=()
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --check-only)   CHECK_ONLY=true; shift ;;
         --yes|-y)       ASSUME_YES=true; shift ;;
-        -h|--help)      sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --unattended|-u) ASSUME_YES=true; WIZARD_ARGS+=(--unattended); shift ;;
+        --resume)       WIZARD_ARGS+=(--resume); shift ;;
+        --from-step)    WIZARD_ARGS+=(--from-step "${2:?--from-step needs a number}"); shift 2 ;;
+        -h|--help)      sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *)              die "Unknown argument: $1" ;;
     esac
 done
@@ -130,11 +141,15 @@ fi
 # picks up where it left off.
 # ---------------------------------------------------------------------------
 echo
-log "Running provision_wizard.sh — it is interactive and will ask its own"
-log "questions, including whether to resume a previous run."
+if [[ ${#WIZARD_ARGS[@]} -gt 0 ]]; then
+    log "Running provision_wizard.sh ${WIZARD_ARGS[*]}"
+else
+    log "Running provision_wizard.sh — it is interactive and will ask its own"
+    log "questions, including whether to resume a previous run."
+fi
 
 cd "$REPO_DIR"
-bash "$REPO_DIR/provision/provision_wizard.sh"
+bash "$REPO_DIR/provision/provision_wizard.sh" "${WIZARD_ARGS[@]}"
 
 echo
 log "Provisioning finished. Verify with:"
