@@ -56,6 +56,7 @@ Follow it with `journalctl -u ipr-provision-resume.service -f`, or read
 | `AUTO_REBOOT` | `no` stops at each reboot point and prints the resume command instead | `yes` when unattended |
 | `EDIT_COMMON_ENV` | `yes` opens `$EDITOR` on an existing `provision/common.env` | `yes` interactively, never unattended |
 | `FINAL_VERIFY` | `no` skips the closing audit | `yes` |
+| `INSTALL_TMUX` | `yes` installs tmux and its plugin manager for the app user | `no` |
 
 Other options:
 

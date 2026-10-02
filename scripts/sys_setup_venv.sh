@@ -23,27 +23,60 @@
 set -eo pipefail
 
 
-# Ensure tmux is installed
-if ! command -v tmux >/dev/null 2>&1; then
-  echo "[sys_setup_venv] tmux not found, installing..."
-  sudo apt-get update
-  sudo apt-get install -y tmux
+# ---------------------------------------------------------------------------
+# Developer conveniences: tmux and its plugin manager.
+#
+# Nothing here may prompt or be fatal.  This script is declared "sudo: no" and
+# runs AS THE APPLICATION USER, including from provisioning step 03, which
+# reaches it through `sudo -u "$APP_USER"` after the wizard has already
+# dropped from root.  A nested `sudo` there has no terminal to ask for a
+# password on: it killed the whole unattended provisioning run at step 9 with
+# "sudo: a terminal is required to read the password".
+#
+# tmux proper is installed by sys_install_packages.sh, which runs as root, so
+# on a provisioned device this block finds it already present.
+# ---------------------------------------------------------------------------
+# tmux is opt-in: INSTALL_TMUX in /opt/ipr_common.env (default "no").
+# A production device has no use for a terminal multiplexer or for a
+# plugin manager cloned from GitHub; a development board usually does.
+INSTALL_TMUX_VAL="no"
+if [[ -r /opt/ipr_common.env ]]; then
+  _v="$(awk -F= '/^[[:space:]]*INSTALL_TMUX[[:space:]]*=/ {gsub(/[" ]/,"",$2); print $2; exit}' /opt/ipr_common.env)"
+  [[ -n "$_v" ]] && INSTALL_TMUX_VAL="$_v"
+fi
+
+if [[ ! "${INSTALL_TMUX_VAL,,}" =~ ^(y|yes|true|1)$ ]]; then
+  echo "[sys_setup_venv] tmux setup skipped (INSTALL_TMUX=$INSTALL_TMUX_VAL)."
+elif ! command -v tmux >/dev/null 2>&1; then
+  if sudo -n true 2>/dev/null; then
+    echo "[sys_setup_venv] tmux not found, installing..."
+    sudo -n apt-get update -qq || true
+    sudo -n apt-get install -y tmux       || echo "[sys_setup_venv] tmux install failed -- continuing without it."
+  else
+    echo "[sys_setup_venv] tmux not found and sudo would prompt -- skipping (optional)."
+  fi
 else
   echo "[sys_setup_venv] tmux already installed."
 fi
 
-# Clone tmux plugin manager (TPM) if not already present
-if [[ ! -d "$HOME/.config/tmux/plugins/tpm" ]]; then
+# Clone tmux plugin manager (TPM) if not already present.  Optional too: a
+# production device may have no GitHub access at all.
+if [[ "${INSTALL_TMUX_VAL,,}" =~ ^(y|yes|true|1)$ ]] && [[ ! -d "$HOME/.config/tmux/plugins/tpm" ]]; then
   echo "[sys_setup_venv] Cloning tmux plugin manager (TPM)..."
-  git clone https://github.com/tmux-plugins/tpm "$HOME/.config/tmux/plugins/tpm"
-else
+  git clone https://github.com/tmux-plugins/tpm "$HOME/.config/tmux/plugins/tpm"     || echo "[sys_setup_venv] TPM clone failed (no network or no GitHub access) -- continuing."
+elif [[ "${INSTALL_TMUX_VAL,,}" =~ ^(y|yes|true|1)$ ]]; then
   echo "[sys_setup_venv] TPM already cloned at $HOME/.config/tmux/plugins/tpm."
 fi
 
-# Create tmux conf file if it does not exist
+# Create tmux conf file if it does not exist.  Guarded by the same option:
+# without it ~/.config/tmux may not exist and the heredoc below would fail
+# the script under `set -e`.
 TMUX_CONF="$HOME/.config/tmux/tmux.conf"
-rm -f "$TMUX_CONF"
-if [[ ! -f "$TMUX_CONF" ]]; then
+if [[ "${INSTALL_TMUX_VAL,,}" =~ ^(y|yes|true|1)$ ]]; then
+  mkdir -p "$(dirname "$TMUX_CONF")"
+  rm -f "$TMUX_CONF"
+fi
+if [[ "${INSTALL_TMUX_VAL,,}" =~ ^(y|yes|true|1)$ && ! -f "$TMUX_CONF" ]]; then
   echo "[sys_setup_venv] Creating default tmux.conf at $TMUX_CONF..."
   cat <<'TMUX_CONF_EOF' > "$TMUX_CONF"
 # Use bash as default

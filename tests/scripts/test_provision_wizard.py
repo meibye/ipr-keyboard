@@ -174,3 +174,30 @@ def test_crlf_on_stdin_does_not_break_an_interactive_answer(tmp_path):
         stdin="y\r\n",
     )
     assert "YES" in out
+
+
+@requires_bash
+def test_the_venv_script_never_prompts_for_sudo():
+    """It runs as the app user, where a prompting sudo has no terminal.
+
+    Provisioning step 03 reaches scripts/sys_setup_venv.sh through
+    `sudo -u "$APP_USER"`, so a bare `sudo` inside it cannot ask for a
+    password: it killed an unattended run at step 9 while installing tmux.
+    Only `sudo -n`, which fails instead of prompting, is allowed.
+    (sys_install_packages.sh is deliberately not covered: its sudo calls sit
+    in the --system-only branch, which the wizard runs as root.)
+    """
+    import re
+
+    path = REPO_ROOT / "scripts" / "sys_setup_venv.sh"
+    text = path.read_text(encoding="utf-8")
+    assert "# sudo: no" in text, "the script's own header no longer claims sudo: no"
+
+    offenders = []
+    for num, line in enumerate(text.splitlines(), 1):
+        code = line.split("#", 1)[0]
+        code = re.sub(r"\"[^\"]*\"|'[^']*'", "", code)  # drop quoted text
+        for match in re.finditer(r"\bsudo\b(.*)", code):
+            if not match.group(1).lstrip().startswith("-n"):
+                offenders.append(f"{num}: {line.strip()[:70]}")
+    assert not offenders, "sudo that could prompt:\n" + "\n".join(offenders)

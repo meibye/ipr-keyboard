@@ -235,6 +235,15 @@ arm_resume() {
   write_resume_unit "$script_path"
   systemctl enable "$RESUME_UNIT" >/dev/null 2>&1 || true
   success "Armed $RESUME_UNIT -- provisioning continues automatically after the reboot."
+  if (( ! UNATTENDED )); then
+    # Be explicit: a systemd unit has no console to ask questions on, so the
+    # continuation runs unattended whatever this run started as.  The steps
+    # after a reboot ask nothing beyond "continue", but the answer file -- not
+    # the keyboard -- decides from here.
+    warn "The run continues UNATTENDED after the reboot (a boot-time unit has no"
+    warn "terminal).  Remaining answers come from $ANSWER_FILE."
+    warn "To stay in control instead, answer no here and set AUTO_REBOOT=no."
+  fi
   warn "Follow it with:  journalctl -u $RESUME_UNIT -f"
 }
 
@@ -242,6 +251,32 @@ disarm_resume() {
   systemctl disable "$RESUME_UNIT" >/dev/null 2>&1 || true
   rm -f "$RESUME_UNIT_PATH"
   systemctl daemon-reload >/dev/null 2>&1 || true
+  # Clear any failed state too: a run that died mid-step leaves the unit in
+  # `systemctl --failed` long after its file is gone, which looks like a
+  # broken device and trips the audit's "no failed units" check.
+  systemctl reset-failed "$RESUME_UNIT" >/dev/null 2>&1 || true
+}
+
+# ---------------------------------------------------------------------------
+# A firmware setting only takes effect at the next boot.  install_oled_support.sh
+# adds dtparam=i2c_arm=on and install_gpio_support.sh the gpio= line; both warn
+# about it, but nothing acted on the warning: on a fresh image /dev/i2c-1 never
+# appeared, the application logged "OLED display disabled", and the closing
+# audit failed on N.4.  Detect it by comparing config.txt against the boot
+# time and chain one more reboot through the same resume unit.
+# ---------------------------------------------------------------------------
+firmware_reboot_pending() {
+  local cfg now up boot_epoch
+  now="$(date +%s)"
+  up="$(cut -d. -f1 /proc/uptime 2>/dev/null || echo 0)"
+  boot_epoch=$(( now - up ))
+  for cfg in /boot/firmware/config.txt /boot/config.txt; do
+    [[ -f "$cfg" ]] || continue
+    if [[ "$(stat -c %Y "$cfg" 2>/dev/null || echo 0)" -gt "$boot_epoch" ]]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 prompt_reboot() {
@@ -708,6 +743,16 @@ fi
 if [[ "$wizard_step" -le 10 ]]; then
     ensure_project_dir
     run_step "./provision/04_enable_services.sh" "[Step 10/14] Enable Services: Systemd and BLE backends" 11
+
+    # The installers this step runs may have enabled I2C or the LED pins in
+    # config.txt.  Without a reboot /dev/i2c-1 does not exist, the display
+    # stays disabled and the audit in step 13 fails -- so reboot here, where
+    # the resume unit carries the run on by itself.
+    if firmware_reboot_pending; then
+        warn "config.txt changed since boot (I2C / GPIO firmware settings)."
+        warn "A reboot is required before the display and the LED work."
+        prompt_reboot 11
+    fi
 fi
 
 # Step 11: Run 05_copilot_debug_tools.sh

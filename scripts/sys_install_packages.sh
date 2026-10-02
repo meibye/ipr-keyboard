@@ -125,6 +125,18 @@ if [[ "$MODE" == "system" ]]; then
     echo "=== Installing optional OCR engine (Tesseract) ==="
     apt_install tesseract-ocr tesseract-ocr-eng
 
+    # tmux is opt-in (INSTALL_TMUX in /opt/ipr_common.env, default "no"):
+    # a production device has no use for it.
+    _tmux="no"
+    if [[ -r /opt/ipr_common.env ]]; then
+        _v="$(awk -F= '/^[[:space:]]*INSTALL_TMUX[[:space:]]*=/ {gsub(/[" ]/,"",$2); print $2; exit}' /opt/ipr_common.env)"
+        [[ -n "$_v" ]] && _tmux="$_v"
+    fi
+    if [[ "${_tmux,,}" =~ ^(y|yes|true|1)$ ]]; then
+        echo "=== Installing tmux (INSTALL_TMUX=$_tmux) ==="
+        apt_install tmux
+    fi
+
     ########################################
     # 5. Bluetooth HID keyboard support
     ########################################
@@ -145,10 +157,22 @@ if [[ "$MODE" == "system" ]]; then
     echo "=== Installing uv ==="
     curl -fsSL https://astral.sh/uv/install.sh | sh
 
-    # Ensure uv is available system-wide
-    if [ -f "$HOME/.local/bin/uv" ]; then
-            sudo ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv
-            echo "Symlinked uv to /usr/local/bin/uv"
+    # Ensure uv is available system-wide.
+    #
+    # This branch runs as root, so $HOME is /root -- and /root is mode 0700,
+    # which made /usr/local/bin/uv a symlink nobody but root could follow.
+    # The audit's "uv available" check passed only because it runs under sudo.
+    # Copy the binary instead of linking into a private home, so every user
+    # gets a working uv.
+    _uv_src=""
+    for _c in "/home/${APP_USER:-meibye}/.local/bin/uv" "$HOME/.local/bin/uv"; do
+            [ -f "$_c" ] && { _uv_src="$_c"; break; }
+    done
+    if [ -n "$_uv_src" ]; then
+            sudo install -m 0755 "$_uv_src" /usr/local/bin/uv
+            echo "Installed uv to /usr/local/bin/uv (from $_uv_src)"
+    else
+            echo "!! uv binary not found -- /usr/local/bin/uv not created" >&2
     fi
 
     # Ensure PATH contains ~/.local/bin for uv (for interactive shells)
