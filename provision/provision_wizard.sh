@@ -813,9 +813,11 @@ if [[ "$wizard_step" -le 13 ]]; then
         warn "scripts/headless/test_provision.sh not found -- skipping the audit."
         VERIFY_FAILURES=0
     else
+        # The audit writes its own report (colour stripped); no tee here, or
+        # the two would race for the same file.
         set +e
-        bash ./scripts/headless/test_provision.sh --auto 2>&1 | tee "$VERIFY_LOG"
-        VERIFY_FAILURES=${PIPESTATUS[0]}
+        bash ./scripts/headless/test_provision.sh --auto --report "$VERIFY_LOG"
+        VERIFY_FAILURES=$?
         set -e
         if [[ "$VERIFY_FAILURES" -eq 0 ]]; then
             success "[Step 13/14] Final verification passed -- no failed checks."

@@ -201,3 +201,63 @@ def test_the_venv_script_never_prompts_for_sudo():
             if not match.group(1).lstrip().startswith("-n"):
                 offenders.append(f"{num}: {line.strip()[:70]}")
     assert not offenders, "sudo that could prompt:\n" + "\n".join(offenders)
+
+
+# ---------------------------------------------------------------------------
+# The audit leaves a report behind
+# ---------------------------------------------------------------------------
+
+AUDIT = REPO_ROOT / "scripts" / "headless" / "test_provision.sh"
+
+
+@requires_bash
+def test_the_audit_writes_a_colour_free_report_and_keeps_its_exit_code():
+    """Extracted verbatim from the audit so the contract is exercised, not read.
+
+    A standalone audit used to leave nothing behind: its result lived only in
+    the terminal it was typed in.  The report must strip colour escapes, must
+    not swallow the failure count, and must never turn an unwritable path into
+    a failed audit.
+    """
+    text = AUDIT.read_text(encoding="utf-8")
+    start = text.index('REPORT_FILE="${REPORT_FILE:-')
+    end = text.index("# ── result tracking")
+    harness = (
+        "#!/usr/bin/env bash\nset -uo pipefail\n"
+        + text[start:end]
+        + '\nprintf "plain line\n"\n'
+        + "printf '\033[0;32mgreen line\033[0m\n'\n"
+        + 'if [ -n "${_REPORT_ACTIVE:-}" ]; then exec 1>&- 2>&-; wait 2>/dev/null || true; fi\n'
+        + "exit 3\n"
+    )
+    import subprocess
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        script = f"{tmp}/audit_head.sh"
+        report = f"{tmp}/report.log"
+        with open(script, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(harness)
+
+        res = subprocess.run(
+            [BASH, script, "--auto", "--report", report],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert res.returncode == 3, "the failure count must survive the report"
+        assert "\x1b[" in res.stdout, "the terminal keeps its colours"
+        with open(report, encoding="utf-8") as fh:
+            written = fh.read()
+        assert "plain line" in written and "green line" in written
+        assert "\x1b[" not in written, "the report must be colour-free"
+
+        # An unwritable path costs the report, not the audit.
+        res = subprocess.run(
+            [BASH, script, "--auto", "--report", "/proc/nope/report.log"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert res.returncode == 3
+        assert "cannot write" in res.stderr

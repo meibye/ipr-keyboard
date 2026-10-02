@@ -92,8 +92,12 @@ The last two steps are deliberately different things:
 Step 13 is the gate.  It exits with the number of failed checks, the wizard
 repeats that in its closing banner, and the whole wizard exits non-zero when
 anything failed — so an unattended run can be judged by its exit status alone.
-Its output is kept at `/opt/ipr_state/provision_verify.log`.  Re-run just the
-audit with:
+The audit writes that output itself, colour stripped, to
+`/opt/ipr_state/provision_verify.log` — so a run started by hand leaves the
+same record as one started by the wizard, and the last result a device
+reported can always be read back.  `--report FILE` writes elsewhere and
+`--no-report` writes nothing; an unwritable path costs the report, not the
+run.  Re-run just the audit with:
 
 ```bash
 sudo ./provision/provision_wizard.sh --from-step 13

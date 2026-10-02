@@ -124,7 +124,7 @@ Run `sudo provision/07_show_info.sh` to display the current SSID and password.
 | `install_provision_service.sh` | — | Installs the hotspot script, unit, cert generation and renewal |
 | `gen_ipr_ssl_cert.sh`, `ipr-cert-renew.*` | `/usr/local/sbin/`, systemd | TLS certificates and renewal |
 | `net_factory_reset.sh` | `/usr/local/sbin/ipr-factory-reset.sh` | Resets Wi-Fi profiles when `IPR_RESET_WIFI` boot marker is present |
-| `test_provision.sh` | — | Post-provision validation (phase K covers the LED / magnet pieces, phase N the display) |
+| `test_provision.sh` | — | Post-provision validation (phase K covers the LED / magnet pieces, phase N the display).  Writes the result to `/opt/ipr_state/provision_verify.log` (`--report FILE`, `--no-report`) |
 | `test_gpio_led_reed.sh` | — | Hardware test of the LED and reed switch outside the application |
 | `test_oled.sh` | — | Hardware test of the OLED: bus, driver, every screen, rolling lines |
 

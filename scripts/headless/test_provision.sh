@@ -15,8 +15,14 @@
 # Can be run on the Pi directly or uploaded and executed via ipr-rpi-dev-ssh MCP.
 # Pass --auto to skip all manual/interactive steps (suitable for MCP sessions).
 #
+# Everything printed is also written, without colour escapes, to
+# /opt/ipr_state/provision_verify.log -- so the last audit a device ran can be
+# read back later, and over SSH.  --report FILE writes elsewhere, --no-report
+# writes nothing, and an unwritable path costs the report, not the run.
+#
 # Usage:
 #   sudo bash ~/dev/ipr-keyboard/scripts/headless/test_provision.sh [--auto]
+#                                                   [--report FILE | --no-report]
 #
 # Connection wiring diagram:
 #   No hardware wiring required — this script tests software state only.
@@ -39,7 +45,35 @@ VENV_PYTEST="$PROJECT_DIR/.venv/bin/pytest"
 # ── arguments ─────────────────────────────────────────────────────────────────
 
 AUTO=0
-for _arg in "$@"; do [[ "$_arg" == "--auto" || "$_arg" == "-y" ]] && AUTO=1; done
+REPORT_FILE="${REPORT_FILE:-/opt/ipr_state/provision_verify.log}"
+_args=("$@")
+for _i in "${!_args[@]}"; do
+    case "${_args[$_i]}" in
+        --auto|-y)   AUTO=1 ;;
+        --report)    REPORT_FILE="${_args[$((_i+1))]:-}" ;;
+        --no-report) REPORT_FILE="" ;;
+    esac
+done
+
+# ── report file ───────────────────────────────────────────────────────────────
+#
+# A standalone run used to leave nothing behind: the result lived in the
+# terminal it was typed in, so neither a later reader nor an operator working
+# over SSH could tell what the device last reported.  Everything printed below
+# is therefore copied to REPORT_FILE as well, with the colour escapes removed
+# so the file is readable.  The terminal keeps its colours.
+#
+# Never fatal: an unwritable location (a non-root run, a read-only /opt) costs
+# the report, not the audit.
+if [ -n "$REPORT_FILE" ]; then
+    if mkdir -p "$(dirname "$REPORT_FILE")" 2>/dev/null && : > "$REPORT_FILE" 2>/dev/null; then
+        exec > >(tee >(sed -u 's/\x1b\[[0-9;]*m//g' > "$REPORT_FILE")) 2>&1
+        _REPORT_ACTIVE=1
+    else
+        echo "!! cannot write $REPORT_FILE - continuing without a report file" >&2
+        REPORT_FILE=""
+    fi
+fi
 
 # ── result tracking ────────────────────────────────────────────────────────────
 
@@ -582,5 +616,15 @@ else
     fi
 fi
 
-echo ""
+if [ -n "$REPORT_FILE" ]; then
+    echo -e "  ${CYAN}Report written to $REPORT_FILE${RESET}"
+    echo ""
+fi
+
+# Let the tee subprocess flush before the shell exits, or the last lines of the
+# report are lost.
+if [ -n "${_REPORT_ACTIVE:-}" ]; then
+    exec 1>&- 2>&-
+    wait 2>/dev/null || true
+fi
 exit "$FAIL_COUNT"
