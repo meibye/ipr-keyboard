@@ -376,6 +376,16 @@ def login_submit():
     expected = _load_hotspot_password()
     if username == _SETUP_USER and expected and password == expected:
         session[_SESSION_KEY] = True
+        # The credentials have now served their purpose, so the magnet
+        # menu stops offering to show them (docs/architecture/
+        # magnet-menu-design.md section 3.5).  Never fatal: a login must
+        # not fail because a marker file could not be written.
+        try:
+            from ..recovery import mark_used
+
+            mark_used()
+        except Exception:  # pragma: no cover - best effort
+            pass
         next_url = request.args.get("next", "")
         if next_url and next_url.startswith("/setup/") and ".." not in next_url:
             return redirect(next_url)
