@@ -10,8 +10,8 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "1.11.1"
-DATE = "2. oktober 2026"
+VERSION = "2.0.0"
+DATE = "3. oktober 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
 # make_payload.sh — this maps them to manual prose.  The keys are checked
@@ -1229,12 +1229,47 @@ def build() -> None:
             ["20 s", "slukket", "fortryd — der sker ingenting"],
         ],
         widths=[2.2, 4.4, 9.0],
-        caption="Hele magnet-stigen. Lampen kvitterer med tre hvide blink, når magneten "
-                "registreres, er derefter mørk og viser én FAST farve pr. trin; hvert skift "
-                "indledes med et mørkt blink på 0,3 s, så trinnet kan tælles. Displayet viser "
-                "samtidig handlingerne én pr. linje med den valgte i fed. Handlingen udføres "
-                "først ved slip.",
+        caption="Magnet-stigen — kun på enheder UDEN display. Lampen kvitterer med tre "
+                "hvide blink, når magneten registreres, er derefter mørk og viser én FAST "
+                "farve pr. trin; hvert skift indledes med et mørkt blink på 0,3 s, så "
+                "trinnet kan tælles. Handlingen udføres først ved slip. Med et display "
+                "bruges menuen i stedet (afsnit 4.6.1).",
     )
+
+    m.h3("4.6.1 Magnetmenuen (enheder med display)")
+    m.p("På en enhed med et fungerende display vælges handlingerne ikke længere ved at "
+        "holde magneten et bestemt antal sekunder. Ét hold på 3 sekunder åbner en menu; "
+        "en kort berøring flytter markeringen, et nyt hold på ca. 2 sekunder vælger, og "
+        "20 sekunder uden input lukker menuen. Lampen lyser blåt, mens menuen er åben.")
+    m.p("Baggrunden: en fabriksnulstilling blev udløst ved et uheld, fordi den mest "
+        "destruktive handling lå midt i en tidsstige og blev valgt ved at holde stille. "
+        "Analysen står i docs/architecture/magnet-menu-design.md.")
+    m.table(
+        ["Punkt", "Handling", "Bekræftelse"],
+        [
+            ["Hotspot", "Tænder/slukker opsætningsnetværket", "ingen"],
+            ["Display ▸ Timeout", "5 / 15 / 30 / 60 minutters lysetid; skrives til "
+                                   "config.json (OledDisplayTimeoutMinutes)", "ingen"],
+            ["Recovery info", "Viser hotspottets SSID og nøgle på displayet",
+             "én berøring; højst RecoveryRevealLimit gange pr. opstart"],
+            ["Mode", "Skifter drift ↔ udvikling (ipr_mode_ctl.sh)", "én berøring"],
+            ["Shutdown", "Kontrolleret nedlukning", "én berøring"],
+            ["Factory reset", "Sletter alle wifi-profiler og genstarter", "TO berøringer"],
+            ["Exit", "Lukker menuen", "ingen"],
+        ],
+        widths=[3.4, 8.0, 4.2],
+        caption="Magnetmenuen. Før en bekræftelse skriver displayet, hvad handlingen "
+                "gør; udebliver bekræftelsen i 10 sekunder, annulleres den. Drift og "
+                "udvikling har samme menu: magneten kræver fysisk adgang, og en låst "
+                "driftsenhed er netop den, der skal kunne reddes.",
+    )
+    m.p("Recovery info findes, fordi hotspottets nøgle efter en netværksnulstilling kun "
+        "lå i den terminal, der kørte provisioneringen. Den vises højst "
+        "RecoveryRevealLimit gange pr. opstart (standard 3), hver gang efter en "
+        "bekræftende berøring — og slet ikke mere, når nøglen én gang er brugt til at "
+        "logge ind på setup-portalen. Genereres en ny nøgle, kan den vises igen. "
+        "Legitimationsoplysningerne gemmes desuden ved provisionering i "
+        "/opt/ipr_state/credentials.txt (kun læsbar for root).")
 
     m.h2("4.7 OLED-statusdisplay")
     m.p("Et 0,96\" OLED-display (128 × 64, SSD1306, I²C-adresse 0x3C, de øverste 16 rækker "

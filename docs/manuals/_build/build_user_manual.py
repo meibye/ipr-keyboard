@@ -6,8 +6,8 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "1.11"
-DATE = "2. oktober 2026"
+VERSION = "2.0"
+DATE = "3. oktober 2026"
 
 
 def build() -> None:
@@ -280,53 +280,54 @@ def build() -> None:
            "displayet øverst til højre — DEV (udvikling) eller PROD (drift).", "info")
 
     m.h2("5.3 Magneten")
-    m.p("Magneten er boksens eneste betjeningsknap. Hvor længe du holder den tæt på "
-        "boksen, bestemmer hvad der sker. Den virker når som helst, når boksen er "
-        "færdig med at starte op — også midt i det daglige arbejde. I det øjeblik "
-        "magneten når boksen, blinker lampen hvidt tre gange: så ved du, at den er "
-        "registreret. Derefter er lampen mørk og skifter til én fast farve pr. trin — blå, "
-        "hvid, lilla, rød — med et kort mørkt blink ved hvert skift, så du kan tælle "
-        "trinnene. Slip, når lampen har den farve, du vil have.")
-    m.p("Har boksen et display, behøver du ikke tælle: displayet viser handlingerne — én "
-        "pr. linje — og fremhæver med fed skrift den, der sker, hvis du slipper nu. "
-        "Handlinger, du er kommet forbi, forsvinder fra listen, så der kun står det "
-        "tilbage, du stadig kan vælge.")
+    m.p("Magneten er boksens eneste betjeningsknap. Den virker når som helst, når "
+        "boksen er færdig med at starte op — også midt i det daglige arbejde. I det "
+        "øjeblik magneten når boksen, blinker lampen hvidt tre gange: så ved du, at "
+        "den er registreret.")
+    m.p("Har boksen et display, åbner du en menu:", bold=True)
+    m.bullets([
+        ("Hold magneten i 3 sekunder", " — menuen åbner, og lampen lyser blåt."),
+        ("Berør kort (tap)", " — markeringen flytter til næste punkt i listen."),
+        ("Hold igen — ca. 2 sekunder", " — det markerede punkt vælges."),
+        ("Gør ingenting i 20 sekunder", " — menuen lukker af sig selv."),
+    ])
+    m.p("Det markerede punkt står med fed skrift og en trekant. Før noget, der har "
+        "konsekvenser, spørger displayet, om du er sikker: én kort berøring bekræfter — "
+        "og for nulstilling af netværket skal du berøre to gange. Sker der ingenting "
+        "inden for 10 sekunder, annulleres det. Sådan kan du se dig omkring i menuen "
+        "uden at komme til noget.")
+    m.note("Bokse uden display bruger den gamle fremgangsmåde, hvor du holder magneten "
+           "i et bestemt antal sekunder. Den er beskrevet i administratormanualen.",
+           "info")
     m.figure("fig04_magnet_tidslinje.png",
-             "Kort berøring viser status. 3 sekunder tænder eller slukker "
-             "opsætningsnetværket, 6 sekunder slukker boksen. 10 og 15 sekunder er "
-             "forbeholdt administratoren; 20 sekunder fortryder.")
+             "Hold magneten i 3 sekunder for at åbne menuen. Derefter flytter en kort "
+             "berøring markeringen, og et nyt hold vælger.")
 
     m.table(
-        ["Sådan gør du", "Resultat"],
+        ["Punkt i menuen", "Hvad det gør"],
         [
-            ["Hold magneten tæt på og fjern den igen (under 3 sekunder)",
-             "Lampen blinker hvidt tre gange (magneten er registreret) og er derefter "
-             "mørk, mens du holder. Når du fjerner magneten, viser den status i "
-             "30 sekunder."],
-            ["Hold magneten på plads i 3 sekunder — lampen lyser blåt — og slip",
-             "Opsætningsnetværket tændes: lampen lyser blåt, mens det starter, og lyser "
-             "derefter konstant blåt. Var det allerede tændt, slukkes det, og lampen viser "
-             "status igen."],
-            ["Hold magneten på plads i 6 sekunder — lampen lyser hvidt — og slip",
-             "Boksen lukker kontrolleret ned. Lampen lyser hvid, mens det sker, og "
-             "slukker, når du må tage strømmen fra (10–20 sekunder)."],
-            ["Hold magneten på plads i 10 sekunder — lampen lyser lilla — og slip",
-             "Skifter mellem drift og udvikling (kun administratoren). Lampen lyser lilla "
-             "i 3 sekunder, og displayet skriver MODE: DEV eller MODE: PROD. "
-             "Derefter står tilstanden øverst til højre i displayet: DEV eller PROD."],
-            ["Hold magneten på plads i 15 sekunder — lampen lyser rødt — og slip",
-             "Alle gemte netværksforbindelser slettes, og boksen genstarter."],
-            ["Bliv ved med at holde i 20 sekunder — lampen slukker — og slip",
-             "Ingenting sker. Brug det, hvis du er kommet forbi det trin, du ville have."],
+            ["Hotspot", "Tænder eller slukker opsætningsnetværket. Sker med det samme."],
+            ["Display", "Undermenu: hvor længe displayet skal lyse efter sidste berøring — "
+                        "5, 15, 30 (standard) eller 60 minutter."],
+            ["Recovery info", "Viser opsætningsnetværkets navn og adgangskode, hvis boksen "
+                              "har mistet sit netværk. Kræver én berøring som bekræftelse og "
+                              "kan kun bruges nogle få gange, indtil boksen genstartes."],
+            ["Mode", "Skifter mellem drift og udvikling (kun administratoren). "
+                     "Kræver én berøring som bekræftelse."],
+            ["Shutdown", "Lukker boksen kontrolleret ned. Kræver én berøring som "
+                         "bekræftelse. Lampen lyser hvid, til du må tage strømmen fra."],
+            ["Factory reset", "Sletter alle gemte netværksforbindelser og genstarter "
+                              "boksen. Kræver TO berøringer som bekræftelse — displayet "
+                              "tæller dem."],
+            ["Exit", "Lukker menuen uden at gøre noget."],
         ],
-        widths=[7.4, 8.2],
-        caption="Magnetens funktioner.",
+        widths=[4.0, 11.6],
+        caption="Menuen, du åbner ved at holde magneten i 3 sekunder.",
     )
 
-    m.note("Skiftet efter 10 sekunder og nulstillingen efter 15 sekunder er forbeholdt "
-           "administratoren. Handlingen udføres først, når du slipper: er du i tvivl, så "
-           "bliv ved med at holde magneten, til lampen slukker (20 sekunder), og slip så — "
-           "det fortryder alt.",
+    m.note("Punkterne Mode og Factory reset er forbeholdt administratoren. Intet sker, "
+           "før du har bekræftet — og gør du ingenting i 10 sekunder, annulleres det af "
+           "sig selv. Du kan derfor roligt se dig omkring i menuen.",
            "danger")
 
     m.h2("5.4 Displayet")
@@ -342,6 +343,10 @@ def build() -> None:
     m.figure("fig13_display.png",
              "Den gule bjælke øverst siger, hvilken tilstand boksen er i; linjerne "
              "nedenunder forklarer. Lange navne ruller langsomt hen over linjen.")
+    m.p("Displayet slukker af sig selv, når der er gået et stykke tid uden berøring — "
+        "normalt 30 minutter. Du kan vælge 5, 15, 30 eller 60 minutter under Display i "
+        "menuen, og hver gang du berører boksen med magneten, starter perioden forfra. "
+        "Efter fem minutter dæmpes lyset lidt; det skal det, for at displayet holder.")
     m.table(
         ["Øverste linje", "Betydning"],
         [
@@ -353,9 +358,12 @@ def build() -> None:
             ["SENDING… / SENT ✓ / SEND FAILED",
              "En skanning skrives ind i PC'en, blev skrevet ind, eller kunne ikke (teksten "
              "bliver liggende på pennen)."],
-            ["HOLD… / RELEASE →", "Du holder magneten. Handlingerne står én pr. linje, og "
-                                    "den med fed skrift og en trekant er den, der sker, når du "
-                                    "slipper. Handlinger, du er kommet forbi, forsvinder."],
+            ["MENU", "Du har åbnet menuen med magneten. Linjen med fed skrift og en "
+                     "trekant er den, du har markeret; en kort berøring flytter videre, "
+                     "og et nyt hold vælger."],
+            ["CONFIRM?", "Displayet spørger, om du er sikker, og skriver hvad der sker. "
+                         "Bekræft med en kort berøring — to gange ved nulstilling af "
+                         "netværket. Gør du ingenting, annulleres det."],
             ["SETUP MODE", "Opsætningsnetværket er tændt. Displayet viser netværkets navn og "
                            "adressen, du skal åbne."],
             ["SHUTTING DOWN", "Vent, til både lampen og displayet er slukket, før du tager "

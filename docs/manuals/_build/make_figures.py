@@ -237,39 +237,32 @@ def fig_led_colours():
 # 4. Magnet-tidslinje (bruger)
 # ---------------------------------------------------------------------------
 def fig_magnet_timeline():
+    """The magnet menu: one hold opens it, a tap moves, a hold chooses."""
     c = Canvas(980, 380)
-    c.title("Magneten: hvor længe du holder, bestemmer hvad der sker",
-            "Tre hvide blink når magneten registreres, derefter mørk og én fast farve pr. trin")
+    c.title("Magneten: hold én gang, og vælg i menuen",
+            "Tidsstigen er afløst af en menu — ingen sekunder at tælle")
 
-    x0, x1, y = 90, 890, 150
-    c.line(x0, y, x1, y, LINE, 3)
-    for frac, label in ((0.0, "0 s"), (0.15, "3 s"), (0.3, "6 s"), (0.5, "10 s"), (0.75, "15 s"), (1.0, "20 s")):
-        x = x0 + (x1 - x0) * frac
-        c.line(x, y - 10, x, y + 10, MUTED, 3)
-        c.text(x, y + 18, label, F(11, True), MUTED, anchor="ma")
-
-    seg = [
-        (0.0, 0.15, "Kort", "Status\n30 sek.", BLUE, BLUE_BG),
-        (0.15, 0.3, "3 sek.", "Opsætnings-\nnetværk (blå)", GREEN, GREEN_BG),
-        (0.3, 0.5, "6 sek.", "Sluk boksen\n(hvid)", MUTED, PANEL),
-        (0.5, 0.75, "10 sek.", "Drift ↔ udvikling (lilla)\n— kun administrator", PURPLE, PURPLE_BG),
-        (0.75, 1.0, "15 sek.", "Nulstil netværk (rød)\n— kun administrator", RED, RED_BG),
+    steps = [
+        ("1", "Hold 3 sek.", "Menuen åbner\n(lampen lyser blåt)", BLUE, BLUE_BG),
+        ("2", "Kort berøring", "Markeringen flytter\ntil næste punkt", GREEN, GREEN_BG),
+        ("3", "Hold igen", "Det markerede\npunkt vælges", PURPLE, PURPLE_BG),
+        ("4", "Bekræft", "Én berøring — to ved\nnulstilling", RED, RED_BG),
     ]
-    for a, b, t, s, accent, bg in seg:
-        xa, xb = x0 + (x1 - x0) * a, x0 + (x1 - x0) * b
-        c.box(xa + 4, y - 82, xb - xa - 8, 66, fill=bg, outline=accent, width=2, radius=8)
-        c.text((xa + xb) / 2, y - 72, t, F(12, True), accent, anchor="ma")
-        c.text((xa + xb) / 2, y - 52, s, F(11), INK, anchor="ma")
+    x, y, w, gap = 60, 110, 200, 20
+    for i, (num, title, body, accent, bg) in enumerate(steps):
+        bx = x + i * (w + gap)
+        c.box(bx, y, w, 150, fill=bg, outline=accent, width=2, radius=10)
+        c.circle(bx + 26, y + 26, 14, accent, accent, 1)
+        c.text(bx + 26, y + 26, num, F(13, True), (255, 255, 255), anchor="mm")
+        c.text(bx + 50, y + 26, title, F(13, True), accent, anchor="lm")
+        c.text(bx + w / 2, y + 62, body, F(12), INK, anchor="ma")
+        if i < len(steps) - 1:
+            c.line(bx + w + 4, y + 75, bx + w + gap - 4, y + 75, MUTED, 3)
 
-    c.line(x1, y + 36, x1 - 24, y + 52, MUTED, 2)
-    c.box(740, y + 52, 190, 82, fill=PANEL, outline=LINE, width=2, radius=8)
-    c.text(835, y + 64, "20 sek.: lampen slukker", F(12, True), MUTED, anchor="ma")
-    c.text(835, y + 88, "Slip nu = fortryd,\nder sker ingenting", F(11), INK, anchor="ma")
-
-    c.box(60, 308, 860, 52, fill=PANEL, outline=LINE, width=1, radius=8)
-    c.text(490, 334,
-           "Handlingen udføres først, når du slipper. Fortryd: hold fast, til lampen "
-           "slukker (20 sek.), og slip så.",
+    c.box(60, 290, 860, 60, fill=PANEL, outline=LINE, width=1, radius=8)
+    c.text(490, 320,
+           "Intet sker, før du har bekræftet. Gør du ingenting i 10 sekunder, "
+           "annulleres det — og menuen lukker efter 20 sekunder.",
            F(12), INK, anchor="mm")
     c.save("fig04_magnet_tidslinje.png")
 
