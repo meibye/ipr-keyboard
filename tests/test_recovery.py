@@ -121,3 +121,33 @@ def test_a_new_key_starts_a_new_allowance(tmp_path):
 
     _secret(tmp_path, password="a-freshly-generated-key")
     assert rc.RecoveryInfo(1, secret, marker, count).reveals_left() == 1
+
+
+def test_the_reveal_includes_the_dashboard_login(tmp_path):
+    """A locked-out device needs both credentials, not a hunt for the second."""
+    (tmp_path / "admin_initial_password.txt").write_text(
+        "s3cret-pw\n", encoding="utf-8"
+    )
+    info = rc.RecoveryInfo(
+        limit=3,
+        secret_path=_secret(tmp_path),
+        marker_path=str(tmp_path / "recovery_used"),
+        count_path=str(tmp_path / "recovery_reveals"),
+        project_root=tmp_path,
+    )
+    lines = info.lines()
+    assert any("ipr-setup-abcd" in line for line in lines)
+    assert any("admin / s3cret-pw" in line for line in lines)
+
+
+def test_the_reveal_omits_the_dashboard_login_once_it_is_changed(tmp_path):
+    """The file disappears when the admin password is changed in the dashboard."""
+    info = rc.RecoveryInfo(
+        limit=3,
+        secret_path=_secret(tmp_path),
+        marker_path=str(tmp_path / "recovery_used"),
+        count_path=str(tmp_path / "recovery_reveals"),
+        project_root=tmp_path,
+    )
+    lines = info.lines()
+    assert lines and not any("admin /" in line for line in lines)

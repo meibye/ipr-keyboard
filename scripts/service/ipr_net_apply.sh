@@ -148,6 +148,12 @@ case "${1:-}" in
     nmcli dev wifi rescan >/dev/null 2>&1 || true
     sleep 3
     nmcli -t -f SSID dev wifi list
+    # A HIDDEN network never appears in a scan -- it does not broadcast its
+    # SSID -- so the network the device is actually joined to can be missing
+    # from its own list of networks, which is as confusing as it sounds.
+    # Append the SSIDs of the profiles NetworkManager has, hidden or not; the
+    # caller removes duplicates.
+    nmcli -t -f 802-11-wireless.ssid con show --active 2>/dev/null       | awk -F: 'NF>1 && $2!="" {print $2}'
     ;;
   wifi-save)
     ssid="${2:-}"; psk="${3:-}"

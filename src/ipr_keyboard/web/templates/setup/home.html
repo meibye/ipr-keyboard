@@ -76,6 +76,20 @@
 </div>
 
 <div class="card">
+  <h2>{{ t['home_dash_title'] }}</h2>
+  <p style="color:#666;font-size:.88rem;margin-top:0;margin-bottom:.8rem">
+    {{ t['home_dash_desc'] }}
+  </p>
+  {# The setup portal is reached over the hotspot, where the dashboard is on
+     the same device at the same address.  Without this link the only way
+     across was to retype the URL. #}
+  <a href="/" class="btn btn-secondary btn-sm"
+     style="text-decoration:none;display:inline-block">
+    {{ t['home_dash_open'] }}
+  </a>
+</div>
+
+<div class="card">
   <h2>{{ t['home_cert_title'] }}</h2>
   <p style="color:#666;font-size:.88rem;margin-top:0;margin-bottom:.8rem">
     {{ t['home_cert_desc'] }}

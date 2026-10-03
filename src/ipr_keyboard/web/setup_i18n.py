@@ -225,6 +225,9 @@ _EN: dict[str, str] = {
                                 "as soon as you do."),
 
     # Home — Certificate card
+    "home_dash_title":    "Main dashboard",
+    "home_dash_desc":     "Status, activity and events for day-to-day use. Opens with your dashboard login — not the setup password.",
+    "home_dash_open":     "Open the dashboard",
     "home_cert_title":    "Trust Certificate",
     "home_cert_desc":     (
         "Download and install this certificate once on each device you use here. "
@@ -366,6 +369,9 @@ _DA: dict[str, str] = {
                                 "fra denne side."),
 
     # Home — Certificate card
+    "home_dash_title":    "Betjeningssiden",
+    "home_dash_desc":     "Status, aktivitet og hændelser til daglig brug. Åbnes med dit login til betjeningssiden — ikke adgangskoden til opsætning.",
+    "home_dash_open":     "Åbn betjeningssiden",
     "home_cert_title":    "Stol på certifikat",
     "home_cert_desc":     (
         "Download og installer dette certifikat én gang på hver enhed du bruger her. "

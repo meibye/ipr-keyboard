@@ -319,6 +319,10 @@ def _do_scan() -> None:
         result = ssids or [
             "(no networks found — note: 2.4 GHz only)"
         ]
+        # A hidden network is not in the scan and may not be in the list
+        # even when the device is joined to it; typing it in by hand is
+        # the only way, so say so rather than let it look like a fault.
+        result = result + ["(a hidden network must be typed in by hand)"]
     except (subprocess.CalledProcessError, OSError):
         result = ["(scan failed — try rescan)"]
     finally:

@@ -25,11 +25,30 @@ from .logging.logger import get_logger
 logger = get_logger()
 
 HOTSPOT_SECRET = "/etc/ipr-hotspot.secret"
+# The dashboard's initial admin password, written by the app on first start and
+# removed once the password is changed.  Shown alongside the hotspot key: a
+# locked-out device needs both to be usable again, and hunting for the second
+# one defeats the point of showing the first.
+DASHBOARD_USER = "admin"
 USED_MARKER = "/var/lib/ipr-keyboard/recovery_used"
 # Reveals already spent, as "<fingerprint> <count>".  On disk because
 # a reboot must not hand out a fresh allowance.
 COUNT_FILE = "/var/lib/ipr-keyboard/recovery_reveals"
 SETUP_URL = "10.42.0.1/setup"
+
+
+def _dashboard_password(project_root=None) -> str:
+    """The initial admin password, or "" once it has been changed away."""
+    try:
+        if project_root is None:
+            from .utils.helpers import project_root as _root
+
+            project_root = _root()
+        path = os.path.join(str(project_root), "admin_initial_password.txt")
+        with open(path, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except (OSError, ImportError):
+        return ""
 
 
 def _secret_fields(path: str = HOTSPOT_SECRET) -> tuple[str, str]:
@@ -98,11 +117,13 @@ class RecoveryInfo:
         secret_path: str = HOTSPOT_SECRET,
         marker_path: str = USED_MARKER,
         count_path: str = COUNT_FILE,
+        project_root=None,
     ) -> None:
         self._limit = max(0, int(limit))
         self._secret = secret_path
         self._marker = marker_path
         self._count = count_path
+        self._project_root = project_root
 
     # -- the persisted counter --------------------------------------------
 
@@ -156,4 +177,8 @@ class RecoveryInfo:
             used,
             self._limit,
         )
-        return (f"Wi-Fi {ssid}", f"Key  {password}", f"Open {SETUP_URL}")
+        lines = [f"Wi-Fi {ssid}", f"Key  {password}", f"Open {SETUP_URL}"]
+        dash = _dashboard_password(self._project_root)
+        if dash:
+            lines.append(f"Web  {DASHBOARD_USER} / {dash}")
+        return tuple(lines)

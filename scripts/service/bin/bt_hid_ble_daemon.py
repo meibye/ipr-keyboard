@@ -60,6 +60,14 @@ def env_bool(name: str, default: str = "0") -> bool:
     return val
 
 
+def env_int(name: str, default: int) -> int:
+    """A plain integer from the environment; the default on anything else."""
+    try:
+        return int(env_str(name, str(default)).strip())
+    except ValueError:
+        return default
+
+
 def env_hex_int(name: str, default: int) -> int:
     raw = env_str(name, "")
     if BLE_DEBUG:
@@ -78,6 +86,14 @@ def env_hex_int(name: str, default: int) -> int:
 
 
 BLE_DEBUG = env_bool("BT_BLE_DEBUG", "0")
+# Pause after each HID report, in milliseconds.  This is what sets the typing
+# speed: two reports per character (press, release), so the throughput is
+# 1000 / (2 * BT_KEY_DELAY_MS) characters per second -- 25/s at the historical
+# 20 ms, which is why a long scan took tens of seconds.  It cannot usefully go
+# below the BLE connection interval the host negotiates (7.5-30 ms on
+# Windows), and too low drops or reorders keystrokes, so lower it by
+# measurement rather than by hope: see docs/operations/performance.md.
+KEY_DELAY_S = max(0.0, env_int("BT_KEY_DELAY_MS", 20)) / 1000.0
 BLE_TRACE_KEYS = env_bool("BT_BLE_TRACE_KEYS", "0")
 BLE_TRACE_FILTER = [
     token for token in (part.strip() for part in env_str("BT_BLE_TRACE_FILTER", "").split(",")) if token
@@ -1244,8 +1260,7 @@ def send_next_character(
                 )
             return False
 
-        time.sleep(0.012)
-        time.sleep(0.008)
+        time.sleep(KEY_DELAY_S)
 
     queue.popleft()
     if BLE_DEBUG:
