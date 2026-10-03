@@ -145,6 +145,10 @@
   .status-card .card-icon { width: 40px; height: 40px; }
   .status-card .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-muted); }
   .status-card .card-label { font-size: 18px; font-weight: 700; }
+  /* Explanatory small print.  Scoped to .status-card for years, so the same
+     class elsewhere -- the Diagnostics toggle, for one -- fell back to the
+     browser default and did not match the text around it. */
+  .card-explanation { font-size: 13px; color: var(--color-text-muted); }
   .status-card .card-explanation { font-size: 13px; color: var(--color-text-muted); }
 
   /* ---- Hero flow ---- */

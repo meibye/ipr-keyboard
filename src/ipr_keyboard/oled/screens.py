@@ -67,6 +67,7 @@ class Snapshot:
     tx_total: int = 0
     tx_reason: str = ""
     tx_last_at: float | None = None  # wall-clock time of the last success
+    tx_sent: int = 0  # characters the BLE daemon has actually typed so far
     menu: object | None = None  # menu.MenuView while the magnet menu is open
     menu_available: bool = False  # holding opens a menu, not the timed ladder
 
@@ -154,8 +155,16 @@ def compose(snap: Snapshot) -> Screen:
         return Screen(
             "SENDING…",
             badge,
-            (Line(_bt_target(snap), ICON_ARROW), Line(_chars(snap.tx_chars))),
-            progress=-1.0,
+            (
+                Line(_bt_target(snap), ICON_ARROW),
+                Line(_sending_counts(snap)),
+            ),
+            # Real progress when the daemon reports it, a sweep when it does
+            # not: an indeterminate bar for a send that takes tens of seconds
+            # says only "something is happening".
+            progress=(snap.tx_sent / snap.tx_chars)
+            if (snap.tx_sent and snap.tx_chars)
+            else -1.0,
         )
     if snap.phase == HOTSPOT_BUSY:
         verb = "Stopping" if snap.hotspot_active else "Starting"
@@ -397,6 +406,13 @@ def _status_screen(snap: Snapshot, badge: str) -> Screen:
 
 def _bt_target(snap: Snapshot) -> str:
     return snap.bt_host or "PC"
+
+
+def _sending_counts(snap: Snapshot) -> str:
+    """ "120 of 384 characters" while typing, the total before it starts."""
+    if snap.tx_sent and snap.tx_chars:
+        return f"{snap.tx_sent} of {snap.tx_chars} characters"
+    return _chars(snap.tx_chars)
 
 
 def _chars(n: int) -> str:

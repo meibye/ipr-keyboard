@@ -120,6 +120,26 @@ def record(name: str, value_ms: float) -> None:
         _counts[name] += 1
 
 
+def record_typing(queue_wait_s: float, type_s: float, chars: int) -> None:
+    """The two stages the application could not see until the daemon reported.
+
+    ``queue_wait_s`` is the FIFO write to the first character going out;
+    ``type_s`` is the characters actually reaching the host.  The older
+    ``send_ms`` measured neither -- it timed the FIFO write, which is the one
+    part of the chain that is instant.
+    """
+    if not _enabled:
+        return
+    with _lock:
+        _samples["queue_wait_ms"].append(max(0.0, queue_wait_s) * 1000.0)
+        _counts["queue_wait_ms"] += 1
+        _samples["type_ms"].append(max(0.0, type_s) * 1000.0)
+        _counts["type_ms"] += 1
+        if chars > 0:
+            _samples["type_ms_per_char"].append(max(0.0, type_s) * 1000.0 / chars)
+            _counts["type_ms_per_char"] += 1
+
+
 def record_poll_scan(duration_s: float) -> None:
     """Sample the idle poll cost 1 in 10, so the sampling itself stays cheap."""
     global _poll_counter

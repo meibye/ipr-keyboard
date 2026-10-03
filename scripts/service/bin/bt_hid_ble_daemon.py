@@ -12,6 +12,7 @@
 # Created:  
 # VERSION: '2026-04-12 18:10:16'
 import argparse
+import json
 import os
 import threading
 import time
@@ -94,6 +95,48 @@ BLE_DEBUG = env_bool("BT_BLE_DEBUG", "0")
 # Windows), and too low drops or reorders keystrokes, so lower it by
 # measurement rather than by hope: see docs/operations/performance.md.
 KEY_DELAY_S = max(0.0, env_int("BT_KEY_DELAY_MS", 20)) / 1000.0
+
+# ---------------------------------------------------------------------------
+# Typing progress
+#
+# bt_kb_send.sh writes the text to the FIFO and returns at once, so the caller
+# has never known when the characters actually reached the host: the
+# application marked a send "done" in milliseconds while this daemon typed for
+# seconds.  The display showed no progress, and the recorded "send" time
+# measured the FIFO write rather than the transmission -- precisely the part
+# that is slow.
+#
+# So publish progress here, where it is known.  A small JSON file on tmpfs,
+# rewritten at most every PROGRESS_INTERVAL_S while typing plus once at the
+# start and once at the end: a few hundred bytes to a RAM-backed file, which
+# costs far less than one character's delay.
+# ---------------------------------------------------------------------------
+PROGRESS_FILE = env_str("BT_PROGRESS_FILE", "/run/ipr_bt_progress.json")
+PROGRESS_INTERVAL_S = 0.2
+_progress_last_write = 0.0
+
+
+def publish_progress(state: str, total: int, sent: int, force: bool = False) -> None:
+    """Write the typing progress, throttled unless `force`."""
+    global _progress_last_write
+    now = time.monotonic()
+    if not force and (now - _progress_last_write) < PROGRESS_INTERVAL_S:
+        return
+    _progress_last_write = now
+    payload = {
+        "state": state,          # "typing" | "idle"
+        "total": total,
+        "sent": sent,
+        "at": time.time(),
+    }
+    try:
+        tmp = PROGRESS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh)
+        os.replace(tmp, PROGRESS_FILE)
+        os.chmod(PROGRESS_FILE, 0o644)
+    except OSError:
+        pass  # progress reporting must never disturb typing
 BLE_TRACE_KEYS = env_bool("BT_BLE_TRACE_KEYS", "0")
 BLE_TRACE_FILTER = [
     token for token in (part.strip() for part in env_str("BT_BLE_TRACE_FILTER", "").split(",")) if token
@@ -1271,6 +1314,9 @@ def send_next_character(
 def drain_queue(queue: deque, hid: HidService, notify_state: NotifyState) -> None:
     if BLE_DEBUG:
         journal.send(f"[DEBUG] drain_queue() start queue={list(queue)}")
+    total = len(queue)
+    sent = 0
+    publish_progress("typing", total, 0, force=True)
     while queue:
         if not send_next_character(queue, hid, notify_state):
             if BLE_DEBUG:
@@ -1278,6 +1324,11 @@ def drain_queue(queue: deque, hid: HidService, notify_state: NotifyState) -> Non
                     "[DEBUG] drain_queue: send_next_character returned False, breaking"
                 )
             break
+        sent += 1
+        publish_progress("typing", total, sent)
+    # Always publish the end, whether the queue drained or the send broke off:
+    # a watcher that never sees "idle" waits for ever.
+    publish_progress("idle", total, sent, force=True)
     if BLE_DEBUG:
         journal.send(f"[DEBUG] drain_queue() end queue={list(queue)}")
 

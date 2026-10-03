@@ -406,6 +406,7 @@ class OledManager:
             tx_total=int(tx.get("items_sent", 0) or 0),
             tx_reason=str(tx.get("explanation", "") or ""),
             tx_last_at=tx.get("last_success_at"),
+            tx_sent=int(tx.get("chars_sent", 0) or 0),
             menu=getattr(led, "menu", None),
             menu_available=getattr(led, "menu_available", False),
         )

@@ -7,11 +7,40 @@ This module provides a thin wrapper around the system-level helper script
 from __future__ import annotations
 
 import subprocess
+import time
 
 from ..logging.logger import get_logger
-from .. import transmission
+from .. import bt_progress, metrics, transmission
 
 logger = get_logger()
+
+
+def _wait_for_typing(queued_at: float, chars: int) -> float | None:
+    """Block until the BLE daemon has typed the text; record the two stages.
+
+    Returns the monotonic time typing finished, or None when the daemon says
+    nothing about its progress.
+    """
+    first_seen = {"at": None}
+
+    def _saw(progress) -> None:
+        if progress.typing and first_seen["at"] is None:
+            first_seen["at"] = time.monotonic()
+        # Feed the live count through, so the panel and the dashboard show the
+        # text arriving rather than a bar that means "something is happening".
+        transmission.set_progress(progress.sent, progress.total)
+
+    final = bt_progress.wait_until_idle(on_progress=_saw)
+    if not final.known:
+        return None
+    typed_at = time.monotonic()
+    started = first_seen["at"] or queued_at
+    metrics.record_typing(
+        queue_wait_s=started - queued_at,
+        type_s=typed_at - started,
+        chars=final.total or chars,
+    )
+    return typed_at
 
 VERSION = '2026-04-12 19:41:16'
 
@@ -69,6 +98,7 @@ class BluetoothKeyboard:
 
         transmission.set_sending("keyboard", chars=len(text))
         try:
+            queued_at = time.monotonic()
             subprocess.run(
                 [self.helper_path, text],
                 check=True,
@@ -76,6 +106,13 @@ class BluetoothKeyboard:
                 capture_output=True,
                 text=True,
             )
+            # The helper only hands the text to the daemon's FIFO and returns,
+            # so this is the moment the text was QUEUED, not typed.  Wait for
+            # the daemon to finish before calling the send done: otherwise the
+            # panel shows "sent" while the host is still receiving, and the
+            # recorded duration measures a FIFO write.  An older daemon that
+            # publishes no progress returns immediately and behaves as before.
+            _wait_for_typing(queued_at, len(text))
             transmission.set_success()
             return True
         except FileNotFoundError:

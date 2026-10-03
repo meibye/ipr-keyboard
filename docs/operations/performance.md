@@ -29,9 +29,10 @@ pen writes the file
 | 1 | `detect_latency_ms` | file's mtime → the poll noticing it | **< 1500 ms** | bounded by `PollIntervalSeconds` (1 s) plus one folder listing |
 | — | `poll_scan_ms` | one sweep of the watched folders | **< 300 ms** | this is what stops `PollIntervalSeconds` going lower; it is an MTP round trip, not a local `readdir` |
 | 2 | `read_ms` | reading the file over MTP | **< 500 ms** | a scan is a few hundred bytes; anything above a second means the MTP mount is struggling |
-| 3 | — | handing the text to the BLE daemon | **< 50 ms** | a FIFO write; see "not yet measured" below |
-| 4 | `send_ms_per_char` | typing one character over BLE HID | **≤ 15 ms** | two HID reports per character; see below |
-| | `send_ms` | the whole scan typed | **< 3 s** for 200 characters | `send_ms_per_char × chars` |
+| 3 | `queue_wait_ms` | FIFO write → the first character going out | **< 200 ms** | the daemon has to be subscribed and reading |
+| 4 | `type_ms_per_char` | typing one character over BLE HID | **≤ 15 ms** | two HID reports per character; see below |
+| | `type_ms` | the whole scan typed | **< 3 s** for 200 characters | `type_ms_per_char × chars` |
+| | `send_ms` | the FIFO write alone | **< 50 ms** | **not the transmission** — see the warning below |
 | | `e2e_latency_ms` | mtime → last character typed | **< 5 s** for a typical scan | the number the user actually feels |
 
 ## What dominates: the typing
@@ -92,13 +93,25 @@ confirms what you actually got.
   *first* character is slow, look at stages 1–2; if the *rest* is slow, it is
   stage 4 and nothing else.
 
-## Not yet measured
+## `send_ms` measured the wrong thing
 
-Two gaps worth closing before tuning further:
+Worth knowing when reading older numbers: `bt_kb_send.sh` hands the text to the
+daemon's FIFO and returns at once, so `send_ms` timed **the enqueue**, not the
+transmission — the one part of the chain that is instant.  A send therefore
+looked finished in milliseconds while the host was still receiving characters,
+the panel showed no progress, and the dashboard could not show where the time
+went.
 
-- **Queue wait** — the time between the app writing to the FIFO and the daemon
-  starting to type is not instrumented, so stage 3 is inferred rather than
-  measured.
+The daemon now publishes its progress (`/run/ipr_bt_progress.json`, rewritten
+at most every 200 ms) and the application waits for it, so `queue_wait_ms` and
+`type_ms` measure the two real stages.  `type_ms_per_char` is the number to
+watch: it is what `BT_KEY_DELAY_MS` moves.
+
+A daemon that publishes nothing — an older one — simply leaves the application
+behaving as before; progress reporting can never make a send hang.
+
+## Still not measured
+
 - **The negotiated connection interval** — knowing it would turn the delay
   tuning above from trial and error into arithmetic.  It is readable from
   `btmon` during a connection.

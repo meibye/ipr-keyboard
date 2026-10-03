@@ -42,9 +42,30 @@ def set_sending(source: str = "keyboard", chars: int = 0) -> None:
     with _lock:
         _state["state"] = "sending"
         _state["chars"] = int(chars)
+        _state["chars_sent"] = 0
         _state["label"] = "Sending"
         _state["explanation"] = f"Transmitting via {source}"
         _state["progress_percent"] = None
+
+
+def set_progress(sent: int, total: int = 0) -> None:
+    """How much of the current text the BLE daemon has typed.
+
+    Called while a send is running, from whoever is watching the daemon's
+    progress file.  The dashboard and the panel both read it, so the two agree
+    on what "sending" means instead of showing a send that finished in
+    milliseconds while the host was still receiving.
+    """
+    with _lock:
+        if _state.get("state") != "sending":
+            return
+        _state["chars_sent"] = max(0, int(sent))
+        if total:
+            _state["chars"] = int(total)
+        chars = int(_state.get("chars") or 0)
+        _state["progress_percent"] = (
+            round(100.0 * _state["chars_sent"] / chars, 1) if chars else None
+        )
 
 
 def set_success() -> None:
