@@ -37,6 +37,10 @@ ICON_PEN = "pen"
 ICON_NET = "net"
 ICON_OK = "ok"
 ICON_ERR = "err"
+# Something the USER has to do before the device can work, as opposed to
+# ICON_ERR, which is a fault.  A glyph, because "Plug in the pen" among three
+# lines of ordinary text was not noticed at all.
+ICON_WARN = "warn"
 ICON_WAIT = "wait"
 ICON_ARROW = "arrow"
 ICON_MARK = "mark"
@@ -191,7 +195,13 @@ def compose(snap: Snapshot) -> Screen:
             (
                 Line(f"Wi-Fi  {snap.hotspot_ssid or 'ipr-setup-…'}", ICON_NET),
                 Line(f"Open   {HOTSPOT_URL}", ICON_ARROW),
-                Line("Hold 3 s to stop"),
+                # Holding opens the menu on a device with a panel, so the
+                # old "Hold 3 s to stop" did nothing at all when followed.
+                Line(
+                    "Hold: menu to stop"
+                    if snap.menu_available
+                    else "Hold 3s to stop"
+                ),
             ),
         )
     if snap.tx_recent and snap.tx_state == "success":
@@ -244,11 +254,13 @@ def _boot_lines(snap: Snapshot) -> tuple[Line, ...]:
 MENU_HOLD_SECS = 1.2
 # Mirrors gpio_monitor.MENU_SELECT_SECS: how long a hold inside the menu must
 # last to count as "choose this".
-MENU_SELECT_SECS = 1.2
+MENU_SELECT_SECS = 1.0
 # A tap is a press and a release; showing the bar for one made the screen
 # flicker on every step through the list.  Nothing appears until the magnet
-# has clearly been *held*.
-PROGRESS_AFTER_SECS = 0.4
+# has clearly been *held* -- but early enough that there is visible travel
+# before the choice fires, since the bar filling is the only warning that it
+# is about to.
+PROGRESS_AFTER_SECS = 0.25
 
 
 def _menu_hold_screen(snap: Snapshot, badge: str) -> Screen:
@@ -364,10 +376,20 @@ def _gesture_label(snap: Snapshot, key: str, label: str) -> str:
 
 
 def _status_screen(snap: Snapshot, badge: str) -> Screen:
-    problem = False
+    """The home screen: one line each for the PC, the pen and the network.
+
+    Two kinds of bad news, kept apart because the user can only act on one of
+    them.  A *fault* (ICON_ERR, header PROBLEM) is the device's problem.
+    Something *outstanding* (ICON_WARN, header NOT READY) is waiting on the
+    user — and it has to be visible as a shape, not only as a sentence: with
+    the pen unplugged the screen used to read READY with "Plug in the pen"
+    sitting unremarked in the middle, which nobody noticed.
+    """
+    fault = False      # the device is broken
+    outstanding = False  # the user has something to do
 
     if not snap.services_ok:
-        problem = True
+        fault = True
         names = (
             ", ".join(s.removesuffix(".service") for s in snap.failed_services)
             or "core service"
@@ -376,6 +398,7 @@ def _status_screen(snap: Snapshot, badge: str) -> Screen:
     elif snap.bt_connected:
         bt_line = Line(snap.bt_host or "PC connected", ICON_BT)
     else:
+        # Not a problem in itself: the PC connects when it is switched on.
         bt_line = Line("Waiting for PC…", ICON_BT)
 
     if snap.pen == "ready":
@@ -383,20 +406,26 @@ def _status_screen(snap: Snapshot, badge: str) -> Screen:
     elif snap.pen == "busy":
         pen_line = Line("Pen busy (mounting)", ICON_PEN)
     elif snap.pen == "disabled":
-        problem = True
+        fault = True
         pen_line = Line("USB port off — reboot", ICON_ERR)
     else:
-        pen_line = Line("Plug in the pen", ICON_PEN)
+        # Nothing can be scanned without it, so this is not a neutral state.
+        outstanding = True
+        pen_line = Line("Plug in the pen", ICON_WARN)
 
     if snap.wifi_connected:
         net_line = Line(f"{snap.ssid or 'Wi-Fi'}  {snap.ip}".rstrip(), ICON_NET)
     else:
-        problem = True
-        net_line = Line("No Wi-Fi — hold 3 s", ICON_ERR)
+        outstanding = True
+        # The old text said "hold 3 s", which stopped being true when the hold
+        # started opening the menu instead of running a timed ladder.
+        net_line = Line(
+            "No Wi-Fi: see menu" if snap.menu_available else "No Wi-Fi — hold 3 s",
+            ICON_WARN,
+        )
 
-    return Screen(
-        "PROBLEM" if problem else "READY", badge, (bt_line, pen_line, net_line)
-    )
+    header = "PROBLEM" if fault else ("NOT READY" if outstanding else "READY")
+    return Screen(header, badge, (bt_line, pen_line, net_line))
 
 
 # ---------------------------------------------------------------------------

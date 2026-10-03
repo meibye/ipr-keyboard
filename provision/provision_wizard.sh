@@ -840,6 +840,13 @@ if [[ "$wizard_step" -le 14 ]]; then
     run_step "./provision/07_show_info.sh" "[Step 14/14] Device info: Post-provisioning summary" 15
 fi
 
+# Every .deb downloaded on the way here is still in /var/cache/apt/archives,
+# and nothing ever removes them -- the only thing on the device that grows
+# without a ceiling (see docs/operations/disk-and-logs.md).  Clearing it is
+# free and needs no scheduled job.
+step "Clearing the apt cache (nothing else needs cleaning up)"
+sudo apt-get clean || true
+
 # Provisioning finished: drop the state and make sure no reboot-resume unit is
 # left armed on the device.
 rm -f "$STATE_FILE"

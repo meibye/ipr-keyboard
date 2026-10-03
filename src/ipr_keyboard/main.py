@@ -23,7 +23,7 @@ from .bluetooth import keyboard as bt_keyboard
 from .logging.logger import get_logger, set_log_level
 from .usb import detector, reader, deleter
 from .usb import detector as usb_detector, reader as usb_reader, deleter as usb_deleter
-from . import metrics
+from . import keydelay, metrics
 from .web.server import create_app
 from .web import server as web_server
 from .delivery import DeliveryLog
@@ -154,6 +154,11 @@ def run_usb_bt_loop():
         # Re-apply every iteration so the dashboard toggle takes effect without
         # a restart.  One attribute assignment; not worth guarding.
         metrics.set_enabled(cfg.MetricsEnabled)
+        # Same for the typing speed: it reaches the BLE daemon through a file
+        # it re-reads per send, so a change applies to the next scan without
+        # restarting the daemon and dropping the PC's connection.  apply()
+        # writes only when the value actually changed.
+        keydelay.apply(cfg.TypingDelayMs)
         # Wildcards resolve the pen's localized storage folder (see detector.expand_folders).
         folders = detector.expand_folders(cfg.IrisPenFolders)
 

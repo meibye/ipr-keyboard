@@ -96,6 +96,15 @@ class AppConfig:
     # How long the magnet menu waits before closing itself: 20, 60, 120
     # or 300 seconds, chosen from Display -> Menu timeout.
     MenuTimeoutSeconds: int = 20
+    # Pause after each HID report, in milliseconds, which is what sets the
+    # typing speed: two reports per character, so 1000 / (2 * value)
+    # characters a second -- 25/s at 20 ms.  It is the single largest cost
+    # of a send.  The floor is the BLE connection interval the PC
+    # negotiates (7.5-30 ms on Windows); below that the host drops or
+    # reorders keystrokes, which is far worse than slow, so lower it by
+    # measurement with Debug -> Typing speed trial.
+    # See docs/operations/performance.md.
+    TypingDelayMs: int = 20
     # Performance KPIs. Off by default; see ipr_keyboard/metrics.py.
     MetricsEnabled: bool = False
 

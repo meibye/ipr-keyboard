@@ -6,7 +6,7 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "2.2"
+VERSION = "2.3"
 DATE = "3. oktober 2026"
 
 
@@ -174,6 +174,16 @@ def build() -> None:
         widths=[1.4, 7.4, 6.8],
         caption="Forløbet fra skanning til færdig tekst.",
     )
+    m.p("Trin 3 er det, der tager tid. Boksen skriver teksten ind som tastetryk — ét "
+        "tegn ad gangen, præcis som en meget hurtig maskinskriver — og den venter et "
+        "lille øjeblik mellem hvert tegn, så PC'en kan følge med. Ved standard"
+        "indstillingen bliver det ca. 25 tegn i sekundet: en halv side tager omkring "
+        "20 sekunder, og displayet viser undervejs, hvor langt den er nået.")
+    m.note("Det er med vilje, at der ventes mellem tegnene. Går det hurtigere, end "
+           "PC'en kan tage imod, forsvinder der tegn, eller de bytter plads — og det "
+           "er langt værre end at vente. Hastigheden kan ændres af administratoren "
+           "under Indstillinger → Skrivehastighed i betjeningssiden; det bør kun gøres "
+           "efter en prøve, hvor teksten læses igennem tegn for tegn.", "info")
 
     m.h2("4.3 Gode råd")
     m.bullets([
@@ -181,7 +191,8 @@ def build() -> None:
          "Teksten havner altid dér, hvor markøren står. Skifter du vindue midt i en "
          "overførsel, kan teksten blive delt mellem to felter."),
         ("Skan én ting ad gangen. ",
-         "Vent til teksten er skrevet færdig, før du skanner igen."),
+         "Vent til teksten er skrevet færdig, før du skanner igen. Displayet viser "
+         "undervejs, hvor mange tegn der er skrevet ind."),
         ("Lad boksen være tændt. ",
          "Den bruger meget lidt strøm og er klar med det samme."),
         ("Undgå at flytte boksen for langt væk. ",
@@ -286,11 +297,17 @@ def build() -> None:
         "den er registreret.")
     m.p("Har boksen et display, åbner du en menu:", bold=True)
     m.bullets([
-        ("Hold magneten et øjeblik", " — en bjælke fylder op, og menuen åbner."),
+        ("Hold magneten et øjeblik", " — en bjælke fylder op, og menuen åbner, "
+                                     "mens du stadig holder."),
         ("Berør kort (tap)", " — markeringen flytter til næste punkt i listen."),
-        ("Hold igen", " — bjælken fylder op igen, og det markerede punkt vælges."),
+        ("Hold igen", " — bjælken fylder op igen, og punktet vælges i samme "
+                      "øjeblik bjælken er fuld."),
         ("Gør ingenting i 20 sekunder", " — menuen lukker af sig selv."),
     ])
+    m.note("Du skal ikke tage magneten væk for at vælge. Handlingen sker, når bjælken "
+           "er fuld — og du kan tage magneten væk lige efter. Hold derfor magneten "
+           "stille, til du ser displayet svare: bjælken er din besked om, hvor langt "
+           "du er.", "tip")
     m.p("Det markerede punkt står med fed skrift og en trekant. Før noget, der har "
         "konsekvenser, spørger displayet, om du er sikker: én kort berøring bekræfter — "
         "og for nulstilling af netværket skal du berøre to gange. Sker der ingenting "
@@ -301,7 +318,8 @@ def build() -> None:
            "info")
     m.figure("fig04_magnet_tidslinje.png",
              "Hold magneten et øjeblik for at åbne menuen. Derefter flytter en kort "
-             "berøring markeringen, og et nyt hold vælger.")
+             "berøring markeringen, og et nyt hold vælger — i det øjeblik bjælken "
+             "er fuld.")
 
     m.table(
         ["Punkt i menuen", "Hvad det gør"],
@@ -362,8 +380,12 @@ def build() -> None:
             ["STARTING…", "Boksen starter — fra få sekunder efter strømmen blev sat til. "
                           "Linjerne får et flueben, efterhånden som delene kommer op."],
             ["READY", "Alt er i orden. Linjerne viser PC'ens navn, pennen og netværket."],
-            ["PROBLEM", "En linje har et ✗ og siger, hvad der er galt: intet netværk, "
-                        "pennens USB-port slået fra, en tjeneste stoppet."],
+            ["NOT READY", "Der mangler noget, FØR boksen kan bruges — og det er dig, der "
+                          "skal gøre det. Linjen har en advarselstrekant ⚠ og siger hvad: "
+                          "fx at pennen ikke er sat i, eller at der ikke er noget netværk."],
+            ["PROBLEM", "En linje har et ✗ og siger, hvad der er galt med selve boksen: "
+                        "pennens USB-port slået fra, en tjeneste stoppet. Det er ikke noget, "
+                        "du selv retter — kontakt administratoren."],
             ["SENDING… / SENT ✓ / SEND FAILED",
              "En skanning skrives ind i PC'en, blev skrevet ind, eller kunne ikke (teksten "
              "bliver liggende på pennen)."],
@@ -374,7 +396,8 @@ def build() -> None:
                          "Bekræft med en kort berøring — to gange ved nulstilling af "
                          "netværket. Gør du ingenting, annulleres det."],
             ["SETUP MODE", "Opsætningsnetværket er tændt. Displayet viser netværkets navn og "
-                           "adressen, du skal åbne."],
+                           "adressen, du skal åbne. Nederste linje siger, hvordan du slukker "
+                           "det igen: hold magneten, og vælg Hotspot i menuen."],
             ["SHUTTING DOWN", "Vent, til både lampen og displayet er slukket, før du tager "
                               "strømmen fra."],
         ],

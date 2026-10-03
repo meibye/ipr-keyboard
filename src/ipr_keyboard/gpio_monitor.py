@@ -125,8 +125,14 @@ HOLD_CANCEL_SECS: float = 20.0
 PHASE_GAP_SECS: float = 0.3          # dark gap when a held phase changes
 MODE_CONFIRM_SECS: float = 3.0
 HOLD_MENU_SECS: float = 1.2          # open the menu (display present)
-MENU_SELECT_SECS: float = 1.2        # hold inside the menu = activate
-MENU_TAP_MAX_SECS: float = 0.8       # shorter than this is a tap, not a hold
+MENU_SELECT_SECS: float = 1.0        # hold inside the menu = activate
+# The magnet is pressed against a glass panel by hand, and it wobbles.  At
+# 20 Hz a wobble shows up as the contact opening for a sample or two, which
+# taken literally ends the press: one deliberate hold arrived as two taps
+# (so "Back" and "Exit" stepped past instead of being chosen), and a tap
+# whose release bounced arrived as a hold.  An open is only believed once it
+# has lasted this long.
+REED_OPEN_DEBOUNCE_SECS: float = 0.15
 ACK_BLINK_SECS: float = 0.6          # "magnet registered" blink after a press
 ACK_BLINK_HALF_SECS: float = 0.12    # 0.6 s / 0.12 s = on-off-on-off-on
 LED_IDLE_TIMEOUT_SECS: int = 30
@@ -135,6 +141,53 @@ HOTSPOT_REQUEST_TIMEOUT_SECS: float = 40.0  # nmcli con up on a Zero W can be sl
 FAIL_FLASH_SECS: float = 3.0
 PROBE_INTERVAL_ACTIVE_SECS: float = 2.0  # while the LED is showing status
 PROBE_INTERVAL_IDLE_SECS: float = 5.0  # while the LED is off / blue solid
+
+
+class _ReedFilter:
+    """One clean press out of the raw 20 Hz reed samples.
+
+    Two rules, and the second is the one that matters:
+
+    * An open is only believed once it has lasted ``REED_OPEN_DEBOUNCE_SECS``,
+      so a wobble no longer ends the press.
+    * The hold clock STOPS at the first sign of that open.  A magnet lifted
+      just short of the select threshold therefore cannot drift past it while
+      the filter is still waiting to see whether the open is real -- which is
+      how a tap came to be read as a hold.
+    """
+
+    def __init__(self, debounce: float = REED_OPEN_DEBOUNCE_SECS) -> None:
+        self._debounce = debounce
+        self.closed = False
+        self.press_start = 0.0
+        self._open_since: float | None = None
+
+    def update(self, now: float, raw_closed: bool) -> None:
+        if raw_closed:
+            self._open_since = None
+            if not self.closed:
+                self.closed = True
+                self.press_start = now
+            return
+        if not self.closed:
+            return
+        if self._open_since is None:
+            self._open_since = now
+        elif now - self._open_since >= self._debounce:
+            self.closed = False
+            self._open_since = None
+
+    def held(self, now: float) -> float:
+        """How long the press has lasted, frozen while the contact is open."""
+        if not self.closed:
+            return 0.0
+        return max(0.0, (self._open_since if self._open_since else now) - self.press_start)
+
+    @property
+    def settling(self) -> bool:
+        """Open, but not yet believed: do not fire a threshold in here."""
+        return self.closed and self._open_since is not None
+
 
 HOTSPOT_CTL = "/usr/local/bin/ipr_hotspot_ctl.sh"
 MODE_CTL = "/usr/local/bin/ipr_mode_ctl.sh"
@@ -477,6 +530,10 @@ class LedLogic:
         self._next_probe = 0.0
         self._reed_was = False
         self._press_start = 0.0
+        self._reed = _ReedFilter()
+        # A threshold that fired while the magnet was still down has already
+        # done its work; the release that follows must not also count.
+        self._press_spent = False
         self._armed: str | None = None  # None | "hotspot" | "shutdown" | "mode" | "reset" | "cancel"
         self._armed_at = 0.0            # when the current held phase began (for the off gap)
         self._busy_target = False  # HOTSPOT_BUSY: expected hotspot_active
@@ -498,7 +555,7 @@ class LedLogic:
         return LedSnapshot(
             phase=self.phase,
             armed=self._armed,
-            held_secs=(now - self._press_start) if self._reed_was else 0.0,
+            held_secs=self._reed.held(now),
             ready=self._ready,
             hotspot_active=p.hotspot_active,
             wifi_connected=p.wifi_connected,
@@ -516,6 +573,9 @@ class LedLogic:
 
     def tick(self, now: float, reed_closed: bool) -> Frame:
         self._maybe_probe(now)
+        # Everything below sees the debounced press, never the raw sample.
+        self._reed.update(now, reed_closed)
+        reed_closed = self._reed.closed
         self._handle_reed(now, reed_closed)
 
         if self.phase == Phase.BOOT and self._ready:
@@ -593,19 +653,32 @@ class LedLogic:
 
         if closed and not self._reed_was:
             # Press: show status right away (hotspot/reset phases keep their frame)
-            self._press_start = now
+            self._press_start = self._reed.press_start
+            self._press_spent = False
             self._armed = None
             if self.phase in (Phase.IDLE, Phase.STATUS):
                 self._enter_status(now)
                 self._probe_now()
         elif closed:
-            held = now - self._press_start
+            held = self._reed.held(now)
             if self._menu is not None:
                 # With a display, one hold opens the menu and the ladder below
                 # is not used at all: no second-counting, and the destructive
                 # actions sit behind a confirmation instead of a threshold.
-                if held >= HOLD_MENU_SECS:
+                #
+                # The menu opens the moment the threshold is crossed, while the
+                # magnet is still down.  Waiting for the release meant guessing
+                # the duration with no confirmation, so a hold meant as "open"
+                # or "choose" was routinely let go a fraction too early and
+                # arrived as a tap.  Now the panel answers under your hand.
+                if (
+                    not self._press_spent
+                    and not self._reed.settling
+                    and held >= HOLD_MENU_SECS
+                ):
+                    self._press_spent = True
                     self._arm("menu", now, held, "menu armed")
+                    self._open_menu(now)
                 return
             if held >= self._hold_cancel:
                 self._arm("cancel", now, held, "gesture cancelled")
@@ -620,7 +693,10 @@ class LedLogic:
         elif self._reed_was:
             # Release: fire whatever was armed
             armed, self._armed = self._armed, None
-            if self.phase in (Phase.RESETTING, Phase.SHUTTING_DOWN, Phase.BOOT):
+            spent, self._press_spent = self._press_spent, False
+            if spent:
+                pass  # the threshold already fired while the magnet was down
+            elif self.phase in (Phase.RESETTING, Phase.SHUTTING_DOWN, Phase.BOOT):
                 pass  # ignore gestures while booting, resetting or shutting down
             elif armed == "menu":
                 self._open_menu(now)
@@ -657,22 +733,34 @@ class LedLogic:
         self._reed_was = closed
 
     def _handle_reed_in_menu(self, now: float, closed: bool) -> None:
-        """Reed events while the menu is open: tap = next, long press = select.
+        """Reed events while the menu is open: tap = next, hold = choose.
 
-        The press is classified on RELEASE, so the user can let go as soon as
-        the panel highlights what they want; holding on past
-        MENU_SELECT_SECS and releasing activates it.
+        The hold fires the instant MENU_SELECT_SECS is reached, with the magnet
+        still down, so the panel confirms the choice while the bar that
+        predicted it is still on screen.  Classifying on release meant judging
+        the duration blind: let go a fraction early and the press became a tap
+        that stepped to the next item, which is why "Back" and "Exit" were the
+        hardest things in the menu to pick.
         """
         if closed and not self._reed_was:
-            self._press_start = now
+            self._press_start = self._reed.press_start
+            self._press_spent = False
             return
-        if not closed and self._reed_was:
-            held = now - self._press_start
-            if held >= MENU_SELECT_SECS:
+        if closed:
+            if (
+                not self._press_spent
+                and not self._reed.settling
+                and self._reed.held(now) >= MENU_SELECT_SECS
+            ):
+                self._press_spent = True
                 self._menu.select(now)
-            else:
+                self._drain_menu(now)
+            return
+        if self._reed_was:
+            spent, self._press_spent = self._press_spent, False
+            if not spent:
                 self._menu.tap(now)
-            self._drain_menu(now)
+                self._drain_menu(now)
 
     def _drain_menu(self, now: float) -> None:
         """Run whatever the menu asked for."""

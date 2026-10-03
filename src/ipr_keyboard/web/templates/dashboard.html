@@ -416,6 +416,21 @@
         <label>Scan folders</label>
         <div id="cfg-pen-folders" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
+      <!-- The typing speed. It is the largest single cost of a send, so it
+           belongs here and not only in a file on the device. -->
+      <div class="settings-row">
+        <label for="cfg-typing-delay">Typing speed</label>
+        <select id="cfg-typing-delay"></select>
+      </div>
+      <div class="card-explanation" style="margin-top:-4px">
+        How fast the text is typed into the PC. This is nearly all of the time a
+        scan takes: at <b>Normal</b> a full page needs about half a minute.
+        Faster is not always better — the PC has to keep up, and if it cannot,
+        characters go missing or come out in the wrong order, which is worse
+        than waiting. Change one step at a time and check the result, or let
+        <b>Debug → Typing speed trial</b> try each speed for you.
+        <span id="cfg-typing-note"></span>
+      </div>
     </div>
 
     <!-- Diagnostics -->
@@ -575,6 +590,24 @@
           <button class="btn btn-primary" onclick="sendDebugFile()">➡ Send file</button>
         </div>
       </div>
+    </div>
+
+    <!-- Typing speed trial -->
+    <div class="card">
+      <div class="debug-section-title">Typing speed trial</div>
+      <div class="card-explanation" style="margin-bottom:10px">
+        Types the same known sentence at each speed, one after another, and times
+        each one. The PC stays connected throughout. When it finishes, read what
+        arrived: keep the <b>lowest</b> speed whose text is perfect, then choose
+        that speed in Settings. Faster speeds drop or transpose characters on a
+        PC that cannot keep up, so the timings alone do not decide it — the text
+        does.
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary" id="trial-run" onclick="runTypingTrial()">➡ Run the trial</button>
+        <span id="trial-status" style="font-size:13px;color:var(--color-text-muted)"></span>
+      </div>
+      <div id="trial-results" style="margin-top:12px"></div>
     </div>
 
     <!-- Pen files -->
@@ -1185,6 +1218,38 @@ async function loadSettings() {
     if (cfg.timing) {
       document.getElementById('cfg-poll-interval').value = cfg.timing.poll_interval_seconds ?? 1.0;
       document.getElementById('cfg-status-interval').value = cfg.timing.status_interval_seconds ?? 5;
+      // The options come from the device, so the ladder is defined in one
+      // place (ipr_keyboard/keydelay.py) instead of being copied into the UI.
+      const tsel = document.getElementById('cfg-typing-delay');
+      const opts = cfg.timing.typing_delay_options || [];
+      const current = cfg.timing.typing_delay_ms;
+      tsel.innerHTML = '';
+      opts.forEach(o => {
+        const el = document.createElement('option');
+        el.value = o.ms;
+        el.textContent = o.label;
+        el.selected = o.ms === current;
+        tsel.appendChild(el);
+      });
+      // A value tuned by hand on the device need not be one of the four.
+      if (current != null && !opts.some(o => o.ms === current)) {
+        const el = document.createElement('option');
+        el.value = current;
+        el.textContent = `${current} ms — ${cfg.timing.typing_chars_per_second} a second`;
+        el.selected = true;
+        tsel.appendChild(el);
+      }
+      // Saying so matters: until the next scan the device is still typing at
+      // the old speed, and a trial leaves the two briefly disagreeing.
+      const inForce = cfg.timing.typing_delay_in_force_ms;
+      const note = document.getElementById('cfg-typing-note');
+      if (inForce == null) {
+        note.textContent = ' The Bluetooth daemon is not reporting a speed, so changes need it restarted.';
+      } else if (current != null && inForce !== current) {
+        note.textContent = ` Currently typing at ${inForce} ms; the saved setting applies from the next scan.`;
+      } else {
+        note.textContent = '';
+      }
     }
     if (cfg.diagnostics) {
       const sel = document.getElementById('cfg-log-level');
@@ -1238,6 +1303,7 @@ async function saveSettings() {
       timing: {
         poll_interval_seconds: parseFloat(document.getElementById('cfg-poll-interval').value),
         status_interval_seconds: parseInt(document.getElementById('cfg-status-interval').value, 10),
+        typing_delay_ms: parseInt(document.getElementById('cfg-typing-delay').value, 10),
       },
       diagnostics: {
         log_level: document.getElementById('cfg-log-level').value,
@@ -1526,6 +1592,57 @@ async function sendDebugText() {
     showToast(res.message || (res.ok ? 'Text sent.' : 'Send failed.'));
   } catch (e) {
     showToast('Send failed: ' + e.message);
+  }
+}
+
+async function runTypingTrial() {
+  const btn = document.getElementById('trial-run');
+  const status = document.getElementById('trial-status');
+  const out = document.getElementById('trial-results');
+  // The trial types for tens of seconds; without disabling the button a
+  // second run would interleave two sends into the same PC window.
+  btn.disabled = true;
+  status.innerHTML = '<span class="spinner"></span> Typing at each speed — watch the PC…';
+  out.innerHTML = '';
+  try {
+    const res = await apiFetch('/api/debug/typing-trial', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      status.textContent = '';
+      out.innerHTML = `<div class="card-explanation">${res.message || 'The trial could not run.'}</div>`;
+      return;
+    }
+    const rows = (res.results || []).map(r => {
+      if (r.error) {
+        return `<tr><td>${r.delay_ms} ms</td><td colspan="3" class="state-error">${r.error}</td></tr>`;
+      }
+      const flag = r.complete ? '' : ' <span class="state-warning">incomplete</span>';
+      const best = r.delay_ms === res.fastest_ms ? ' style="font-weight:600"' : '';
+      return `<tr${best}>
+        <td>${r.delay_ms} ms</td>
+        <td>${(r.type_ms / 1000).toFixed(1)} s</td>
+        <td>${r.ms_per_char} ms</td>
+        <td>${r.chars_per_second}/s${flag}</td>
+      </tr>`;
+    }).join('');
+    out.innerHTML = `
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <thead><tr style="text-align:left;color:var(--color-text-muted)">
+          <th>Speed set</th><th>Took</th><th>Per character</th><th>Measured</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="card-explanation" style="margin-top:8px">${res.message}
+      The setting is unchanged (${res.restored_delay_ms} ms).</div>`;
+    status.textContent = '';
+  } catch (e) {
+    status.textContent = '';
+    out.innerHTML = `<div class="card-explanation state-error">The trial failed: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
   }
 }
 

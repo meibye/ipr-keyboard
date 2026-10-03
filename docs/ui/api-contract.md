@@ -364,6 +364,17 @@ Example response
     "auto_detect": true,
     "read_timeout_seconds": 10
   },
+  "timing": {
+    "poll_interval_seconds": 1.0,
+    "status_interval_seconds": 5,
+    "typing_delay_ms": 20,
+    "typing_delay_in_force_ms": 20,
+    "typing_chars_per_second": 25.0,
+    "typing_delay_options": [
+      { "ms": 20, "label": "Normal — 25 characters a second", "chars_per_second": 25.0 },
+      { "ms": 12, "label": "Fast — 42 a second", "chars_per_second": 41.7 }
+    ]
+  },
   "diagnostics": {
     "log_level": "INFO",
     "metrics_enabled": false
@@ -374,6 +385,16 @@ Example response
 `diagnostics.metrics_enabled` turns performance recording on or off (see
 `GET /api/metrics`). It is a boolean; other types are rejected with
 `validation_error`. Off by default.
+
+`timing.typing_delay_ms` is the saved typing speed — the pause after each HID
+report, and the largest single cost of a send. `typing_delay_in_force_ms` is
+what the BLE daemon is **actually** using: the two differ between a change and
+the next send, and `null` means the daemon is not accepting a speed at runtime
+(an older daemon), in which case the setting only applies after a restart.
+`typing_delay_options` is the ladder from `ipr_keyboard/keydelay.py`, so the UI
+never hard-codes it. POSTing `timing.typing_delay_ms` outside 1–200 is rejected
+with `validation_error`; a value in range is applied immediately as well as
+saved. See docs/operations/performance.md.
 
 POST /api/config
 
@@ -554,6 +575,45 @@ Example response
 ```json
 { "ok": true, "message": "Text sent." }
 ```
+
+#### POST /api/debug/typing-trial
+
+Types the same known sentence once per candidate speed, times each send, and
+restores the saved setting afterwards. This is the supported way to tune the
+typing speed: the daemon re-reads the speed per send, so the whole ladder runs
+without restarting it and without the PC re-pairing.
+
+Request body (both fields optional)
+```json
+{ "delays": [20, 12, 8, 4], "text": "..." }
+```
+
+- `delays`: whole milliseconds, each 1–200, at most 6. Defaults to the ladder
+  in `keydelay.CHOICES`.
+- `text`: the sentence to type. Each send is prefixed with `[<ms> ms] ` so a
+  mangled block on the PC can be traced to the speed that produced it.
+
+Example response
+```json
+{
+  "ok": true,
+  "restored_delay_ms": 20,
+  "fastest_ms": 4,
+  "results": [
+    { "delay_ms": 20, "chars": 104, "queue_wait_ms": 198.2, "type_ms": 4210.0,
+      "ms_per_char": 40.5, "chars_per_second": 24.7, "sent": 104, "complete": true }
+  ],
+  "message": "Now read the text on the PC. …"
+}
+```
+
+Returns `409` with `ok: false` when the daemon is not accepting a runtime
+speed. A per-result `error` means that one send failed; the others still ran.
+
+**The timings do not decide the winner.** Every lower delay is faster; the
+failure mode is dropped or transposed characters, which only reading the text
+on the PC reveals. `fastest_ms` is the quickest *measured*, not a
+recommendation.
 
 #### POST /api/debug/send-file
 

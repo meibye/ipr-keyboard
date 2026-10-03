@@ -37,6 +37,7 @@ from .screens import (
     ICON_OK,
     ICON_PEN,
     ICON_WAIT,
+    ICON_WARN,
     Screen,
 )
 
@@ -262,6 +263,13 @@ def _draw_icon(draw: ImageDraw.ImageDraw, icon: str, x: int, y: int) -> None:
     elif icon == ICON_ERR:
         draw.line((x, y, x + 7, y + 7), fill=1)
         draw.line((x, y + 7, x + 7, y), fill=1)
+    elif icon == ICON_WARN:
+        # A filled triangle with a notch for the bar and a dot for the point.
+        # Solid, because the whole purpose is to be seen without being read,
+        # and an 8x8 outline triangle is easy to mistake for the net icon.
+        draw.polygon((x + 3, y, x + 7, y + 7, x, y + 7), fill=1)
+        draw.line((x + 3, y + 3, x + 3, y + 4), fill=0)
+        draw.point((x + 3, y + 6), fill=0)
     elif icon == ICON_WAIT:
         for dx in (0, 3, 6):
             draw.point((x + dx, y + 5), fill=1)

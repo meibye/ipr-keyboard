@@ -48,10 +48,20 @@ Two reports per character (press, then release) make **40 ms per character —
 25 characters a second**.  A 500-character scan therefore takes 20 seconds,
 and nothing else in the pipeline comes close to that.
 
-The delay is now `BT_KEY_DELAY_MS` (default 20, unchanged), set in
-`/opt/ipr_common.env` — the file `bt_hid_ble.service` already reads — and
-picked up when the daemon restarts.  Lower it by
-measurement, not by hope:
+The delay is `BT_KEY_DELAY_MS` (default 20, unchanged) in
+`/opt/ipr_common.env` — the file `bt_hid_ble.service` already reads — which
+sets it for the daemon's lifetime.
+
+**Normally you change it in the dashboard instead**: Settings → Typing
+speed, which saves `TypingDelayMs` and writes it to
+`/run/ipr_bt_key_delay`.  The daemon re-reads that file once per send, so a
+new speed applies to the next scan **without restarting the daemon** — a
+restart drops the BLE link and makes the PC pair again, which is far too
+much for a settings change and makes tuning by trial impossible.  `/run` is
+cleared by a reboot, so the env var stays the default and the application
+re-applies the saved setting on its first loop.
+
+Either way, lower it by measurement, not by hope:
 
 | Value | Characters/s | Note |
 |---|---|---|
@@ -68,17 +78,31 @@ much worse than slow.
 
 **How to tune it safely**
 
-```bash
-# on the device
-sudo sed -i 's/^BT_KEY_DELAY_MS=.*/BT_KEY_DELAY_MS=12/' /etc/default/bt_hid_ble \
-  || echo 'BT_KEY_DELAY_MS=12' | sudo tee -a /etc/default/bt_hid_ble
-sudo systemctl restart bt_hid_ble.service
-```
+Use **Debug → Typing speed trial** on the dashboard.  It types the same
+known sentence at each speed in turn, labelled with the speed that produced
+it, times each one, and puts the saved setting back when it finishes.  The PC
+stays connected throughout.
 
-Then scan a page of known text, at each value, and check the result character
-for character.  Keep the lowest value that is still perfect over ten scans,
-then add one step back for margin.  **Typing, per character** on the
-dashboard's Performance panel confirms what you actually got.
+Then read what arrived on the PC.  Keep the **lowest** speed whose text is
+perfect and choose it in Settings → Typing speed.  The timings alone do not
+decide it: every speed is faster than the one above it, and the failure mode
+is dropped or transposed characters, which only reading the text reveals.
+For a production device, go one step back from the fastest that worked.
+**Typing, per character** on the Performance panel confirms what you got.
+
+An earlier version of this file named `/etc/default/bt_hid_ble` here.  Nothing
+reads that file: `bt_hid_ble.service` has
+`EnvironmentFile=-/opt/ipr_common.env`, and the leading `-` means a missing
+file is not an error — so editing the wrong path changed nothing, silently.
+To change the boot default by hand:
+
+```bash
+# on the device.  Only needed for the DEFAULT: the dashboard is the normal
+# route and needs no restart.
+sudo sed -i 's/^BT_KEY_DELAY_MS=.*/BT_KEY_DELAY_MS=12/' /opt/ipr_common.env \
+  || echo 'BT_KEY_DELAY_MS=12' | sudo tee -a /opt/ipr_common.env
+sudo systemctl restart bt_hid_ble.service   # this drops the BLE link
+```
 
 ## What else is worth doing
 

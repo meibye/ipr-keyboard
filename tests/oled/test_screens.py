@@ -72,16 +72,29 @@ def test_problem_header_when_service_down_pen_port_off_or_no_wifi():
     assert s.header == "PROBLEM"
     assert s.lines[1].icon == sc.ICON_ERR and "reboot" in s.lines[1].text
 
+    # No Wi-Fi is the user's to fix, not a fault: NOT READY, and the advice
+    # follows whether this device has a menu to be sent to.
     s = compose(ready_snapshot(wifi_connected=False, ssid="", ip=""))
-    assert s.header == "PROBLEM"
-    assert s.lines[2] == Line("No Wi-Fi — hold 3 s", sc.ICON_ERR)
+    assert s.header == "NOT READY"
+    assert s.lines[2] == Line("No Wi-Fi — hold 3 s", sc.ICON_WARN)
+    s = compose(ready_snapshot(wifi_connected=False, ssid="", ip="", menu_available=True))
+    assert s.lines[2] == Line("No Wi-Fi: see menu", sc.ICON_WARN)
 
 
 def test_waiting_for_pc_and_plug_in_pen():
+    """A missing pen is an outstanding job, and it has to look like one.
+
+    This screen read "READY" with "Plug in the pen" sitting unremarked among
+    three lines of ordinary text, and it went unnoticed on the device.  A PC
+    that has not connected yet is different: it connects by itself.
+    """
     s = compose(ready_snapshot(bt_connected=False, bt_host="", pen="missing"))
-    assert s.header == "READY"
-    assert s.lines[0].text == "Waiting for PC…"
-    assert s.lines[1].text == "Plug in the pen"
+    assert s.header == "NOT READY"
+    assert s.lines[0] == Line("Waiting for PC…", sc.ICON_BT)
+    assert s.lines[1] == Line("Plug in the pen", sc.ICON_WARN)
+
+    # The PC alone never makes the device "not ready".
+    assert compose(ready_snapshot(bt_connected=False, bt_host="")).header == "READY"
 
 
 def test_sending_has_indeterminate_bar_and_character_count():
@@ -123,7 +136,18 @@ def test_hotspot_screen_shows_ssid_and_url():
     assert s.header == "SETUP MODE"
     assert s.lines[0].text == "Wi-Fi  ipr-setup-a1b2"
     assert sc.HOTSPOT_URL in s.lines[1].text
-    assert s.lines[2].text == "Hold 3 s to stop"
+    # Without a menu the timed ladder still applies; with one, holding opens
+    # the menu, so the hint must send the user there instead.
+    assert s.lines[2].text == "Hold 3s to stop"
+    s2 = compose(
+        ready_snapshot(
+            phase=sc.HOTSPOT_ON,
+            hotspot_active=True,
+            hotspot_ssid="ipr-setup-a1b2",
+            menu_available=True,
+        )
+    )
+    assert s2.lines[2].text == "Hold: menu to stop"
 
 
 def test_hotspot_busy_and_failed():
@@ -317,3 +341,17 @@ def test_the_header_carries_the_scroll_position():
 
     s = compose(ready_snapshot(menu=View()))
     assert s.header == "DISPLAY 5/6"
+
+
+def test_the_hold_timings_match_the_gpio_module():
+    """screens.py mirrors these on purpose and imports nothing from there.
+
+    A mirror that drifts shows a bar that fills at the wrong rate: it would
+    reach the end before the action fires, or the action would fire with the
+    bar half full, and the bar is the only cue for how long to hold.
+    """
+    from ipr_keyboard import gpio_monitor as gm
+
+    assert sc.MENU_HOLD_SECS == gm.HOLD_MENU_SECS
+    assert sc.MENU_SELECT_SECS == gm.MENU_SELECT_SECS
+

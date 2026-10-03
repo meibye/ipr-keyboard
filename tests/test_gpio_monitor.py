@@ -90,7 +90,17 @@ class Rig:
         return self.advance(0.05)
 
     def release(self):
+        # The magnet coming away is only believed once the contact has stayed
+        # open for REED_OPEN_DEBOUNCE_SECS, so a release takes that long to
+        # register -- exactly as on the device.
         self.reed = False
+        return self.advance(gm.REED_OPEN_DEBOUNCE_SECS + 0.15)
+
+    def wobble(self, secs=0.05):
+        """The contact opens briefly mid-hold, as a hand-held magnet does."""
+        self.reed = False
+        self.advance(secs)
+        self.reed = True
         return self.advance(0.05)
 
     def tap(self):
@@ -551,10 +561,12 @@ def test_monitor_stop_keeps_cyan_while_shutting_down():
     time.sleep(0.05)
     backend.closed = True
     time.sleep(0.05)
-    mon._logic._press_start -= 7.0  # pretend the magnet was held 7 s
+    # The hold clock lives in the reed filter now; move that, not the copy.
+    mon._logic._reed.press_start -= 7.0  # pretend the magnet was held 7 s
+    mon._logic._press_start -= 7.0
     time.sleep(0.05)
     backend.closed = False
-    time.sleep(0.05)
+    time.sleep(0.05 + gm.REED_OPEN_DEBOUNCE_SECS)  # the open has to be believed
     assert actions.calls == ["shutdown"]
     mon.stop()
     assert not backend.cleaned
@@ -599,6 +611,14 @@ def _menu_tap(rig):
     rig.press()
     rig.advance(0.3)
     rig.release()
+
+
+def _open_menu(rig):
+    """Hold until the menu appears; it now opens under the magnet."""
+    rig.press()
+    rig.advance(gm.HOLD_MENU_SECS + 0.1)
+    rig.release()
+    assert rig.menu.open
 
 
 def _menu_select(rig):
@@ -716,3 +736,75 @@ def test_the_snapshot_carries_the_menu_for_the_display():
     rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
     assert rig.logic.snapshot(rig.now).menu is not None
+
+
+# ---------------------------------------------------------------------------
+# Telling a tap from a hold, with a magnet held by hand
+# ---------------------------------------------------------------------------
+
+
+def test_a_wobble_mid_hold_does_not_split_the_press_into_taps():
+    """One deliberate hold, one action.
+
+    A hand-held magnet lets the contact go for a sample or two.  Taken
+    literally that ended the press, so a hold meant as "choose this" arrived
+    as two taps and the selection stepped past what the user wanted -- the
+    reason Back and Exit were so hard to pick.
+    """
+    rig = _menu_rig()
+    _open_menu(rig)
+    start = _menu_current(rig)
+
+    rig.press()
+    rig.advance(0.4)
+    rig.wobble()          # the magnet shifts
+    rig.advance(0.4)
+    rig.wobble()          # and again
+    rig.advance(0.4)
+    assert _menu_current(rig) == start, "a wobble must not count as a tap"
+    rig.advance(gm.MENU_SELECT_SECS)
+    rig.release()
+    assert rig.actions.calls == ["start"], "the hold still chose the item"
+
+
+def test_a_tap_whose_release_bounces_is_still_a_tap():
+    """Lifting the magnet just short of the threshold must not select.
+
+    The hold clock stops at the first sign of the contact opening, so the
+    filter's waiting period cannot carry a press over the line.
+    """
+    rig = _menu_rig()
+    _open_menu(rig)
+    first = _menu_current(rig)
+
+    rig.press()
+    rig.advance(gm.MENU_SELECT_SECS - 0.2)   # just short of choosing
+    rig.release()
+    assert rig.actions.calls == [], "nothing was chosen"
+    assert _menu_current(rig) != first, "it counted as a tap and stepped on"
+
+
+def test_a_hold_chooses_the_moment_the_threshold_is_reached():
+    """The action fires under your hand, not when you let go.
+
+    Waiting for the release gave no confirmation that the hold had been long
+    enough, so it was routinely cut short.
+    """
+    rig = _menu_rig()
+    _open_menu(rig)
+    rig.press()
+    rig.advance(gm.MENU_SELECT_SECS + 0.1)
+    assert rig.actions.calls == ["start"], "chosen while the magnet is still down"
+    rig.release()
+    assert rig.actions.calls == ["start"], "and the release adds nothing"
+
+
+def test_the_menu_opens_while_the_magnet_is_still_held():
+    rig = _menu_rig()
+    rig.press()
+    rig.advance(gm.HOLD_MENU_SECS + 0.1)
+    assert rig.menu.open, "the panel answers before the magnet comes away"
+    rig.release()
+    assert rig.menu.open, "and the release is not read as a tap"
+    v = rig.menu.view()
+    assert v.lines[v.selected] == "Hotspot: to on", "still on the first item"

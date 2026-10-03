@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 DATE = "3. oktober 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -1080,6 +1080,10 @@ def build() -> None:
                                                     "på hovedet."],
             ["OledSendHoldSeconds", "10", "Hvor længe SENT/SEND FAILED bliver stående."],
             ["OledMarqueeFps", "8", "Gentegningsrate, mens en lang linje ruller; 6 på Zero W."],
+            ["TypingDelayMs", "20", "Skrivehastighed: pause i millisekunder efter hver "
+                                    "HID-rapport. Der sendes to rapporter pr. tegn, så 20 ms "
+                                    "giver 25 tegn i sekundet. Dette er næsten hele den tid, "
+                                    "en skanning tager. Se afsnit 9.6."],
             ["MetricsEnabled", "false", "Registrér ydelsestal (opstartstid, forsinkelse fra pen "
                                         "til Bluetooth). Slået fra som standard; se afsnit 9.4."],
         ],
@@ -1111,6 +1115,13 @@ def build() -> None:
         ("Bluetooth — ", "automatisk genforbindelse og parringstimeout."),
         ("Pen/skanner — ", "automatisk detektion, læsetimeout, pollinterval og listen over "
                            "overvågede mapper."),
+        ("Skrivehastighed — ", "hvor hurtigt teksten tastes ind på pc'en. Fire trin: "
+                               "Normal (20 ms, 25 tegn/s), Hurtig (12 ms, 42/s), Hurtigere "
+                               "(8 ms, 62/s) og Hurtigst (4 ms, 125/s). Hurtigere er ikke "
+                               "altid bedre — kan pc'en ikke følge med, forsvinder tegn "
+                               "eller bytter plads, hvilket er værre end at vente. Ændringen "
+                               "gælder fra næste skanning, uden genstart af Bluetooth-tjenesten "
+                               "og uden at parringen mistes. Se afsnit 9.6."),
         ("Diagnostik — ", "logniveau og statusopdateringsinterval."),
         ("Strøm — ", "genstart og nedlukning, begge med bekræftelse."),
     ])
@@ -1956,6 +1967,55 @@ def build() -> None:
         "fejl (fx et genstartskapløb under en udrulning). En enhed i tilstanden failed "
         "kræver journalen. Før denne ændring beholdt journalen kun den aktuelle opstart, "
         "og en “Failed to restart bt_hid_ble.service” fra dagen før var væk.")
+
+    m.h2("9.6 Skrivehastighed")
+    m.p("Skrivehastigheden er den enkeltfaktor, der betyder mest for, hvor lang tid en "
+        "skanning tager. Enheden sender to HID-rapporter pr. tegn (tast ned og tast op) "
+        "og venter TypingDelayMs efter hver, så hastigheden er 1000 / (2 × TypingDelayMs) "
+        "tegn i sekundet. Ved standardværdien 20 ms er det 25 tegn i sekundet: en side på "
+        "1.500 tegn tager ca. 37 sekunder, og resten af kæden (detektion, læsning, kø) "
+        "bidrager med under en halv sekund tilsammen.")
+    m.table(
+        ["Indstilling", "Værdi", "Tegn/s", "Bemærkning"],
+        [
+            ["Normal", "20 ms", "25", "Standard. Virker på alle værter."],
+            ["Hurtig", "12 ms", "42", "Ligger stadig over et typisk forbindelsesinterval "
+                                      "på 7,5–15 ms."],
+            ["Hurtigere", "8 ms", "62", "På eller under nogle værters interval. "
+                                        "Kontrollér teksten tegn for tegn."],
+            ["Hurtigst", "4 ms", "125", "Forvent tab af tegn — værten kan ikke kvittere "
+                                        "så hurtigt."],
+        ],
+        widths=[3.0, 2.0, 1.8, 8.8],
+        caption="Skrivehastigheder, der kan vælges under Indstillinger.",
+    )
+    m.note("Nedre grænse er det BLE-forbindelsesinterval, pc'en forhandler sig frem til. "
+           "En notifikation kan ikke leveres hurtigere end ét interval, og Windows lander "
+           "typisk på 7,5–15 ms. Under det lægger rapporterne sig i kø, og stakken kan "
+           "tabe eller ombytte dem. Det viser sig som manglende eller ombyttede tegn — "
+           "langt værre end at vente.", "warn")
+    m.p("Sådan findes den rigtige værdi: brug Fejlsøgning → Skrivehastighedstest på "
+        "dashboardet. Den taster den samme kendte sætning én gang pr. hastighed, mærket "
+        "med den hastighed der frembragte den, måler hver afsendelse og sætter den gemte "
+        "indstilling tilbage bagefter. Pc'en forbliver forbundet hele vejen. Læs derefter "
+        "det, der kom frem på pc'en, og behold den LAVESTE hastighed, hvis tekst er "
+        "fejlfri. Vælg den under Indstillinger → Skrivehastighed. På en driftsenhed: gå "
+        "ét trin tilbage fra den hurtigste, der virkede.")
+    m.note("Tiderne alene afgør ikke valget. Hver lavere værdi er hurtigere end den "
+           "foregående — fejlen viser sig som tabte eller ombyttede tegn, og det kan kun "
+           "ses ved at læse teksten. Enheden kan ikke selv se, om teksten ankom korrekt.", "info")
+    m.p("Ændringen kræver ingen genstart. Dashboardet skriver værdien til "
+        "/run/ipr_bt_key_delay, og BLE-tjenesten læser filen igen ved hver afsendelse, så "
+        "den nye hastighed gælder fra næste skanning. Det er bevidst: en genstart af "
+        "bt_hid_ble.service afbryder Bluetooth-forbindelsen, og så skal pc'en parres igen "
+        "— alt for meget for en indstilling, og umuligt at bruge som testmetode. "
+        "/run tømmes ved genstart af enheden, så BT_KEY_DELAY_MS i /opt/ipr_common.env "
+        "er fortsat standardværdien; programmet skriver den gemte indstilling igen ved "
+        "første gennemløb efter opstart.")
+    m.p("Måleværdien type_ms_per_char under Indstillinger → Registrér ydelsestal viser, "
+        "hvad der faktisk blev opnået. Målt på en Zero 2 W: 24,8 ms pr. tegn ved en "
+        "indstilling på 20 ms. De 4,8 ms oveni er de to HID-rapporter plus "
+        "forbindelsesintervallet.")
 
     # ---------------------------------------------------------------- 10
     m.h1("10. Fejlfinding", new_page=True)

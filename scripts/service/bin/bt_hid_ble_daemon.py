@@ -96,6 +96,58 @@ BLE_DEBUG = env_bool("BT_BLE_DEBUG", "0")
 # measurement rather than by hope: see docs/operations/performance.md.
 KEY_DELAY_S = max(0.0, env_int("BT_KEY_DELAY_MS", 20)) / 1000.0
 
+# The dashboard can change the typing speed, and restarting this daemon to
+# apply it would drop the BLE link and make the user re-pair -- far too much
+# for a settings change.  The application writes the chosen value here and the
+# daemon re-reads it once per send (not per character: that would be a syscall
+# every few milliseconds on a single core).  The env var remains the default
+# for the first send after a boot and whenever the file is absent.
+KEY_DELAY_PATH = "/run/ipr_bt_key_delay"
+KEY_DELAY_MIN_MS = 1
+KEY_DELAY_MAX_MS = 200
+
+
+def ensure_key_delay_file() -> None:
+    """Create the override file and hand it to the application user.
+
+    Mirrors ensure_fifo_exists: this daemon runs as root and only READS it.
+    """
+    try:
+        if not os.path.exists(KEY_DELAY_PATH):
+            with open(KEY_DELAY_PATH, "w", encoding="ascii") as fh:
+                fh.write(str(int(round(KEY_DELAY_S * 1000))) + chr(10))
+        owner = os.environ.get("APP_USER", "").strip().strip('"')
+        if owner:
+            import pwd
+            pw = pwd.getpwnam(owner)
+            os.chown(KEY_DELAY_PATH, pw.pw_uid, pw.pw_gid)
+        os.chmod(KEY_DELAY_PATH, 0o644)
+    except (KeyError, OSError) as exc:
+        log_info(f"[ble] Could not prepare {KEY_DELAY_PATH}: {exc} — typing speed stays at the env default")
+
+
+def refresh_key_delay() -> None:
+    """Pick up a typing speed chosen since the last send.
+
+    Anything unreadable, unparsable or out of range leaves the current value
+    alone: a bad file must never stop the device typing.
+    """
+    global KEY_DELAY_S
+    try:
+        raw = open(KEY_DELAY_PATH, encoding="ascii").read().strip()
+    except OSError:
+        return
+    try:
+        ms = int(raw)
+    except ValueError:
+        return
+    if not (KEY_DELAY_MIN_MS <= ms <= KEY_DELAY_MAX_MS):
+        return
+    new = ms / 1000.0
+    if new != KEY_DELAY_S:
+        log_info(f"[ble] Typing delay now {ms} ms per report")
+        KEY_DELAY_S = new
+
 # ---------------------------------------------------------------------------
 # Typing progress
 #
@@ -1314,6 +1366,8 @@ def send_next_character(
 def drain_queue(queue: deque, hid: HidService, notify_state: NotifyState) -> None:
     if BLE_DEBUG:
         journal.send(f"[DEBUG] drain_queue() start queue={list(queue)}")
+    # Once per send: a speed chosen in the dashboard applies to the next scan.
+    refresh_key_delay()
     total = len(queue)
     sent = 0
     publish_progress("typing", total, 0, force=True)
@@ -1335,6 +1389,7 @@ def drain_queue(queue: deque, hid: HidService, notify_state: NotifyState) -> Non
 
 def fifo_worker(hid: HidService, notify_state: NotifyState):
     ensure_fifo_exists()
+    ensure_key_delay_file()
     # Bounded: undelivered text must not grow without limit while no host is
     # subscribed.  Oldest characters are dropped first.
     queue = deque(maxlen=QUEUE_MAX_CHARS)

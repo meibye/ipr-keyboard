@@ -203,6 +203,14 @@ Raw logs must be secondary.
 
 Purpose: configuration and protected actions.
 
+Includes **Typing speed** (`timing.typing_delay_ms`), a select whose options
+come from the device so the ladder lives in one place. It is the largest
+single cost of a send, so it belongs here rather than in a file on the
+device. The explanation must say that faster is not always better — a PC that
+cannot keep up loses characters — and point at Debug → Typing speed trial.
+When the speed in force differs from the saved one, say so: until the next
+scan the device is still typing at the old speed.
+
 ### 6. Debug
 
 Screen id: `#debug`, nav label: "Debug"
@@ -215,7 +223,13 @@ Must show:
 - A "Send to PC" panel with two tabs: send text (textarea + Send button) and send file (file picker + Send button). Both reflect the live transmission state badge from the SSE stream.
 - A "Pen Files" listing of files in the configured pen folder, with name, size, modification time, and expandable content preview.
 
-Data sources: `/api/debug/services`, `/api/debug/send-text`, `/api/debug/send-file`, `/api/debug/pen-files`.
+Data sources: `/api/debug/services`, `/api/debug/send-text`, `/api/debug/send-file`, `/api/debug/pen-files`, `/api/debug/typing-trial`.
+
+The Debug screen also carries **Typing speed trial**: it types a known
+sentence at each candidate speed and tabulates the timings, leaving the saved
+setting untouched. The speed itself is chosen in Settings; the trial only
+measures, because what decides it is whether the text arrived intact, which
+the device cannot see.
 
 Transmission badge reads `statusData.transmission` pushed by `/api/stream`.
 While `state` is `sending` the Transmission card on Home also shows a bar and

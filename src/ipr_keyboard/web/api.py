@@ -12,6 +12,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ from flask import Blueprint, Response, jsonify, request, session, stream_with_co
 from ..config.manager import ConfigManager
 from ..logging.logger import get_logger, set_log_level
 from .. import transmission
+from .. import keydelay
 from .. import metrics
 from ..usb.detector import expand_folders, list_files, pen_presence
 from .auth import UserStore
@@ -594,6 +596,23 @@ def api_config_get():
             "timing": {
                 "poll_interval_seconds": cfg.PollIntervalSeconds,
                 "status_interval_seconds": cfg.StatusIntervalSeconds,
+                # The typing speed is the largest single cost of a send, so it
+                # is a setting rather than something only the perf harness can
+                # reach.  "in_force" is what the daemon is actually using,
+                # which differs from the saved value until the next send.
+                "typing_delay_ms": int(getattr(cfg, "TypingDelayMs", 20)),
+                "typing_delay_in_force_ms": keydelay.read(),
+                "typing_chars_per_second": round(
+                    keydelay.chars_per_second(getattr(cfg, "TypingDelayMs", 20)), 1
+                ),
+                "typing_delay_options": [
+                    {
+                        "ms": ms,
+                        "label": label,
+                        "chars_per_second": round(keydelay.chars_per_second(ms), 1),
+                    }
+                    for ms, label in keydelay.CHOICES
+                ],
             },
             "diagnostics": {
                 "log_level": log_level,
@@ -640,6 +659,15 @@ def api_config_post():
                 v = int(t["status_interval_seconds"])
                 if 1 <= v <= 60:
                     update_kwargs["StatusIntervalSeconds"] = v
+            if "typing_delay_ms" in t:
+                v = int(t["typing_delay_ms"])
+                if not (keydelay.MIN_MS <= v <= keydelay.MAX_MS):
+                    return jsonify({"error": {"code": "validation_error",
+                                              "message": f"timing.typing_delay_ms must be {keydelay.MIN_MS}-{keydelay.MAX_MS}."}}), 400
+                update_kwargs["TypingDelayMs"] = v
+                # Put it in force now rather than waiting for the main loop:
+                # the trial on the Debug screen changes it between sends.
+                keydelay.apply(v)
         if "diagnostics" in data and "metrics_enabled" in data["diagnostics"]:
             v = data["diagnostics"]["metrics_enabled"]
             if not isinstance(v, bool):
@@ -1163,6 +1191,118 @@ def api_debug_send_text():
     except Exception:
         logger.exception("API error")
         return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+# The trial sends this once per candidate speed.  Known text, so the user can
+# check it character for character on the PC -- the only test that matters,
+# since the failure mode of too low a delay is dropped or transposed
+# characters rather than an error.  Each line names its own speed, so a
+# mangled block can be traced back to the setting that produced it.
+TYPING_TRIAL_TEXT = (
+    "The quick brown fox jumps over the lazy dog, 0123456789 "
+    "(punctuation: ;:'?!) -- and back again. "
+)
+TYPING_TRIAL_MAX_DELAYS = 6
+
+
+@bp_api.post("/debug/typing-trial")
+def api_debug_typing_trial():
+    """Type the same text at each candidate speed and measure what happened.
+
+    docs/operations/performance.md says to try the ladder and keep the lowest
+    value that is still perfect, which until now meant editing a file on the
+    device and restarting the BLE daemon -- losing the pairing each time.  The
+    daemon re-reads the speed per send, so the whole ladder can run here in
+    one go while the PC stays connected.
+
+    The saved setting is restored afterwards: a trial measures, it does not
+    decide.  The user picks the winner in Settings.
+    """
+    try:
+        data = request.get_json(force=True) or {}
+        delays = data.get("delays") or [ms for ms, _ in keydelay.CHOICES]
+        try:
+            delays = [int(d) for d in delays][:TYPING_TRIAL_MAX_DELAYS]
+        except (TypeError, ValueError):
+            return jsonify({"error": {"code": "bad_request",
+                                      "message": "delays must be a list of whole milliseconds."}}), 400
+        bad = [d for d in delays if not (keydelay.MIN_MS <= d <= keydelay.MAX_MS)]
+        if bad:
+            return jsonify({"error": {"code": "validation_error",
+                                      "message": f"delays must each be {keydelay.MIN_MS}-{keydelay.MAX_MS} ms; got {bad}."}}), 400
+        if not delays:
+            return jsonify({"error": {"code": "bad_request", "message": "No delays to try."}}), 400
+
+        if keydelay.read() is None:
+            return jsonify({"ok": False, "message":
+                            "The Bluetooth daemon is not accepting a typing speed at runtime. "
+                            "Install the current bt_hid_ble daemon and restart it, then try again."}), 409
+
+        body = str(data.get("text") or TYPING_TRIAL_TEXT)
+        saved = int(getattr(ConfigManager.instance().get(), "TypingDelayMs", 20))
+        results = []
+        try:
+            for ms in delays:
+                keydelay.apply(ms)
+                text = f"[{ms} ms] {body}"
+                results.append(_run_typing_trial(ms, text))
+        finally:
+            keydelay.apply(saved)  # a trial must not change the setting
+
+        done = [r for r in results if r.get("ms_per_char")]
+        best = min(done, key=lambda r: r["ms_per_char"]) if done else None
+        return jsonify({
+            "ok": True,
+            "restored_delay_ms": saved,
+            "results": results,
+            "fastest_ms": best["delay_ms"] if best else None,
+            "message": "Now read the text on the PC. Keep the lowest speed that came "
+                       "through perfectly, then choose it in Settings.",
+        })
+    except Exception:
+        logger.exception("API error")
+        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+
+
+def _run_typing_trial(ms: int, text: str) -> dict[str, Any]:
+    """One send, measured from the first character out to the last."""
+    from .. import bt_progress
+
+    chars = len(text)
+    first_seen: dict[str, float] = {}
+
+    def _saw(progress) -> None:
+        if progress.typing and "at" not in first_seen:
+            first_seen["at"] = time.monotonic()
+        transmission.set_progress(progress.sent, progress.total)
+
+    transmission.set_sending("debug/typing-trial", chars=chars)
+    queued_at = time.monotonic()
+    try:
+        subprocess.run([_BT_SEND_HELPER, text], check=True,
+                       capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError) as exc:
+        transmission.set_failed(str(exc))
+        return {"delay_ms": ms, "chars": chars, "error": str(exc)}
+
+    final = bt_progress.wait_until_idle(on_progress=_saw)
+    finished = time.monotonic()
+    transmission.set_success()
+    if not final.known:
+        return {"delay_ms": ms, "chars": chars,
+                "error": "The daemon reported no progress for this send."}
+    started = first_seen.get("at", queued_at)
+    type_ms = (finished - started) * 1000.0
+    return {
+        "delay_ms": ms,
+        "chars": chars,
+        "queue_wait_ms": round((started - queued_at) * 1000.0, 1),
+        "type_ms": round(type_ms, 1),
+        "ms_per_char": round(type_ms / chars, 2) if chars else None,
+        "chars_per_second": round(1000.0 * chars / type_ms, 1) if type_ms > 0 else None,
+        "sent": final.sent,
+        "complete": final.sent >= chars,
+    }
 
 
 @bp_api.post("/debug/send-file")

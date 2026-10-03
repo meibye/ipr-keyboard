@@ -58,14 +58,15 @@ pattern for it — see `gpio-wiring.md`.
 | Header | When | Body |
 |---|---|---|
 | `STARTING…` | from a few seconds after power-on (`ipr-oled-boot.service`), then the application | boot checklist: System / Network / Bluetooth / Application, continued by the application as Services / Network / Bluetooth / Dashboard |
-| `READY` | magnet tap, or a status change | PC name (or `Waiting for PC…`), pen (`Pen ready` / `Plug in the pen` / `Pen busy (mounting)`), Wi-Fi name and IP |
-| `PROBLEM` | as `READY`, when something is wrong | the failing line gets a ✗: `Service down: …`, `USB port off — reboot`, `No Wi-Fi — hold 3 s` |
+| `READY` | magnet tap, or a status change | PC name (or `Waiting for PC…`), pen (`Pen ready` / `Pen busy (mounting)`), Wi-Fi name and IP |
+| `NOT READY` | as `READY`, when the device is waiting on the **user** | the waiting line gets a warning triangle ⚠: `Plug in the pen`, `No Wi-Fi: see menu`.  A PC that has not connected yet does not count — it connects by itself |
+| `PROBLEM` | as `READY`, when the **device** is at fault | the failing line gets a ✗: `Service down: …`, `USB port off — reboot` |
 | `SENDING…` | a scan is being typed | sweeping bar, `→ <PC>`, `N characters` |
 | `SENT ✓` | 10 s after a send (`OledSendHoldSeconds`) | character count, PC and time, running total |
 | `SEND FAILED` | 10 s after a failed send | reason, `Text kept on pen` |
 | `HOLD…` / `RELEASE →` / `CANCELLED` | magnet held | one activity per line; the selected one is **bold** and marked ▶, and activities already passed disappear so the list rolls up |
 | `HOTSPOT…` / `HOTSPOT FAILED` | hotspot starting/stopping, or the request failed | |
-| `SETUP MODE` | hotspot up (stays on) | `Wi-Fi <ssid>`, `Open 10.42.0.1/setup`, `Hold 3 s to stop` |
+| `SETUP MODE` | hotspot up (stays on) | `Wi-Fi <ssid>`, `Open 10.42.0.1/setup`, `Hold: menu to stop` (`Hold 3s to stop` on a device with no menu) |
 | `MODE: DEV` / `MODE: PROD` | 3 s after a mode toggle | ports open / closed |
 | `SHUTTING DOWN` | after the 6 s gesture or a dashboard shutdown | `Wait for the LED to go off, then unplug` — the panel goes dark at the same moment as the LED |
 | `RESETTING…` | after the 15 s gesture | |
@@ -78,7 +79,7 @@ over.  Lines that fit never move.
 ### The magnet menu
 
 On a device with a working panel the magnet opens a **menu** instead of the
-timed activity list: hold 3 s, then tap to move and hold again to choose.  The
+timed activity list: hold 1.2 s, then tap to move and hold again to choose.  The
 list below is what the ladder does on a device **without** a display, where a
 menu could not be read — see `docs/architecture/magnet-menu-design.md`.
 Holding also shows a progress bar towards the moment the menu opens.

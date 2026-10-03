@@ -44,19 +44,57 @@ middle of a timing ladder, selected by holding still rather than by choosing.
 
 ### 3.1 One hold opens a menu
 
-Holding the magnet for **3 s** opens the menu; everything else becomes an item
-in it.  The timing ladder is gone — on a device with a display.
+Holding the magnet for **1.2 s** opens the menu; everything else becomes an
+item in it.  The timing ladder is gone — on a device with a display.  (It was
+3 s when this was written; the hold was shortened once the menu replaced the
+ladder, because nothing destructive sits behind it any more.)
 
 | Input | Meaning in the menu |
 |---|---|
-| Tap (< 1 s) | next item, wrapping at the end |
-| Hold, then release | activate the highlighted item |
+| Tap (released before 1 s) | next item, wrapping at the end |
+| Hold past 1 s | activate the highlighted item, **at once** |
 | Nothing for 20 s | leave the menu, back to status |
 
-Holding for 1.2 s opens the menu and the same 1.2 s chooses an item, so "a
-hold" means one thing everywhere.  Both show a **progress bar** while the
-magnet is on: with a single control and no labels, "how long do I hold?" is
-otherwise guesswork, and it was the first thing a user asked.
+Holding 1.2 s opens the menu and 1 s chooses an item, so "a hold" means one
+thing everywhere.  Both show a **progress bar** while the magnet is on: with a
+single control and no labels, "how long do I hold?" is otherwise guesswork, and
+it was the first thing a user asked.
+
+### 3.1a Telling a tap from a hold
+
+Both of these were reported from the device: *"the back and exit options are
+hard to select — it often is interpreted as a tap and moves to the next
+option"*, and *"a tap is often interpreted as a hold"*.  Failing in **both**
+directions is not a badly placed threshold; it is contact noise, and there were
+two causes.
+
+**The press was classified on release.**  The user had to judge the duration
+with no confirmation that it had been long enough, so a hold meant as "choose
+this" was routinely let go a fraction early and arrived as a tap — which
+stepped past the item they were trying to pick.  `Back` and `Exit` suffered
+most, because stepping past them wraps the whole list.
+
+The threshold now fires **while the magnet is still down**: the item activates
+the instant the bar fills, and the release that follows is ignored.  The panel
+answers under your hand, so the timing is learned in one go instead of guessed
+every time.
+
+**A hand-held magnet wobbles.**  The reed is sampled at 20 Hz with no
+filtering, so a wobble appeared as the contact opening for a sample or two.
+Taken literally that ends the press: one deliberate hold arrived as two taps,
+and a tap whose release bounced arrived as a hold.
+
+`_ReedFilter` in `gpio_monitor.py` applies two rules:
+
+1. An open is only believed once it has lasted `REED_OPEN_DEBOUNCE_SECS`
+   (150 ms), so a wobble no longer ends the press.
+2. **The hold clock stops at the first sign of that open.**  Without this the
+   first rule would make things worse: a magnet lifted at 0.9 s would keep
+   counting during the 150 ms the filter spent deciding, and sail past a 1 s
+   threshold — turning every late tap into an accidental selection.
+
+Asymmetric on purpose: a *close* is believed immediately, so the device still
+feels instant, and only letting go costs 150 ms.
 
 The LED is deliberately **not** repurposed.  Blue is documented as "the
 hotspot is up" in both manuals, and giving it a second meaning made the device

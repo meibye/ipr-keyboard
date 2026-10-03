@@ -113,7 +113,7 @@ Sending                      Sent                          Setup mode (hotspot u
 ├──────────────────────┤    ├──────────────────────┤     ├──────────────────────┤
 │ ▓▓▓▓▓▓▓▓░░░░░░░░░░░░ │    │ 142 characters       │     │ Wi-Fi  ipr-setup-a1b2│
 │ → Laptop-MSE         │    │ → Laptop-MSE  14:32  │     │ Open   10.42.0.1/setup│
-│ 142 characters       │    │ Total 13             │     │ Hold 3 s to stop     │
+│ 142 characters       │    │ Total 13             │     │ Hold: menu to stop   │
 └──────────────────────┘    └──────────────────────┘     └──────────────────────┘
 
 Magnet held (3 s reached)    Magnet held past 6 s          Shutting down
@@ -152,7 +152,7 @@ Body lines by state:
 |---|---|
 | Bluetooth | `<host name>` · `Waiting for PC…` · `Bluetooth service down` |
 | Pen | `Pen ready` · `Plug in the pen` · `Pen busy (mounting)` · `USB port off — reboot` |
-| Network | `<ssid>  <ip>` · `No Wi-Fi — hold 3 s` · `Setup mode` |
+| Network | `<ssid>  <ip>` · `No Wi-Fi: see menu` (⚠) · `Setup mode` |
 
 The magnet help screen is the display's biggest usability gain: the hold
 thresholds are hard to remember, and the LED can only show a colour.  The
