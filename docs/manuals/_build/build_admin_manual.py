@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 DATE = "3. oktober 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -1253,19 +1253,24 @@ def build() -> None:
         ["Punkt", "Handling", "Bekræftelse"],
         [
             ["Hotspot", "Tænder/slukker opsætningsnetværket", "ingen"],
-            ["Display ▸ Timeout", "5 / 15 / 30 / 60 minutters lysetid; skrives til "
-                                   "config.json (OledDisplayTimeoutMinutes)", "ingen"],
+            ["Display ▸ Display timeout", "5 / 15 / 30 / 60 minutters lysetid; skrives "
+                                           "til config.json (OledDisplayTimeoutMinutes)",
+             "ingen"],
             ["Display ▸ Menu timeout", "20 s / 1 / 2 / 5 minutter, før menuen lukker af "
                                        "sig selv (MenuTimeoutSeconds)", "ingen"],
             ["Recovery info", "Viser hotspottets SSID og nøgle på displayet",
              "én berøring; højst RecoveryRevealLimit gange pr. opstart"],
-            ["Mode", "Skifter drift ↔ udvikling (ipr_mode_ctl.sh)", "én berøring"],
+            ["System ▸ Mode", "Skifter drift ↔ udvikling (ipr_mode_ctl.sh)", "én berøring"],
             ["Power", "Undermenu: Sluk eller Genstart", "én berøring"],
-            ["Factory reset", "Sletter alle wifi-profiler og genstarter", "TO berøringer"],
+            ["System ▸ Factory reset", "Sletter alle wifi-profiler og genstarter",
+             "TO berøringer"],
             ["Exit", "Lukker menuen", "ingen"],
         ],
         widths=[3.4, 8.0, 4.2],
-        caption="Magnetmenuen. Før en bekræftelse skriver displayet, hvad handlingen "
+        caption="Magnetmenuen; Mode og Factory reset ligger under System, så intet "
+                "dagligt punkt deler skærm med en nulstilling. Overskriften tæller "
+                "pladsen i listen (fx MENU 1/6), da der kun vises fire linjer. "
+                "Før en bekræftelse skriver displayet, hvad handlingen "
                 "gør; udebliver bekræftelsen i 10 sekunder, annulleres den. Drift og "
                 "udvikling har samme menu: magneten kræver fysisk adgang, og en låst "
                 "driftsenhed er netop den, der skal kunne reddes.",

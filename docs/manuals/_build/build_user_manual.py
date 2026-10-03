@@ -6,7 +6,7 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "2.1"
+VERSION = "2.2"
 DATE = "3. oktober 2026"
 
 
@@ -309,28 +309,29 @@ def build() -> None:
             ["Hotspot: til / fra", "Tænder eller slukker opsætningsnetværket. Teksten "
                                   "siger, hvad der sker, hvis du vælger punktet — og "
                                   "dermed også, om det er tændt lige nu."],
-            ["Display", "Undermenu: hvor længe displayet skal lyse efter sidste berøring — "
-                        "5, 15, 30 (standard) eller 60 minutter. Her vælger du også, hvor "
-                        "længe menuen venter, før den lukker af sig selv (20 sekunder, "
-                        "1, 2 eller 5 minutter)."],
+            ["Display", "Undermenu med to punkter: Display timeout — hvor længe displayet "
+                        "lyser efter sidste berøring (5, 15, 30 eller 60 minutter) — og "
+                        "Menu timeout: hvor længe menuen venter, før den lukker af sig "
+                        "selv (20 sekunder, 1, 2 eller 5 minutter)."],
             ["Recovery info", "Viser opsætningsnetværkets navn og adgangskode, hvis boksen "
                               "har mistet sit netværk. Kræver én berøring som bekræftelse, "
                               "og teksten bliver stående, til du berører igen — så du kan nå "
                               "at skrive den af. Den kan kun vises et begrænset antal gange "
                               "(normalt 10) for den samme adgangskode; derefter skal "
                               "administratoren danne en ny."],
-            ["Mode", "Skifter mellem drift og udvikling (kun administratoren). "
-                     "Kræver én berøring som bekræftelse."],
+            ["System", "Undermenu med de punkter, kun administratoren bruger: Mode "
+                       "(drift ↔ udvikling, én berøring) og Factory reset (sletter alle "
+                       "gemte netværksforbindelser, TO berøringer)."],
             ["Power", "Undermenu: Sluk eller Genstart. Begge kræver én berøring som "
                       "bekræftelse. Ved Sluk lyser lampen hvid, til du må tage strømmen "
                       "fra."],
-            ["Factory reset", "Sletter alle gemte netværksforbindelser og genstarter "
-                              "boksen. Kræver TO berøringer som bekræftelse — displayet "
-                              "tæller dem."],
+
             ["Exit", "Lukker menuen uden at gøre noget."],
         ],
         widths=[4.0, 11.6],
-        caption="Menuen, du åbner ved at holde magneten i 3 sekunder.",
+        caption="Menuen, du åbner ved at holde magneten et øjeblik. Øverst i displayet "
+                "står, hvor i listen du er — fx MENU 1/6 — fordi der kun er plads til "
+                "fire linjer ad gangen.",
     )
 
     m.note("Punkterne Mode og Factory reset er forbeholdt administratoren. Intet sker, "

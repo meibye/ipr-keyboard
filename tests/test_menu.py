@@ -114,6 +114,8 @@ def test_a_disruptive_item_needs_one_tap():
 
 def test_the_factory_reset_needs_two_taps_and_says_what_it_deletes():
     rig = Rig()
+    rig.goto("System")
+    rig.select()
     rig.goto("Factory reset")
     rig.select()
     view = rig.logic.view()
@@ -129,6 +131,8 @@ def test_the_factory_reset_needs_two_taps_and_says_what_it_deletes():
 
 def test_a_confirmation_that_times_out_cancels():
     rig = Rig()
+    rig.goto("System")
+    rig.select()
     rig.goto("Factory reset")
     rig.select()
     rig.advance(mn.CONFIRM_SECS + 1)
@@ -165,12 +169,14 @@ def test_the_display_submenu_marks_and_sets_the_timeout():
     rig = Rig(timeout_min=30)
     rig.goto("Display")
     rig.select()
+    rig.goto("Display timeout")
+    rig.select()
     labels = rig.labels
     assert any(line.startswith("*") and "30 min" in line for line in labels), labels
     rig.goto("5 min")
     rig.select()
     assert rig.actions() == ["timeout:5"]
-    assert rig.logic.view().title == "MENU", "returns to the root menu"
+    assert rig.logic.view().title == "DISPLAY", "back to where the choice was made"
 
 
 def test_the_display_submenu_has_a_way_back():
@@ -208,14 +214,20 @@ def test_a_reveal_is_dismissed_by_any_input():
 
 
 def test_shutdown_and_reset_close_the_menu():
-    for label, action in (("Factory reset", "reset"),):
+    """The device is going away; there is nothing left to show."""
+    for submenu, label, taps, action in (
+        ("System", "Factory reset", 2, "reset"),
+        ("Power", "Shut down", 1, "shutdown"),
+        ("Power", "Restart", 1, "reboot"),
+    ):
         rig = Rig()
-        while rig.current != label:
-            rig.tap()
+        rig.goto(submenu)
         rig.select()
-        rig.tap(2)
-        assert rig.actions() == [action]
-        assert not rig.logic.open
+        rig.goto(label)
+        rig.select()
+        rig.tap(taps)
+        assert rig.actions() == [action], label
+        assert not rig.logic.open, label
 
 
 def test_exit_closes_without_doing_anything():
@@ -239,6 +251,8 @@ def test_inputs_are_ignored_when_the_menu_is_closed():
 )
 def test_the_mode_item_names_the_target(dev, expected):
     rig = Rig(development=dev)
+    rig.goto("System")
+    rig.select()
     rig.goto("Mode")
     assert expected in rig.current
 
@@ -258,8 +272,11 @@ def test_a_scrolling_menu_says_where_you_are():
     rig.goto("Display")
     rig.select()
     assert rig.logic.view().title == "DISPLAY"
-    assert rig.logic.view().position == (1, 6), "four durations, Menu timeout, Back"
-    assert rig.goto("Menu timeout"), "reachable by tapping"
+    assert rig.logic.view().position is None, "three items fit on one screen"
+    rig.goto("Display timeout")
+    rig.select()
+    assert rig.logic.view().title == "SCREEN OFF"
+    assert rig.logic.view().position == (1, 5), "four durations plus Back"
 
 
 def test_a_short_menu_has_no_position():
@@ -276,7 +293,7 @@ def test_the_menu_timeout_submenu_sets_the_value():
     rig.select()
     rig.goto("Menu timeout")
     rig.select()
-    assert rig.logic.view().title == "CLOSES"
+    assert rig.logic.view().title == "MENU CLOSES"
     rig.goto("2 min")
     rig.select()
     assert rig.actions() == ["menusecs:120"]

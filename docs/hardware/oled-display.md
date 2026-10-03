@@ -91,15 +91,23 @@ Holding also shows a progress bar towards the moment the menu opens.
 
 ```
 MENU
- ├ Hotspot on / off        acts at once
- ├ Display ▸ Timeout: 5 / 15 / 30 / 60 min
- │           Menu timeout (header `CLOSES`): 20 s / 1 / 2 / 5 min
- ├ Recovery info           one tap to confirm, limited reveals
- ├ Mode: to dev / prod     one tap to confirm
- ├ Power ▸ Shut down / Restart   one tap to confirm
- ├ Factory reset           TWO taps to confirm
+ ├ Hotspot: to on / to off       acts at once
+ ├ Display ▸
+ │   ├ Display timeout ▸  5 / 15 / 30 / 60 min   (header SCREEN OFF)
+ │   └ Menu timeout ▸     20 s / 1 / 2 / 5 min    (header MENU CLOSES)
+ ├ Recovery info                 one tap to confirm, limited reveals
+ ├ Power ▸   Shut down / Restart one tap to confirm
+ ├ System ▸
+ │   ├ Mode: to dev / prod      one tap to confirm
+ │   └ Factory reset            TWO taps to confirm
  └ Exit
 ```
+
+Each list ends in `Back` where it is a submenu.  The rarely used,
+administrator-only actions sit under **System** so nothing reached for day to
+day shares a screen with a factory reset; **Recovery info** stays at the top
+level, because burying it would cost exactly when a locked-out device needs
+it.
 
 While the menu is open the LED keeps showing the device's **status** colour,
 not a colour of its own: blue means "the hotspot is up" everywhere else,

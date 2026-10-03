@@ -607,6 +607,21 @@ def _menu_select(rig):
     rig.release()
 
 
+def _menu_current(rig):
+    v = rig.menu.view()
+    return v.lines[v.selected] if v.lines else ""
+
+
+def _menu_goto(rig, text):
+    """Tap until the selection starts with `text`; bounded, so a missing
+    label fails the test instead of hanging the suite."""
+    for _ in range(len(rig.menu.items()) + 1):
+        if _menu_current(rig).strip().startswith(text):
+            return
+        _menu_tap(rig)
+    raise AssertionError(f"{text!r} not in {[i.label for i in rig.menu.items()]}")
+
+
 def test_a_short_hold_opens_the_menu_instead_of_arming_the_ladder():
     rig = _menu_rig()
     rig.press()
@@ -645,11 +660,11 @@ def test_the_menu_can_set_the_display_timeout():
     rig.press()
     rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
-    while rig.menu.view().lines[rig.menu.view().selected] != "Display":
-        _menu_tap(rig)
+    _menu_goto(rig, "Display")
     _menu_select(rig)
-    while "5 min" not in rig.menu.view().lines[rig.menu.view().selected]:
-        _menu_tap(rig)
+    _menu_goto(rig, "Display timeout")
+    _menu_select(rig)
+    _menu_goto(rig, "5 min")
     _menu_select(rig)
     assert rig.timeouts == [5]
 
@@ -659,8 +674,9 @@ def test_a_factory_reset_from_the_menu_needs_two_taps():
     rig.press()
     rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
-    while rig.menu.view().lines[rig.menu.view().selected] != "Factory reset":
-        _menu_tap(rig)
+    _menu_goto(rig, "System")
+    _menu_select(rig)
+    _menu_goto(rig, "Factory reset")
     _menu_select(rig)
     assert rig.actions.calls == [], "selection alone does nothing"
     _menu_tap(rig)
@@ -675,8 +691,7 @@ def test_recovery_info_reaches_the_panel_only_after_a_confirming_tap():
     rig.press()
     rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
-    while not rig.menu.view().lines[rig.menu.view().selected].startswith("Recovery"):
-        _menu_tap(rig)
+    _menu_goto(rig, "Recovery")
     _menu_select(rig)
     assert rig.menu.view().title == "CONFIRM?"
     _menu_tap(rig)

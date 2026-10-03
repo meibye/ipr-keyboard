@@ -74,16 +74,23 @@ working, and it means the ladder's code and tests stay.
 
 ```
 MENU
- ├ Hotspot  on/off        no confirmation
+ ├ Hotspot: to on / to off       acts at once
  ├ Display ▸
- │   ├ Timeout: 5 / 15 / 30 / 60 min
- │   └ Back
- ├ Recovery info          confirm (1 tap), limited reveals
- ├ Mode: to dev/prod      confirm (1 tap)
- ├ Shutdown               confirm (1 tap)
- ├ Factory reset          confirm (2 taps)
+ │   ├ Display timeout ▸  5 / 15 / 30 / 60 min   (header SCREEN OFF)
+ │   └ Menu timeout ▸     20 s / 1 / 2 / 5 min    (header MENU CLOSES)
+ ├ Recovery info                 one tap to confirm, limited reveals
+ ├ Power ▸   Shut down / Restart one tap to confirm
+ ├ System ▸
+ │   ├ Mode: to dev / prod      one tap to confirm
+ │   └ Factory reset            TWO taps to confirm
  └ Exit
 ```
+
+Each list ends in `Back` where it is a submenu.  The rarely used,
+administrator-only actions sit under **System** so nothing reached for day to
+day shares a screen with a factory reset; **Recovery info** stays at the top
+level, because burying it would cost exactly when a locked-out device needs
+it.
 
 Items render in the four-line compact layout the gesture list already uses:
 the selected line is bold with a ▶ marker, the rest plain, and a list longer
