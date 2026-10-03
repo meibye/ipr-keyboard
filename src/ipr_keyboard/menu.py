@@ -25,6 +25,14 @@ TIMEOUT_CHOICES = (5, 15, 30, 60)
 # How long the menu waits before closing itself, in seconds.
 MENU_TIMEOUT_CHOICES = (20, 60, 120, 300)
 
+# Headers, so a submenu key does not have to double as display text.
+_TITLES = {
+    "root": "MENU",
+    "display": "DISPLAY",
+    "menutimeout": "CLOSES",
+    "power": "POWER",
+}
+
 
 @dataclass(frozen=True)
 class Item:
@@ -48,6 +56,7 @@ class MenuView:
     lines: tuple[str, ...]
     selected: int  # index within lines
     detail: tuple[str, ...] = ()  # confirmation / reveal text instead of a list
+    position: tuple[int, int] | None = None  # (item, total) when the list scrolls
 
 
 @dataclass
@@ -179,6 +188,7 @@ class MenuLogic:
                 Item("back", "Back", submenu="root"),
             )
         if self.state.menu == "menutimeout":
+            # Named so the header reads MENU TIMEOUT rather than MENUTIMEOUT.
             return tuple(
                 Item(f"menusecs:{t}", self._menu_timeout_label(t))
                 for t in MENU_TIMEOUT_CHOICES
@@ -266,8 +276,19 @@ class MenuLogic:
         items = self.items()
         top = self.state.top
         window = items[top : top + VISIBLE_LINES]
-        title = "MENU" if self.state.menu == "root" else self.state.menu.upper()
-        return MenuView(title, tuple(i.label for i in window), self.state.index - top)
+        title = _TITLES.get(self.state.menu, self.state.menu.upper())
+        # Four lines fit; longer menus scroll, and without saying so the
+        # fourth line looks like the end of the list -- which is how "Menu
+        # timeout", the fifth item of six under Display, stayed invisible.
+        position = (
+            (self.state.index + 1, len(items)) if len(items) > VISIBLE_LINES else None
+        )
+        return MenuView(
+            title,
+            tuple(i.label for i in window),
+            self.state.index - top,
+            position=position,
+        )
 
     def show_detail(self, lines: tuple[str, ...], now: float) -> None:
         """The owner supplies text to display (recovery credentials)."""

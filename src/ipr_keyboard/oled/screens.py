@@ -236,6 +236,10 @@ MENU_HOLD_SECS = 1.2
 # Mirrors gpio_monitor.MENU_SELECT_SECS: how long a hold inside the menu must
 # last to count as "choose this".
 MENU_SELECT_SECS = 1.2
+# A tap is a press and a release; showing the bar for one made the screen
+# flicker on every step through the list.  Nothing appears until the magnet
+# has clearly been *held*.
+PROGRESS_AFTER_SECS = 0.4
 
 
 def _menu_hold_screen(snap: Snapshot, badge: str) -> Screen:
@@ -250,6 +254,9 @@ def _menu_hold_screen(snap: Snapshot, badge: str) -> Screen:
             badge,
             (Line("Let go to open the menu", ICON_MARK),),
         )
+    if snap.held_secs < PROGRESS_AFTER_SECS:
+        # Too short to be a hold yet: say nothing rather than flash a bar.
+        return Screen("HOLD…", badge, (Line("Hold for the menu", ICON_WAIT),))
     progress = min(1.0, max(0.0, snap.held_secs / MENU_HOLD_SECS))
     return Screen(
         "HOLD…",
@@ -275,6 +282,10 @@ def _menu_screen(snap: Snapshot, badge: str) -> Screen:
             tuple(Line(t) for t in view.detail),
             compact=True,
         )
+    title = view.title
+    if getattr(view, "position", None):
+        item, total = view.position
+        title = f"{title} {item}/{total}"
     lines = tuple(
         Line(text, ICON_MARK if i == view.selected else "", bold=i == view.selected)
         for i, text in enumerate(view.lines)
@@ -283,11 +294,11 @@ def _menu_screen(snap: Snapshot, badge: str) -> Screen:
     # item is chosen: with one control and no labels, "how long do I hold?"
     # is otherwise guesswork.  Only two lines fit beside the bar, so the list
     # is trimmed to the selection and its neighbour.
-    if snap.held_secs > 0:
+    if snap.held_secs >= PROGRESS_AFTER_SECS:
         progress = min(1.0, snap.held_secs / MENU_SELECT_SECS)
         keep = lines[view.selected : view.selected + 2] or lines[:2]
-        return Screen(view.title, badge, keep, progress=progress)
-    return Screen(view.title, badge, lines, compact=True)
+        return Screen(title, badge, keep, progress=progress)
+    return Screen(title, badge, lines, compact=True)
 
 
 def _gesture_screen(snap: Snapshot, badge: str) -> Screen:

@@ -280,3 +280,40 @@ def test_holding_inside_the_menu_shows_progress_towards_choosing():
 
     done = compose(ready_snapshot(menu=View(), held_secs=sc.MENU_SELECT_SECS * 2))
     assert done.progress == 1.0
+
+
+def test_a_tap_does_not_flash_the_progress_bar():
+    """A tap is a press and a release; a bar for one made the screen flicker."""
+
+    class View:
+        title = "MENU"
+        lines = ("Hotspot: to on", "Display")
+        selected = 0
+        detail = ()
+        position = None
+
+    tap = compose(ready_snapshot(menu=View(), held_secs=0.2))
+    assert tap.progress is None and len(tap.lines) == 2
+
+    held = compose(ready_snapshot(menu=View(), held_secs=sc.PROGRESS_AFTER_SECS + 0.2))
+    assert held.progress is not None
+
+    # the same for the hold that opens the menu
+    brief = compose(ready_snapshot(held_secs=0.2, menu_available=True))
+    assert brief.progress is None
+    longer = compose(
+        ready_snapshot(held_secs=sc.PROGRESS_AFTER_SECS + 0.2, menu_available=True)
+    )
+    assert longer.progress is not None
+
+
+def test_the_header_carries_the_scroll_position():
+    class View:
+        title = "DISPLAY"
+        lines = ("5 min", "15 min", "30 min", "1 hour")
+        selected = 0
+        detail = ()
+        position = (5, 6)
+
+    s = compose(ready_snapshot(menu=View()))
+    assert s.header == "DISPLAY 5/6"

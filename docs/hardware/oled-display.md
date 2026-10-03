@@ -85,15 +85,15 @@ Holding also shows a progress bar towards the moment the menu opens.
 
 | Input | In the menu |
 |---|---|
-| Tap (< 1 s) | next item, wrapping at the end |
-| Hold, then release | activate the highlighted item.  A bar fills while you hold, so you can see how far along you are |
+| Tap (< 1 s) | next item, wrapping at the end.  The header counts your place, e.g. `MENU 5/7`, because only four lines fit and a longer menu scrolls |
+| Hold, then release | activate the highlighted item.  A bar fills while you hold, so you can see how far along you are.  It appears only once the magnet has clearly been held, so stepping through the list does not flash it |
 | Nothing for 20 s | leave the menu |
 
 ```
 MENU
  ├ Hotspot on / off        acts at once
  ├ Display ▸ Timeout: 5 / 15 / 30 / 60 min
- │           Menu timeout: 20 s / 1 / 2 / 5 min
+ │           Menu timeout (header `CLOSES`): 20 s / 1 / 2 / 5 min
  ├ Recovery info           one tap to confirm, limited reveals
  ├ Mode: to dev / prod     one tap to confirm
  ├ Power ▸ Shut down / Restart   one tap to confirm

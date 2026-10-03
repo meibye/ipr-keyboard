@@ -241,3 +241,43 @@ def test_the_mode_item_names_the_target(dev, expected):
     rig = Rig(development=dev)
     rig.goto("Mode")
     assert expected in rig.current
+
+
+def test_a_scrolling_menu_says_where_you_are():
+    """Four lines fit; without a position the fourth looks like the end.
+
+    "Menu timeout" is the fifth item of six under Display, and stayed
+    invisible because nothing said the list continued.
+    """
+    rig = Rig()
+    view = rig.logic.view()
+    assert view.position == (1, len(rig.logic.items()))
+    rig.tap()
+    assert rig.logic.view().position == (2, len(rig.logic.items()))
+
+    rig.goto("Display")
+    rig.select()
+    assert rig.logic.view().title == "DISPLAY"
+    assert rig.logic.view().position == (1, 6), "four durations, Menu timeout, Back"
+    assert rig.goto("Menu timeout"), "reachable by tapping"
+
+
+def test_a_short_menu_has_no_position():
+    rig = Rig()
+    rig.goto("Power")
+    rig.select()
+    assert len(rig.logic.items()) <= mn.VISIBLE_LINES
+    assert rig.logic.view().position is None
+
+
+def test_the_menu_timeout_submenu_sets_the_value():
+    rig = Rig()
+    rig.goto("Display")
+    rig.select()
+    rig.goto("Menu timeout")
+    rig.select()
+    assert rig.logic.view().title == "CLOSES"
+    rig.goto("2 min")
+    rig.select()
+    assert rig.actions() == ["menusecs:120"]
+    assert rig.logic.view().title == "DISPLAY", "back to where it was chosen"
