@@ -82,10 +82,33 @@ def test_chars_per_second_counts_both_hid_reports():
 
 def test_the_offered_ladder_matches_the_documented_one():
     """docs/operations/performance.md tunes in these steps."""
-    assert [ms for ms, _ in keydelay.CHOICES] == [20, 12, 8, 4]
-    for ms, label in keydelay.CHOICES:
+    assert [ms for ms, _, _ in keydelay.CHOICES] == [20, 12, 8, 4]
+    for ms, name, detail in keydelay.CHOICES:
         assert keydelay.MIN_MS <= ms <= keydelay.MAX_MS
-        assert label.strip() and not label.endswith(" ")
+        assert name.strip() == name and name
+        assert detail.strip() == detail and detail
+
+
+def test_a_speed_is_named_the_same_way_everywhere():
+    """Settings and the Debug trial must not describe one speed two ways.
+
+    They did: Settings said "Normal - 25 characters a second" while the trial
+    reported raw milliseconds per report beside milliseconds per character.
+    Different quantities, so the two screens looked unrelated.
+    """
+    for ms, name, _ in keydelay.CHOICES:
+        assert keydelay.name_for(ms) == name
+        label = keydelay.label_for(ms)
+        assert label.startswith(name)
+        assert f"{ms} ms" in label, label
+        # The nominal rate in the label is the one the trial compares against.
+        assert str(round(keydelay.chars_per_second(ms))) in label
+
+
+def test_a_hand_tuned_speed_still_gets_a_name_and_a_label():
+    assert keydelay.name_for(15) == "15 ms"
+    label = keydelay.label_for(15)
+    assert "15 ms" in label and "33" in label  # 1000 / (2 * 15)
 
 
 def test_the_daemon_and_the_application_agree_on_path_and_range():

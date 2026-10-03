@@ -73,6 +73,26 @@ def read(path: str = PROGRESS_FILE, now: float | None = None) -> Progress:
     )
 
 
+def publishes(path: str = PROGRESS_FILE) -> bool:
+    """Does this daemon report progress at all?
+
+    Deliberately ignores the file's age.  `read` collapses an old file to
+    UNKNOWN because a finished send says nothing about now -- but a file that
+    parses still proves the daemon is the kind that publishes, and that is what
+    a caller needs to know before deciding whether waiting is worthwhile.
+
+    Conflating the two meant a send that followed more than STALE_AFTER_S of
+    quiet was never waited for: no progress on the panel and no typing
+    measurement, for the commonest case there is -- an idle device, then one
+    scan.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return isinstance(json.load(fh), dict)
+    except (OSError, ValueError):
+        return False
+
+
 def wait_until_idle(
     path: str = PROGRESS_FILE,
     timeout_s: float = 120.0,
@@ -80,18 +100,41 @@ def wait_until_idle(
     on_progress=None,
     clock=time.monotonic,
     sleep=time.sleep,
+    start_timeout_s: float = 5.0,
 ) -> Progress:
     """Block until the daemon stops typing, so a send ends when it really has.
 
     Returns the last progress seen.  Returns at once when the daemon publishes
     nothing (an older version), so this can never make a send hang; the
     timeout is the backstop for a daemon that dies mid-text.
+
+    `start_timeout_s` is how long to wait for the typing to BEGIN.  The text
+    has only been queued when this is called, and the daemon publishes nothing
+    new until it starts, so without this the first reading is the previous
+    send's -- stale, hence UNKNOWN, hence an immediate return that skipped the
+    wait entirely.  A send that never starts (no host subscribed) costs this
+    much and then behaves as before.
     """
     deadline = clock() + timeout_s
     last = read(path)
-    if not last.known:
-        return last
+    if not last.known and not publishes(path):
+        return last  # an older daemon: nothing to wait for, ever
     started_typing = last.typing
+    if not started_typing:
+        start_deadline = min(clock() + start_timeout_s, deadline)
+        while clock() < start_deadline:
+            current = read(path)
+            if current.typing:
+                started_typing = True
+                last = current
+                if on_progress is not None:
+                    on_progress(current)
+                break
+            sleep(poll_s)
+        else:
+            # It never began.  Report what the file says rather than a wait
+            # that silently did nothing.
+            return read(path)
     while clock() < deadline:
         current = read(path)
         if on_progress is not None and current.known:

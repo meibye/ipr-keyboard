@@ -590,8 +590,21 @@ Request body (both fields optional)
 
 - `delays`: whole milliseconds, each 1–200, at most 6. Defaults to the ladder
   in `keydelay.CHOICES`.
-- `text`: the sentence to type. Each send is prefixed with `[<ms> ms] ` so a
-  mangled block on the PC can be traced to the speed that produced it.
+- `text`: the text to type. Defaults to ten numbered lines — long enough to
+  time honestly at the faster steps, and dropped characters are far easier to
+  spot against numbered lines than in one sentence. Each send is wrapped in
+  blank lines and a `===== Normal (20 ms) =====` banner, so the blocks read as
+  separate tests on the PC and a mangled one can be traced to the speed that
+  produced it.
+
+`name` and `label` are the speed as the **Settings** list names it, served from
+`keydelay.py` so the two screens cannot describe one speed in two ways.
+`expected_chars_per_second` is the nominal rate for that delay, shown next to
+the measured `chars_per_second` so the comparison is between like quantities.
+
+Each send is also recorded in the KPI store (`queue_wait_ms`, `type_ms`,
+`type_ms_per_char`) when `MetricsEnabled` is on — a trial is a measurement, and
+the Performance panel would otherwise stay empty through a whole run.
 
 Example response
 ```json
@@ -600,15 +613,20 @@ Example response
   "restored_delay_ms": 20,
   "fastest_ms": 4,
   "results": [
-    { "delay_ms": 20, "chars": 104, "queue_wait_ms": 198.2, "type_ms": 4210.0,
-      "ms_per_char": 40.5, "chars_per_second": 24.7, "sent": 104, "complete": true }
+    { "delay_ms": 20, "name": "Normal",
+      "label": "Normal — 25 characters a second (20 ms)",
+      "chars": 512, "expected_chars_per_second": 25.0,
+      "queue_wait_ms": 198.2, "type_ms": 20600.0,
+      "ms_per_char": 40.2, "chars_per_second": 24.9,
+      "sent": 512, "complete": true }
   ],
   "message": "Now read the text on the PC. …"
 }
 ```
 
 Returns `409` with `ok: false` when the daemon is not accepting a runtime
-speed. A per-result `error` means that one send failed; the others still ran.
+speed. A per-result `error` means that one send could not be **timed** — the
+text may well have been typed correctly — and the others still ran.
 
 **The timings do not decide the winner.** Every lower delay is faster; the
 failure mode is dropped or transposed characters, which only reading the text

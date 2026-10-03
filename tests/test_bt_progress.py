@@ -81,3 +81,61 @@ def test_waiting_gives_up_rather_than_hanging(tmp_path):
         p, timeout_s=5, clock=lambda: next(ticks), sleep=lambda _s: None
     )
     assert got.typing, "the daemon died mid-text; we stop waiting"
+
+
+def test_a_stale_file_still_proves_the_daemon_publishes(tmp_path):
+    p = _write(tmp_path / "progress.json", at=1000.0)
+    assert bp.publishes(p), "age says nothing about whether it reports at all"
+    assert not bp.publishes(str(tmp_path / "absent"))
+
+
+def test_waiting_does_not_give_up_on_a_send_that_follows_a_quiet_spell(tmp_path):
+    """The bug this guards: no panel progress and no measurement after idling.
+
+    When the wait begins, the text has only been QUEUED -- the newest reading
+    is the previous send's, which `read` collapses to UNKNOWN once it is older
+    than STALE_AFTER_S.  Treating that as "this daemon says nothing" skipped
+    the wait entirely, so every send that followed more than two minutes of
+    quiet showed no progress on the panel and recorded no typing metric.  That
+    is the commonest case there is: an idle device, then one scan.
+    """
+    p = tmp_path / "progress.json"
+    _write(p, state="idle", total=3, sent=3, at=1.0)  # ancient: UNKNOWN to read()
+    assert not bp.read(str(p)).known
+
+    steps = iter([("typing", 1), ("typing", 2), ("idle", 3)])
+
+    def _tick(_s):
+        try:
+            state, sent = next(steps)
+        except StopIteration:
+            return
+        _write(p, state=state, total=3, sent=sent)
+
+    seen = []
+    got = bp.wait_until_idle(
+        str(p), poll_s=0.0, sleep=_tick, on_progress=lambda pr: seen.append(pr.sent)
+    )
+    assert got.state == "idle" and got.sent == 3, got
+    assert seen, "the caller was told about the typing it would otherwise have missed"
+
+
+def test_waiting_gives_up_when_the_typing_never_starts(tmp_path):
+    """No host subscribed: cost the start timeout, then behave as before."""
+    p = _write(tmp_path / "progress.json", state="idle", at=1.0)
+    ticks = []
+    t = [0.0]
+
+    def _clock():
+        return t[0]
+
+    def _sleep(_s):
+        ticks.append(1)
+        t[0] += 0.1
+
+    got = bp.wait_until_idle(
+        p, poll_s=0.1, clock=_clock, sleep=_sleep, start_timeout_s=0.5
+    )
+    assert not got.typing
+    assert 1 <= len(ticks) <= 10, len(ticks)
+

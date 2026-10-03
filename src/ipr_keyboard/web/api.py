@@ -608,10 +608,11 @@ def api_config_get():
                 "typing_delay_options": [
                     {
                         "ms": ms,
-                        "label": label,
+                        "name": keydelay.name_for(ms),
+                        "label": keydelay.label_for(ms),
                         "chars_per_second": round(keydelay.chars_per_second(ms), 1),
                     }
-                    for ms, label in keydelay.CHOICES
+                    for ms, _, _ in keydelay.CHOICES
                 ],
             },
             "diagnostics": {
@@ -1198,10 +1199,22 @@ def api_debug_send_text():
 # since the failure mode of too low a delay is dropped or transposed
 # characters rather than an error.  Each line names its own speed, so a
 # mangled block can be traced back to the setting that produced it.
-TYPING_TRIAL_TEXT = (
-    "The quick brown fox jumps over the lazy dog, 0123456789 "
-    "(punctuation: ;:'?!) -- and back again. "
+TYPING_TRIAL_LINES = (
+    "01 The quick brown fox jumps over the lazy dog.",
+    "02 Pack my box with five dozen liquor jugs.",
+    "03 How vexingly quick daft zebras jump!",
+    "04 Digits: 0 1 2 3 4 5 6 7 8 9 and 1234567890.",
+    "05 Punctuation: , . ; : ? ! ' \" ( ) - / & % + = @ #",
+    "06 Danske bogstaver: æøå ÆØÅ - blev de alle skrevet?",
+    "07 Mixed CASE and lower, UPPER and MiXeD together.",
+    "08 Repeated: aaa bbb ccc ddd eee fff ggg hhh iii jjj.",
+    "09 Spacing:  two  spaces  between  these  words.",
+    "10 Last line - if you can read this, nothing was lost.",
 )
+#: One send per speed.  Ten lines rather than one sentence: a single line
+#: is too short to time honestly at the faster steps, and dropped
+#: characters are far easier to spot against numbered lines.
+TYPING_TRIAL_TEXT = chr(10).join(TYPING_TRIAL_LINES)
 TYPING_TRIAL_MAX_DELAYS = 6
 
 
@@ -1220,7 +1233,7 @@ def api_debug_typing_trial():
     """
     try:
         data = request.get_json(force=True) or {}
-        delays = data.get("delays") or [ms for ms, _ in keydelay.CHOICES]
+        delays = data.get("delays") or [ms for ms, _, _ in keydelay.CHOICES]
         try:
             delays = [int(d) for d in delays][:TYPING_TRIAL_MAX_DELAYS]
         except (TypeError, ValueError):
@@ -1244,7 +1257,8 @@ def api_debug_typing_trial():
         try:
             for ms in delays:
                 keydelay.apply(ms)
-                text = f"[{ms} ms] {body}"
+                banner = f"===== {keydelay.name_for(ms)} ({ms} ms) ====="
+                text = chr(10) * 2 + banner + chr(10) + body + chr(10) * 2
                 results.append(_run_typing_trial(ms, text))
         finally:
             keydelay.apply(saved)  # a trial must not change the setting
@@ -1283,19 +1297,34 @@ def _run_typing_trial(ms: int, text: str) -> dict[str, Any]:
                        capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.SubprocessError) as exc:
         transmission.set_failed(str(exc))
-        return {"delay_ms": ms, "chars": chars, "error": str(exc)}
+        return {"delay_ms": ms, "name": keydelay.name_for(ms),
+                "chars": chars, "error": str(exc)}
 
     final = bt_progress.wait_until_idle(on_progress=_saw)
     finished = time.monotonic()
     transmission.set_success()
     if not final.known:
-        return {"delay_ms": ms, "chars": chars,
-                "error": "The daemon reported no progress for this send."}
+        return {"delay_ms": ms, "name": keydelay.name_for(ms), "chars": chars,
+                "error": "The text was sent, but the daemon reported no progress, "
+                         "so it could not be timed."}
     started = first_seen.get("at", queued_at)
     type_ms = (finished - started) * 1000.0
+    # A trial IS a measurement, so it belongs in the KPI store: otherwise the
+    # Performance panel stayed empty through a run that measured nothing else.
+    try:
+        metrics.record_typing(
+            queue_wait_s=max(0.0, started - queued_at),
+            type_s=max(0.0, finished - started),
+            chars=final.total or chars,
+        )
+    except Exception:
+        logger.exception("Could not record the trial's typing metrics")
     return {
         "delay_ms": ms,
+        "name": keydelay.name_for(ms),
+        "label": keydelay.label_for(ms),
         "chars": chars,
+        "expected_chars_per_second": round(keydelay.chars_per_second(ms), 1),
         "queue_wait_ms": round((started - queued_at) * 1000.0, 1),
         "type_ms": round(type_ms, 1),
         "ms_per_char": round(type_ms / chars, 2) if chars else None,

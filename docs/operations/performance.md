@@ -136,19 +136,23 @@ behaving as before; progress reporting can never make a send hang.
 
 ## Measured on a Zero 2 W
 
-Two 250-character scans on 3 October 2026, `BT_KEY_DELAY_MS=20`, one BLE host
-connected:
+Two sends on 3 October 2026, one BLE host connected.  The device was running
+`BT_KEY_DELAY_MS=12`, **not** the 20 ms default — worth stating, because the
+figures only make sense against the right setting:
 
 | Stage | Measured |
 |---|---|
 | `queue_wait_ms` | ~200 ms — the text is typed from the next radio slot |
 | `type_ms` | 10.0 s for 397 characters, 6.2 s for 250 |
-| `type_ms_per_char` | **24.8 ms** against a 20 ms configured delay |
+| `type_ms_per_char` | **24.8 ms** at a 12 ms delay (two reports = 24 ms) |
 
-The 4.8 ms above the configured delay is the two HID reports per character plus
-the connection interval, so the delay is the only part worth tuning and the
-table in *What dominates* holds.  At the default, a page of 1 500 characters
-takes about 37 s; at 12 ms it would take about 22 s.
+So the model holds: 0.8 ms per character above the two HID reports, which is
+the connection interval and the report itself.  Measured throughput was 39.5
+characters a second against the 41.7 the table predicts for 12 ms.
+
+At the **20 ms default** that is 25 characters a second, so a 1 500-character
+page takes about **60 s**; at 12 ms about 37 s, and at 8 ms about 24 s.  The
+delay is the only part of the chain worth tuning.
 
 ## A measurement must not be able to cost a scan
 

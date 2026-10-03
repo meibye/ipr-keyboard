@@ -35,12 +35,33 @@ MAX_MS = 200
 # What the dashboard offers.  Each is one step of the ladder in
 # docs/operations/performance.md, and the labels say what the user gets rather
 # than what the device does.
-CHOICES: tuple[tuple[int, str], ...] = (
-    (20, "Normal — 25 characters a second"),
-    (12, "Fast — 42 a second"),
-    (8, "Faster — 62 a second, check for dropped characters"),
-    (4, "Fastest — 125 a second, expect dropped characters"),
+CHOICES: tuple[tuple[int, str, str], ...] = (
+    (20, "Normal", "25 characters a second"),
+    (12, "Fast", "42 a second"),
+    (8, "Faster", "62 a second — check for dropped characters"),
+    (4, "Fastest", "125 a second — expect dropped characters"),
 )
+
+
+def name_for(ms: int) -> str:
+    """"Normal", "Fast", ... or the bare value for a hand-tuned one.
+
+    The dashboard shows this everywhere a speed is named -- the Settings list
+    and the trial's results -- so the two cannot describe the same speed in
+    different words, which is what made them look unrelated.
+    """
+    for choice_ms, name, _ in CHOICES:
+        if choice_ms == ms:
+            return name
+    return f"{ms} ms"
+
+
+def label_for(ms: int) -> str:
+    """The full one-line description, as the Settings list shows it."""
+    for choice_ms, name, detail in CHOICES:
+        if choice_ms == ms:
+            return f"{name} — {detail} ({choice_ms} ms)"
+    return f"{ms} ms — {chars_per_second(ms):.0f} a second"
 
 
 def clamp(ms: int) -> int:

@@ -1973,8 +1973,8 @@ def build() -> None:
         "skanning tager. Enheden sender to HID-rapporter pr. tegn (tast ned og tast op) "
         "og venter TypingDelayMs efter hver, så hastigheden er 1000 / (2 × TypingDelayMs) "
         "tegn i sekundet. Ved standardværdien 20 ms er det 25 tegn i sekundet: en side på "
-        "1.500 tegn tager ca. 37 sekunder, og resten af kæden (detektion, læsning, kø) "
-        "bidrager med under en halv sekund tilsammen.")
+        "1.500 tegn tager ca. 60 sekunder, og resten af kæden (detektion, læsning, kø) "
+        "bidrager med under et halvt sekund tilsammen.")
     m.table(
         ["Indstilling", "Værdi", "Tegn/s", "Bemærkning"],
         [
@@ -2013,9 +2013,10 @@ def build() -> None:
         "er fortsat standardværdien; programmet skriver den gemte indstilling igen ved "
         "første gennemløb efter opstart.")
     m.p("Måleværdien type_ms_per_char under Indstillinger → Registrér ydelsestal viser, "
-        "hvad der faktisk blev opnået. Målt på en Zero 2 W: 24,8 ms pr. tegn ved en "
-        "indstilling på 20 ms. De 4,8 ms oveni er de to HID-rapporter plus "
-        "forbindelsesintervallet.")
+        "hvad der faktisk blev opnået. Målt på en Zero 2 W med indstillingen 12 ms: "
+        "24,8 ms pr. tegn. De to HID-rapporter udgør 24 ms, så kun 0,8 ms pr. tegn "
+        "kommer oveni — forbindelsesintervallet og selve rapporten. Modellen holder "
+        "altså, og forsinkelsen er den eneste del, det er værd at justere på.")
 
     # ---------------------------------------------------------------- 10
     m.h1("10. Fejlfinding", new_page=True)
