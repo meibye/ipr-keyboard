@@ -6,7 +6,7 @@ from pathlib import Path
 from docx_helpers import DANGER, Manual
 
 OUT = Path(__file__).resolve().parents[1]
-VERSION = "2.0"
+VERSION = "2.1"
 DATE = "3. oktober 2026"
 
 
@@ -286,9 +286,9 @@ def build() -> None:
         "den er registreret.")
     m.p("Har boksen et display, åbner du en menu:", bold=True)
     m.bullets([
-        ("Hold magneten i 3 sekunder", " — menuen åbner, og lampen lyser blåt."),
+        ("Hold magneten et øjeblik", " — en bjælke fylder op, og menuen åbner."),
         ("Berør kort (tap)", " — markeringen flytter til næste punkt i listen."),
-        ("Hold igen — ca. 2 sekunder", " — det markerede punkt vælges."),
+        ("Hold igen", " — bjælken fylder op igen, og det markerede punkt vælges."),
         ("Gør ingenting i 20 sekunder", " — menuen lukker af sig selv."),
     ])
     m.p("Det markerede punkt står med fed skrift og en trekant. Før noget, der har "
@@ -300,22 +300,30 @@ def build() -> None:
            "i et bestemt antal sekunder. Den er beskrevet i administratormanualen.",
            "info")
     m.figure("fig04_magnet_tidslinje.png",
-             "Hold magneten i 3 sekunder for at åbne menuen. Derefter flytter en kort "
+             "Hold magneten et øjeblik for at åbne menuen. Derefter flytter en kort "
              "berøring markeringen, og et nyt hold vælger.")
 
     m.table(
         ["Punkt i menuen", "Hvad det gør"],
         [
-            ["Hotspot", "Tænder eller slukker opsætningsnetværket. Sker med det samme."],
+            ["Hotspot: til / fra", "Tænder eller slukker opsætningsnetværket. Teksten "
+                                  "siger, hvad der sker, hvis du vælger punktet — og "
+                                  "dermed også, om det er tændt lige nu."],
             ["Display", "Undermenu: hvor længe displayet skal lyse efter sidste berøring — "
-                        "5, 15, 30 (standard) eller 60 minutter."],
+                        "5, 15, 30 (standard) eller 60 minutter. Her vælger du også, hvor "
+                        "længe menuen venter, før den lukker af sig selv (20 sekunder, "
+                        "1, 2 eller 5 minutter)."],
             ["Recovery info", "Viser opsætningsnetværkets navn og adgangskode, hvis boksen "
-                              "har mistet sit netværk. Kræver én berøring som bekræftelse og "
-                              "kan kun bruges nogle få gange, indtil boksen genstartes."],
+                              "har mistet sit netværk. Kræver én berøring som bekræftelse, "
+                              "og teksten bliver stående, til du berører igen — så du kan nå "
+                              "at skrive den af. Den kan kun vises et begrænset antal gange "
+                              "(normalt 10) for den samme adgangskode; derefter skal "
+                              "administratoren danne en ny."],
             ["Mode", "Skifter mellem drift og udvikling (kun administratoren). "
                      "Kræver én berøring som bekræftelse."],
-            ["Shutdown", "Lukker boksen kontrolleret ned. Kræver én berøring som "
-                         "bekræftelse. Lampen lyser hvid, til du må tage strømmen fra."],
+            ["Power", "Undermenu: Sluk eller Genstart. Begge kræver én berøring som "
+                      "bekræftelse. Ved Sluk lyser lampen hvid, til du må tage strømmen "
+                      "fra."],
             ["Factory reset", "Sletter alle gemte netværksforbindelser og genstarter "
                               "boksen. Kræver TO berøringer som bekræftelse — displayet "
                               "tæller dem."],

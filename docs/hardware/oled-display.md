@@ -81,33 +81,58 @@ On a device with a working panel the magnet opens a **menu** instead of the
 timed activity list: hold 3 s, then tap to move and hold again to choose.  The
 list below is what the ladder does on a device **without** a display, where a
 menu could not be read — see `docs/architecture/magnet-menu-design.md`.
+Holding also shows a progress bar towards the moment the menu opens.
 
 | Input | In the menu |
 |---|---|
 | Tap (< 1 s) | next item, wrapping at the end |
-| Hold ≥ 1.5 s, then release | activate the highlighted item |
+| Hold, then release | activate the highlighted item.  A bar fills while you hold, so you can see how far along you are |
 | Nothing for 20 s | leave the menu |
 
 ```
 MENU
  ├ Hotspot on / off        acts at once
  ├ Display ▸ Timeout: 5 / 15 / 30 / 60 min
+ │           Menu timeout: 20 s / 1 / 2 / 5 min
  ├ Recovery info           one tap to confirm, limited reveals
  ├ Mode: to dev / prod     one tap to confirm
- ├ Shutdown                one tap to confirm
+ ├ Power ▸ Shut down / Restart   one tap to confirm
  ├ Factory reset           TWO taps to confirm
  └ Exit
 ```
 
-The LED is steady blue while the menu is open.  Before any confirmation the
+While the menu is open the LED keeps showing the device's **status** colour,
+not a colour of its own: blue means "the hotspot is up" everywhere else,
+including both manuals, and a second meaning for it made the LED ambiguous.
+The panel is what says the menu is open.  Before any confirmation the
 panel says what the action does — the factory reset names what it deletes —
 and a confirmation that times out always cancels.
 
-**Recovery info** shows the hotspot name and key for a device that has lost
-its Wi-Fi settings.  It is limited: `RecoveryRevealLimit` (default 3) reveals
-per boot, each after a confirming tap, and **none at all once the credentials
-have been used** — the setup portal records that, and only a regenerated key
-makes them showable again.
+**Recovery info** shows the hotspot name (`ipr-setup-xxxx`) and its key, for a
+device that has lost its Wi-Fi settings.  The reveal stays on screen until you
+dismiss it with a tap — it is there to be written down.
+
+It is limited two ways: `RecoveryRevealLimit` (default **10**) reveals **in
+total for one key**, counted on disk so a reboot does not hand out a fresh
+allowance, and **none at all once the credentials have been used** — the setup
+portal records that.
+
+### Generating a new hotspot key
+
+A new key starts a new allowance, and is the way to make the credentials
+showable again once they are spent or used.  As root on the device:
+
+```bash
+sudo rm /etc/ipr-hotspot.secret
+sudo /usr/local/sbin/ipr-provision.sh start   # regenerates SSID and key
+sudo cat /etc/ipr-hotspot.secret              # the new values
+```
+
+`ipr-provision.sh` writes a fresh `SSID=` / `PASS=` pair whenever the file is
+missing or incomplete.  The SSID keeps its `ipr-setup-xxxx` form (the suffix
+comes from the machine id, so it does not change); the key is new, which
+resets both the reveal count and the used mark.  Anyone connected to the old
+hotspot is disconnected.
 
 **Display ▸ Timeout** sets how long the panel stays on after the last magnet
 contact: 5, 15, 30 (default) or 60 minutes, written back to `config.json`.
@@ -181,7 +206,8 @@ contrast is lowered.
 | `OledRotate` | `0` or `180` (module mounted upside down) |
 | `OledSendHoldSeconds` | how long `SENT ✓` / `SEND FAILED` stay on |
 | `OledDisplayTimeoutMinutes` | how long the panel stays on after the last magnet contact: 5, 15, 30 (default) or 60.  Set from the magnet menu |
-| `RecoveryRevealLimit` | how many times the recovery credentials may be shown per boot (default 3) |
+| `RecoveryRevealLimit` | how many times the recovery credentials may be shown in total for one key (default 10) |
+| `MenuTimeoutSeconds` | how long the magnet menu waits before closing: 20, 60, 120 or 300.  Set from Display ▸ Menu timeout |
 | `OledMarqueeFps` | redraw rate while a long line rolls; `6` on a Zero W |
 
 The idle window is shared with the LED (`GpioLedIdleSeconds`).  These keys

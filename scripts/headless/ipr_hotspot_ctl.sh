@@ -14,7 +14,8 @@
 #   ipr_hotspot_ctl.sh stop           # take it down again
 #   ipr_hotspot_ctl.sh status         # exit 0 if the hotspot is up, 1 if not
 #   ipr_hotspot_ctl.sh factory-reset  # delete WiFi profiles (not the hotspot) and reboot
-#   ipr_hotspot_ctl.sh poweroff       # controlled shutdown (magnet held 6 s)
+#   ipr_hotspot_ctl.sh poweroff       # controlled shutdown (menu: Power)
+#   ipr_hotspot_ctl.sh reboot         # controlled restart  (menu: Power)
 #   ipr_hotspot_ctl.sh service <start|stop|restart> <unit>
 #                                     # unit in: bluetooth bt_hid_agent_unified bt_hid_ble
 #                                     # (dashboard "Reconnect Bluetooth" and the Debug
@@ -107,6 +108,11 @@ case "${1:-}" in
     log "controlled shutdown requested"
     sync
     systemctl poweroff
+    ;;
+  reboot)
+    log "restart requested"
+    sync
+    systemctl reboot
     ;;
   service)
     action="${2:-}"; unit="${3:-}"

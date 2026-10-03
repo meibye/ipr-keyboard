@@ -10,7 +10,7 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 DATE = "3. oktober 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
@@ -1239,8 +1239,13 @@ def build() -> None:
     m.h3("4.6.1 Magnetmenuen (enheder med display)")
     m.p("På en enhed med et fungerende display vælges handlingerne ikke længere ved at "
         "holde magneten et bestemt antal sekunder. Ét hold på 3 sekunder åbner en menu; "
-        "en kort berøring flytter markeringen, et nyt hold på ca. 2 sekunder vælger, og "
-        "20 sekunder uden input lukker menuen. Lampen lyser blåt, mens menuen er åben.")
+        "en kort berøring flytter markeringen, et nyt hold vælger, og menuen lukker "
+        "af sig selv efter MenuTimeoutSeconds. Begge hold viser en bjælke, der fylder "
+        "op, så brugeren kan se, hvor langt holdet er nået.")
+    m.p("Lampen ændrer sig IKKE, mens menuen er åben: den viser fortsat enhedens "
+        "status. Blåt betyder hotspot — og kun hotspot — i resten af dokumentationen, "
+        "og en ekstra betydning gjorde lampen tvetydig. Displayet fortæller, at menuen "
+        "er åben.")
     m.p("Baggrunden: en fabriksnulstilling blev udløst ved et uheld, fordi den mest "
         "destruktive handling lå midt i en tidsstige og blev valgt ved at holde stille. "
         "Analysen står i docs/architecture/magnet-menu-design.md.")
@@ -1250,10 +1255,12 @@ def build() -> None:
             ["Hotspot", "Tænder/slukker opsætningsnetværket", "ingen"],
             ["Display ▸ Timeout", "5 / 15 / 30 / 60 minutters lysetid; skrives til "
                                    "config.json (OledDisplayTimeoutMinutes)", "ingen"],
+            ["Display ▸ Menu timeout", "20 s / 1 / 2 / 5 minutter, før menuen lukker af "
+                                       "sig selv (MenuTimeoutSeconds)", "ingen"],
             ["Recovery info", "Viser hotspottets SSID og nøgle på displayet",
              "én berøring; højst RecoveryRevealLimit gange pr. opstart"],
             ["Mode", "Skifter drift ↔ udvikling (ipr_mode_ctl.sh)", "én berøring"],
-            ["Shutdown", "Kontrolleret nedlukning", "én berøring"],
+            ["Power", "Undermenu: Sluk eller Genstart", "én berøring"],
             ["Factory reset", "Sletter alle wifi-profiler og genstarter", "TO berøringer"],
             ["Exit", "Lukker menuen", "ingen"],
         ],
@@ -1264,12 +1271,43 @@ def build() -> None:
                 "driftsenhed er netop den, der skal kunne reddes.",
     )
     m.p("Recovery info findes, fordi hotspottets nøgle efter en netværksnulstilling kun "
-        "lå i den terminal, der kørte provisioneringen. Den vises højst "
-        "RecoveryRevealLimit gange pr. opstart (standard 3), hver gang efter en "
-        "bekræftende berøring — og slet ikke mere, når nøglen én gang er brugt til at "
-        "logge ind på setup-portalen. Genereres en ny nøgle, kan den vises igen. "
+        "lå i den terminal, der kørte provisioneringen. Visningen bliver stående, til "
+        "den afvises med en berøring — den skal kunne skrives af. Den vises højst "
+        "RecoveryRevealLimit gange I ALT for den samme nøgle (standard 10); tælleren "
+        "ligger på disken, så en genstart ikke giver nye visninger. Nøglen vises slet "
+        "ikke mere, når den én gang er brugt til at logge ind på setup-portalen. "
         "Legitimationsoplysningerne gemmes desuden ved provisionering i "
         "/opt/ipr_state/credentials.txt (kun læsbar for root).")
+    m.p("Ny hotspotnøgle", bold=True)
+    m.p("En ny nøgle nulstiller både tælleren og brugt-markeringen, og er måden at gøre "
+        "oplysningerne synlige igen på:")
+    m.code(
+        "sudo rm /etc/ipr-hotspot.secret\n"
+        "sudo /usr/local/sbin/ipr-provision.sh start   # danner nyt SSID og ny nøgle\n"
+        "sudo cat /etc/ipr-hotspot.secret              # de nye værdier"
+    )
+    m.p("SSID'et beholder formen ipr-setup-xxxx (endelsen kommer fra maskin-id og "
+        "ændrer sig ikke); nøglen er ny. Klienter, der er forbundet til det gamle "
+        "hotspot, mister forbindelsen.")
+    m.h3("4.6.2 Tre netværksnavne")
+    m.p("Tre navne optræder i logge og i nmcli, og de forveksles let. De betegner "
+        "forskellige ting:")
+    m.table(
+        ["Navn", "Hvad det er", "Hvor det ses"],
+        [
+            ["ipr-home", "NetworkManager-PROFIL for hjemmenettet, ejet af projektet",
+             "nmcli con show, ipr_net_apply.sh, setup-portalens wifi-side"],
+            ["ipr-hotspot", "NetworkManager-PROFIL for hotspottet",
+             "nmcli con show, ipr_hotspot_ctl.sh"],
+            ["ipr-setup-xxxx", "SSID'et som hotspottet UDSENDER — navnet en telefon ser",
+             "displayet i SETUP MODE, /etc/ipr-hotspot.secret, telefonens wifi-liste"],
+        ],
+        widths=[3.4, 6.2, 6.0],
+        caption="ipr-home og ipr-hotspot er profiler (gemt opsætning); ipr-setup-xxxx er "
+                "et netværksnavn (det, der er i luften). En fjerde slags, "
+                "netplan-wlan0-<ssid>, dannes af netplan fra imageren; projektet "
+                "redigerer dem aldrig, men kopierer indstillingerne til ipr-home.",
+    )
 
     m.h2("4.7 OLED-statusdisplay")
     m.p("Et 0,96\" OLED-display (128 × 64, SSD1306, I²C-adresse 0x3C, de øverste 16 rækker "

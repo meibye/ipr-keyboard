@@ -607,14 +607,16 @@ def _menu_select(rig):
     rig.release()
 
 
-def test_a_three_second_hold_opens_the_menu_instead_of_arming_the_ladder():
+def test_a_short_hold_opens_the_menu_instead_of_arming_the_ladder():
     rig = _menu_rig()
     rig.press()
-    rig.advance(3.5)
+    rig.advance(gm.HOLD_MENU_SECS + 0.2)
     assert rig.logic.armed == "menu", "the ladder is not used when a menu exists"
     rig.release()
     assert rig.logic.phase == Phase.MENU and rig.menu.open
-    assert rig.frame == Frame(BLUE), "steady blue says: in a menu"
+    # Blue is "the hotspot is up" everywhere else, so the menu does not take
+    # it: the LED keeps showing the device's own status.
+    assert rig.frame != Frame(BLUE)
 
 
 def test_the_ladder_still_works_without_a_display():
@@ -630,9 +632,9 @@ def test_the_ladder_still_works_without_a_display():
 def test_taps_move_and_a_long_press_activates():
     rig = _menu_rig()
     rig.press()
-    rig.advance(3.5)
+    rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
-    assert rig.menu.view().lines[rig.menu.view().selected] == "Hotspot on"
+    assert rig.menu.view().lines[rig.menu.view().selected] == "Hotspot: to on"
     _menu_select(rig)
     assert rig.logic.phase == Phase.HOTSPOT_BUSY
     assert rig.actions.calls == ["start"]
@@ -641,7 +643,7 @@ def test_taps_move_and_a_long_press_activates():
 def test_the_menu_can_set_the_display_timeout():
     rig = _menu_rig()
     rig.press()
-    rig.advance(3.5)
+    rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
     while rig.menu.view().lines[rig.menu.view().selected] != "Display":
         _menu_tap(rig)
@@ -655,7 +657,7 @@ def test_the_menu_can_set_the_display_timeout():
 def test_a_factory_reset_from_the_menu_needs_two_taps():
     rig = _menu_rig()
     rig.press()
-    rig.advance(3.5)
+    rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
     while rig.menu.view().lines[rig.menu.view().selected] != "Factory reset":
         _menu_tap(rig)
@@ -671,7 +673,7 @@ def test_a_factory_reset_from_the_menu_needs_two_taps():
 def test_recovery_info_reaches_the_panel_only_after_a_confirming_tap():
     rig = _menu_rig()
     rig.press()
-    rig.advance(3.5)
+    rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
     while not rig.menu.view().lines[rig.menu.view().selected].startswith("Recovery"):
         _menu_tap(rig)
@@ -685,7 +687,7 @@ def test_recovery_info_reaches_the_panel_only_after_a_confirming_tap():
 def test_the_menu_closes_itself_and_the_led_returns_to_status():
     rig = _menu_rig()
     rig.press()
-    rig.advance(3.5)
+    rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
     rig.advance(25)
     assert not rig.menu.open
@@ -696,6 +698,6 @@ def test_the_snapshot_carries_the_menu_for_the_display():
     rig = _menu_rig()
     assert rig.logic.snapshot(rig.now).menu is None
     rig.press()
-    rig.advance(3.5)
+    rig.advance(gm.HOLD_MENU_SECS + 0.2)
     rig.release()
     assert rig.logic.snapshot(rig.now).menu is not None

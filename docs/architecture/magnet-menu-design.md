@@ -50,13 +50,18 @@ in it.  The timing ladder is gone — on a device with a display.
 | Input | Meaning in the menu |
 |---|---|
 | Tap (< 1 s) | next item, wrapping at the end |
-| Hold ≥ 1.5 s, then release | activate the highlighted item |
+| Hold, then release | activate the highlighted item |
 | Nothing for 20 s | leave the menu, back to status |
 
-The timings are generous because a magnet is slower than a button: the hand
-moves away and back for every tap.  The LED shows a steady blue while the menu
-is open, so a glance says "this device is in a menu"; the panel is what is
-read.
+Holding for 1.2 s opens the menu and the same 1.2 s chooses an item, so "a
+hold" means one thing everywhere.  Both show a **progress bar** while the
+magnet is on: with a single control and no labels, "how long do I hold?" is
+otherwise guesswork, and it was the first thing a user asked.
+
+The LED is deliberately **not** repurposed.  Blue is documented as "the
+hotspot is up" in both manuals, and giving it a second meaning made the device
+ambiguous at a glance; while the menu is open the LED keeps showing the
+device's status and the panel says the rest.
 
 ### 3.2 No display, no menu
 

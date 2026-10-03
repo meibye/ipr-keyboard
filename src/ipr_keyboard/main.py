@@ -321,16 +321,27 @@ def _attach_menu(gpio_monitor, oled, cfg) -> None:
         except Exception as exc:  # a read-only config must not break the menu
             logger.warning("Could not persist the display timeout: %s", exc)
 
+    def set_menu_timeout(seconds: int) -> None:
+        try:
+            ConfigManager.instance().update(MenuTimeoutSeconds=seconds)
+        except Exception as exc:
+            logger.warning("Could not persist the menu timeout: %s", exc)
+
     def timeout_now() -> int:
         return ConfigManager.instance().get().OledDisplayTimeoutMinutes
+
+    def menu_timeout_now() -> int:
+        return ConfigManager.instance().get().MenuTimeoutSeconds
 
     logic._menu = MenuLogic(
         hotspot_active=lambda: probe.hotspot_active,
         development=lambda: probe.development,
         display_timeout_min=timeout_now,
         reveals_left=recovery.reveals_left,
+        menu_timeout_secs=menu_timeout_now,
     )
     logic._on_display_timeout = set_timeout
+    logic._on_menu_timeout = set_menu_timeout
     logic._recovery_info = recovery.lines
     logger.info("Magnet menu enabled (display present)")
 

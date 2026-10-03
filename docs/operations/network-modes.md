@@ -141,6 +141,27 @@ are the physical and the client-side ones:
 5. Switch back with the magnet (10 s): the SSH session dies within seconds
    and the badge returns to `PROD`.
 
+### 3.3b The three network names
+
+Three names appear in logs, in `nmcli` output and on the panel, and they are
+easy to mistake for one another.  They name different kinds of thing:
+
+| Name | What it is | Where it shows |
+|---|---|---|
+| `ipr-home` | the **NetworkManager profile** for the home Wi-Fi, owned by this project | `nmcli con show`, `ipr_net_apply.sh`, the setup portal's Wi-Fi page |
+| `ipr-hotspot` | the **NetworkManager profile** for the management hotspot | `nmcli con show`, `ipr_hotspot_ctl.sh` |
+| `ipr-setup-xxxx` | the **SSID the hotspot broadcasts** — the name a phone sees | the panel in `SETUP MODE`, `/etc/ipr-hotspot.secret`, a phone's Wi-Fi list |
+
+So `ipr-home` and `ipr-hotspot` are *profiles* (configuration the device
+stores); `ipr-setup-xxxx` is a *network name* (what is on the air).  The
+suffix is four characters of the machine id, so it differs per device.
+
+A fourth kind may appear on a device whose Wi-Fi came from the imager:
+`netplan-wlan0-<ssid>`, a profile generated from `/etc/netplan/*.yaml`.  This
+project never edits those — `ipr_net_apply.sh` clones the settings into
+`ipr-home` instead, because NetworkManager's netplan backend rewrites the YAML
+and once lost a device's Wi-Fi password doing so.
+
 ### 3.4 Magnet and LED
 
 The hold ladder (3 s hotspot, 6 s shutdown, 10 s mode, 15 s reset, 20 s

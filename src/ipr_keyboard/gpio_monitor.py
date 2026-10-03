@@ -124,8 +124,9 @@ HOLD_RESET_SECS: float = 15.0
 HOLD_CANCEL_SECS: float = 20.0
 PHASE_GAP_SECS: float = 0.3          # dark gap when a held phase changes
 MODE_CONFIRM_SECS: float = 3.0
-HOLD_MENU_SECS: float = 3.0          # open the menu (display present)
-MENU_SELECT_SECS: float = 1.5        # hold inside the menu = activate
+HOLD_MENU_SECS: float = 1.2          # open the menu (display present)
+MENU_SELECT_SECS: float = 1.2        # hold inside the menu = activate
+MENU_TAP_MAX_SECS: float = 0.8       # shorter than this is a tap, not a hold
 ACK_BLINK_SECS: float = 0.6          # "magnet registered" blink after a press
 ACK_BLINK_HALF_SECS: float = 0.12    # 0.6 s / 0.12 s = on-off-on-off-on
 LED_IDLE_TIMEOUT_SECS: int = 30
@@ -276,6 +277,7 @@ class SystemProbe:
 
 
 class Actions(Protocol):
+    def reboot(self) -> None: ...
     def hotspot_start(self) -> None: ...
     def hotspot_stop(self) -> None: ...
     def factory_reset(self) -> None: ...
@@ -300,6 +302,9 @@ class SystemActions:
 
     def shutdown(self) -> None:
         self._spawn("poweroff")
+
+    def reboot(self) -> None:
+        self._spawn("reboot")
 
     @staticmethod
     def _spawn(cmd: str, helper: str = HOTSPOT_CTL) -> None:
@@ -377,9 +382,6 @@ FRAME_RESET = Frame(RED, FAST_HZ)
 # the small LED, so users released too early and started the hotspot.
 FRAME_SHUTDOWN = Frame(WHITE)
 FRAME_MODE_CONFIRM = Frame(PURPLE)
-# Steady blue while the menu is open: a glance says "this device is in a
-# menu", and the panel is what is read.
-FRAME_MENU = Frame(BLUE)
 
 
 @dataclass(frozen=True)
@@ -450,6 +452,7 @@ class LedLogic:
         request_timeout: float = HOTSPOT_REQUEST_TIMEOUT_SECS,
         menu=None,
         on_display_timeout=None,
+        on_menu_timeout=None,
         recovery_info=None,
     ) -> None:
         # The menu replaces the timed ladder, but only where it can be read:
@@ -457,6 +460,7 @@ class LedLogic:
         # without a panel keeps the ladder exactly as it was.
         self._menu = menu
         self._on_display_timeout = on_display_timeout
+        self._on_menu_timeout = on_menu_timeout
         self._recovery_info = recovery_info
         self._probe = probe
         self._actions = actions
@@ -689,6 +693,10 @@ class LedLogic:
                 logger.warning("Shutdown requested from the menu")
                 self.phase = Phase.SHUTTING_DOWN
                 self._actions.shutdown()
+            elif action == "reboot":
+                logger.warning("Restart requested from the menu")
+                self.phase = Phase.RESETTING  # red blink until it goes down
+                self._actions.reboot()
             elif action == "reset":
                 logger.warning("Factory reset confirmed from the menu")
                 self.phase = Phase.RESETTING
@@ -697,6 +705,10 @@ class LedLogic:
                 minutes = int(action.split(":", 1)[1])
                 if self._on_display_timeout:
                     self._on_display_timeout(minutes)
+            elif action.startswith("menusecs:"):
+                seconds = int(action.split(":", 1)[1])
+                if self._on_menu_timeout:
+                    self._on_menu_timeout(seconds)
             elif action == "recovery":
                 if self._recovery_info:
                     lines = self._recovery_info()
@@ -754,9 +766,9 @@ class LedLogic:
             if now - self._armed_at < PHASE_GAP_SECS:
                 return FRAME_OFF
             return {
-                # Blue while the menu is being armed, the same colour it
-                # shows once open, so the hold reads as one gesture.
-                "menu": FRAME_MENU,
+                # The menu is not an armed action with a colour of its own:
+                # the panel shows the progress towards opening it.
+                "menu": FRAME_OFF,
                 "hotspot": FRAME_ARM_HOTSPOT,
                 "shutdown": FRAME_ARM_SHUTDOWN,
                 "mode": FRAME_ARM_MODE,
@@ -765,7 +777,11 @@ class LedLogic:
         if self.phase == Phase.BOOT:
             return FRAME_BOOT
         if self.phase == Phase.MENU:
-            return FRAME_MENU
+            # Deliberately the ordinary status colour.  Blue is documented as
+            # "the hotspot is up" everywhere, including both manuals, and a
+            # second meaning for it made the LED ambiguous.  The panel says
+            # the menu is open; the LED keeps saying what the device is doing.
+            return status_frame(self._probe)
         if self.phase == Phase.HOTSPOT_BUSY:
             return FRAME_HOTSPOT_BUSY
         if self.phase == Phase.FAIL_FLASH:

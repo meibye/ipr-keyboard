@@ -89,7 +89,13 @@ class AppConfig:
     # How many times the recovery credentials may be shown on the panel
     # per boot.  Each reveal needs a confirming tap; once the credentials
     # have actually been used they are never shown again.
-    RecoveryRevealLimit: int = 3
+    # Total reveals allowed for one hotspot key -- counted on disk, so a
+    # reboot does not hand out a fresh allowance.  Generating a new key
+    # starts a new allowance (see docs/hardware/oled-display.md).
+    RecoveryRevealLimit: int = 10
+    # How long the magnet menu waits before closing itself: 20, 60, 120
+    # or 300 seconds, chosen from Display -> Menu timeout.
+    MenuTimeoutSeconds: int = 20
     # Performance KPIs. Off by default; see ipr_keyboard/metrics.py.
     MetricsEnabled: bool = False
 

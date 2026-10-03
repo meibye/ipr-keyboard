@@ -26,6 +26,9 @@ logger = get_logger()
 
 HOTSPOT_SECRET = "/etc/ipr-hotspot.secret"
 USED_MARKER = "/var/lib/ipr-keyboard/recovery_used"
+# Reveals already spent, as "<fingerprint> <count>".  On disk because
+# a reboot must not hand out a fresh allowance.
+COUNT_FILE = "/var/lib/ipr-keyboard/recovery_reveals"
 SETUP_URL = "10.42.0.1/setup"
 
 
@@ -80,18 +83,58 @@ def already_used(path: str = HOTSPOT_SECRET, marker: str = USED_MARKER) -> bool:
 
 
 class RecoveryInfo:
-    """Counts the reveals left this boot and renders the lines for the panel."""
+    """Counts the reveals a key has had, and renders the lines for the panel.
+
+    The count is kept on disk against the key's fingerprint, not in memory:
+    a reboot must not hand out a fresh allowance, or the limit means nothing
+    to anyone who can power-cycle the device.  Generating a new key starts a
+    new allowance, which is the documented way to get more
+    (docs/hardware/oled-display.md).
+    """
 
     def __init__(
         self,
-        limit: int = 3,
+        limit: int = 10,
         secret_path: str = HOTSPOT_SECRET,
         marker_path: str = USED_MARKER,
+        count_path: str = COUNT_FILE,
     ) -> None:
         self._limit = max(0, int(limit))
-        self._used_this_boot = 0
         self._secret = secret_path
         self._marker = marker_path
+        self._count = count_path
+
+    # -- the persisted counter --------------------------------------------
+
+    def _used(self) -> int:
+        """Reveals this key has already had; 0 for a key we have not seen."""
+        fp = fingerprint(self._secret)
+        if not fp:
+            return 0
+        try:
+            with open(self._count, encoding="utf-8") as fh:
+                stored_fp, _, stored_n = fh.read().strip().partition(" ")
+        except OSError:
+            return 0
+        if stored_fp != fp:
+            return 0  # a new key: a new allowance
+        try:
+            return int(stored_n)
+        except ValueError:
+            return 0
+
+    def _record(self, used: int) -> None:
+        fp = fingerprint(self._secret)
+        if not fp:
+            return
+        try:
+            os.makedirs(os.path.dirname(self._count), exist_ok=True)
+            with open(self._count, "w", encoding="utf-8") as fh:
+                fh.write(f"{fp} {used}\n")
+        except OSError as exc:
+            logger.warning("Could not record the reveal count: %s", exc)
+
+    # -- what the menu asks -----------------------------------------------
 
     def reveals_left(self) -> int:
         if already_used(self._secret, self._marker):
@@ -99,17 +142,18 @@ class RecoveryInfo:
         ssid, password = _secret_fields(self._secret)
         if not (ssid and password):
             return 0
-        return max(0, self._limit - self._used_this_boot)
+        return max(0, self._limit - self._used())
 
     def lines(self) -> tuple[str, ...]:
         """One reveal: costs a credit and returns the lines, or () when spent."""
         if self.reveals_left() <= 0:
             return ()
         ssid, password = _secret_fields(self._secret)
-        self._used_this_boot += 1
+        used = self._used() + 1
+        self._record(used)
         logger.warning(
-            "Recovery credentials shown on the panel (%d of %d used this boot)",
-            self._used_this_boot,
+            "Recovery credentials shown on the panel (%d of %d for this key)",
+            used,
             self._limit,
         )
         return (f"Wi-Fi {ssid}", f"Key  {password}", f"Open {SETUP_URL}")

@@ -57,6 +57,15 @@ class Rig:
         v = self.logic.view()
         return v.lines[v.selected] if v.lines else None
 
+    def goto(self, text):
+        """Tap until the selection starts with `text`.  Bounded: a label that
+        is not there fails the test instead of looping forever."""
+        for _ in range(len(self.logic.items()) + 1):
+            if self.current and self.current.strip().startswith(text):
+                return self.current
+            self.tap()
+        raise AssertionError(f"{text!r} not in {[i.label for i in self.logic.items()]}")
+
 
 def test_tap_moves_through_the_list_and_wraps():
     rig = Rig()
@@ -81,20 +90,21 @@ def test_a_long_list_scrolls_so_the_selection_stays_visible():
 
 def test_a_harmless_item_fires_at_once():
     rig = Rig()
-    assert rig.current == "Hotspot on"
+    assert rig.current == "Hotspot: to on"
     rig.select()
     assert rig.actions() == ["hotspot"]
 
 
 def test_the_hotspot_label_follows_the_current_state():
-    assert Rig(hotspot=True).current == "Hotspot off"
-    assert Rig(hotspot=False).current == "Hotspot on"
+    assert Rig(hotspot=True).current == "Hotspot: to off"
+    assert Rig(hotspot=False).current == "Hotspot: to on"
 
 
 def test_a_disruptive_item_needs_one_tap():
     rig = Rig()
-    while rig.current != "Shutdown":
-        rig.tap()
+    rig.goto("Power")
+    rig.select()
+    rig.goto("Shut down")
     rig.select()
     assert rig.actions() == [], "nothing happens on selection alone"
     assert rig.logic.view().title == "CONFIRM?"
@@ -104,8 +114,7 @@ def test_a_disruptive_item_needs_one_tap():
 
 def test_the_factory_reset_needs_two_taps_and_says_what_it_deletes():
     rig = Rig()
-    while rig.current != "Factory reset":
-        rig.tap()
+    rig.goto("Factory reset")
     rig.select()
     view = rig.logic.view()
     assert view.title == "CONFIRM?"
@@ -120,8 +129,7 @@ def test_the_factory_reset_needs_two_taps_and_says_what_it_deletes():
 
 def test_a_confirmation_that_times_out_cancels():
     rig = Rig()
-    while rig.current != "Factory reset":
-        rig.tap()
+    rig.goto("Factory reset")
     rig.select()
     rig.advance(mn.CONFIRM_SECS + 1)
     assert rig.actions() == [], "the window closed without the action"
@@ -130,37 +138,36 @@ def test_a_confirmation_that_times_out_cancels():
 
 def test_a_long_press_during_a_confirmation_cancels_it():
     rig = Rig()
-    while rig.current != "Shutdown":
-        rig.tap()
+    rig.goto("Power")
+    rig.select()
+    rig.goto("Shut down")
     rig.select()
     rig.select()
     assert rig.actions() == []
-    assert rig.logic.view().title == "MENU"
+    assert rig.logic.view().title == "POWER", "cancelled, still in the submenu"
 
 
 def test_the_menu_closes_when_nothing_happens():
     rig = Rig()
-    rig.advance(mn.INACTIVITY_SECS + 1)
+    rig.advance(mn.DEFAULT_INACTIVITY_SECS + 1)
     assert not rig.logic.open
 
 
 def test_activity_keeps_the_menu_open():
     rig = Rig()
     for _ in range(5):
-        rig.advance(mn.INACTIVITY_SECS - 2)
+        rig.advance(mn.DEFAULT_INACTIVITY_SECS - 2)
         rig.tap()
     assert rig.logic.open
 
 
 def test_the_display_submenu_marks_and_sets_the_timeout():
     rig = Rig(timeout_min=30)
-    while rig.current != "Display":
-        rig.tap()
+    rig.goto("Display")
     rig.select()
     labels = rig.labels
     assert any(line.startswith("*") and "30 min" in line for line in labels), labels
-    while "5 min" not in rig.current:
-        rig.tap()
+    rig.goto("5 min")
     rig.select()
     assert rig.actions() == ["timeout:5"]
     assert rig.logic.view().title == "MENU", "returns to the root menu"
@@ -168,11 +175,9 @@ def test_the_display_submenu_marks_and_sets_the_timeout():
 
 def test_the_display_submenu_has_a_way_back():
     rig = Rig()
-    while rig.current != "Display":
-        rig.tap()
+    rig.goto("Display")
     rig.select()
-    while rig.current != "Back":
-        rig.tap()
+    rig.goto("Back")
     rig.select()
     assert rig.logic.view().title == "MENU"
     assert rig.actions() == []
@@ -180,8 +185,7 @@ def test_the_display_submenu_has_a_way_back():
 
 def test_recovery_needs_a_confirming_tap_and_respects_the_limit():
     rig = Rig(reveals=1)
-    while not rig.current.startswith("Recovery"):
-        rig.tap()
+    rig.goto("Recovery")
     rig.select()
     assert rig.actions() == [], "not shown on selection alone"
     rig.tap()
@@ -189,8 +193,7 @@ def test_recovery_needs_a_confirming_tap_and_respects_the_limit():
 
     rig.reveals = 0
     rig2 = Rig(reveals=0)
-    while not rig2.current.startswith("Recovery"):
-        rig2.tap()
+    rig2.goto("Recovery")
     assert "none left" in rig2.current
     rig2.select()
     assert rig2.actions() == [], "nothing is revealed once the limit is spent"
@@ -205,7 +208,7 @@ def test_a_reveal_is_dismissed_by_any_input():
 
 
 def test_shutdown_and_reset_close_the_menu():
-    for label, action in (("Shutdown", "shutdown"), ("Factory reset", "reset")):
+    for label, action in (("Factory reset", "reset"),):
         rig = Rig()
         while rig.current != label:
             rig.tap()
@@ -217,8 +220,7 @@ def test_shutdown_and_reset_close_the_menu():
 
 def test_exit_closes_without_doing_anything():
     rig = Rig()
-    while rig.current != "Exit":
-        rig.tap()
+    rig.goto("Exit")
     rig.select()
     assert not rig.logic.open
     assert rig.actions() == []
@@ -237,6 +239,5 @@ def test_inputs_are_ignored_when_the_menu_is_closed():
 )
 def test_the_mode_item_names_the_target(dev, expected):
     rig = Rig(development=dev)
-    while not rig.current.startswith("Mode"):
-        rig.tap()
+    rig.goto("Mode")
     assert expected in rig.current

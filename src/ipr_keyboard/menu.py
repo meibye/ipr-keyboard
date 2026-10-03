@@ -16,12 +16,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-INACTIVITY_SECS = 20.0  # leave the menu when nothing happens
+DEFAULT_INACTIVITY_SECS = 20.0  # leave the menu when nothing happens
 CONFIRM_SECS = 10.0  # window for the confirming tap(s)
 VISIBLE_LINES = 4  # the panel's compact layout
 
 # Display timeouts offered by the Display submenu, in minutes.
 TIMEOUT_CHOICES = (5, 15, 30, 60)
+# How long the menu waits before closing itself, in seconds.
+MENU_TIMEOUT_CHOICES = (20, 60, 120, 300)
 
 
 @dataclass(frozen=True)
@@ -82,11 +84,13 @@ class MenuLogic:
         development: Callable[[], bool] = lambda: False,
         display_timeout_min: Callable[[], int] = lambda: 30,
         reveals_left: Callable[[], int] = lambda: 0,
+        menu_timeout_secs: Callable[[], int] = lambda: int(DEFAULT_INACTIVITY_SECS),
     ) -> None:
         self._hotspot_active = hotspot_active
         self._development = development
         self._display_timeout_min = display_timeout_min
         self._reveals_left = reveals_left
+        self._menu_timeout_secs = menu_timeout_secs
         self.state = MenuState()
         self.open = False
 
@@ -110,7 +114,12 @@ class MenuLogic:
             return
         if self.state.confirm and now >= self.state.confirm.deadline:
             self.state.confirm = None  # a timeout always cancels
-        if now - self.state.last_input >= INACTIVITY_SECS:
+        if self.state.detail:
+            # A reveal stays until it is dismissed.  It exists to be written
+            # down, and a key that vanishes mid-transcription is worse than
+            # one that waits.
+            return
+        if now - self.state.last_input >= self._menu_timeout_secs():
             self.leave()
 
     # -- the two inputs ---------------------------------------------------
@@ -165,8 +174,24 @@ class MenuLogic:
         if self.state.menu == "display":
             return tuple(
                 Item(f"timeout:{m}", self._timeout_label(m)) for m in TIMEOUT_CHOICES
-            ) + (Item("back", "Back", submenu="root"),)
-        hotspot = "Hotspot off" if self._hotspot_active() else "Hotspot on"
+            ) + (
+                Item("menutimeout", "Menu timeout", submenu="menutimeout"),
+                Item("back", "Back", submenu="root"),
+            )
+        if self.state.menu == "menutimeout":
+            return tuple(
+                Item(f"menusecs:{t}", self._menu_timeout_label(t))
+                for t in MENU_TIMEOUT_CHOICES
+            ) + (Item("back", "Back", submenu="display"),)
+        if self.state.menu == "power":
+            return (
+                Item("shutdown", "Shut down", confirm=1),
+                Item("reboot", "Restart", confirm=1),
+                Item("back", "Back", submenu="root"),
+            )
+        # "to on" / "to off" says what choosing it will DO, like Mode -- the
+        # label then also tells you which state the device is in now.
+        hotspot = "Hotspot: to off" if self._hotspot_active() else "Hotspot: to on"
         mode = "Mode: to production" if self._development() else "Mode: to development"
         left = self._reveals_left()
         recovery = "Recovery info" if left > 0 else "Recovery info (none left)"
@@ -175,7 +200,7 @@ class MenuLogic:
             Item("display", "Display", submenu="display"),
             Item("recovery", recovery, confirm=1 if left > 0 else 0),
             Item("mode", mode, confirm=1),
-            Item("shutdown", "Shutdown", confirm=1),
+            Item("power", "Power", submenu="power"),
             Item("reset", "Factory reset", confirm=2),
             Item("exit", "Exit"),
         )
@@ -183,6 +208,11 @@ class MenuLogic:
     def _timeout_label(self, minutes: int) -> str:
         mark = "*" if minutes == self._display_timeout_min() else " "
         text = "1 hour" if minutes == 60 else f"{minutes} min"
+        return f"{mark} {text}"
+
+    def _menu_timeout_label(self, secs: int) -> str:
+        mark = "*" if secs == self._menu_timeout_secs() else " "
+        text = f"{secs} s" if secs < 60 else f"{secs // 60} min"
         return f"{mark} {text}"
 
     # -- internals --------------------------------------------------------
@@ -202,6 +232,12 @@ class MenuLogic:
         if item.key == "exit":
             self.leave()
             return
+        if item.key.startswith("menusecs:"):
+            self.state.pending.append(item.key)
+            self.state.menu = "display"
+            self.state.index = 0
+            self.state.top = 0
+            return
         if item.key.startswith("timeout:"):
             self.state.pending.append(item.key)
             self.state.menu = "root"
@@ -211,7 +247,7 @@ class MenuLogic:
         if item.key == "recovery" and self._reveals_left() <= 0:
             return
         self.state.pending.append(item.key)
-        if item.key in ("shutdown", "reset"):
+        if item.key in ("shutdown", "reboot", "reset"):
             self.leave()  # the device is going away; nothing left to show
 
     # -- rendering --------------------------------------------------------
@@ -243,6 +279,7 @@ def _confirm_text(item: Item) -> str:
     return {
         "reset": "Deletes all Wi-Fi settings",
         "shutdown": "Switches the device off",
+        "reboot": "Restarts the device",
         "mode": "Opens or closes ports",
         "recovery": "Shows the hotspot key",
     }.get(item.key, item.label)

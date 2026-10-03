@@ -237,7 +237,8 @@ def test_status_key_changes_on_bt_pen_wifi_services_hotspot_mode():
 
 
 def test_holding_shows_progress_towards_the_menu():
-    s = compose(ready_snapshot(held_secs=1.5, menu_available=True))
+    half = sc.MENU_HOLD_SECS / 2
+    s = compose(ready_snapshot(held_secs=half, menu_available=True))
     assert s.header == "HOLD…"
     assert s.progress is not None and 0.4 < s.progress < 0.6
     assert "menu" in s.lines[0].text.lower()
@@ -259,3 +260,23 @@ def test_an_armed_value_outside_the_ladder_never_raises():
 def test_a_device_without_a_menu_still_gets_the_ladder():
     s = compose(ready_snapshot(held_secs=1.0, menu_available=False))
     assert s.header == "HOLD…" and len(s.lines) == 4 and s.progress is None
+
+
+def test_holding_inside_the_menu_shows_progress_towards_choosing():
+    """With one control and no labels, "how long do I hold?" needs showing."""
+
+    class View:
+        title = "MENU"
+        lines = ("Hotspot: to on", "Display", "Recovery info", "Mode: to development")
+        selected = 1
+        detail = ()
+
+    idle = compose(ready_snapshot(menu=View(), held_secs=0.0))
+    assert idle.progress is None and len(idle.lines) == 4
+
+    held = compose(ready_snapshot(menu=View(), held_secs=sc.MENU_SELECT_SECS / 2))
+    assert held.progress is not None and 0.4 < held.progress < 0.6
+    assert held.lines[0].text == "Display", "the selection stays in view"
+
+    done = compose(ready_snapshot(menu=View(), held_secs=sc.MENU_SELECT_SECS * 2))
+    assert done.progress == 1.0

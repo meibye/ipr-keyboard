@@ -232,7 +232,10 @@ def _boot_lines(snap: Snapshot) -> tuple[Line, ...]:
 
 # Mirrors gpio_monitor.HOLD_MENU_SECS; this module deliberately imports
 # nothing from there (see the module docstring).
-MENU_HOLD_SECS = 3.0
+MENU_HOLD_SECS = 1.2
+# Mirrors gpio_monitor.MENU_SELECT_SECS: how long a hold inside the menu must
+# last to count as "choose this".
+MENU_SELECT_SECS = 1.2
 
 
 def _menu_hold_screen(snap: Snapshot, badge: str) -> Screen:
@@ -276,6 +279,14 @@ def _menu_screen(snap: Snapshot, badge: str) -> Screen:
         Line(text, ICON_MARK if i == view.selected else "", bold=i == view.selected)
         for i, text in enumerate(view.lines)
     )
+    # While the magnet is held, fill a bar towards the moment the highlighted
+    # item is chosen: with one control and no labels, "how long do I hold?"
+    # is otherwise guesswork.  Only two lines fit beside the bar, so the list
+    # is trimmed to the selection and its neighbour.
+    if snap.held_secs > 0:
+        progress = min(1.0, snap.held_secs / MENU_SELECT_SECS)
+        keep = lines[view.selected : view.selected + 2] or lines[:2]
+        return Screen(view.title, badge, keep, progress=progress)
     return Screen(view.title, badge, lines, compact=True)
 
 
@@ -307,9 +318,7 @@ def _gesture_screen(snap: Snapshot, badge: str) -> Screen:
         header = "RELEASE →"
         # Defensive: an armed value outside the ladder (the menu adds one)
         # used to raise StopIteration here and freeze the whole display.
-        start = next(
-            (i for i, (key, _, _) in enumerate(GESTURES) if key == armed), 0
-        )
+        start = next((i for i, (key, _, _) in enumerate(GESTURES) if key == armed), 0)
         remaining = GESTURES[start:]
 
     lines = tuple(

@@ -122,8 +122,9 @@ protrudes from one end.  Recommended approach:
 ## The magnet opens a menu when a display is fitted
 
 With a working OLED the timed ladder below is **not** used: holding the magnet
-for 3 s opens a menu, tapping moves through it and a long press chooses.  The
-LED is steady blue throughout.  See `docs/hardware/oled-display.md` for the
+opens a menu, tapping moves through it and a long press chooses.  The LED is
+**unchanged** while the menu is open — it keeps showing the status colour, so
+blue continues to mean "the hotspot is up" and nothing else.  See `docs/hardware/oled-display.md` for the
 menu and `docs/architecture/magnet-menu-design.md` for why it replaced the
 ladder — in short, a factory reset selected by holding still for 15 seconds
 was triggered by accident.
