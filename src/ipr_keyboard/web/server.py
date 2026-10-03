@@ -76,6 +76,21 @@ def create_app() -> Flask:
     app = Flask(__name__)
 
     app.config["SECRET_KEY"] = _resolve_secret_key()
+
+    # Stylesheets and icons are served from a fixed URL, so a browser that has
+    # cached an older copy keeps using it after an update -- the dashboard then
+    # renders with the wrong layout until it is reloaded by hand.  Stamp every
+    # static URL with the file's modification time so a changed file is a new
+    # URL and the question never arises.
+    @app.template_global()
+    def asset_url(filename: str) -> str:  # used as asset_url('ipr.css')
+        url = url_for("static", filename=filename)
+        try:
+            stamp = int((Path(app.static_folder) / filename).stat().st_mtime)
+        except (OSError, TypeError):
+            return url
+        return f"{url}?v={stamp}"
+
     app.config["SESSION_COOKIE_SECURE"] = True
     app.permanent_session_lifetime = timedelta(days=7)
     UserStore.instance()  # bootstrap default admin user on first run

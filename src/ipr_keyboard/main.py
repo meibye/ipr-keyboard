@@ -26,6 +26,7 @@ from .usb import detector as usb_detector, reader as usb_reader, deleter as usb_
 from . import metrics
 from .web.server import create_app
 from .web import server as web_server
+from .delivery import DeliveryLog
 from .gpio_monitor import GpioMonitor, gpio_available
 from .menu import MenuLogic
 from .oled.manager import OledManager
@@ -124,27 +125,6 @@ def _pen_state_path() -> Path:
     return project_root() / _PEN_STATE_FILE
 
 
-def _load_pen_state() -> dict:
-    """{folder: mtime} of the last delivered scan per folder; {} when absent."""
-    try:
-        import json
-        data = json.loads(_pen_state_path().read_text(encoding="utf-8"))
-        return {str(k): float(v) for k, v in data.items()} if isinstance(data, dict) else {}
-    except (OSError, ValueError):
-        return {}
-
-
-def _save_pen_state(state: dict) -> None:
-    try:
-        import json
-        p = _pen_state_path()
-        tmp = p.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(state, indent=1), encoding="utf-8")
-        tmp.replace(p)
-    except OSError as exc:
-        logger.warning("Could not persist pen state: %s", exc)
-
-
 def run_usb_bt_loop():
     """Main USB monitoring and Bluetooth forwarding loop.
 
@@ -162,13 +142,12 @@ def run_usb_bt_loop():
             "Bluetooth helper not available; will still monitor files but not send text"
         )
 
-    # Per-folder "delivered up to this mtime" mark.  Persisted, so a service
-    # restart or a re-plug of the pen never types an old scan again — seen on
-    # a production device: the newest file still on the pen was sent a second
-    # time after every restart.  Each folder is baselined at the newest file
-    # present the FIRST time it is seen (nothing older is ever sent); after
-    # that every new file is delivered once, in order.
-    last_mtime: dict = _load_pen_state()
+    # What has already been typed, recorded by file identity rather than by
+    # timestamp.  An MTP listing is not immediately consistent, so a scan can
+    # appear after later ones have been delivered, and a high-water mark then
+    # skipped it for good -- see delivery.py.  Persisted, so a restart or a
+    # re-plug of the pen never types an old scan again.
+    delivered = DeliveryLog(_pen_state_path())
 
     while True:
         cfg = cfg_mgr.get()
@@ -192,35 +171,27 @@ def run_usb_bt_loop():
                 logger.debug("Folder does not exist yet: %s", folder)
                 continue
 
-            folder_key = str(folder)
             files = detector.list_files(folder)  # oldest first
             if not files:
                 continue
 
-            if folder_key not in last_mtime:
-                # First sight of this folder: baseline on what is already there.
-                try:
-                    last_mtime[folder_key] = files[-1].stat().st_mtime
-                except OSError:
-                    continue
-                _save_pen_state(last_mtime)
-                logger.info("Pen folder %s: %d existing file(s) left untouched as baseline",
-                            folder_key, len(files))
+            if not delivered.knows(folder):
+                # First sight of this folder: everything already there counts
+                # as done, so an upgrade or a re-plug types nothing old.
+                delivered.baseline(folder, files)
                 continue
 
-            # Oldest file newer than the mark: deliver scans one per poll, in order.
-            for candidate in files:
+            candidate = delivered.next_undelivered(folder, files)
+            if candidate is not None:
                 try:
-                    mtime = candidate.stat().st_mtime
+                    found_mtime = candidate.stat().st_mtime
                 except OSError:
                     continue
-                if mtime > last_mtime[folder_key]:
-                    last_mtime[folder_key] = mtime
-                    _save_pen_state(last_mtime)
-                    found_file = candidate
-                    found_mtime = mtime
-                    break
-            if found_file is not None:
+                # Marked before the send, not after: a scan that fails to type
+                # must not be retried on every poll for ever.  It stays on the
+                # pen for the user to see, exactly as before.
+                delivered.mark(folder, candidate)
+                found_file = candidate
                 break
 
         if found_file is None:
