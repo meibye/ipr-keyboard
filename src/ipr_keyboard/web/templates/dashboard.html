@@ -71,6 +71,12 @@
         <div class="card-title">Transmission</div>
         <div class="card-label state-muted" id="tx-label">—</div>
         <div class="card-explanation" id="tx-explanation">Loading…</div>
+        <!-- Live while typing: the same count the panel shows, so the two
+             agree.  Hidden when nothing is being sent. -->
+        <div class="tx-progress" id="tx-progress" hidden>
+          <div class="tx-bar"><div class="tx-bar-fill" id="tx-bar-fill"></div></div>
+          <div class="card-explanation" id="tx-count"></div>
+        </div>
       </div>
       <!-- System -->
       <div class="status-card" id="card-system">
@@ -158,26 +164,45 @@
             <div class="hm-value" id="pm-boot-val">—</div>
           </div>
           <div class="health-metric">
-            <div class="hm-label">Pen → BT, median</div>
-            <div class="hm-value" id="pm-e2e-p50-val">—</div>
+            <div class="hm-label">1. Noticing the scan</div>
+            <div class="hm-value" id="pm-detect-val">—</div>
           </div>
           <div class="health-metric">
-            <div class="hm-label">Pen → BT, slowest 5 %</div>
-            <div class="hm-value" id="pm-e2e-p95-val">—</div>
+            <div class="hm-label">2. Reading the file</div>
+            <div class="hm-value" id="pm-read-val">—</div>
           </div>
           <div class="health-metric">
-            <div class="hm-label">Send per char</div>
+            <div class="hm-label">3. Waiting for Bluetooth</div>
+            <div class="hm-value" id="pm-queue-val">—</div>
+          </div>
+          <div class="health-metric">
+            <div class="hm-label">4. Typing to the PC</div>
+            <div class="hm-value" id="pm-type-val">—</div>
+          </div>
+          <div class="health-metric">
+            <div class="hm-label">Typing, per character</div>
             <div class="hm-value" id="pm-char-val">—</div>
+          </div>
+          <div class="health-metric">
+            <div class="hm-label">Whole scan, slowest 5 %</div>
+            <div class="hm-value" id="pm-e2e-p95-val">—</div>
           </div>
         </div>
         <div class="card-explanation" id="pm-note" style="margin-top:6px"></div>
         <div class="card-explanation" style="margin-top:6px">
-          <b>Boot to app</b>: from power-on until the application was running, measured at
-          the first start after each boot (a service restart does not change it). <b>Pen → BT</b>: for one whole scan (one file),
-          from the moment the device noticed it until the last character was handed to
-          Bluetooth — the median and the slowest 5 % of recent scans. <b>Send per char</b>:
-          the Bluetooth hand-off time divided by the number of characters in the scan.
-          The PC adds its own delay on top of all of these.
+          Typical values for one scan, in the order they happen, so you can see which
+          stage is the slow one. <b>Boot to app</b>: from power-on until the application
+          was running, measured at the first start after each boot (a service restart does
+          not change it). <b>1. Noticing the scan</b>: the file appearing on the pen until
+          the device sees it — never faster than the poll interval in Settings.
+          <b>2. Reading the file</b>: fetching the text off the pen.
+          <b>3. Waiting for Bluetooth</b>: the text is ready and the device is waiting for
+          the PC's next radio slot. <b>4. Typing to the PC</b>: sending the characters one
+          by one, and normally by far the largest number here — it grows with the length
+          of the scan, so compare <b>Typing, per character</b> between scans instead.
+          That per-character figure is set by the typing speed in Settings; lowering it
+          types faster but some PCs start dropping characters.
+          All figures are medians of recent scans, except the slowest 5 %.
         </div>
       </div>
     </div>
@@ -709,6 +734,22 @@ function applyStatus(data) {
     lbl.textContent = tx.label || tx.state;
     lbl.className = 'card-label ' + stateClass(tx.state);
     document.getElementById('tx-explanation').textContent = tx.explanation || '';
+    // The characters arriving at the PC, live.  A send of a few hundred
+    // characters takes tens of seconds, so a card that only says "Sending"
+    // looks indistinguishable from one that is stuck.
+    const prog = document.getElementById('tx-progress');
+    const sending = tx.state === 'sending';
+    prog.hidden = !sending;
+    if (sending) {
+      const sent = tx.chars_sent || 0, total = tx.chars || 0;
+      const pct = tx.progress_percent != null
+        ? tx.progress_percent
+        : (total ? 100 * sent / total : 0);
+      document.getElementById('tx-bar-fill').style.width = Math.max(0, Math.min(100, pct)) + '%';
+      document.getElementById('tx-count').textContent = total
+        ? `${sent} of ${total} characters`
+        : 'Starting…';
+    }
   }
 
   // System card
@@ -854,14 +895,41 @@ async function loadHomeHealth() {
       const bootEl = document.getElementById('pm-boot-val');
       const b = m.boot && m.boot.boot_to_process_s;
       bootEl.textContent = b == null ? '—' : fmtMs(b * 1000);
-      document.getElementById('pm-e2e-p50-val').textContent = fmtMs(k.e2e_latency_ms && k.e2e_latency_ms.p50);
+      // One tile per stage of the chain, in order, so the slow one is obvious.
+      const p50 = name => fmtMs(k[name] && k[name].p50);
+      document.getElementById('pm-detect-val').textContent = p50('detect_latency_ms');
+      document.getElementById('pm-read-val').textContent = p50('read_ms');
+      document.getElementById('pm-queue-val').textContent = p50('queue_wait_ms');
+      document.getElementById('pm-type-val').textContent = p50('type_ms');
       document.getElementById('pm-e2e-p95-val').textContent = fmtMs(k.e2e_latency_ms && k.e2e_latency_ms.p95);
-      const pc = k.send_ms_per_char && k.send_ms_per_char.p50;
+      // Per character is a sub-millisecond-sensitive figure; fmtMs would round
+      // 20.4 ms to "20 ms" and hide exactly the difference being tuned.
+      const pc = k.type_ms_per_char && k.type_ms_per_char.p50;
       document.getElementById('pm-char-val').textContent = pc == null ? '—' : pc.toFixed(1) + ' ms';
-      const n = (k.e2e_latency_ms && k.e2e_latency_ms.count) || 0;
-      document.getElementById('pm-note').textContent = n
-        ? `Based on the last ${n} scan${n === 1 ? '' : 's'}. Measured on the device from the moment a scan is detected (the pen's own clock is not trusted) up to the Bluetooth hand-off; the PC adds its own delay.`
-        : 'No scans recorded since metrics were enabled.';
+      // Count the typing samples: a scan that was detected but never typed
+      // would otherwise be counted as a complete measurement.
+      const n = (k.type_ms && k.type_ms.count) || 0;
+      let note;
+      if (!n) {
+        note = 'No scans recorded since metrics were enabled. Scan something with the pen, '
+             + 'or use Send test text on the Debug screen.';
+      } else {
+        note = `Based on the last ${n} scan${n === 1 ? '' : 's'}.`;
+        // Name the bottleneck rather than leaving six numbers to be compared.
+        const stages = [
+          ['noticing the scan', k.detect_latency_ms && k.detect_latency_ms.p50],
+          ['reading the file', k.read_ms && k.read_ms.p50],
+          ['waiting for Bluetooth', k.queue_wait_ms && k.queue_wait_ms.p50],
+          ['typing to the PC', k.type_ms && k.type_ms.p50],
+        ].filter(x => x[1] != null && isFinite(x[1]));
+        if (stages.length) {
+          const worst = stages.reduce((a, x) => (x[1] > a[1] ? x : a));
+          const total = stages.reduce((sum, x) => sum + x[1], 0);
+          const share = total ? Math.round(100 * worst[1] / total) : 0;
+          note += ` Most of the time goes on ${worst[0]} (about ${share} % of the total).`;
+        }
+      }
+      document.getElementById('pm-note').textContent = note;
     }
   } catch (_) {}
 

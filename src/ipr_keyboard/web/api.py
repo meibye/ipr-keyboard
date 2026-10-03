@@ -1018,7 +1018,15 @@ def api_stream():
                 yield f"data: {payload}\n\n"
             except Exception:
                 yield "data: {}\n\n"
-            time.sleep(ConfigManager.instance().get().StatusIntervalSeconds)
+            # A send of a few hundred characters runs for tens of seconds and
+            # the card shows a live character count: at the normal status
+            # interval it would step twice and look stuck.  Tick faster only
+            # while a send is on screen, so an idle dashboard still costs the
+            # device just one build per interval.
+            interval = ConfigManager.instance().get().StatusIntervalSeconds
+            if transmission.get().get("state") == "sending":
+                interval = min(interval, 1.0)
+            time.sleep(interval)
 
     return Response(
         stream_with_context(generate()),

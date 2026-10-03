@@ -236,8 +236,11 @@ Example response
     },
     "detect_latency_ms": { "...": "same shape" },
     "read_ms":           { "...": "same shape" },
-    "send_ms":           { "...": "same shape" },
+    "send_ms":           { "...": "same shape; the FIFO write, NOT the typing" },
     "send_ms_per_char":  { "...": "same shape, unit ms/char" },
+    "queue_wait_ms":     { "...": "same shape; queued -> first character out" },
+    "type_ms":           { "...": "same shape; the whole scan typed to the host" },
+    "type_ms_per_char":  { "...": "same shape, unit ms/char" },
     "poll_scan_ms":      { "...": "same shape; sampled 1 in 10 idle polls" },
     "sse_build_ms":      { "...": "same shape" }
   }
@@ -247,6 +250,15 @@ Example response
 `e2e_latency_ms` is measured on the device up to the Bluetooth hand-off. The
 keystrokes' arrival at the PC is not observable from the device; use
 `scripts/perf/perf_keystroke_probe.py` on the PC for that figure.
+
+Every key in `kpis` is a key of `ipr_keyboard.metrics.KPIS`, and the store's
+buffers are built from that mapping alone: a recorder that writes a key the
+mapping does not list raises. Add the key and the recorder together.
+
+`type_ms` is the stage that dominates a send, and the one the dashboard's
+Performance panel names as the bottleneck; `send_ms` predates the daemon's
+progress reporting and times only the queue write, so it is kept for
+comparison with older figures rather than for judging a send.
 
 #### POST /api/metrics/reset
 
@@ -580,6 +592,12 @@ Example response
 #### GET /api/stream
 
 Server-Sent Events endpoint for live dashboard updates.
+
+One `status_update` per `StatusIntervalSeconds`, except while a send is running:
+the Transmission card shows a live character count, and at the normal interval
+a ten-second send would step twice and look stuck, so the stream falls back to
+at most one second until the send ends. An idle dashboard still costs the
+device one status build per interval.
 
 Preferred event types:
 

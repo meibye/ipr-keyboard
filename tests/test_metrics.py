@@ -45,6 +45,28 @@ def test_snapshot_answers_even_when_disabled():
     assert set(snap["kpis"]) == set(metrics.KPIS)
 
 
+def test_every_recorder_writes_only_registered_keys():
+    """A recorder that invents a key raises, and the raise lands mid-send.
+
+    record_typing once appended to "queue_wait_ms" while KPIS did not list it:
+    _samples is built from KPIS, so it raised KeyError AFTER the text had been
+    typed, set_success() never ran, and the scan stayed on the pen looking
+    undelivered.  Call every recorder and require the keys to exist.
+    """
+    metrics.set_enabled(True)
+    metrics.record_typing(queue_wait_s=0.2, type_s=6.0, chars=300)
+    metrics.record_poll_scan(0.5)
+    metrics.record_file_pipeline(1.0, 2.0, 3.0, 4.0, 10)
+    metrics.record("sse_build_ms", 3.0)
+
+    kpis = metrics.snapshot()["kpis"]
+    assert set(kpis) == set(metrics.KPIS), "snapshot and KPIS must not drift"
+    for key in ("queue_wait_ms", "type_ms", "type_ms_per_char"):
+        assert kpis[key]["count"] == 1, f"{key} was not recorded"
+    assert kpis["type_ms"]["mean"] == pytest.approx(6000.0)
+    assert kpis["type_ms_per_char"]["mean"] == pytest.approx(20.0)
+
+
 # ---------------------------------------------------------------------------
 # Recording and statistics
 # ---------------------------------------------------------------------------

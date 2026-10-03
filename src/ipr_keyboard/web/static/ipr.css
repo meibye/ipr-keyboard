@@ -704,3 +704,29 @@ body.pairing-wizard pre {
 
 /* ---- Config page action buttons ---- */
 .config-actions { display: flex; gap: 1em; }
+
+/* Live send progress on the Transmission card.  A bar rather than a number
+   alone: a send of a few hundred characters runs for tens of seconds, and the
+   same count is on the device's own panel so the two agree. */
+.tx-progress {
+  margin-top: 8px;
+}
+
+.tx-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.tx-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--color-primary);
+  transition: width 0.3s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tx-bar-fill { transition: none; }
+}

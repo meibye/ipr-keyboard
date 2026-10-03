@@ -218,6 +218,10 @@ Must show:
 Data sources: `/api/debug/services`, `/api/debug/send-text`, `/api/debug/send-file`, `/api/debug/pen-files`.
 
 Transmission badge reads `statusData.transmission` pushed by `/api/stream`.
+While `state` is `sending` the Transmission card on Home also shows a bar and
+"N of M characters" from `chars_sent` / `chars`, the same count the device's
+own panel shows, so the two never disagree. The Performance panel names the
+slowest stage of the chain rather than leaving six figures to be compared.
 
 Must show:
 

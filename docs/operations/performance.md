@@ -77,8 +77,8 @@ sudo systemctl restart bt_hid_ble.service
 
 Then scan a page of known text, at each value, and check the result character
 for character.  Keep the lowest value that is still perfect over ten scans,
-then add one step back for margin.  `send_ms_per_char` on the dashboard
-confirms what you actually got.
+then add one step back for margin.  **Typing, per character** on the
+dashboard's Performance panel confirms what you actually got.
 
 ## What else is worth doing
 
@@ -109,6 +109,35 @@ watch: it is what `BT_KEY_DELAY_MS` moves.
 
 A daemon that publishes nothing — an older one — simply leaves the application
 behaving as before; progress reporting can never make a send hang.
+
+## Measured on a Zero 2 W
+
+Two 250-character scans on 3 October 2026, `BT_KEY_DELAY_MS=20`, one BLE host
+connected:
+
+| Stage | Measured |
+|---|---|
+| `queue_wait_ms` | ~200 ms — the text is typed from the next radio slot |
+| `type_ms` | 10.0 s for 397 characters, 6.2 s for 250 |
+| `type_ms_per_char` | **24.8 ms** against a 20 ms configured delay |
+
+The 4.8 ms above the configured delay is the two HID reports per character plus
+the connection interval, so the delay is the only part worth tuning and the
+table in *What dominates* holds.  At the default, a page of 1 500 characters
+takes about 37 s; at 12 ms it would take about 22 s.
+
+## A measurement must not be able to cost a scan
+
+`record_typing` appended to three KPI keys that were never added to `KPIS`.
+`_samples` is built from `KPIS` alone, so it raised `KeyError` — *after* the
+text had been typed, which put the raise between the typing and
+`transmission.set_success()`.  The scan was typed correctly, then reported as
+failed and left on the pen looking undelivered.
+
+Two guards now: `tests/test_metrics.py` calls every recorder and requires the
+keys to exist, and the call in `bluetooth/keyboard.py` is wrapped so a metrics
+fault is logged and the send still completes.  Anything added to the recording
+path belongs behind both.
 
 ## Still not measured
 

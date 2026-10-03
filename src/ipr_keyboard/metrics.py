@@ -46,8 +46,24 @@ KPIS: Dict[str, tuple] = {
         "File written on the pen -> noticed by the poll loop. Bounded below by PollIntervalSeconds.",
     ),
     "read_ms": ("ms", "Reading the scan file from the mount."),
-    "send_ms": ("ms", "bt_kb_send handing the text to the BLE HID daemon (whole file)."),
+    "send_ms": (
+        "ms",
+        "Handing the text to the BLE HID daemon's FIFO. This is a queue write, "
+        "not the typing: see type_ms for the part the host actually waits for.",
+    ),
     "send_ms_per_char": ("ms/char", "send_ms divided by characters sent."),
+    "queue_wait_ms": (
+        "ms",
+        "Text queued -> the daemon starts typing. Mostly the BLE connection interval.",
+    ),
+    "type_ms": (
+        "ms",
+        "The daemon typing the whole text to the host. The dominant cost of a send.",
+    ),
+    "type_ms_per_char": (
+        "ms/char",
+        "type_ms divided by characters. Compare with BT_KEY_DELAY_MS.",
+    ),
     "e2e_latency_ms": (
         "ms",
         "File written on the pen -> text handed to the BLE daemon. Device-side end-to-end.",

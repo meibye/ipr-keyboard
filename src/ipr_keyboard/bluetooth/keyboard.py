@@ -35,11 +35,17 @@ def _wait_for_typing(queued_at: float, chars: int) -> float | None:
         return None
     typed_at = time.monotonic()
     started = first_seen["at"] or queued_at
-    metrics.record_typing(
-        queue_wait_s=started - queued_at,
-        type_s=typed_at - started,
-        chars=final.total or chars,
-    )
+    try:
+        metrics.record_typing(
+            queue_wait_s=started - queued_at,
+            type_s=typed_at - started,
+            chars=final.total or chars,
+        )
+    except Exception:
+        # A measurement must never cost a scan.  An unregistered KPI key once
+        # raised here AFTER the text had been typed, so set_success() never
+        # ran and the file stayed on the pen looking undelivered.
+        logger.exception("Could not record typing metrics; the send itself was fine")
     return typed_at
 
 VERSION = '2026-04-12 19:41:16'
