@@ -229,3 +229,33 @@ def test_status_key_changes_on_bt_pen_wifi_services_hotspot_mode():
         assert sc.status_key(ready_snapshot(**change)) != base
     # a new IP or a send does not wake the panel
     assert sc.status_key(ready_snapshot(ip="10.0.0.9", tx_state="sending")) == base
+
+
+# ---------------------------------------------------------------------------
+# Holding the magnet on a device whose hold opens the menu
+# ---------------------------------------------------------------------------
+
+
+def test_holding_shows_progress_towards_the_menu():
+    s = compose(ready_snapshot(held_secs=1.5, menu_available=True))
+    assert s.header == "HOLD…"
+    assert s.progress is not None and 0.4 < s.progress < 0.6
+    assert "menu" in s.lines[0].text.lower()
+
+
+def test_the_marker_returns_once_the_menu_is_armed():
+    s = compose(ready_snapshot(held_secs=3.2, armed="menu", menu_available=True))
+    assert s.header == "RELEASE → MENU"
+    assert s.lines[0].icon == sc.ICON_MARK
+
+
+def test_an_armed_value_outside_the_ladder_never_raises():
+    """`armed="menu"` used to raise StopIteration and freeze the display."""
+    for armed in ("menu", "something-new", ""):
+        s = compose(ready_snapshot(held_secs=4.0, armed=armed))
+        assert s.lines, armed
+
+
+def test_a_device_without_a_menu_still_gets_the_ladder():
+    s = compose(ready_snapshot(held_secs=1.0, menu_available=False))
+    assert s.header == "HOLD…" and len(s.lines) == 4 and s.progress is None

@@ -403,6 +403,7 @@ class LedSnapshot:
     ssid: str = ""
     ip: str = ""
     menu: object | None = None  # menu.MenuView while the menu is open
+    menu_available: bool = False  # a menu exists: the ladder is not used
 
 
 def status_frame(probe: SystemProbe) -> Frame:
@@ -504,6 +505,7 @@ class LedLogic:
             ssid=getattr(p, "ssid", ""),
             ip=getattr(p, "ip", ""),
             menu=self._menu.view() if (self._menu and self._menu.open) else None,
+            menu_available=self._menu is not None,
         )
 
     # -- main step --------------------------------------------------------

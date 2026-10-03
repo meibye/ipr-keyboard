@@ -294,7 +294,14 @@ class OledManager:
             try:
                 rolling = self._tick(self._clock())
             except Exception as exc:
-                logger.error("OLED loop error: %s", exc)
+                # The type matters: a StopIteration from screen
+                # composition logged as "OLED loop error: " with an
+                # empty message, and the panel simply froze on its last
+                # frame with nothing to say why.
+                logger.error(
+                    "OLED loop error: %s: %s", type(exc).__name__, exc,
+                    exc_info=True,
+                )
                 rolling = False
                 time.sleep(1.0)
             time.sleep(self._marquee_tick if rolling else TICK_SECS)
@@ -399,4 +406,6 @@ class OledManager:
             tx_total=int(tx.get("items_sent", 0) or 0),
             tx_reason=str(tx.get("explanation", "") or ""),
             tx_last_at=tx.get("last_success_at"),
+            menu=getattr(led, "menu", None),
+            menu_available=getattr(led, "menu_available", False),
         )

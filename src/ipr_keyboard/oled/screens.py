@@ -68,6 +68,7 @@ class Snapshot:
     tx_reason: str = ""
     tx_last_at: float | None = None  # wall-clock time of the last success
     menu: object | None = None  # menu.MenuView while the magnet menu is open
+    menu_available: bool = False  # holding opens a menu, not the timed ladder
 
 
 @dataclass(frozen=True)
@@ -146,6 +147,8 @@ def compose(snap: Snapshot) -> Screen:
     if snap.menu is not None:
         return _menu_screen(snap, badge)
     if snap.held_secs > 0:
+        if snap.menu_available:
+            return _menu_hold_screen(snap, badge)
         return _gesture_screen(snap, badge)
     if snap.tx_state == "sending":
         return Screen(
@@ -227,6 +230,32 @@ def _boot_lines(snap: Snapshot) -> tuple[Line, ...]:
     )
 
 
+# Mirrors gpio_monitor.HOLD_MENU_SECS; this module deliberately imports
+# nothing from there (see the module docstring).
+MENU_HOLD_SECS = 3.0
+
+
+def _menu_hold_screen(snap: Snapshot, badge: str) -> Screen:
+    """While the magnet is held on a device whose hold opens the menu.
+
+    The timed activity list belongs to devices without a display; here the
+    hold does one thing, so the screen says so and shows how far along it is.
+    """
+    if snap.armed == "menu":
+        return Screen(
+            "RELEASE → MENU",
+            badge,
+            (Line("Let go to open the menu", ICON_MARK),),
+        )
+    progress = min(1.0, max(0.0, snap.held_secs / MENU_HOLD_SECS))
+    return Screen(
+        "HOLD…",
+        badge,
+        (Line("Keep holding for the menu", ICON_WAIT),),
+        progress=progress,
+    )
+
+
 def _menu_screen(snap: Snapshot, badge: str) -> Screen:
     """The magnet menu: a list to step through, or a confirmation / reveal.
 
@@ -276,7 +305,11 @@ def _gesture_screen(snap: Snapshot, badge: str) -> Screen:
         # too wide for the band beside the mode badge, so it rolled while the
         # user was counting seconds.
         header = "RELEASE →"
-        start = next(i for i, (key, _, _) in enumerate(GESTURES) if key == armed)
+        # Defensive: an armed value outside the ladder (the menu adds one)
+        # used to raise StopIteration here and freeze the whole display.
+        start = next(
+            (i for i, (key, _, _) in enumerate(GESTURES) if key == armed), 0
+        )
         remaining = GESTURES[start:]
 
     lines = tuple(
