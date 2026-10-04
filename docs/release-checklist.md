@@ -110,6 +110,17 @@ they fail in opposite directions, so test both
 - [ ] 3/6/10/15/20 s still arm hotspot / shutdown / mode / reset / cancel with
       the documented colours.
 
+**Getting the PC back after a restart**
+- [ ] Restart the device (magnet menu ▸ Power ▸ Restart).  The journal says
+      `Registered GATT+ADV ... (fast, 40-80 ms)`.
+- [ ] The PC reconnects in **seconds to a couple of minutes**, not the 26
+      minutes measured before fast advertising.  The device cannot force it —
+      it is a BLE peripheral — so this is a "much better", not a guarantee.
+- [ ] While it is away the panel says `Reconnect from PC`, not
+      `Waiting for PC…`, and the header stays `READY`.
+- [ ] Once connected, the journal shows the back-off to the slow interval.
+- [ ] With nothing ever paired, the panel says `Waiting for PC…` instead.
+
 **The home screen says whether anything is outstanding**
 - [ ] Unplug the pen: the header becomes `NOT READY` and the pen line carries a
       warning triangle.  It must **not** say `READY` — it used to, and nobody

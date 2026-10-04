@@ -27,11 +27,15 @@ import threading
 import time
 from collections.abc import Callable
 
-from .. import transmission
+from .. import bt_link, transmission
 from ..logging.logger import get_logger
 from ..usb.detector import pen_presence
 from . import screens
 from .ssd1306 import Ssd1306, device_path, pil_available, pil_unavailable_reason, probe
+
+# How often to ask whether a PC is paired, while none is connected.  A bond
+# changes only when someone pairs or unpairs, so this is deliberately lazy.
+BOND_CHECK_SECS = 5.0
 
 logger = get_logger()
 
@@ -194,6 +198,8 @@ class OledManager:
         self._tx_hold_until = 0.0
         self._bt_was = False
         self._bt_host_name = ""
+        self._bt_bonded = False
+        self._next_bond_check = 0.0
         self._hotspot_was = False
         self._hotspot_name = ""
         self._last_phase = screens.BOOT  # phase seen by the last tick
@@ -380,6 +386,16 @@ class OledManager:
             self._bt_host_name = ""
         self._bt_was = led.bt_connected
 
+        # Whether a PC has ever been paired, so the panel can say "reconnect it
+        # from the PC" rather than the useless "waiting".  Read from a file the
+        # BLE daemon publishes (bt_link); only consulted while disconnected,
+        # and only every few seconds, because it changes when someone pairs.
+        if led.bt_connected:
+            self._bt_bonded = True  # it is connected, so it is certainly paired
+        elif now >= self._next_bond_check:
+            self._next_bond_check = now + BOND_CHECK_SECS
+            self._bt_bonded = bt_link.read().has_bond
+
         if led.hotspot_active and not self._hotspot_was:
             self._hotspot_name = self._hotspot_ssid()
         self._hotspot_was = led.hotspot_active
@@ -395,6 +411,7 @@ class OledManager:
             failed_services=tuple(led.failed_services),
             bt_connected=led.bt_connected,
             bt_host=self._bt_host_name,
+            bt_bonded=self._bt_bonded,
             pen=self._pen(),
             wifi_connected=led.wifi_connected,
             ssid=led.ssid,

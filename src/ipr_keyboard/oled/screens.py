@@ -59,6 +59,10 @@ class Snapshot:
     failed_services: tuple[str, ...] = ()
     bt_connected: bool = False
     bt_host: str = ""
+    # A PC has been paired before (bt_link.Link.has_bond).  When one has and it
+    # is not here, the next move is on the PC -- the device is a BLE peripheral
+    # and cannot call it back.
+    bt_bonded: bool = False
     pen: str = "missing"  # usb.detector.pen_presence()
     wifi_connected: bool = False
     ssid: str = ""
@@ -397,8 +401,16 @@ def _status_screen(snap: Snapshot, badge: str) -> Screen:
         bt_line = Line(f"Service down: {names}", ICON_ERR)
     elif snap.bt_connected:
         bt_line = Line(snap.bt_host or "PC connected", ICON_BT)
+    elif snap.bt_bonded:
+        # Paired, but away.  The device advertises and waits -- a BLE
+        # peripheral cannot call the host back -- so say whose move it is.
+        # "Waiting for PC…" was true and useless: after one reboot a Windows
+        # host took 26 minutes, with nothing suggesting the user could help.
+        # Kept out of the NOT READY tier on purpose: a PC that is merely
+        # switched off is not something to fix.
+        bt_line = Line("Reconnect from PC", ICON_BT)
     else:
-        # Not a problem in itself: the PC connects when it is switched on.
+        # Never paired: pairing is the thing to do, not reconnecting.
         bt_line = Line("Waiting for PC…", ICON_BT)
 
     if snap.pen == "ready":

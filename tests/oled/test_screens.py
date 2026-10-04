@@ -355,3 +355,35 @@ def test_the_hold_timings_match_the_gpio_module():
     assert sc.MENU_HOLD_SECS == gm.HOLD_MENU_SECS
     assert sc.MENU_SELECT_SECS == gm.MENU_SELECT_SECS
 
+
+def test_the_pc_line_says_whose_move_it_is():
+    """Three situations, three different next moves.
+
+    A reboot drops the BLE link and the device is the peripheral: it can only
+    advertise and wait.  After one reboot a Windows host took 26 minutes to
+    come back, with the panel saying "Waiting for PC…" throughout -- true, and
+    useless, because it never suggested the user could do anything.
+    """
+    # Connected: name the host.
+    s = compose(ready_snapshot(bt_connected=True, bt_host="MSI"))
+    assert s.lines[0] == Line("MSI", sc.ICON_BT)
+
+    # Paired but away: the next move is on the PC.
+    s = compose(ready_snapshot(bt_connected=False, bt_host="", bt_bonded=True))
+    assert s.lines[0] == Line("Reconnect from PC", sc.ICON_BT)
+    assert s.header == "READY", "a PC that is merely switched off is not a fault"
+
+    # Never paired: pairing is the thing to do, not reconnecting.
+    s = compose(ready_snapshot(bt_connected=False, bt_host="", bt_bonded=False))
+    assert s.lines[0] == Line("Waiting for PC…", sc.ICON_BT)
+
+
+def test_the_pc_hint_fits_the_panel():
+    """114 px is the slot; a wider line scrolls and is harder to read."""
+    from ipr_keyboard.oled import render
+
+    font = render._load_font("DejaVuSans.ttf", render._BODY_SIZE)
+    slot = render.WIDTH - render.ICON_COL - 2
+    for text in ("Reconnect from PC", "Waiting for PC…"):
+        assert font.getbbox(text)[2] <= slot, text
+

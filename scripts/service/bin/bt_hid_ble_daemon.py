@@ -979,6 +979,8 @@ class InputReportCharacteristic(Characteristic):
         self.notifying = True
         self.notify_state.acquire()
         log_info("[ble] Input report notify enabled", always=True)
+        # The host is here: no reason to keep advertising hard.
+        adv_back_off_now()
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
     def StopNotify(self):
@@ -1210,25 +1212,81 @@ class BatteryService(Service):
         self.add_characteristic(self.level)
 
 
+# How fast to advertise while waiting for a host to (re)connect, and what to
+# fall back to once one has.  Milliseconds, as BlueZ's LEAdvertisement1 wants.
+#
+# This is the supported substitute for DIRECTED advertising.  A reboot or a
+# daemon restart drops the BLE link, and the device is the peripheral: it can
+# only advertise and wait for the PC to come back.  After one reboot a Windows
+# host took 26 MINUTES to reconnect, because BlueZ's default advertising
+# interval is over a second and the host's periodic scan windows are short and
+# infrequent -- so most scans miss us.
+#
+# ADV_DIRECT_IND, aimed at the bonded peer, is what the Bluetooth spec offers
+# for exactly this, and bluetoothd 5.82 does not expose it: its
+# LEAdvertisement1 has no peer-address property (verified against the binary --
+# "PeerAddress" and "Directed" appear nowhere in it).  Driving it by raw HCI
+# while bluetoothd owns the adapter would fight with it.  Advertising fast is
+# the part we CAN do through the supported API, and it attacks the same gap:
+# the host finds us in its first scan window rather than its twentieth.
+FAST_ADV_MIN_MS = env_int("BT_FAST_ADV_MIN_MS", 40)
+FAST_ADV_MAX_MS = env_int("BT_FAST_ADV_MAX_MS", 80)
+# Back off once a host is connected, and after this long without one.  The
+# Zero's Wi-Fi and Bluetooth share one radio, so advertising hard forever is
+# not free: it costs Wi-Fi airtime on the very device serving the dashboard.
+SLOW_ADV_MIN_MS = env_int("BT_SLOW_ADV_MIN_MS", 500)
+SLOW_ADV_MAX_MS = env_int("BT_SLOW_ADV_MAX_MS", 1000)
+FAST_ADV_SECS = env_int("BT_FAST_ADV_SECS", 300)
+#: Set by register_ble_stack_async so StartNotify can stop the fast
+#: advertising the moment a host is actually there, rather than waiting out
+#: FAST_ADV_SECS with the radio busy for nothing.
+_adv_back_off = {"fn": None}
+
+
+def adv_back_off_now() -> None:
+    fn = _adv_back_off.get("fn")
+    if fn is None:
+        return
+    try:
+        fn()
+    except Exception as exc:  # never let this break a connection
+        log_info(f"[ble] Advertising back-off failed: {exc}")
+
+
 class Advertisement(dbus.service.Object):
-    def __init__(self, bus, index, service_uuids, local_name):
+    def __init__(self, bus, index, service_uuids, local_name, fast: bool = True):
         self.path = f"/org/bluez/ipr/advertisement{index}"
         self.service_uuids = service_uuids
         self.local_name = local_name
+        self.fast = fast
+        # Set false when BlueZ rejects the interval properties, so a retry can
+        # register without them rather than leaving the device unadvertised.
+        self.with_intervals = True
         super().__init__(bus, self.path)
 
     def get_path(self):
         return dbus.ObjectPath(self.path)
 
     def get_properties(self):
-        return {
-            ADVERTISEMENT_IFACE: {
-                "Type": dbus.String("peripheral"),
-                "ServiceUUIDs": dbus.Array(self.service_uuids, signature="s"),
-                "LocalName": dbus.String(self.local_name),
-                "Appearance": dbus.UInt16(APPEARANCE_KEYBOARD),
-            }
+        props = {
+            "Type": dbus.String("peripheral"),
+            "ServiceUUIDs": dbus.Array(self.service_uuids, signature="s"),
+            "LocalName": dbus.String(self.local_name),
+            "Appearance": dbus.UInt16(APPEARANCE_KEYBOARD),
+            # Say so explicitly: the host has to be able to find us again.
+            "Discoverable": dbus.Boolean(True),
         }
+        if self.with_intervals:
+            lo, hi = (
+                (FAST_ADV_MIN_MS, FAST_ADV_MAX_MS)
+                if self.fast
+                else (SLOW_ADV_MIN_MS, SLOW_ADV_MAX_MS)
+            )
+            # BlueZ ignores properties it does not know, so an older one simply
+            # advertises at its own interval -- no worse than before.
+            props["MinInterval"] = dbus.UInt32(lo)
+            props["MaxInterval"] = dbus.UInt32(hi)
+        return {ADVERTISEMENT_IFACE: props}
 
     @dbus.service.method(DBUS_PROP_IFACE, in_signature="s", out_signature="a{sv}")
     def GetAll(self, interface):
@@ -1282,6 +1340,55 @@ def set_adapter_ready(bus: dbus.SystemBus, adapter_path: str) -> None:
     except dbus.DBusException as exc:
         # Adapter state is usually already configured by bt_hid_agent_unified.
         log_info(f"[ble] Adapter setup warning: {exc}")
+
+
+# The panel needs to tell "no PC has ever been paired" (pair one) from "the
+# PC is paired but away" (reconnect it from the PC).  BlueZ keeps bonds in
+# /var/lib/bluetooth, which is 0700 root -- the application cannot read it.
+# This daemon is root and already has the D-Bus connection, so it publishes
+# what the panel needs, the same way it publishes typing progress.
+LINK_FILE = "/run/ipr_bt_link.json"
+
+
+def publish_link_state(bus) -> bool:
+    """Write which hosts are bonded, and whether one is connected.
+
+    Returns True so it can be used directly as a GLib timeout callback.
+    """
+    try:
+        om = dbus.Interface(bus.get_object(BLUEZ, "/"), DBUS_OM_IFACE)
+        objects = om.GetManagedObjects()
+        bonded, connected = [], False
+        for _path, ifaces in objects.items():
+            dev = ifaces.get("org.bluez.Device1")
+            if not dev:
+                continue
+            if not bool(dev.get("Paired", False)):
+                continue
+            name = str(dev.get("Alias") or dev.get("Name") or "")
+            bonded.append(name)
+            if bool(dev.get("Connected", False)):
+                connected = True
+        payload = {
+            "bonded": len(bonded),
+            "names": bonded,
+            "connected": connected,
+            "at": time.time(),
+        }
+        tmp = LINK_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh)
+        os.replace(tmp, LINK_FILE)
+        owner = os.environ.get("APP_USER", "").strip().strip('"')
+        if owner:
+            import pwd
+            pw = pwd.getpwnam(owner)
+            os.chown(LINK_FILE, pw.pw_uid, pw.pw_gid)
+        os.chmod(LINK_FILE, 0o644)
+    except Exception as exc:  # a hint is never worth a crash
+        if BLE_DEBUG:
+            journal.send(f"[DEBUG] publish_link_state failed: {exc}")
+    return True
 
 
 def ensure_fifo_exists() -> None:
@@ -1471,19 +1578,60 @@ def register_ble_stack_async(main_loop, bus, adapter_path, app, adv) -> None:
         return False
 
     def on_adv_ok() -> None:
-        log_info(f"[ble] Registered GATT+ADV on {adapter_path}", always=True)
+        how = "fast" if adv.fast else "slow"
+        rate = (
+            f"{FAST_ADV_MIN_MS}-{FAST_ADV_MAX_MS} ms"
+            if adv.fast
+            else f"{SLOW_ADV_MIN_MS}-{SLOW_ADV_MAX_MS} ms"
+        )
+        if not adv.with_intervals:
+            rate = "BlueZ default (interval not settable)"
+        log_info(
+            f"[ble] Registered GATT+ADV on {adapter_path} ({how}, {rate})",
+            always=True,
+        )
+        if adv.fast:
+            # Stop advertising hard eventually: the radio is shared with Wi-Fi.
+            GLib.timeout_add_seconds(FAST_ADV_SECS, back_off_once)
 
     def on_adv_err(exc: dbus.DBusException) -> None:
+        # An interval BlueZ will not take must never cost us advertising
+        # altogether -- without an advertisement the host can never come back.
+        if adv.with_intervals:
+            log_info(
+                f"[ble] Advertising intervals refused ({exc}); "
+                "registering without them",
+                always=True,
+            )
+            adv.with_intervals = False
+            GLib.timeout_add(200, lambda: (register_adv(), False)[1])
+            return
         schedule_retry("RegisterAdvertisement", exc)
 
-    def on_gatt_ok() -> None:
-        log_info("[ble] GATT application registered", always=True)
+    def register_adv() -> None:
         adv_mgr.RegisterAdvertisement(
             adv.get_path(),
             {},
             reply_handler=on_adv_ok,
             error_handler=on_adv_err,
         )
+
+    def back_off_once() -> bool:
+        """Re-register at the slow interval, once, if still advertising fast."""
+        if not adv.fast:
+            return False
+        adv.fast = False
+        try:
+            adv_mgr.UnregisterAdvertisement(adv.get_path())
+        except dbus.DBusException as exc:
+            log_info(f"[ble] Could not unregister the fast advertisement: {exc}")
+            return False
+        register_adv()
+        return False
+
+    def on_gatt_ok() -> None:
+        log_info("[ble] GATT application registered", always=True)
+        register_adv()
 
     def on_gatt_err(exc: dbus.DBusException) -> None:
         schedule_retry("RegisterApplication", exc)
@@ -1496,6 +1644,13 @@ def register_ble_stack_async(main_loop, bus, adapter_path, app, adv) -> None:
             error_handler=on_gatt_err,
         )
         return False
+
+    _adv_back_off["fn"] = back_off_once
+
+    # Publish the bond state for the panel, now and every half minute.  A bond
+    # changes only when someone pairs or unpairs, so this is cheap.
+    publish_link_state(bus)
+    GLib.timeout_add_seconds(30, publish_link_state, bus)
 
     # Start once the GLib loop is running so BlueZ can call GetManagedObjects
     # immediately and receive a timely response.
