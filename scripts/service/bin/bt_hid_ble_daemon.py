@@ -873,6 +873,10 @@ class Characteristic(dbus.service.Object):
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
     def StopNotify(self):
         self.notifying = False
+        # The host has gone: start advertising hard again, so it can find us
+        # when it comes back.  BlueZ does not always call this on an abrupt
+        # disconnect, which is why publish_link_state re-checks every 30 s.
+        note_link_state(False)
 
     @dbus.service.signal(DBUS_PROP_IFACE, signature="sa{sv}as")
     def PropertiesChanged(self, interface, changed, invalidated):
@@ -980,7 +984,7 @@ class InputReportCharacteristic(Characteristic):
         self.notify_state.acquire()
         log_info("[ble] Input report notify enabled", always=True)
         # The host is here: no reason to keep advertising hard.
-        adv_back_off_now()
+        note_link_state(True)
 
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
     def StopNotify(self):
@@ -1236,29 +1240,63 @@ FAST_ADV_MAX_MS = env_int("BT_FAST_ADV_MAX_MS", 80)
 # not free: it costs Wi-Fi airtime on the very device serving the dashboard.
 SLOW_ADV_MIN_MS = env_int("BT_SLOW_ADV_MIN_MS", 500)
 SLOW_ADV_MAX_MS = env_int("BT_SLOW_ADV_MAX_MS", 1000)
+# Between the two: still easy to find, no longer hammering the band.  A first
+# version backed straight off to SLOW after FAST_ADV_SECS even though no host
+# had ever connected -- so a device still waiting for its PC went quiet at
+# exactly the wrong moment, five minutes in.  While a PC is missing the device
+# stays findable indefinitely; only a CONNECTED host earns the slow interval.
+MEDIUM_ADV_MIN_MS = env_int("BT_MEDIUM_ADV_MIN_MS", 150)
+MEDIUM_ADV_MAX_MS = env_int("BT_MEDIUM_ADV_MAX_MS", 300)
 FAST_ADV_SECS = env_int("BT_FAST_ADV_SECS", 300)
-#: Set by register_ble_stack_async so StartNotify can stop the fast
-#: advertising the moment a host is actually there, rather than waiting out
-#: FAST_ADV_SECS with the radio busy for nothing.
-_adv_back_off = {"fn": None}
+
+ADV_MODES = {
+    "fast": (FAST_ADV_MIN_MS, FAST_ADV_MAX_MS),
+    "medium": (MEDIUM_ADV_MIN_MS, MEDIUM_ADV_MAX_MS),
+    "slow": (SLOW_ADV_MIN_MS, SLOW_ADV_MAX_MS),
+}
+#: Set by register_ble_stack_async: re-registers the advertisement at a given
+#: mode.  Driven by whether a host is actually connected, never by a timer
+#: alone -- a blind timer is what made the device go quiet while still waiting.
+_adv_control: dict = {"set_mode": None}
+_adv_state: dict = {"connected": None, "disconnected_since": time.time()}
 
 
-def adv_back_off_now() -> None:
-    fn = _adv_back_off.get("fn")
+def desired_adv_mode(connected: bool, now: float | None = None) -> str:
+    """How hard to advertise, given whether a host is here.
+
+    Connected: slow -- the host has no need to find us.  Otherwise fast for a
+    while, because a host that has just lost us scans soonest, then medium for
+    as long as it takes.  Wi-Fi shares this radio, so "fast for ever" is not
+    free; "silent for ever" is worse.
+    """
+    if connected:
+        return "slow"
+    since = _adv_state.get("disconnected_since") or 0.0
+    elapsed = (now if now is not None else time.time()) - since
+    return "fast" if elapsed <= FAST_ADV_SECS else "medium"
+
+
+def note_link_state(connected: bool, now: float | None = None) -> None:
+    """Record a connection change and steer the advertising to match."""
+    if connected != _adv_state.get("connected"):
+        _adv_state["connected"] = connected
+        if not connected:
+            _adv_state["disconnected_since"] = now if now is not None else time.time()
+    fn = _adv_control.get("set_mode")
     if fn is None:
         return
     try:
-        fn()
+        fn(desired_adv_mode(connected, now))
     except Exception as exc:  # never let this break a connection
-        log_info(f"[ble] Advertising back-off failed: {exc}")
+        log_info(f"[ble] Could not change the advertising interval: {exc}")
 
 
 class Advertisement(dbus.service.Object):
-    def __init__(self, bus, index, service_uuids, local_name, fast: bool = True):
+    def __init__(self, bus, index, service_uuids, local_name, mode: str = "fast"):
         self.path = f"/org/bluez/ipr/advertisement{index}"
         self.service_uuids = service_uuids
         self.local_name = local_name
-        self.fast = fast
+        self.mode = mode
         # Set false when BlueZ rejects the interval properties, so a retry can
         # register without them rather than leaving the device unadvertised.
         self.with_intervals = True
@@ -1277,11 +1315,7 @@ class Advertisement(dbus.service.Object):
             "Discoverable": dbus.Boolean(True),
         }
         if self.with_intervals:
-            lo, hi = (
-                (FAST_ADV_MIN_MS, FAST_ADV_MAX_MS)
-                if self.fast
-                else (SLOW_ADV_MIN_MS, SLOW_ADV_MAX_MS)
-            )
+            lo, hi = ADV_MODES.get(self.mode, ADV_MODES["fast"])
             # BlueZ ignores properties it does not know, so an older one simply
             # advertises at its own interval -- no worse than before.
             props["MinInterval"] = dbus.UInt32(lo)
@@ -1369,6 +1403,10 @@ def publish_link_state(bus) -> bool:
             bonded.append(name)
             if bool(dev.get("Connected", False)):
                 connected = True
+        # Steering advertising from here, not only from StartNotify/StopNotify,
+        # is what makes it reliable: BlueZ may not call StopNotify when a link
+        # drops abruptly, and then nothing would re-arm the fast interval.
+        note_link_state(connected)
         payload = {
             "bonded": len(bonded),
             "names": bonded,
@@ -1578,21 +1616,22 @@ def register_ble_stack_async(main_loop, bus, adapter_path, app, adv) -> None:
         return False
 
     def on_adv_ok() -> None:
-        how = "fast" if adv.fast else "slow"
-        rate = (
-            f"{FAST_ADV_MIN_MS}-{FAST_ADV_MAX_MS} ms"
-            if adv.fast
-            else f"{SLOW_ADV_MIN_MS}-{SLOW_ADV_MAX_MS} ms"
-        )
+        lo, hi = ADV_MODES.get(adv.mode, ADV_MODES["fast"])
+        rate = f"{lo}-{hi} ms"
         if not adv.with_intervals:
             rate = "BlueZ default (interval not settable)"
         log_info(
-            f"[ble] Registered GATT+ADV on {adapter_path} ({how}, {rate})",
+            f"[ble] Registered GATT+ADV on {adapter_path} ({adv.mode}, {rate})",
             always=True,
         )
-        if adv.fast:
-            # Stop advertising hard eventually: the radio is shared with Wi-Fi.
-            GLib.timeout_add_seconds(FAST_ADV_SECS, back_off_once)
+        if adv.mode == "fast":
+            # Step down to medium when the fast window expires AND no host has
+            # turned up; note_link_state decides, so a connected host is not
+            # overruled by a timer.
+            GLib.timeout_add_seconds(
+                FAST_ADV_SECS + 1,
+                lambda: (note_link_state(bool(_adv_state.get("connected"))), False)[1],
+            )
 
     def on_adv_err(exc: dbus.DBusException) -> None:
         # An interval BlueZ will not take must never cost us advertising
@@ -1616,18 +1655,19 @@ def register_ble_stack_async(main_loop, bus, adapter_path, app, adv) -> None:
             error_handler=on_adv_err,
         )
 
-    def back_off_once() -> bool:
-        """Re-register at the slow interval, once, if still advertising fast."""
-        if not adv.fast:
-            return False
-        adv.fast = False
+    def set_mode(mode: str) -> None:
+        """Re-register the advertisement at `mode`, if it is not already."""
+        if mode == adv.mode or mode not in ADV_MODES:
+            return
+        previous = adv.mode
+        adv.mode = mode
         try:
             adv_mgr.UnregisterAdvertisement(adv.get_path())
         except dbus.DBusException as exc:
-            log_info(f"[ble] Could not unregister the fast advertisement: {exc}")
-            return False
+            adv.mode = previous
+            log_info(f"[ble] Could not unregister the advertisement: {exc}")
+            return
         register_adv()
-        return False
 
     def on_gatt_ok() -> None:
         log_info("[ble] GATT application registered", always=True)
@@ -1645,7 +1685,7 @@ def register_ble_stack_async(main_loop, bus, adapter_path, app, adv) -> None:
         )
         return False
 
-    _adv_back_off["fn"] = back_off_once
+    _adv_control["set_mode"] = set_mode
 
     # Publish the bond state for the panel, now and every half minute.  A bond
     # changes only when someone pairs or unpairs, so this is cheap.

@@ -79,22 +79,60 @@ host took **26 minutes** to reconnect on its own.
 
 ### What the device does about it
 
-It advertises **fast** while no host is connected — 40–80 ms instead of
-BlueZ's default of over a second — so the host finds it in its first scan
-window rather than its twentieth.  It backs off to 500–1000 ms as soon as a
-host subscribes, or after `BT_FAST_ADV_SECS` (default 300) without one,
-because Wi-Fi and Bluetooth share one radio on a Pi Zero and advertising hard
-forever costs the dashboard airtime.
+Three intervals, chosen by whether a host is actually connected — never by a
+timer alone:
 
-All four values are env-settable in `/opt/ipr_common.env`:
-`BT_FAST_ADV_MIN_MS`, `BT_FAST_ADV_MAX_MS`, `BT_SLOW_ADV_MIN_MS`,
-`BT_SLOW_ADV_MAX_MS`, plus `BT_FAST_ADV_SECS`.
+| Mode | Interval | When |
+|---|---|---|
+| fast | 40–80 ms | the first `BT_FAST_ADV_SECS` (300) after the link goes |
+| medium | 150–300 ms | still no host, for as long as it takes |
+| slow | 500–1000 ms | **only** while a host is connected |
+
+BlueZ's default is over a second, so fast puts the device in the host's first
+scan window rather than its twentieth.  Medium keeps it findable without
+hammering the band: Wi-Fi and Bluetooth share one radio on a Pi Zero, so
+advertising hard for ever costs the dashboard airtime.
+
+**The first version of this got it wrong, and the device showed exactly how.**
+It backed off straight to slow when the fast window expired, whether or not a
+host had ever connected:
+
+```
+18:07:34  Registered GATT+ADV (fast, 40-80 ms)
+18:12:47  Registered GATT+ADV (slow, 500-1000 ms)   <- PC still absent
+          NO LINK after 532 s
+```
+
+So a device still waiting for its PC went quiet five minutes in, at the worst
+possible moment.  Only a *connected* host earns the slow interval now, and a
+dropped link re-arms fast — the back-off used to be one-way, so a PC that
+slept was never chased.
+
+Losing the link is noticed two ways, because one is not enough: `StopNotify`
+when BlueZ calls it, and the 30 s bond-state tick, which catches the abrupt
+disconnects where it does not.
+
+All of it is env-settable in `/opt/ipr_common.env`: `BT_FAST_ADV_MIN_MS`,
+`BT_FAST_ADV_MAX_MS`, `BT_MEDIUM_ADV_MIN_MS`, `BT_MEDIUM_ADV_MAX_MS`,
+`BT_SLOW_ADV_MIN_MS`, `BT_SLOW_ADV_MAX_MS`, `BT_FAST_ADV_SECS`.
 
 The journal says which is in force:
 
 ```
 [ble] Registered GATT+ADV on /org/bluez/hci0 (fast, 40-80 ms)
 ```
+
+### What it does not do
+
+Advertising fast makes the device easy to **find**; it cannot make Windows
+**look**.  Measured both ways on the same device within three minutes:
+
+* host already engaged (right after a daemon restart) — reconnected in **1 s**
+* host idle after a full reboot — still absent after **9 minutes**
+
+So this shortens the gap when the host is scanning, and does nothing when it is
+not.  If a PC has not come back, open its Bluetooth settings; that is not a
+workaround for a device fault, it is the host deciding.
 
 **Directed advertising is what the spec offers for this, and BlueZ does not
 expose it.**  `ADV_DIRECT_IND` aimed at the bonded peer is exactly the right
