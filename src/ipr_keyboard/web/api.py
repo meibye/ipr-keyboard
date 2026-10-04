@@ -1261,9 +1261,19 @@ def api_debug_typing_trial():
             # lines of the first block -- and a cold link also skews the first
             # timing.  Not measured, deliberately short.
             # Hold the speed for the whole run, or the main loop re-applies
-            # the configured one between steps and every row measures the
-            # same thing.  Generous, and it expires by itself.
-            keydelay.hold(60.0 * len(delays) + 120.0)
+            # the configured one between steps and every row measures the same
+            # thing.  Generous, and it expires by itself.
+            #
+            # Refuse to run without it: a trial that silently measures one
+            # speed four times is worse than no trial, and that is exactly
+            # what happened while the hold was failing unnoticed.
+            if not keydelay.hold(60.0 * len(delays) + 120.0):
+                return jsonify({
+                    "ok": False,
+                    "message": "Could not reserve the typing speed for the trial, so "
+                               "the results would all be at the current setting. "
+                               f"Check that {keydelay.HOLD_PATH} is writable.",
+                }), 409
             _warm_up_link()
             for ms in delays:
                 keydelay.apply(ms)

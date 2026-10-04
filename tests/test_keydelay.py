@@ -224,3 +224,36 @@ def test_an_explicit_change_overrides_a_hold(tmp_path, monkeypatch):
     keydelay.hold(60.0)
     assert keydelay.apply(4) is True
     assert keydelay.read() == 4
+
+
+def test_the_hold_lives_somewhere_the_application_can_write():
+    """/run is root:root, so a new file there cannot be created by the app.
+
+    The first version put the hold in /run.  The application can write
+    /run/ipr_bt_key_delay only because the daemon creates it and chowns it; a
+    NEW file needs write permission on the directory, which the app does not
+    have.  So hold() failed, the main loop kept resetting the speed between
+    steps, and the trial measured the configured speed four times over while
+    reporting four different settings.
+    """
+    # as_posix: on Windows a PurePath renders with backslashes.
+    where = keydelay.HOLD_PATH.as_posix()
+    assert not where.startswith("/run/"), where
+    # tmpfs, cleared by a reboot, and already used by metrics for its marker.
+    assert where.startswith("/dev/shm/"), where
+
+
+def test_a_failed_hold_is_reported_not_swallowed(monkeypatch, caplog):
+    """It was a debug line, so four impossible measurements were the first
+    sign that anything was wrong."""
+    import logging
+
+    def _boom(*_a, **_kw):
+        raise OSError(13, "Permission denied")
+
+    monkeypatch.setattr(type(keydelay.HOLD_PATH), "write_text", _boom, raising=False)
+    with caplog.at_level(logging.WARNING, logger="ipr_keyboard"):
+        assert keydelay.hold(60.0) is False
+    assert any("hold the typing delay" in r.message.lower() or
+               "hold the typing delay" in str(r.msg).lower() for r in caplog.records), \
+        caplog.records

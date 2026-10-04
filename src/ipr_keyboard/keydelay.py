@@ -32,7 +32,14 @@ PATH = Path("/run/ipr_bt_key_delay")
 # trial's choice survived less than a second before being reset, and every
 # step of the ladder was really typed at the configured speed.  All four rows
 # then measured the same thing, which is exactly what the trial reported.
-HOLD_PATH = Path("/run/ipr_bt_key_delay.hold")
+#
+# NOT in /run: that directory is root:root, and the application can only write
+# /run/ipr_bt_key_delay because the daemon creates it and chowns it.  A NEW
+# file there cannot be created by the application at all, so the first version
+# of this held nothing, the main loop kept resetting the speed, and the trial
+# measured one speed four times over.  /dev/shm is tmpfs and writable, and
+# metrics already keeps its boot marker there.
+HOLD_PATH = Path("/dev/shm/ipr_bt_key_delay.hold")
 
 # Mirrors the daemon.  The upper bound is generous (a deliberately slow device
 # for a fussy host); the lower bound is where even a perfect host cannot keep
@@ -136,7 +143,11 @@ def hold(seconds: float, now: float | None = None) -> bool:
     try:
         HOLD_PATH.write_text(str(int(at)) + chr(10), encoding="ascii")
     except OSError as exc:
-        logger.debug("Could not hold the typing delay: %s", exc)
+        # A warning, not a debug line.  Without the hold the main loop
+        # overwrites whatever the caller set about a second later, so the
+        # caller's measurements are worthless -- and that is worth saying out
+        # loud rather than discovering it from impossible numbers.
+        logger.warning("Could not hold the typing delay (%s): %s", HOLD_PATH, exc)
         return False
     return True
 

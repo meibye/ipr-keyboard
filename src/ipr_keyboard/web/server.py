@@ -148,6 +148,22 @@ def create_app() -> Flask:
     def index():
         return render_template("dashboard.html", is_admin=bool(session.get("is_admin")))
 
+    @app.after_request
+    def _no_store_html(response):
+        """Never let a browser keep an HTML page.
+
+        The pages carry their own JavaScript, and a cached page talking to an
+        updated API misreports rather than failing: an old dashboard read a
+        field the new API had stopped sending, decided every row of the speed
+        trial was "incomplete", and sent us chasing a bug that was not there.
+        Static assets are versioned and still cached; only the documents are
+        not.
+        """
+        if response.mimetype == "text/html":
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+        return response
+
     @app.get("/health")
     def health():
         """Simple health-check endpoint."""

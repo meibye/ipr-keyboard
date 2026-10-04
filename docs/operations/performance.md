@@ -204,10 +204,27 @@ The 20 ms row is the tell: 34/s is **faster** than that setting can go, since
 two 20 ms sleeps per character cap it at 25/s.  A measurement above its own
 ceiling means the setting was not in force.
 
-The trial now takes an expiring hold (`/run/ipr_bt_key_delay.hold`) that the
-main loop honours; Settings overrides it, because that is the user speaking.
+The trial now takes an expiring hold that the main loop honours; Settings overrides it, because that is the user speaking.
 The hold expires on its own, so a request that dies mid-trial cannot leave the
 device at a speed nobody chose.
+
+The hold lives in **`/dev/shm`**, not `/run`.  The first attempt put it in
+`/run`, where it could not be created at all: that directory is `root:root`,
+and the application can write `/run/ipr_bt_key_delay` only because the daemon
+creates that file and chowns it.  So the hold silently failed, the main loop
+went on resetting the speed between steps, and a second run produced the same
+four-identical-rows result:
+
+```
+19:28:46  Typing delay set to 20 ms   <- the trial's step
+19:28:46  Typing delay set to 12 ms   <- the main loop, the same second
+19:29:14  Typing delay set to 8 ms
+19:29:15  Typing delay set to 12 ms
+```
+
+A failed hold is now a warning rather than a debug line, and the trial
+**refuses to run** without one: measuring one speed four times while reporting
+four is worse than not measuring.
 
 The rates were wrong a second way: they divided by the characters the 100 ms
 poll *observed*, and a whole drain can begin and end between two polls -- a
