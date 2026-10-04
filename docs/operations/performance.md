@@ -185,6 +185,36 @@ keys to exist, and the call in `bluetooth/keyboard.py` is wrapped so a metrics
 fault is logged and the send still completes.  Anything added to the recording
 path belongs behind both.
 
+## Two writers, one file
+
+The application re-applies `TypingDelayMs` to `/run/ipr_bt_key_delay` on every
+loop iteration, roughly once a second.  The Debug trial sets a speed per step.
+Those fought, and the loop won: each step's choice survived less than a second,
+so the whole ladder was typed at the configured speed and every row measured
+the same thing:
+
+| Speed set | Expected | Measured |
+|---|---|---|
+| 20 ms | 25/s | 34.2/s |
+| 12 ms | 41.7/s | 34.0/s |
+| 8 ms | 62.5/s | 34.9/s |
+| 4 ms | 125/s | 37.9/s |
+
+The 20 ms row is the tell: 34/s is **faster** than that setting can go, since
+two 20 ms sleeps per character cap it at 25/s.  A measurement above its own
+ceiling means the setting was not in force.
+
+The trial now takes an expiring hold (`/run/ipr_bt_key_delay.hold`) that the
+main loop honours; Settings overrides it, because that is the user speaking.
+The hold expires on its own, so a request that dies mid-trial cannot leave the
+device at a speed nobody chose.
+
+The rates were wrong a second way: they divided by the characters the 100 ms
+poll *observed*, and a whole drain can begin and end between two polls -- a
+blank line is one character and takes about 25 ms.  That undercounted every
+row and marked them all "incomplete".  Rates now divide by the characters
+actually sent; the observed count is kept for diagnosis only.
+
 ## Halving the reports — the one real optimisation left
 
 The device sends **two** notifications per character: the key pressed, then all

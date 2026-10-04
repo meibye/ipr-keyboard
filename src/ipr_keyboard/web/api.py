@@ -1260,6 +1260,10 @@ def api_debug_typing_trial():
             # likeliest to lose -- a newline went missing between the first two
             # lines of the first block -- and a cold link also skews the first
             # timing.  Not measured, deliberately short.
+            # Hold the speed for the whole run, or the main loop re-applies
+            # the configured one between steps and every row measures the
+            # same thing.  Generous, and it expires by itself.
+            keydelay.hold(60.0 * len(delays) + 120.0)
             _warm_up_link()
             for ms in delays:
                 keydelay.apply(ms)
@@ -1268,6 +1272,7 @@ def api_debug_typing_trial():
                 results.append(_run_typing_trial(ms, text))
         finally:
             keydelay.apply(saved)  # a trial must not change the setting
+            keydelay.release_hold()
 
         done = [r for r in results if r.get("ms_per_char")]
         best = min(done, key=lambda r: r["ms_per_char"]) if done else None
@@ -1331,12 +1336,17 @@ def _run_typing_trial(ms: int, text: str) -> dict[str, Any]:
     type_ms = watch.type_seconds() * 1000.0
     # A trial IS a measurement, so it belongs in the KPI store: otherwise the
     # Performance panel stayed empty through a run that measured nothing else.
-    typed = watch.total_typed
+    # Rates are over the characters we SENT, not the ones the poll happened to
+    # observe.  The daemon types every character it queued; the observed count
+    # misses whole drains that start and finish between two 100 ms polls -- a
+    # blank line is one character and takes about 25 ms -- so using it
+    # understated every rate and made every row look "incomplete".
+    observed = watch.total_typed
     try:
         metrics.record_typing(
             queue_wait_s=max(0.0, started - queued_at),
             type_s=watch.type_seconds(),
-            chars=typed or chars,
+            chars=chars,
         )
     except Exception:
         logger.exception("Could not record the trial's typing metrics")
@@ -1348,12 +1358,10 @@ def _run_typing_trial(ms: int, text: str) -> dict[str, Any]:
         "expected_chars_per_second": round(keydelay.chars_per_second(ms), 1),
         "queue_wait_ms": round((started - queued_at) * 1000.0, 1),
         "type_ms": round(type_ms, 1),
-        # Per character and per second both over the characters the daemon
-        # actually reported typing, not over the text we hoped it would.
-        "ms_per_char": round(type_ms / typed, 2) if typed else None,
-        "chars_per_second": round(1000.0 * typed / type_ms, 1) if type_ms > 0 else None,
-        "sent": typed,
-        "complete": typed >= chars,
+        "ms_per_char": round(type_ms / chars, 2) if chars else None,
+        "chars_per_second": round(1000.0 * chars / type_ms, 1) if type_ms > 0 else None,
+        # Kept for diagnosis, not for judging the send: it is a sampled count.
+        "observed": observed,
     }
 
 

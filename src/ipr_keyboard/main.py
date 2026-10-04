@@ -157,8 +157,11 @@ def run_usb_bt_loop():
         # Same for the typing speed: it reaches the BLE daemon through a file
         # it re-reads per send, so a change applies to the next scan without
         # restarting the daemon and dropping the PC's connection.  apply()
-        # writes only when the value actually changed.
-        keydelay.apply(cfg.TypingDelayMs)
+        # writes only when the value actually changed, and respects a hold:
+        # the Debug trial sets a speed per step, and this loop re-applying the
+        # configured one a second later meant the whole ladder ran at the same
+        # speed -- which is what it measured.
+        keydelay.apply(cfg.TypingDelayMs, respect_hold=True)
         # Wildcards resolve the pen's localized storage folder (see detector.expand_folders).
         folders = detector.expand_folders(cfg.IrisPenFolders)
 

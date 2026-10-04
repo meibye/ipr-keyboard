@@ -18,6 +18,7 @@ range); see docs/operations/performance.md.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from .logging.logger import get_logger
@@ -25,6 +26,13 @@ from .logging.logger import get_logger
 logger = get_logger()
 
 PATH = Path("/run/ipr_bt_key_delay")
+# While this exists and has not expired, the main loop leaves the value
+# alone.  Two writers were fighting over one file: the main loop re-applies
+# the configured speed every iteration -- about once a second -- so the Debug
+# trial's choice survived less than a second before being reset, and every
+# step of the ladder was really typed at the configured speed.  All four rows
+# then measured the same thing, which is exactly what the trial reported.
+HOLD_PATH = Path("/run/ipr_bt_key_delay.hold")
 
 # Mirrors the daemon.  The upper bound is generous (a deliberately slow device
 # for a fussy host); the lower bound is where even a perfect host cannot keep
@@ -105,13 +113,54 @@ def read() -> int | None:
     return ms if MIN_MS <= ms <= MAX_MS else None
 
 
-def apply(ms: int) -> bool:
+def held(now: float | None = None) -> bool:
+    """Is someone (the trial) holding the speed against the main loop?
+
+    It expires rather than needing release, so a request that dies mid-trial
+    cannot leave the device stuck at a speed nobody chose.
+    """
+    try:
+        raw = HOLD_PATH.read_text(encoding="ascii").strip()
+    except OSError:
+        return False
+    try:
+        expires = float(raw)
+    except ValueError:
+        return False
+    return (now if now is not None else time.time()) < expires
+
+
+def hold(seconds: float, now: float | None = None) -> bool:
+    """Keep the main loop from re-applying the configured speed."""
+    at = (now if now is not None else time.time()) + max(0.0, seconds)
+    try:
+        HOLD_PATH.write_text(str(int(at)) + chr(10), encoding="ascii")
+    except OSError as exc:
+        logger.debug("Could not hold the typing delay: %s", exc)
+        return False
+    return True
+
+
+def release_hold() -> None:
+    try:
+        HOLD_PATH.unlink()
+    except OSError:
+        pass
+
+
+def apply(ms: int, respect_hold: bool = False) -> bool:
     """Put `ms` in force for the next send.  True when it was written.
 
     Writing only on a change keeps this out of the main loop's cost: the loop
     calls it every iteration, and the file is on tmpfs.
+
+    `respect_hold` is for the main loop, which must not undo a trial that is
+    running.  An explicit choice -- Settings, or the trial itself -- passes
+    False and wins.
     """
     ms = clamp(ms)
+    if respect_hold and held():
+        return False
     if read() == ms:
         return True
     try:

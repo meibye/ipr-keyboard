@@ -157,3 +157,70 @@ def test_the_nominal_rate_is_still_available_for_comparison():
     assert keydelay.chars_per_second(4) == 125.0
     assert keydelay.chars_per_second(4) > keydelay.floor_chars_per_second()
 
+
+
+# ---------------------------------------------------------------------------
+# Two writers, one file
+# ---------------------------------------------------------------------------
+
+
+def test_the_main_loop_does_not_undo_a_trial(tmp_path, monkeypatch):
+    """The bug the speed trial's own numbers exposed.
+
+    The main loop re-applies the configured speed every iteration, about once
+    a second.  The Debug trial sets a speed per step, so its choice survived
+    less than a second before being reset, and every step of the ladder was
+    really typed at the configured speed -- all four rows measured the same
+    thing, which is exactly what the trial reported.
+    """
+    monkeypatch.setattr(keydelay, "HOLD_PATH", tmp_path / "hold")
+
+    keydelay.apply(12)  # the configured speed, in force
+    keydelay.hold(60.0)
+    keydelay.apply(20)  # the trial's choice, explicit, wins
+    assert keydelay.read() == 20
+
+    # The main loop comes round again and must leave it alone.
+    assert keydelay.apply(12, respect_hold=True) is False
+    assert keydelay.read() == 20, "the trial's step was overwritten"
+
+    # When the trial finishes it restores and releases.
+    keydelay.apply(12)
+    keydelay.release_hold()
+    assert keydelay.apply(12, respect_hold=True) is True
+    assert keydelay.read() == 12
+
+
+def test_a_hold_expires_so_a_dead_request_cannot_strand_the_speed(tmp_path, monkeypatch):
+    monkeypatch.setattr(keydelay, "HOLD_PATH", tmp_path / "hold")
+    keydelay.hold(10.0, now=1000.0)
+    assert keydelay.held(now=1005.0) is True
+    assert keydelay.held(now=1011.0) is False, "a crashed trial must not hold for ever"
+
+
+def test_no_hold_file_means_no_hold(tmp_path, monkeypatch):
+    monkeypatch.setattr(keydelay, "HOLD_PATH", tmp_path / "hold")
+    assert keydelay.held() is False
+    assert keydelay.apply(8, respect_hold=True) is True
+
+
+def test_a_corrupt_hold_file_does_not_block_the_main_loop(tmp_path, monkeypatch):
+    """Failing open: the configured speed is the one the user chose."""
+    monkeypatch.setattr(keydelay, "HOLD_PATH", tmp_path / "hold")
+    (tmp_path / "hold").write_text("soon", encoding="ascii")
+    assert keydelay.held() is False
+    assert keydelay.apply(8, respect_hold=True) is True
+
+
+def test_releasing_a_hold_that_is_not_there_is_harmless(tmp_path, monkeypatch):
+    monkeypatch.setattr(keydelay, "HOLD_PATH", tmp_path / "hold")
+    keydelay.release_hold()
+    keydelay.release_hold()
+
+
+def test_an_explicit_change_overrides_a_hold(tmp_path, monkeypatch):
+    """Settings is the user speaking; it should not lose to a running trial."""
+    monkeypatch.setattr(keydelay, "HOLD_PATH", tmp_path / "hold")
+    keydelay.hold(60.0)
+    assert keydelay.apply(4) is True
+    assert keydelay.read() == 4

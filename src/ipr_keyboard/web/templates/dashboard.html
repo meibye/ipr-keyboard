@@ -1631,26 +1631,37 @@ async function runTypingTrial() {
       if (r.error) {
         return `<tr><td>${who}</td><td colspan="3" class="state-error">${r.error}</td></tr>`;
       }
-      const flag = r.complete ? '' : ' <span class="state-warning">incomplete</span>';
       const best = r.delay_ms === res.fastest_ms ? ' style="font-weight:600"' : '';
       return `<tr${best}>
         <td>${who}</td>
         <td>${r.expected_chars_per_second}/s</td>
-        <td>${r.chars_per_second}/s${flag}</td>
+        <td>${r.chars_per_second}/s</td>
         <td>${(r.type_ms / 1000).toFixed(1)} s</td>
+        <td>${r.chars}</td>
       </tr>`;
     }).join('');
     out.innerHTML = `
       <table style="width:100%;font-size:13px;border-collapse:collapse">
         <thead><tr style="text-align:left;color:var(--color-text-muted)">
-          <th>Speed</th><th>Expected</th><th>Measured</th><th>Took</th>
+          <th>Speed</th><th>Expected</th><th>Measured</th><th>Took</th><th>Characters</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div class="card-explanation" style="margin-top:8px">${res.message}
-      The setting is unchanged (${keydelayName(res, res.restored_delay_ms)}).
-      Characters a second, the same figure the Settings list gives, so the two
-      can be compared directly.</div>`;
+      <div class="card-explanation" style="margin-top:8px">
+        <b>Speed</b>: what the setting was for that block.
+        <b>Expected</b>: the rate that speed asks for.
+        <b>Measured</b>: the rate actually achieved — characters sent divided by
+        <b>Took</b>.
+        <b>Took</b>: how long the typing itself lasted, from the first character
+        reaching the PC to the last. It excludes the wait for the PC's radio
+        before typing starts, so it is the part a longer scan multiplies.
+        <b>Characters</b>: how many were sent in that block.
+      </div>
+      <div class="card-explanation" style="margin-top:6px">
+        Where <b>Measured</b> stops keeping up with <b>Expected</b>, the PC's
+        radio has become the limit and a faster setting buys nothing. ${res.message}
+        The setting is unchanged (${keydelayName(res, res.restored_delay_ms)}).
+      </div>`;
     status.textContent = '';
   } catch (e) {
     status.textContent = '';
