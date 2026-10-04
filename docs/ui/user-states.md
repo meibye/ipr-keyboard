@@ -176,6 +176,17 @@ The system is preparing data for transmission.
 #### `sending`
 A transmission is in progress. Set by `BluetoothKeyboard.send_text()` (automatic USB-pen flow) or by the debug send-text / send-file endpoints (manual send).
 
+While `sending`, the state also carries how much of the text has reached the
+PC: `chars` (the whole text), `chars_sent` and `progress_percent`, fed from the
+BLE daemon's own progress rather than guessed. This matters because `sending`
+lasts as long as the typing does — tens of seconds for a page — so a card that
+only says "Sending" is indistinguishable from one that is stuck. The dashboard
+shows a bar and "N of M characters", and the device's panel shows the same
+count, so the two never disagree.
+
+`/api/stream` tightens to one update a second while `sending`, and returns to
+`StatusIntervalSeconds` afterwards.
+
 #### `retrying`
 A transmission retry is underway.
 

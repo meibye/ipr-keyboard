@@ -119,6 +119,12 @@ NetworkManager re-activates the home WiFi profile on its own.
 
 ### 4.5 Gestures and LED feedback
 
+> **This ladder applies only to a device with no panel.**  Where an SSD1306
+> is fitted, one hold opens the magnet menu instead and the LED keeps showing
+> status throughout — blue still means only "the hotspot is up".  See
+> `docs/architecture/magnet-menu-design.md`.
+
+
 | Gesture | LED while held | On release |
 |---|---|---|
 | Press (any gesture) | 3 white blinks over 0.6 s, then dark | — (the acknowledgement is immediate, so the user knows the magnet landed) |

@@ -205,9 +205,10 @@ def build() -> None:
     m.h2("4.4 Sluk, genstart og flytning")
     m.bullets([
         ("Kortvarig pause: ", "lad boksen være tændt. Der er ingen grund til at slukke."),
-        ("Sluk: ", "hold magneten tæt på boksen i 6 sekunder — lampen blinker hvid — og slip. "
-         "Lampen lyser hvid, mens boksen lukker ned, og slukker efter 10–20 sekunder. "
-         "Først da må du tage strømmen fra. Se afsnit 5.3."),
+        ("Sluk: ", "hold magneten tæt på boksen, til menuen åbner, gå til Power og "
+         "vælg Sluk — én kort berøring bekræfter. Lampen lyser hvid, mens boksen "
+         "lukker ned, og slukker efter 10–20 sekunder. Først da må du tage strømmen "
+         "fra. Se afsnit 5.3. (Bokse uden display: hold magneten i 6 sekunder og slip.)"),
         ("Genstart: ", "sluk som ovenfor, tag strømmen fra, vent 10 sekunder, og sæt den til igen."),
         ("Flytning til en anden arbejdsplads: ", "tag strøm og USB-kabel fra, flyt boksen, "
          "og tilslut igen. Parringen med PC'en huskes."),
@@ -267,15 +268,19 @@ def build() -> None:
              "Vent nogle sekunder."],
             ["Blå, konstant", "Opsætningsnetværket er tændt. Lampen bliver ved med at lyse, "
                               "så længe det er tændt, og boksen er imens ikke på hjemmenettet.",
-             "Slå det fra igen med magneten (3 sekunder), når du er færdig. Lampen slukker, "
-             "mens du holder, og blinker blåt efter 3 sekunder."],
-            ["Hvid, konstant — mens du holder magneten", "Du har holdt magneten i 6 sekunder (sluk). "
-                                                        "Hvid betyder altid: boksen starter eller slukker.",
+             "Slå det fra igen, når du er færdig: hold magneten, til menuen åbner, og "
+             "vælg Hotspot. (Bokse uden display: hold magneten i 3 sekunder.)"],
+            ["Hvid, konstant — mens du holder magneten (kun bokse uden display)",
+             "Du har holdt magneten i 6 sekunder (sluk). Hvid betyder altid: boksen "
+             "starter eller slukker. Har boksen et display, åbner et hold i stedet "
+             "menuen, og lampen viser fortsat status.",
              "Slip for at slukke boksen — eller hold fast, til lampen slukker (20 sekunder), "
              "for at fortryde."],
             ["Hvid, konstant — efter du slap magneten", "Boksen lukker ned.",
              "Vent, til lampen slukker. Så må du tage strømmen fra."],
-            ["Lilla, konstant — mens du holder magneten", "Du har holdt magneten i 10 sekunder (skift af tilstand).",
+            ["Lilla, konstant — mens du holder magneten (kun bokse uden display)",
+             "Du har holdt magneten i 10 sekunder (skift af tilstand). Har boksen et "
+             "display, ligger tilstandsskiftet under System i menuen.",
              "Slip kun, hvis administratoren har bedt dig om det — ellers hold fast, til "
              "lampen slukker (20 sekunder), og slip så."],
             ["Rød, hurtigt blink (kort)", "Opsætningsnetværket kunne ikke tændes.",

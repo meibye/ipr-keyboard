@@ -243,9 +243,9 @@ def fig_magnet_timeline():
             "Tidsstigen er afløst af en menu — ingen sekunder at tælle")
 
     steps = [
-        ("1", "Hold 3 sek.", "Menuen åbner\n(lampen lyser blåt)", BLUE, BLUE_BG),
+        ("1", "Hold magneten", "Menuen åbner, mens\ndu stadig holder", BLUE, BLUE_BG),
         ("2", "Kort berøring", "Markeringen flytter\ntil næste punkt", GREEN, GREEN_BG),
-        ("3", "Hold igen", "Det markerede\npunkt vælges", PURPLE, PURPLE_BG),
+        ("3", "Hold igen", "Punktet vælges, når\nbjælken er fuld", PURPLE, PURPLE_BG),
         ("4", "Bekræft", "Én berøring — to ved\nnulstilling", RED, RED_BG),
     ]
     x, y, w, gap = 60, 110, 200, 20

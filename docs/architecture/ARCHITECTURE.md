@@ -38,8 +38,16 @@ Blueprint in `src/ipr_keyboard/web/api.py`. SVG assets live in `src/ipr_keyboard
 - `src/ipr_keyboard/web/api.py` (dashboard `/api/` Blueprint)
 - `src/ipr_keyboard/web/templates/dashboard.html` (image-first SPA)
 - `src/ipr_keyboard/web/static/` (SVG icons and device illustration)
-- `src/ipr_keyboard/gpio_monitor.py` (reed switch gestures, RGB status LED)
+- `src/ipr_keyboard/gpio_monitor.py` (debounced reed switch, RGB status LED, owns the magnet menu)
+- `src/ipr_keyboard/menu.py` (the magnet menu as a pure state machine). See `docs/architecture/magnet-menu-design.md`.
 - `src/ipr_keyboard/oled/*` (SSD1306 status display: stdlib I²C driver, pure screen composition, Pillow renderer, manager thread). See `docs/architecture/oled-display-design.md`.
+- `src/ipr_keyboard/transmission.py` (shared send state and the live character count the panel and dashboard both read)
+- `src/ipr_keyboard/delivery.py` (which scans have been delivered, so a restart neither re-types nor strands one)
+- `src/ipr_keyboard/metrics.py` (performance KPIs, bounded, off by default)
+- `src/ipr_keyboard/keydelay.py` (typing speed, applied to the BLE daemon without restarting it)
+- `src/ipr_keyboard/bt_progress.py` (how far the daemon has got through typing)
+- `src/ipr_keyboard/bt_link.py` (which PCs are paired, for the panel's hint)
+- `src/ipr_keyboard/recovery.py` (hotspot and dashboard credentials on the panel, reveal-limited)
 
 ### Support (Current)
 
@@ -75,15 +83,20 @@ If these are referenced in scripts/docs, treat as legacy compatibility paths unt
 
 ### App Config (`config.json`)
 
-Defined by `AppConfig` in `src/ipr_keyboard/config/manager.py`:
-- `IrisPenFolder`
-- `DeleteFiles`
-- `Logging`
-- `MaxFileSize`
-- `LogPort`
+Defined by `AppConfig` in `src/ipr_keyboard/config/manager.py` (34 fields; the
+full grouped list is in `src/ipr_keyboard/README.md`):
+- `IrisPenFolders`, `DeleteFiles`, `MaxFileSize`, `ReadTimeoutSeconds`, `PollIntervalSeconds`
+- `Logging`, `LogLevel`, `LogPort`, `StatusIntervalSeconds`
+- `NetworkMode`, `StaticIP`, `StaticNetmask`, `StaticGateway`, `TlsCertFile`, `TlsKeyFile`
+- `PairingTimeoutSeconds`, `TypingDelayMs` — the typing speed, and the largest single cost of a send (see `docs/operations/performance.md`)
 - `Gpio*` — reed switch / LED pins, `GpioLedIdleSeconds` (status window, shared with the display)
-- `Oled*` — `OledEnabled`, `OledI2cBus`, `OledI2cAddress`, `OledContrast`, `OledRotate`, `OledSendHoldSeconds`, `OledMarqueeFps` (see `docs/hardware/oled-display.md`)
+- `Oled*` — `OledEnabled`, `OledI2cBus`, `OledI2cAddress`, `OledContrast`, `OledRotate`, `OledSendHoldSeconds`, `OledMarqueeFps`, `OledDisplayTimeoutMinutes` (see `docs/hardware/oled-display.md`)
+- `MenuTimeoutSeconds`, `RecoveryRevealLimit` (see `docs/architecture/magnet-menu-design.md`)
 - `MetricsEnabled`
+
+A running process holds its configuration in memory and rewrites the whole
+file when it next saves, so editing `config.json` by hand while the service
+runs is silently undone.
 
 ### System Config
 

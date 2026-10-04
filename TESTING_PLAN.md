@@ -31,6 +31,24 @@ pytest tests/ -v --tb=short --cov=src/ipr_keyboard --cov-report=term-missing -rs
 | File | What it tests |
 |------|--------------|
 | `tests/test_transmission.py` | State machine, history, thread safety |
+| `tests/test_gpio_monitor.py` | Reed debounce, LED phases, tap vs hold, the menu in situ |
+| `tests/test_menu.py` | The magnet menu state machine: stepping, confirmations, timeouts |
+| `tests/test_delivery.py` | Which scans count as delivered; re-baselining an old state file |
+| `tests/test_metrics.py` | The KPI ring buffer, every recorder, and that no recorder invents a key |
+| `tests/test_keydelay.py` | Typing speed: clamping, the hold against the main loop, failure modes |
+| `tests/test_bt_progress.py` | Reading the daemon's progress across its per-line drains |
+| `tests/test_bt_link.py` | Which PCs are paired, as published by the daemon |
+| `tests/test_recovery.py` | Credential reveals and the disk-counted limit |
+| `tests/oled/test_screens.py` | `Snapshot` → `Screen`: every word the panel shows |
+| `tests/oled/test_render.py` | Layout, fonts, marquee, progress bar, 128×64 framebuffer |
+| `tests/oled/test_oled_manager.py` | The panel thread, display timeout, dimming |
+| `tests/oled/test_ssd1306.py` | The I²C driver and its absence |
+| `tests/bluetooth/test_ble_daemon_advertising.py` | Advertising intervals, link reactions, what must not be registered |
+| `tests/bluetooth/test_ble_daemon_fifo.py` | FIFO ownership and queue handling |
+| `tests/web/test_metrics_api.py` | `/api/metrics` with recording on and off |
+| `tests/scripts/test_provision_wizard.py` | The wizard's step logic and answer handling |
+| `tests/scripts/test_oled_boot_screen.py` | The early boot screen outside the application |
+| `tests/scripts/test_shell_service_checks.py` | Shell service helpers |
 | `tests/bluetooth/test_keyboard.py` | BluetoothKeyboard, `send_text()`, subprocess mocking |
 | `tests/bluetooth/test_ble_daemon_keymap.py` | Unicode, Danish dead-keys, keymap encoding |
 | `tests/config/test_manager.py` | ConfigManager singleton, JSON persistence, migration |
@@ -190,6 +208,13 @@ that endpoint, and several hardware test scripts stop it to free the GPIO pins.
 
 ## Tier 4 — Manual hardware tests (dev RPi, hands-on)
 
+> **`docs/release-checklist.md` is the authoritative hands-on list** and is kept
+> current as features land — the magnet menu's tap-versus-hold cases, the panel's
+> `NOT READY` tier, the typing-speed trial, a scan after a quiet spell, and
+> getting the PC back after a restart.  What follows is the older, broader sweep;
+> where the two disagree, the checklist wins.
+
+
 Run these interactively on the device before a release.  Check off each row.
 
 ### 4a — GPIO / LED visual
@@ -339,6 +364,10 @@ See Tier 4a for the manual LED visual confirmation steps.
 ---
 
 ## Tier 6 — Production acceptance
+
+> Gates 1–5 of `docs/release-checklist.md` are the release gate; this tier is
+> the acceptance run on the production device once they pass.
+
 
 After deploying to `ipr-prod-zero2` (or `ipr-prod-zero`, the 32-bit Zero W), run via
 `ipr-rpi-prod-zero2-ssh` (or `ipr-rpi-prod-zero-ssh`), whitelist-only:

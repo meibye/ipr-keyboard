@@ -1219,7 +1219,7 @@ def build() -> None:
     m.h2("4.6 Kontrolleret nedlukning med magneten")
     m.p("Enheden forsynes typisk fra PC'ens USB-port, og et SD-kort, der mister strømmen "
         "under en skrivning, kan blive ødelagt. Magneten giver en kontrolleret nedlukning: "
-        "hold i 6 sekunder (lampen lyser hvidt) og slip. gpio_monitor kalder "
+        "hold magneten, til menuen åbner, og vælg Power → Sluk (én berøring bekræfter). På bokse uden display: hold i 6 sekunder og slip. gpio_monitor kalder "
         "ipr_hotspot_ctl.sh poweroff (systemctl poweroff) og viser konstant hvid; når "
         "systemd stopper ipr_keyboard.service, efterlades benene bevidst på hvid, og "
         "ipr-led-halt.service — startet tidligt ved opstart uden at gøre noget, så dens "
@@ -1484,7 +1484,7 @@ def build() -> None:
     )
 
     m.h2("5.4 Netværksnulstilling")
-    m.p("Magneten holdt i 15 sekunder sletter alle Wi-Fi-profiler undtagen ipr-hotspot og "
+    m.p("Factory reset under System i magnetmenuen (TO bekræftende berøringer) — på bokse uden display magneten holdt i 15 sekunder — sletter alle Wi-Fi-profiler undtagen ipr-hotspot og "
         "genstarter enheden. Applikationsindstillinger, brugerkonti og logfiler berøres ikke. "
         "Samme resultat opnås manuelt:")
     m.code("sudo ./scripts/headless/net_factory_reset.sh")
@@ -1511,7 +1511,7 @@ def build() -> None:
     m.p("Politikken anvendes ved opstart før netværket kommer op (ipr-firewall.service), "
         "ved enhver forbindelsesændring (NetworkManager-dispatcher-hook 90-ipr-firewall), "
         "når hotspottet tændes eller slukkes, og når tilstanden skiftes.")
-    m.p("Tilstanden skiftes med magneten (hold i 10 sekunder — lampen lyser lilla, og "
+    m.p("Tilstanden skiftes under System → Mode i magnetmenuen (én bekræftende berøring). På bokse uden display: hold magneten i 10 sekunder — lampen lyser lilla, og "
         "displayet fremhæver linjen med tilstandsskiftet — og slip; lampen lyser lilla i "
         "3 sekunder, og displayet skriver MODE: DEV eller MODE: PROD) eller "
         "fra kommandolinjen:")
@@ -1544,7 +1544,7 @@ def build() -> None:
         "PROD igen.")
     m.note("Provisioneringen efterlader enheden i udviklingstilstand, fordi den kører over "
            "SSH og ellers ville afbryde sig selv. Idriftsættelsen afsluttes med "
-           "sudo ipr_mode_ctl.sh production (eller magneten i 10 sekunder). Skiftet til drift "
+           "sudo ipr_mode_ctl.sh production (eller System → Mode i magnetmenuen; 10 sekunder på bokse uden display). Skiftet til drift "
            "over en SSH-forbindelse på hjemmenettet afbryder forbindelsen — det er meningen. "
            "test_provision.sh advarer, så længe enheden står i udviklingstilstand.", "warn")
     m.p("Konsekvenser: i drift kan brugerne ikke åbne betjeningssiden på hjemmenettet; "
@@ -1642,7 +1642,7 @@ def build() -> None:
     m.bullets([
         "Skift admin-kontoens adgangskode (admin_initial_password.txt slettes automatisk).",
         "Sæt enheden i driftstilstand som det allersidste trin: sudo ipr_mode_ctl.sh "
-        "production, eller magneten i 10 sekunder. Kontrollér med sudo ipr-firewall.sh status "
+        "production, eller System → Mode i magnetmenuen. Kontrollér med sudo ipr-firewall.sh status "
         "og — fra en anden maskine — at SSH og dashboardet ikke længere svarer.",
         "Opret personlige konti; undgå at dele admin-kontoen.",
         "Distribuér CA-certifikatet fra https://10.42.0.1/setup/ca.crt til de PC'er, der "
@@ -2242,7 +2242,7 @@ def build() -> None:
             ["SSH og dashboard svarer ikke på hjemmenettet, men enheden kører (lampen "
              "viser status ved berøring, displayet siger PROD).",
              "Enheden står i driftstilstand — det er normalt.",
-             "Hold magneten i 10 sekunder (lampen lyser lilla, og linjen med tilstandsskiftet "
+             "Vælg System → Mode i magnetmenuen (på bokse uden display: hold i 10 sekunder, hvor lampen lyser lilla, og linjen med tilstandsskiftet "
              "er fremhævet i displayet) og slip: udviklingstilstand, og mærket bliver DEV. "
              "Eller brug hotspottet (magnet 3 s)."],
             ["Pennen vises som ikke fundet, selv om den sidder i — typisk efter en genstart.",
@@ -2345,7 +2345,7 @@ def build() -> None:
         "test_provision.sh --auto rapporterer 0 fejl, herunder fase K (lampe og magnet), "
         "fase L (netværkseksponering) og fase M (skanner-automontering og hændelseslog).",
         "Med skanneren sat i viser dashboardet “Klar”, og Debug-siden viser dens filer.",
-        "Magneten i 6 sekunder lukker enheden ned: hvid, derefter slukket lampe.",
+        "Power → Sluk i magnetmenuen lukker enheden ned: hvid, derefter slukket lampe (6 sekunders hold på bokse uden display).",
         "Enheden står i driftstilstand, og ingen port svarer på hjemmenettet.",
     ], numbered=True)
 
