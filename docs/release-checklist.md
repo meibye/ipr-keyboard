@@ -43,6 +43,13 @@ Must report **0 failures**; the result is kept at
 `/opt/ipr_state/provision_verify.log`.  Skips are expected — they are the
 manual checks in gate 3.
 
+Section **O** is the one to read first on a fresh install: it checks the three
+tmpfs files that carry state between the BLE daemon and the application, and
+that the env default and the saved typing speed agree.  None of those is needed
+for a send to *work*, which is why they are audited — when one is missing the
+device degrades quietly: no progress on the panel, no typing measurement, or a
+speed that cannot be changed without dropping the PC.
+
 Then prove the device is the repository, not something that drifted from it:
 
 - every file under `src/`, `scripts/` and `provision/` matches the checkout

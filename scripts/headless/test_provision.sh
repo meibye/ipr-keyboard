@@ -532,6 +532,50 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
+section "O — Typing speed and the daemon/application runtime files"
+# ═══════════════════════════════════════════════════════════════════════════════
+# Three small files on tmpfs carry state between the BLE daemon and the
+# application.  None is required for a send to work, which is the problem: when
+# one is missing the device degrades quietly -- no progress on the panel, no
+# typing measurement, or a typing speed that cannot be changed without
+# dropping the PC's connection.  Worth an audit entry each.
+
+check O.1 "BT_KEY_DELAY_MS set in /opt/ipr_common.env"     "grep -qE '^BT_KEY_DELAY_MS=' /opt/ipr_common.env"
+check O.2 "installed BLE daemon reads the runtime typing speed"     "grep -q 'KEY_DELAY_PATH' /usr/local/bin/bt_hid_ble_daemon.py"
+check O.3 "installed BLE daemon publishes typing progress"     "grep -q 'PROGRESS_FILE' /usr/local/bin/bt_hid_ble_daemon.py"
+check O.4 "installed BLE daemon publishes the bond state"     "grep -q 'LINK_FILE' /usr/local/bin/bt_hid_ble_daemon.py"
+check O.5 "installed BLE daemon does NOT register GATT 0x1801"     "! grep -q 'UUID_GATT_SERVICE' /usr/local/bin/bt_hid_ble_daemon.py"
+check O.6 "BLE daemon registered its GATT application"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grep -q 'GATT application registered'"
+check O.7 "BLE daemon is advertising, with an interval it chose"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grep -qE 'Registered GATT\+ADV.*(fast|medium|slow)'"
+check O.8 "an advertising instance is actually active"     "busctl --system get-property org.bluez /org/bluez/hci0 org.bluez.LEAdvertisingManager1 ActiveInstances | grep -qv ' 0$'"
+
+# The runtime files: the daemon creates two at startup, the application writes
+# the third on its first loop.  The progress file only appears after a send, so
+# it is a skip rather than a failure on a device that has not typed yet.
+check O.9  "/run/ipr_bt_key_delay exists and holds a number"     "grep -qE '^[0-9]+$' /run/ipr_bt_key_delay"
+check O.10 "/run/ipr_bt_key_delay is writable by $_INVOKING_USER"     "sudo -u '$_INVOKING_USER' test -w /run/ipr_bt_key_delay"
+check O.11 "/run/ipr_bt_link.json names the paired hosts"     "grep -q '\"bonded\"' /run/ipr_bt_link.json"
+check O.12 "/dev/shm writable by $_INVOKING_USER (the typing-speed hold)"     "sudo -u '$_INVOKING_USER' test -w /dev/shm"
+
+if [ -f /run/ipr_bt_progress.json ]; then
+    record_pass O.13 "/run/ipr_bt_progress.json present (something has been typed)"
+else
+    record_skip O.13 "nothing typed since boot — the progress file appears on the first send"
+fi
+
+# The env default and the saved setting must agree, or the device silently
+# types at a speed nobody chose: this one bit a production device.
+_env_delay="$(grep -oE '^BT_KEY_DELAY_MS="?[0-9]+' /opt/ipr_common.env 2>/dev/null | grep -oE '[0-9]+$' || true)"
+_cfg_delay="$(grep -oE '"TypingDelayMs"[[:space:]]*:[[:space:]]*[0-9]+' "$PROJECT_DIR/config.json" 2>/dev/null | grep -oE '[0-9]+$' || true)"
+if [ -z "$_cfg_delay" ]; then
+    record_skip O.14 "TypingDelayMs not yet saved in config.json (the default applies)"
+elif [ "$_env_delay" = "$_cfg_delay" ]; then
+    record_pass O.14 "typing speed agrees: env ${_env_delay} ms = config ${_cfg_delay} ms"
+else
+    record_fail O.14 "typing speed disagrees: /opt/ipr_common.env says ${_env_delay} ms, config.json says ${_cfg_delay} ms"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
 section "J — Manual / interactive checks  (skipped with --auto)"
 # ═══════════════════════════════════════════════════════════════════════════════
 # These steps cannot be automated from SSH — they require a phone, browser, or
