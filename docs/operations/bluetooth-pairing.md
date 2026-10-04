@@ -171,3 +171,63 @@ and crying wolf would make the warning tier worthless.
    survives a reboot (`bluetoothctl info <mac>` shows `Bonded: yes`), so if the
    PC has forgotten it, that is a host-side state problem.
 
+
+## Why re-pairing was the only cure, and what fixes it
+
+Removing the device on the PC and pairing again was the only thing that worked
+after a run of daemon reinstalls — power management, toggling Bluetooth and
+restarting the Bluetooth service all failed.  That points at the one piece of
+state a re-pair clears and nothing else does: **the host's cached copy of our
+attribute database**.
+
+A bonded LE central caches a device's handles so it does not have to discover
+them on every connection.  If the handles move, the cache is wrong, and the
+host talks to the wrong attributes — which presents as "the device advertises,
+the PC can see it, nothing works".  BlueZ allocates handles from the order in
+which services, characteristics and descriptors are registered, so any change
+to the GATT layout can move them.
+
+The device had **no way to say so**: it exposed HID (`1812`), Device
+Information (`180a`) and Battery (`180f`), but no Generic Attribute service
+(`0x1801`) and therefore no **Service Changed** (`0x2A05`) — the characteristic
+whose entire purpose is to tell a bonded host to discard what it cached.
+
+### How it works now
+
+* `0x1801` with Service Changed is registered **last**, deliberately.  BlueZ
+  allocates handles in registration order, so appending leaves every existing
+  handle exactly where a currently-bonded host already has it — adding the
+  service does not invalidate the pairing it exists to protect.  (`0x1801` is
+  conventionally first; the spec does not require it, and not breaking the
+  device paired right now matters more than convention.)
+* At startup the daemon hashes what actually determines the handles — the
+  registration order, UUIDs and flags — and compares it with the hash recorded
+  by the previous run in `/var/lib/ipr-keyboard/gatt_signature`.
+* If it differs, the next host to subscribe to Service Changed is indicated
+  `0x0001-0xFFFF`: re-discover everything.  Once per connection, and only when
+  something really moved — indicating on every connect would make every host
+  re-discover the whole database every time, for nothing.
+* A first run records the hash and says nothing: a host cannot hold a stale
+  cache of a device it has never met.  An unwritable store also says nothing,
+  for the same reason.
+
+The journal is explicit either way:
+
+```
+[ble] GATT layout signature 4f2a9c1e8b7d3a05 recorded
+[ble] GATT layout changed (4f2a9c1e... -> 91b0d7c3...); bonded hosts will be
+      told to re-discover
+[ble] Service Changed subscribed
+[ble] Service Changed indicated (the layout moved since the last run; the host
+      should re-discover)
+```
+
+### One last re-pair is needed to arm it
+
+A host only learns that Service Changed exists by discovering it.  A PC paired
+**before** this change has no record of `0x1801`, so it cannot be told
+anything — the protection starts at the next pairing.
+
+So: remove the device on the PC and pair once more after installing this.  That
+is the final re-pair; updates after it should not need one.
+

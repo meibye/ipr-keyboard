@@ -160,3 +160,131 @@ def test_an_interval_bluez_refuses_leaves_us_still_advertising(daemon):
     assert props["Discoverable"] is True
     assert props["LocalName"] == "IPR Keyboard"
     assert props["Appearance"] == daemon.APPEARANCE_KEYBOARD
+
+
+# ---------------------------------------------------------------------------
+# Service Changed: telling a bonded host its cached handles are stale
+# ---------------------------------------------------------------------------
+
+
+def _app_with_services(mod, extra_flag=None):
+    """A minimal stand-in for the registered GATT application."""
+
+    class _D:
+        def __init__(self, uuid):
+            self.uuid = uuid
+
+    class _C:
+        def __init__(self, uuid, flags, descs=()):
+            self.uuid = uuid
+            self.flags = list(flags)
+            self.descriptors = [_D(u) for u in descs]
+
+    class _S:
+        def __init__(self, uuid, chrcs, primary=True):
+            self.uuid = uuid
+            self.primary = primary
+            self.characteristics = list(chrcs)
+
+    class _App:
+        def __init__(self, services):
+            self.services = services
+
+    flags = ["read", "notify"] + ([extra_flag] if extra_flag else [])
+    return _App(
+        [
+            _S("1812", [_C("2a4d", flags, ("2908",)), _C("2a4a", ["read"])]),
+            _S("180a", [_C("2a29", ["read"])]),
+        ]
+    )
+
+
+def test_the_signature_follows_what_decides_the_handles(daemon):
+    """Handles come from the registration order, UUIDs and flags."""
+    a = daemon.gatt_layout_signature(_app_with_services(daemon))
+    again = daemon.gatt_layout_signature(_app_with_services(daemon))
+    assert a == again, "the same layout must hash the same"
+
+    changed = daemon.gatt_layout_signature(_app_with_services(daemon, "write"))
+    assert a != changed, "an added flag moves nothing we can rely on"
+
+    # Reordering services changes the handles, so it must change the hash.
+    app = _app_with_services(daemon)
+    app.services.reverse()
+    assert daemon.gatt_layout_signature(app) != a
+
+
+def test_the_first_run_does_not_claim_a_change(tmp_path, daemon, monkeypatch):
+    """A host cannot hold a stale cache of a device it has never seen."""
+    monkeypatch.setattr(daemon, "GATT_SIGNATURE_FILE", str(tmp_path / "sig"))
+    assert daemon.layout_changed_since_last_run("abc123") is False
+    assert (tmp_path / "sig").read_text().strip() == "abc123"
+
+
+def test_an_unchanged_layout_does_not_claim_a_change(tmp_path, daemon, monkeypatch):
+    monkeypatch.setattr(daemon, "GATT_SIGNATURE_FILE", str(tmp_path / "sig"))
+    daemon.layout_changed_since_last_run("abc123")
+    assert daemon.layout_changed_since_last_run("abc123") is False
+
+
+def test_a_changed_layout_is_reported_once_and_recorded(tmp_path, daemon, monkeypatch):
+    monkeypatch.setattr(daemon, "GATT_SIGNATURE_FILE", str(tmp_path / "sig"))
+    daemon.layout_changed_since_last_run("old")
+    assert daemon.layout_changed_since_last_run("new") is True
+    assert (tmp_path / "sig").read_text().strip() == "new"
+    # Recorded, so the next boot is quiet again.
+    assert daemon.layout_changed_since_last_run("new") is False
+
+
+def test_an_unwritable_store_stays_quiet(daemon, monkeypatch):
+    """Claiming a change every boot would cost every host a re-discovery."""
+    monkeypatch.setattr(daemon, "GATT_SIGNATURE_FILE", "/proc/nonexistent/sig")
+    assert daemon.layout_changed_since_last_run("abc123") is False
+
+
+def test_nothing_is_indicated_when_the_layout_is_unchanged(daemon):
+    svc = daemon.GattProfileService(None, 3)
+    sc = svc.service_changed
+    sent = []
+    sc.PropertiesChanged = lambda *a, **k: sent.append(a)
+
+    sc.pending = False
+    sc.StartNotify()
+    assert sent == [], "a re-discovery nobody needs is not free"
+
+
+def test_a_subscribed_host_is_told_once_per_connection(daemon):
+    svc = daemon.GattProfileService(None, 3)
+    sc = svc.service_changed
+    sent = []
+    sc.PropertiesChanged = lambda *a, **k: sent.append(a)
+
+    sc.pending = True
+    sc.StartNotify()
+    assert len(sent) == 1, "told on subscribing, which is when it is listening"
+    assert sc.indicate_if_needed() is False, "and not again on the same connection"
+
+    # A new connection decides afresh.
+    sc.StopNotify()
+    sc.StartNotify()
+    assert len(sent) == 2
+
+
+def test_the_indicated_range_covers_the_whole_database(daemon):
+    svc = daemon.GattProfileService(None, 3)
+    sc = svc.service_changed
+    assert bytes(sc._value) == bytes([0x01, 0x00, 0xFF, 0xFF])
+    assert sc.flags == ["indicate"]
+    assert sc.uuid == daemon.UUID_SERVICE_CHANGED
+    assert svc.uuid == daemon.UUID_GATT_SERVICE
+
+
+def test_an_unsubscribed_host_is_not_indicated_at(daemon):
+    """An indication to a client that never subscribed goes nowhere."""
+    svc = daemon.GattProfileService(None, 3)
+    sc = svc.service_changed
+    sent = []
+    sc.PropertiesChanged = lambda *a, **k: sent.append(a)
+    sc.pending = True
+    assert sc.indicate_if_needed() is False
+    assert sent == []

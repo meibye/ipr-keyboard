@@ -12,6 +12,7 @@
 # Created:  
 # VERSION: '2026-04-12 18:10:16'
 import argparse
+import hashlib
 import json
 import os
 import threading
@@ -274,6 +275,21 @@ UUID_MANUFACTURER = "2a29"
 UUID_MODEL_NUMBER = "2a24"
 
 UUID_BATTERY_SERVICE = "180f"
+# Generic Attribute Profile, and the one characteristic that matters in it.
+# A bonded central CACHES this device's attribute handles across connections.
+# Service Changed is how a device tells it to throw that cache away.  Without
+# it, a firmware update that moves a handle leaves the host talking to the
+# wrong one -- which presents exactly as "the device advertises, the PC sees
+# it, and nothing works".  Removing the device on the PC and pairing again was
+# the only cure; this is the mechanism that makes that unnecessary.
+UUID_GATT_SERVICE = "1801"
+UUID_SERVICE_CHANGED = "2a05"
+
+# Where the layout signature from the last run is kept.  It has to survive a
+# reboot, so not /run.
+GATT_SIGNATURE_FILE = os.environ.get(
+    "BT_GATT_SIGNATURE_FILE", "/var/lib/ipr-keyboard/gatt_signature"
+)
 UUID_BATTERY_LEVEL = "2a19"
 
 # HID keyboard appearance
@@ -873,10 +889,6 @@ class Characteristic(dbus.service.Object):
     @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
     def StopNotify(self):
         self.notifying = False
-        # The host has gone: start advertising hard again, so it can find us
-        # when it comes back.  BlueZ does not always call this on an abrupt
-        # disconnect, which is why publish_link_state re-checks every 30 s.
-        note_link_state(False)
 
     @dbus.service.signal(DBUS_PROP_IFACE, signature="sa{sv}as")
     def PropertiesChanged(self, interface, changed, invalidated):
@@ -991,6 +1003,14 @@ class InputReportCharacteristic(Characteristic):
         self.notifying = False
         self.notify_state.release()
         log_info("[ble] Input report notify disabled", always=True)
+        # The host has gone: advertise hard again so it can find us when it
+        # comes back.  This belongs HERE, not on the base class: the base
+        # StopNotify is never reached for this characteristic (it is
+        # overridden) and does fire for unrelated ones like battery, so the
+        # hook was both missing where it mattered and wrong where it was.
+        # BlueZ also does not always call this on an abrupt disconnect, which
+        # is why publish_link_state re-checks every 30 s.
+        note_link_state(False)
 
     def notify_report(self, report_bytes: bytes) -> bool:
         if not self.notifying:
@@ -1289,6 +1309,116 @@ def note_link_state(connected: bool, now: float | None = None) -> None:
         fn(desired_adv_mode(connected, now))
     except Exception as exc:  # never let this break a connection
         log_info(f"[ble] Could not change the advertising interval: {exc}")
+
+
+class ServiceChangedCharacteristic(Characteristic):
+    """0x2A05 -- "throw away what you cached about me".
+
+    Indicated once per connection, and only when the attribute layout has
+    actually changed since the last run: an indication on every connect would
+    make every host re-discover the whole database every time, for nothing.
+    """
+
+    def __init__(self, bus, index, service):
+        super().__init__(bus, index, UUID_SERVICE_CHANGED, ["indicate"], service)
+        # The affected handle range, little-endian: 0x0001-0xFFFF, i.e. all of
+        # it.  We cannot know which handles moved, and saying "everything" is
+        # both honest and what the spec expects of a device like this.
+        self._value = bytearray([0x01, 0x00, 0xFF, 0xFF])
+        self.pending = False  # set when the layout changed since last boot
+        self.sent_this_connection = False
+
+    @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
+    def StartNotify(self):
+        self.notifying = True
+        log_info("[ble] Service Changed subscribed", always=True)
+        # A client that caches is required to subscribe to this, so its
+        # subscription is the moment it is listening -- send it now.
+        self.indicate_if_needed()
+
+    @dbus.service.method(GATT_CHRC_IFACE, in_signature="", out_signature="")
+    def StopNotify(self):
+        self.notifying = False
+        self.sent_this_connection = False  # next connection decides afresh
+
+    def indicate_if_needed(self) -> bool:
+        if not (self.pending and self.notifying) or self.sent_this_connection:
+            return False
+        self.PropertiesChanged(
+            GATT_CHRC_IFACE,
+            {"Value": dbus.Array(self._value, signature="y")},
+            [],
+        )
+        self.sent_this_connection = True
+        log_info(
+            "[ble] Service Changed indicated (the layout moved since the last "
+            "run; the host should re-discover)",
+            always=True,
+        )
+        return True
+
+
+class GattProfileService(Service):
+    """0x1801, carrying Service Changed and nothing else."""
+
+    def __init__(self, bus, index):
+        super().__init__(bus, index, UUID_GATT_SERVICE)
+        self.service_changed = ServiceChangedCharacteristic(bus, 0, self)
+        self.add_characteristic(self.service_changed)
+
+
+def gatt_layout_signature(app) -> str:
+    """A short hash of what determines the attribute handles.
+
+    BlueZ allocates handles from the registration order of services,
+    characteristics and descriptors, so that order -- with the UUIDs and flags
+    -- is exactly what a cached client can be wrong about.
+    """
+    parts = []
+    for service in app.services:
+        parts.append(f"S:{service.uuid}:{int(bool(service.primary))}")
+        for chrc in service.characteristics:
+            parts.append(f"C:{chrc.uuid}:{','.join(sorted(chrc.flags))}")
+            for desc in chrc.descriptors:
+                parts.append(f"D:{desc.uuid}")
+    joined = "|".join(parts)
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
+
+
+def layout_changed_since_last_run(signature: str) -> bool:
+    """True when the layout differs from the one recorded last time.
+
+    An unreadable or unwritable store answers False: re-discovery is a
+    nice-to-have, and claiming a change on every boot would cost every host a
+    full re-discovery each time.
+    """
+    previous = None
+    try:
+        with open(GATT_SIGNATURE_FILE, encoding="ascii") as fh:
+            previous = fh.read().strip()
+    except OSError:
+        pass
+    if previous == signature:
+        return False
+    try:
+        os.makedirs(os.path.dirname(GATT_SIGNATURE_FILE), exist_ok=True)
+        tmp = GATT_SIGNATURE_FILE + ".tmp"
+        with open(tmp, "w", encoding="ascii") as fh:
+            fh.write(signature + chr(10))
+        os.replace(tmp, GATT_SIGNATURE_FILE)
+    except OSError as exc:
+        log_info(f"[ble] Could not record the GATT layout signature: {exc}")
+        return False
+    if previous is None:
+        # First run on this device: the host has nothing stale cached from us.
+        log_info(f"[ble] GATT layout signature {signature} recorded", always=True)
+        return False
+    log_info(
+        f"[ble] GATT layout changed ({previous} -> {signature}); bonded hosts "
+        "will be told to re-discover",
+        always=True,
+    )
+    return True
 
 
 class Advertisement(dbus.service.Object):
@@ -1736,9 +1866,25 @@ def main() -> None:
     dis = DeviceInfoService(bus, 1)
     battery = BatteryService(bus, 2)
 
+    # Registered LAST on purpose.  BlueZ allocates handles in registration
+    # order, so appending leaves the existing services' handles exactly where
+    # a currently-bonded host already has them cached -- adding this service
+    # does not itself invalidate the pairing it exists to protect.  (0x1801 is
+    # conventionally first; the spec does not require it, and not breaking the
+    # device that is paired right now matters more than convention.)
+    gatt_profile = GattProfileService(bus, 3)
+
     app.add_service(hid)
     app.add_service(dis)
     app.add_service(battery)
+    app.add_service(gatt_profile)
+
+    # Decide ONCE, at startup, whether bonded hosts have a stale picture of
+    # us: comparing the layout to the one recorded last run is the only way to
+    # know, and indicating on every connection would make every host
+    # re-discover everything every time, for nothing.
+    signature = gatt_layout_signature(app)
+    gatt_profile.service_changed.pending = layout_changed_since_last_run(signature)
 
     adv = Advertisement(
         bus,

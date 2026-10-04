@@ -110,6 +110,15 @@ they fail in opposite directions, so test both
 - [ ] 3/6/10/15/20 s still arm hotspot / shutdown / mode / reset / cancel with
       the documented colours.
 
+**After a daemon update, a bonded PC still works**
+- [ ] Update the BLE daemon, restart it, and reconnect the PC **without**
+      removing and re-pairing it.  Typing still works.
+- [ ] If the GATT layout changed, the journal says so and `Service Changed
+      indicated` follows once the host subscribes.
+- [ ] If it did not change, neither line appears — a re-discovery nobody needs
+      is not free.
+- [ ] `/var/lib/ipr-keyboard/gatt_signature` holds the current hash.
+
 **Getting the PC back after a restart**
 - [ ] Restart the device (magnet menu ▸ Power ▸ Restart).  The journal says
       `Registered GATT+ADV ... (fast, 40-80 ms)`.
