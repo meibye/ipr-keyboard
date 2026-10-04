@@ -172,62 +172,51 @@ and crying wolf would make the warning tier worthless.
    PC has forgotten it, that is a host-side state problem.
 
 
-## Why re-pairing was the only cure, and what fixes it
+## Why re-pairing was the only cure
 
 Removing the device on the PC and pairing again was the only thing that worked
-after a run of daemon reinstalls — power management, toggling Bluetooth and
-restarting the Bluetooth service all failed.  That points at the one piece of
-state a re-pair clears and nothing else does: **the host's cached copy of our
-attribute database**.
+after a run of daemon reinstalls — adapter power management, toggling Bluetooth
+and restarting the Bluetooth service all failed.  That points at the one piece
+of state a re-pair clears and nothing else does: **the host's cached copy of
+our attribute database**.
 
-A bonded LE central caches a device's handles so it does not have to discover
-them on every connection.  If the handles move, the cache is wrong, and the
-host talks to the wrong attributes — which presents as "the device advertises,
-the PC can see it, nothing works".  BlueZ allocates handles from the order in
-which services, characteristics and descriptors are registered, so any change
-to the GATT layout can move them.
+A bonded LE central caches a device's handles rather than discovering them on
+every connection.  BlueZ allocates handles from the order in which services,
+characteristics and descriptors are registered, so a layout change moves them,
+the cache goes stale, and the host talks to the wrong attributes — which
+presents as "the device advertises, the PC sees it, nothing works".
 
-The device had **no way to say so**: it exposed HID (`1812`), Device
-Information (`180a`) and Battery (`180f`), but no Generic Attribute service
-(`0x1801`) and therefore no **Service Changed** (`0x2A05`) — the characteristic
-whose entire purpose is to tell a bonded host to discard what it cached.
+### Do not add a Service Changed characteristic for this
 
-### How it works now
-
-* `0x1801` with Service Changed is registered **last**, deliberately.  BlueZ
-  allocates handles in registration order, so appending leaves every existing
-  handle exactly where a currently-bonded host already has it — adding the
-  service does not invalidate the pairing it exists to protect.  (`0x1801` is
-  conventionally first; the spec does not require it, and not breaking the
-  device paired right now matters more than convention.)
-* At startup the daemon hashes what actually determines the handles — the
-  registration order, UUIDs and flags — and compares it with the hash recorded
-  by the previous run in `/var/lib/ipr-keyboard/gatt_signature`.
-* If it differs, the next host to subscribe to Service Changed is indicated
-  `0x0001-0xFFFF`: re-discover everything.  Once per connection, and only when
-  something really moved — indicating on every connect would make every host
-  re-discover the whole database every time, for nothing.
-* A first run records the hash and says nothing: a host cannot hold a stale
-  cache of a device it has never met.  An unwritable store also says nothing,
-  for the same reason.
-
-The journal is explicit either way:
+Service Changed (`0x2A05`, in the Generic Attribute service `0x1801`) is
+exactly the mechanism for telling a bonded host to discard that cache — and
+**BlueZ already implements it**, in its own GATT database, and sends it when
+the registered services change.  An application that registers `0x1801` is
+refused:
 
 ```
-[ble] GATT layout signature 4f2a9c1e8b7d3a05 recorded
-[ble] GATT layout changed (4f2a9c1e... -> 91b0d7c3...); bonded hosts will be
-      told to re-discover
-[ble] Service Changed subscribed
-[ble] Service Changed indicated (the layout moved since the last run; the host
-      should re-discover)
+org.bluez.Error.Failed: Failed to create entry in database
 ```
 
-### One last re-pair is needed to arm it
+That failure is not contained.  `RegisterAdvertisement` only runs after
+`RegisterApplication` succeeds, so a rejected `0x1801` means **no
+advertisement at all**: the device becomes invisible to every host and the
+daemon crash-loops on its retry budget.  This was tried on the production
+device and did precisely that — `ActiveInstances: 0`, five restarts, the PC
+unable to see the device to pair with it.
 
-A host only learns that Service Changed exists by discovering it.  A PC paired
-**before** this change has no record of `0x1801`, so it cannot be told
-anything — the protection starts at the next pairing.
+`tests/bluetooth/test_ble_daemon_advertising.py` now fails if `0x1801` comes
+back.  The services BlueZ leaves to the application are HID (`1812`), Device
+Information (`180a`) and Battery (`180f`), and those are the three the daemon
+registers.
 
-So: remove the device on the PC and pair once more after installing this.  That
-is the final re-pair; updates after it should not need one.
+### So what to do about a stale cache
+
+Nothing on the device, for now.  BlueZ sends Service Changed on its own when
+the application's services change; if a host still ends up stale, the
+remaining recovery is the one that works: remove the device on the PC and pair
+again.  Worth investigating before building anything: whether BlueZ actually
+emits the indication across a daemon restart (it rebuilds the application's
+part of the database from scratch), and whether Windows honours it.  `btmon`
+during a reconnect would show it.
 

@@ -121,31 +121,16 @@ cd ~/dev/ipr-keyboard && sudo ./scripts/deploy/deploy_install_ble_daemons.sh
 That copies `scripts/service/bin/bt_hid_ble_daemon.py` to `/usr/local/bin/` and
 restarts `bt_hid_agent_unified.service` and `bt_hid_ble.service`.
 
-- [ ] Install, then reconnect the PC **without** removing and re-pairing it.
-      Typing still works.
-- [ ] The journal shows no layout change and no `Service Changed indicated`:
-      reinstalling the same code moves no handles, and a re-discovery nobody
-      needs is not free.
-
-Reinstalling alone therefore proves nothing about Service Changed.  To exercise
-it, make the daemon believe the layout moved — no code change needed:
-
-```bash
-sudo sh -c 'echo deadbeefdeadbeef > /var/lib/ipr-keyboard/gatt_signature'
-sudo systemctl restart bt_hid_ble.service
-journalctl -u bt_hid_ble.service -n 20 --no-pager
-```
-
-- [ ] The journal says `GATT layout changed (deadbeefdeadbeef -> ...); bonded
-      hosts will be told to re-discover`.
-- [ ] When the PC connects: `Service Changed subscribed`, then
-      `Service Changed indicated`.
-- [ ] Typing still works, **without** removing and re-pairing on the PC.
-- [ ] Restart once more: the real hash is now stored, so neither line appears
-      again.
-- [ ] A PC paired *before* 0x1801 existed has never discovered it and cannot be
-      told anything — it needs one re-pair first.  Check this on a PC paired
-      after the upgrade, or re-pair once before testing.
+- [ ] After installing, the journal shows `GATT application registered` and
+      then `Registered GATT+ADV ... (fast, 40-80 ms)`.  **If the GATT line is
+      missing, the device is advertising nothing and is invisible** — that is
+      the failure mode of a rejected service, and it crash-loops.
+- [ ] The PC reconnects and typing works, without removing and re-pairing.
+- [ ] If a re-pair *is* needed after an update, it is the host's handle cache.
+      Do not try to fix it with a Service Changed characteristic: BlueZ owns
+      `0x1801` and refuses an application that registers it, taking the whole
+      database and the advertisement down with it.  See
+      docs/operations/bluetooth-pairing.md.
 
 **Getting the PC back after a restart**
 - [ ] Restart the device (magnet menu ▸ Power ▸ Restart).  The journal says
