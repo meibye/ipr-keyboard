@@ -111,13 +111,41 @@ they fail in opposite directions, so test both
       the documented colours.
 
 **After a daemon update, a bonded PC still works**
-- [ ] Update the BLE daemon, restart it, and reconnect the PC **without**
-      removing and re-pairing it.  Typing still works.
-- [ ] If the GATT layout changed, the journal says so and `Service Changed
-      indicated` follows once the host subscribes.
-- [ ] If it did not change, neither line appears — a re-discovery nobody needs
-      is not free.
-- [ ] `/var/lib/ipr-keyboard/gatt_signature` holds the current hash.
+
+"Update the daemon" means install it and restart the unit:
+
+```bash
+cd ~/dev/ipr-keyboard && sudo ./scripts/deploy/deploy_install_ble_daemons.sh
+```
+
+That copies `scripts/service/bin/bt_hid_ble_daemon.py` to `/usr/local/bin/` and
+restarts `bt_hid_agent_unified.service` and `bt_hid_ble.service`.
+
+- [ ] Install, then reconnect the PC **without** removing and re-pairing it.
+      Typing still works.
+- [ ] The journal shows no layout change and no `Service Changed indicated`:
+      reinstalling the same code moves no handles, and a re-discovery nobody
+      needs is not free.
+
+Reinstalling alone therefore proves nothing about Service Changed.  To exercise
+it, make the daemon believe the layout moved — no code change needed:
+
+```bash
+sudo sh -c 'echo deadbeefdeadbeef > /var/lib/ipr-keyboard/gatt_signature'
+sudo systemctl restart bt_hid_ble.service
+journalctl -u bt_hid_ble.service -n 20 --no-pager
+```
+
+- [ ] The journal says `GATT layout changed (deadbeefdeadbeef -> ...); bonded
+      hosts will be told to re-discover`.
+- [ ] When the PC connects: `Service Changed subscribed`, then
+      `Service Changed indicated`.
+- [ ] Typing still works, **without** removing and re-pairing on the PC.
+- [ ] Restart once more: the real hash is now stored, so neither line appears
+      again.
+- [ ] A PC paired *before* 0x1801 existed has never discovered it and cannot be
+      told anything — it needs one re-pair first.  Check this on a PC paired
+      after the upgrade, or re-pair once before testing.
 
 **Getting the PC back after a restart**
 - [ ] Restart the device (magnet menu ▸ Power ▸ Restart).  The journal says
