@@ -1255,6 +1255,12 @@ def api_debug_typing_trial():
         saved = int(getattr(ConfigManager.instance().get(), "TypingDelayMs", 20))
         results = []
         try:
+            # Warm the link up before the first measured block.  The first
+            # reports after an idle BLE connection are the ones a host is
+            # likeliest to lose -- a newline went missing between the first two
+            # lines of the first block -- and a cold link also skews the first
+            # timing.  Not measured, deliberately short.
+            _warm_up_link()
             for ms in delays:
                 keydelay.apply(ms)
                 banner = f"===== {keydelay.name_for(ms)} ({ms} ms) ====="
@@ -1278,44 +1284,59 @@ def api_debug_typing_trial():
         return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
 
 
+def _warm_up_link() -> None:
+    """Type a couple of newlines and wait, so the first block is not first."""
+    from .. import bt_progress
+
+    try:
+        subprocess.run([_BT_SEND_HELPER, chr(10) * 2], check=False,
+                       capture_output=True, text=True, timeout=30)
+        bt_progress.wait_until_idle(timeout_s=30.0)
+    except (OSError, subprocess.SubprocessError):
+        pass  # a warm-up that fails must not stop the trial
+
+
 def _run_typing_trial(ms: int, text: str) -> dict[str, Any]:
-    """One send, measured from the first character out to the last."""
+    """One send, measured across every drain the daemon makes for it.
+
+    The daemon reads its FIFO line by line, so this text is many drains; the
+    watch spans them and reports when typing really started and stopped.
+    """
     from .. import bt_progress
 
     chars = len(text)
-    first_seen: dict[str, float] = {}
+    watch = bt_progress.TypingWatch()
 
     def _saw(progress) -> None:
-        if progress.typing and "at" not in first_seen:
-            first_seen["at"] = time.monotonic()
-        transmission.set_progress(progress.sent, progress.total)
+        watch(progress)
+        transmission.set_progress(watch.total_typed, chars)
 
     transmission.set_sending("debug/typing-trial", chars=chars)
     queued_at = time.monotonic()
     try:
         subprocess.run([_BT_SEND_HELPER, text], check=True,
-                       capture_output=True, text=True, timeout=60)
+                       capture_output=True, text=True, timeout=120)
     except (OSError, subprocess.SubprocessError) as exc:
         transmission.set_failed(str(exc))
         return {"delay_ms": ms, "name": keydelay.name_for(ms),
                 "chars": chars, "error": str(exc)}
 
-    final = bt_progress.wait_until_idle(on_progress=_saw)
-    finished = time.monotonic()
+    final = bt_progress.wait_until_idle(on_progress=_saw, timeout_s=180.0)
     transmission.set_success()
-    if not final.known:
+    if not final.known or watch.started_at is None:
         return {"delay_ms": ms, "name": keydelay.name_for(ms), "chars": chars,
                 "error": "The text was sent, but the daemon reported no progress, "
                          "so it could not be timed."}
-    started = first_seen.get("at", queued_at)
-    type_ms = (finished - started) * 1000.0
+    started = watch.started_at
+    type_ms = watch.type_seconds() * 1000.0
     # A trial IS a measurement, so it belongs in the KPI store: otherwise the
     # Performance panel stayed empty through a run that measured nothing else.
+    typed = watch.total_typed
     try:
         metrics.record_typing(
             queue_wait_s=max(0.0, started - queued_at),
-            type_s=max(0.0, finished - started),
-            chars=final.total or chars,
+            type_s=watch.type_seconds(),
+            chars=typed or chars,
         )
     except Exception:
         logger.exception("Could not record the trial's typing metrics")
@@ -1327,10 +1348,12 @@ def _run_typing_trial(ms: int, text: str) -> dict[str, Any]:
         "expected_chars_per_second": round(keydelay.chars_per_second(ms), 1),
         "queue_wait_ms": round((started - queued_at) * 1000.0, 1),
         "type_ms": round(type_ms, 1),
-        "ms_per_char": round(type_ms / chars, 2) if chars else None,
-        "chars_per_second": round(1000.0 * chars / type_ms, 1) if type_ms > 0 else None,
-        "sent": final.sent,
-        "complete": final.sent >= chars,
+        # Per character and per second both over the characters the daemon
+        # actually reported typing, not over the text we hoped it would.
+        "ms_per_char": round(type_ms / typed, 2) if typed else None,
+        "chars_per_second": round(1000.0 * typed / type_ms, 1) if type_ms > 0 else None,
+        "sent": typed,
+        "complete": typed >= chars,
     }
 
 

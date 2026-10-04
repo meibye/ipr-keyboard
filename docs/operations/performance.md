@@ -63,12 +63,30 @@ re-applies the saved setting on its first loop.
 
 Either way, lower it by measurement, not by hope:
 
-| Value | Characters/s | Note |
+| Value | Nominal chars/s | Achievable | Note |
+|---|---|---|---|
+| 20 ms | 25 | **25** | the default; the delay is what limits the device |
+| 12 ms | 42 | **~40** | usually the practical best |
+| 8 ms | 62 | ~33–44 | at or below the host's interval: no real gain |
+| 4 ms | 125 | ~33–44 | no gain, and expect loss |
+
+**Nominal is not achievable, and the difference is the whole point.**  Each
+character is two HID notifications, and a notification cannot be delivered
+faster than one connection event:
+
+| Connection interval | Floor | Ceiling |
 |---|---|---|
-| 20 ms | 25 | the historical default |
-| 12 ms | 42 | comfortably above a typical 7.5–15 ms connection interval |
-| 8 ms | 62 | at or below some hosts' interval; verify no dropped characters |
-| 4 ms | 125 | expect loss — the host cannot acknowledge that fast |
+| 7.5 ms | 15 ms/char | 66 chars/s |
+| 11.25 ms | 22.5 ms/char | 44 chars/s |
+| 15 ms | 30 ms/char | **33 chars/s** |
+
+A trial on a Zero 2 W measured **32.9 characters a second at a 4 ms delay** —
+within rounding of the 15 ms floor, and *slower* than the 8 ms step in the same
+run.  Below roughly 12 ms the setting has stopped being what limits the device,
+so the last two steps mostly raise the risk of dropped characters for nothing.
+
+If a device must go faster than ~40 characters a second, the delay is the wrong
+lever: see *Halving the reports* below.
 
 The floor is the **BLE connection interval** the host negotiates: a
 notification cannot be delivered faster than one interval, and Windows
@@ -167,11 +185,27 @@ keys to exist, and the call in `bluetooth/keyboard.py` is wrapped so a metrics
 fault is logged and the send still completes.  Anything added to the recording
 path belongs behind both.
 
+## Halving the reports — the one real optimisation left
+
+The device sends **two** notifications per character: the key pressed, then all
+keys released.  A HID keyboard report carries the *set* of keys currently down,
+so for "ab" the host is equally happy with press-a, press-b (a is released by
+its absence from the second report), release.  That is *n + 1* reports instead
+of *2n* — close to **double** the throughput at the connection-interval floor,
+which no delay setting can buy.
+
+Repeated characters are the exception: "aa" needs an empty report between the
+two, or the host sees one keypress.  Auto-repeat behaviour would need checking
+on every host that matters, and a host that mis-handles it would drop or double
+characters, so this is not a change to make without a measured trial on each
+target PC.  The trial on the Debug screen is the place to prove it.
+
 ## Still not measured
 
 - **The negotiated connection interval** — knowing it would turn the delay
   tuning above from trial and error into arithmetic.  It is readable from
-  `btmon` during a connection.
+  `btmon` during a connection, and `floor_chars_per_second()` in
+  `keydelay.py` turns it into the ceiling.
 
 ## Reading the numbers
 

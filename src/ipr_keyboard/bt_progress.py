@@ -73,6 +73,54 @@ def read(path: str = PROGRESS_FILE, now: float | None = None) -> Progress:
     )
 
 
+class TypingWatch:
+    """Accumulates one logical send out of the daemon's per-line drains.
+
+    The daemon reads its FIFO **line by line** and calls drain_queue after
+    each one, so a ten-line text is ten typing/idle cycles, not one.  Anything
+    that treats the first `idle` as "the send finished" measures one line and
+    then divides the whole text by it -- which is how a trial came to report
+    38 characters a second for a 25/s setting, and "incomplete" for every
+    speed.
+
+    Feed this to wait_until_idle's on_progress.  It keeps the first and last
+    moments typing was actually seen, and sums each drain's characters.
+    """
+
+    def __init__(self, clock=time.monotonic) -> None:
+        self._clock = clock
+        self.started_at: float | None = None
+        self.last_typing_at: float | None = None
+        self.chars_typed = 0
+        self._drain_sent = 0
+        self._drain_total = 0
+
+    def __call__(self, progress: Progress) -> None:
+        if not progress.known:
+            return
+        now = self._clock()
+        # A new drain: `sent` restarts from zero, or the length changes.
+        if progress.sent < self._drain_sent or progress.total != self._drain_total:
+            self.chars_typed += self._drain_sent
+            self._drain_sent = 0
+            self._drain_total = progress.total
+        self._drain_sent = max(self._drain_sent, progress.sent)
+        if progress.typing:
+            if self.started_at is None:
+                self.started_at = now
+            self.last_typing_at = now
+
+    @property
+    def total_typed(self) -> int:
+        """Characters typed across every drain, including the current one."""
+        return self.chars_typed + self._drain_sent
+
+    def type_seconds(self) -> float:
+        if self.started_at is None or self.last_typing_at is None:
+            return 0.0
+        return max(0.0, self.last_typing_at - self.started_at)
+
+
 def publishes(path: str = PROGRESS_FILE) -> bool:
     """Does this daemon report progress at all?
 
@@ -101,12 +149,20 @@ def wait_until_idle(
     clock=time.monotonic,
     sleep=time.sleep,
     start_timeout_s: float = 5.0,
+    settle_s: float = 0.6,
 ) -> Progress:
     """Block until the daemon stops typing, so a send ends when it really has.
 
     Returns the last progress seen.  Returns at once when the daemon publishes
     nothing (an older version), so this can never make a send hang; the
     timeout is the backstop for a daemon that dies mid-text.
+
+    `settle_s` is how long `idle` must LAST before the send counts as over.
+    The daemon drains its FIFO one line at a time, publishing idle after each,
+    so a single `idle` reading usually means "between two lines" rather than
+    "finished" -- and returning on it timed one line out of ten.  The gap
+    between drains is sub-millisecond, so anything above the publish interval
+    tells the two apart.
 
     `start_timeout_s` is how long to wait for the typing to BEGIN.  The text
     has only been queued when this is called, and the daemon publishes nothing
@@ -135,14 +191,20 @@ def wait_until_idle(
             # It never began.  Report what the file says rather than a wait
             # that silently did nothing.
             return read(path)
+    idle_since: float | None = None
     while clock() < deadline:
         current = read(path)
         if on_progress is not None and current.known:
             on_progress(current)
         if current.typing:
             started_typing = True
+            idle_since = None
         elif started_typing:
-            return current  # was typing, now idle: done
+            now = clock()
+            if idle_since is None:
+                idle_since = now
+            elif now - idle_since >= settle_s:
+                return current  # idle, and it stayed idle: really done
         last = current
         sleep(poll_s)
     return last

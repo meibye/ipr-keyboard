@@ -424,11 +424,13 @@
       </div>
       <div class="card-explanation" style="margin-top:-4px">
         How fast the text is typed into the PC. This is nearly all of the time a
-        scan takes: at <b>Normal</b> a full page needs about half a minute.
-        Faster is not always better — the PC has to keep up, and if it cannot,
-        characters go missing or come out in the wrong order, which is worse
-        than waiting. Change one step at a time and check the result, or let
-        <b>Debug → Typing speed trial</b> try each speed for you.
+        scan takes: at <b>Normal</b> a full page needs about a minute.
+        <b>There is a ceiling the device cannot pass.</b> Every character is two
+        radio messages, and each waits for the PC's next radio slot — so beyond
+        <b>Fast</b> the PC, not this setting, decides the speed, and the last two
+        steps mostly just raise the risk of losing characters. <b>Fast</b> is
+        usually the right answer. Check the result after changing it, or let
+        <b>Debug → Typing speed trial</b> measure each speed for you.
         <span id="cfg-typing-note"></span>
       </div>
     </div>
@@ -596,12 +598,14 @@
     <div class="card">
       <div class="debug-section-title">Typing speed trial</div>
       <div class="card-explanation" style="margin-bottom:10px">
-        Types the same known sentence at each speed, one after another, and times
-        each one. The PC stays connected throughout. When it finishes, read what
-        arrived: keep the <b>lowest</b> speed whose text is perfect, then choose
-        that speed in Settings. Faster speeds drop or transpose characters on a
-        PC that cannot keep up, so the timings alone do not decide it — the text
-        does.
+        Types the same ten lines at each speed, one block after another, and
+        times each one. The PC must be <b>connected</b> before you start.
+        <b>Expected</b> is what the setting asks for; <b>Measured</b> is what the
+        radio allowed. Where the two stop agreeing, the PC has become the limit
+        and a faster setting buys nothing — that is the useful result. Then read
+        the blocks on the PC: keep the lowest speed whose text is perfect, and
+        choose it in Settings. The timings alone do not decide it; missing or
+        transposed characters do, and only reading them shows that up.
       </div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary" id="trial-run" onclick="runTypingTrial()">➡ Run the trial</button>

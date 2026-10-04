@@ -101,8 +101,6 @@ def test_a_speed_is_named_the_same_way_everywhere():
         label = keydelay.label_for(ms)
         assert label.startswith(name)
         assert f"{ms} ms" in label, label
-        # The nominal rate in the label is the one the trial compares against.
-        assert str(round(keydelay.chars_per_second(ms))) in label
 
 
 def test_a_hand_tuned_speed_still_gets_a_name_and_a_label():
@@ -130,3 +128,32 @@ def test_the_daemon_and_the_application_agree_on_path_and_range():
 
     assert f"KEY_DELAY_MIN_MS = {keydelay.MIN_MS}" in daemon
     assert f"KEY_DELAY_MAX_MS = {keydelay.MAX_MS}" in daemon
+
+
+def test_the_fast_steps_do_not_promise_a_rate_the_radio_cannot_deliver():
+    """The labels said "62 a second" and "125 a second".  Neither can happen.
+
+    Each character is two HID notifications, and a notification waits for a
+    connection event: at the 15 ms interval a PC typically negotiates, the
+    ceiling is 33 characters a second whatever the delay.  A trial measured
+    32.9/s at a 4 ms delay -- the radio, not the setting.  Promising 125/s in
+    the Settings list was therefore simply untrue.
+    """
+    assert round(keydelay.floor_chars_per_second(15.0), 1) == 33.3
+    assert round(keydelay.floor_chars_per_second(7.5), 1) == 66.7
+
+    for ms in (8, 4):
+        label = keydelay.label_for(ms)
+        nominal = str(round(keydelay.chars_per_second(ms)))
+        assert nominal not in label, f"{label!r} still promises {nominal}/s"
+
+    # The two steps that ARE below the floor may still quote a rate.
+    for ms in (20, 12):
+        assert "second" in keydelay.label_for(ms)
+
+
+def test_the_nominal_rate_is_still_available_for_comparison():
+    """The trial shows nominal beside measured; that is how the gap shows up."""
+    assert keydelay.chars_per_second(4) == 125.0
+    assert keydelay.chars_per_second(4) > keydelay.floor_chars_per_second()
+

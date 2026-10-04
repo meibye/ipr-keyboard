@@ -1976,19 +1976,42 @@ def build() -> None:
         "1.500 tegn tager ca. 60 sekunder, og resten af kæden (detektion, læsning, kø) "
         "bidrager med under et halvt sekund tilsammen.")
     m.table(
-        ["Indstilling", "Værdi", "Tegn/s", "Bemærkning"],
+        ["Indstilling", "Værdi", "Teoretisk", "Opnåeligt", "Bemærkning"],
         [
-            ["Normal", "20 ms", "25", "Standard. Virker på alle værter."],
-            ["Hurtig", "12 ms", "42", "Ligger stadig over et typisk forbindelsesinterval "
-                                      "på 7,5–15 ms."],
-            ["Hurtigere", "8 ms", "62", "På eller under nogle værters interval. "
-                                        "Kontrollér teksten tegn for tegn."],
-            ["Hurtigst", "4 ms", "125", "Forvent tab af tegn — værten kan ikke kvittere "
-                                        "så hurtigt."],
+            ["Normal", "20 ms", "25/s", "25/s", "Standard. Her er det forsinkelsen, "
+                                                "der sætter grænsen."],
+            ["Hurtig", "12 ms", "42/s", "ca. 40/s", "I praksis det bedste valg."],
+            ["Hurtigere", "8 ms", "62/s", "33–44/s", "På eller under værtens interval: "
+                                                     "ingen reel gevinst."],
+            ["Hurtigst", "4 ms", "125/s", "33–44/s", "Ingen gevinst, og forvent tab "
+                                                     "af tegn."],
         ],
-        widths=[3.0, 2.0, 1.8, 8.8],
-        caption="Skrivehastigheder, der kan vælges under Indstillinger.",
+        widths=[2.4, 1.6, 1.8, 1.8, 8.0],
+        caption="Skrivehastigheder under Indstillinger. Den teoretiske værdi kan ikke "
+                "nås: se loftet herunder.",
     )
+    m.p("Den teoretiske hastighed kan ikke opnås, og forskellen er hele pointen. Hvert "
+        "tegn er to HID-notifikationer, og en notifikation kan ikke leveres hurtigere "
+        "end ét forbindelsesinterval. Ved de 15 ms, en Windows-pc typisk forhandler sig "
+        "frem til, er loftet 2 × 15 ms = 30 ms pr. tegn, altså 33 tegn i sekundet — "
+        "uanset hvad forsinkelsen er sat til.")
+    m.table(
+        ["Forbindelsesinterval", "Gulv pr. tegn", "Loft"],
+        [
+            ["7,5 ms", "15 ms", "66 tegn/s"],
+            ["11,25 ms", "22,5 ms", "44 tegn/s"],
+            ["15 ms", "30 ms", "33 tegn/s"],
+        ],
+        widths=[4.0, 4.0, 7.6],
+        caption="Loftet sat af radioen, ikke af indstillingen.",
+    )
+    m.note("Målt på en Zero 2 W: 32,9 tegn i sekundet ved en forsinkelse på 4 ms — "
+           "inden for afrunding af gulvet ved 15 ms, og langsommere end 8 ms i samme "
+           "kørsel. Under ca. 12 ms er indstillingen ikke længere det, der begrænser "
+           "enheden, så de to hurtigste trin øger mest af alt risikoen for tabte tegn. "
+           "Skal en enhed hurtigere end ca. 40 tegn i sekundet, er forsinkelsen den "
+           "forkerte knap: se docs/operations/performance.md, afsnittet om at halvere "
+           "antallet af rapporter.", "warn")
     m.note("Nedre grænse er det BLE-forbindelsesinterval, pc'en forhandler sig frem til. "
            "En notifikation kan ikke leveres hurtigere end ét interval, og Windows lander "
            "typisk på 7,5–15 ms. Under det lægger rapporterne sig i kø, og stakken kan "

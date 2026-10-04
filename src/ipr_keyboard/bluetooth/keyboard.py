@@ -21,25 +21,28 @@ def _wait_for_typing(queued_at: float, chars: int) -> float | None:
     Returns the monotonic time typing finished, or None when the daemon says
     nothing about its progress.
     """
-    first_seen = {"at": None}
+    # The daemon drains its FIFO one line at a time, so a multi-line scan is
+    # several typing/idle cycles.  The watch spans them: without it the first
+    # line's "idle" ended the send, and the panel stopped counting a tenth of
+    # the way through a long scan.
+    watch = bt_progress.TypingWatch()
 
     def _saw(progress) -> None:
-        if progress.typing and first_seen["at"] is None:
-            first_seen["at"] = time.monotonic()
+        watch(progress)
         # Feed the live count through, so the panel and the dashboard show the
         # text arriving rather than a bar that means "something is happening".
-        transmission.set_progress(progress.sent, progress.total)
+        transmission.set_progress(watch.total_typed, chars)
 
     final = bt_progress.wait_until_idle(on_progress=_saw)
-    if not final.known:
+    if not final.known or watch.started_at is None:
         return None
-    typed_at = time.monotonic()
-    started = first_seen["at"] or queued_at
+    typed_at = watch.last_typing_at or time.monotonic()
+    started = watch.started_at
     try:
         metrics.record_typing(
             queue_wait_s=started - queued_at,
-            type_s=typed_at - started,
-            chars=final.total or chars,
+            type_s=watch.type_seconds(),
+            chars=watch.total_typed or chars,
         )
     except Exception:
         # A measurement must never cost a scan.  An unregistered KPI key once

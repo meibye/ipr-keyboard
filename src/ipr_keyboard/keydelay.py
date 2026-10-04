@@ -36,10 +36,10 @@ MAX_MS = 200
 # docs/operations/performance.md, and the labels say what the user gets rather
 # than what the device does.
 CHOICES: tuple[tuple[int, str, str], ...] = (
-    (20, "Normal", "25 characters a second"),
-    (12, "Fast", "42 a second"),
-    (8, "Faster", "62 a second — check for dropped characters"),
-    (4, "Fastest", "125 a second — expect dropped characters"),
+    (20, "Normal", "about 25 characters a second"),
+    (12, "Fast", "about 40 a second — usually the practical best"),
+    (8, "Faster", "rarely any faster: the PC's radio sets the limit"),
+    (4, "Fastest", "no faster in practice, and characters may be lost"),
 )
 
 
@@ -69,9 +69,27 @@ def clamp(ms: int) -> int:
 
 
 def chars_per_second(ms: int) -> float:
-    """Two HID reports per character, so the delay is paid twice."""
+    """The NOMINAL rate: two HID reports per character, so the delay counts twice.
+
+    Nominal, not achievable.  Each report is a BLE notification and cannot be
+    delivered faster than one connection event, so the real ceiling is
+    `floor_chars_per_second` for whatever interval the PC negotiated.  Below
+    about 12 ms the delay stops being what limits the device, which is why
+    "Faster" and "Fastest" are not.
+    """
     ms = clamp(ms)
     return 1000.0 / (2.0 * ms)
+
+
+# What a host typically negotiates for HID.  Windows commonly settles at the
+# upper end, and 2 x 15 ms = 33 characters a second -- measured as 32.9 on a
+# Zero 2 W at a 4 ms delay, i.e. the radio, not the setting.
+TYPICAL_INTERVAL_MS = 15.0
+
+
+def floor_chars_per_second(interval_ms: float = TYPICAL_INTERVAL_MS) -> float:
+    """The most that can be typed at a given connection interval."""
+    return 1000.0 / (2.0 * interval_ms)
 
 
 def read() -> int | None:

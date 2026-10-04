@@ -139,3 +139,66 @@ def test_waiting_gives_up_when_the_typing_never_starts(tmp_path):
     assert not got.typing
     assert 1 <= len(ticks) <= 10, len(ticks)
 
+
+# ---------------------------------------------------------------------------
+# The daemon drains its FIFO one line at a time
+# ---------------------------------------------------------------------------
+
+
+def test_one_idle_between_lines_does_not_end_the_send(tmp_path):
+    """The bug behind "incomplete" on every row of the speed trial.
+
+    drain_queue runs once per LINE, forcing typing then idle each time, so a
+    ten-line text is ten cycles.  Returning on the first idle timed one line
+    and then divided the whole text by it -- 38 characters a second reported
+    for a 25/s setting.
+    """
+    p = tmp_path / "progress.json"
+    _write(p, state="typing", total=5, sent=0)
+    # line one types 5, goes idle; line two types 5 more, then really stops
+    steps = iter([
+        ("typing", 5, 3), ("idle", 5, 5),          # end of line one
+        ("typing", 5, 2), ("typing", 5, 5),        # line two
+        ("idle", 5, 5), ("idle", 5, 5), ("idle", 5, 5),
+    ])
+    t = [0.0]
+
+    def _clock():
+        return t[0]
+
+    def _sleep(_s):
+        t[0] += 0.1
+        try:
+            state, total, sent = next(steps)
+        except StopIteration:
+            return
+        _write(p, state=state, total=total, sent=sent)
+
+    watch = bp.TypingWatch(clock=_clock)
+    got = bp.wait_until_idle(
+        str(p), poll_s=0.1, clock=_clock, sleep=_sleep,
+        on_progress=watch, settle_s=0.25,
+    )
+    assert got.state == "idle"
+    # Both lines counted, not just the first.
+    assert watch.total_typed == 10, watch.total_typed
+    # The settle period is not charged to the typing.
+    assert watch.type_seconds() < 0.6, watch.type_seconds()
+
+
+def test_the_watch_sums_the_characters_of_every_drain():
+    watch = bp.TypingWatch(clock=lambda: 0.0)
+    for state, total, sent in [
+        ("typing", 40, 10), ("typing", 40, 40), ("idle", 40, 40),
+        ("typing", 12, 4), ("typing", 12, 12), ("idle", 12, 12),
+        ("typing", 7, 7), ("idle", 7, 7),
+    ]:
+        watch(bp.Progress(state=state, total=total, sent=sent, at=1.0))
+    assert watch.total_typed == 40 + 12 + 7
+
+
+def test_the_watch_ignores_unknown_readings():
+    watch = bp.TypingWatch(clock=lambda: 0.0)
+    watch(bp.UNKNOWN)
+    assert watch.total_typed == 0 and watch.started_at is None
+
