@@ -33,6 +33,11 @@
 # sudo: yes
 
 set -uo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 # ── invoking user resolution ───────────────────────────────────────────────────
 
@@ -509,9 +514,9 @@ section "N — OLED status display  (install_oled_support.sh)"
 
 check N.1 "config.txt enables I2C (dtparam=i2c_arm=on)"        "grep -q '^dtparam=i2c_arm=on' '$_BOOT_CFG'"
 check N.2 "I2C bus runs at 400 kHz (i2c_arm_baudrate)"          "grep -q '^dtparam=i2c_arm_baudrate=400000' '$_BOOT_CFG'"
-check N.3 "i2c-dev autoloaded (modules-load.d/ipr-oled.conf)"   "[ -f /etc/modules-load.d/ipr-oled.conf ] && lsmod | grep -q '^i2c_dev'"
+check N.3 "i2c-dev autoloaded (modules-load.d/ipr-oled.conf)"   "[ -f /etc/modules-load.d/ipr-oled.conf ] && lsmod | grepq '^i2c_dev'"
 check N.4 "/dev/i2c-1 present"                                  "[ -c /dev/i2c-1 ]"
-check N.5 "$_INVOKING_USER in group i2c"                        "id -nG '$_INVOKING_USER' | tr ' ' '\n' | grep -qx i2c"
+check N.5 "$_INVOKING_USER in group i2c"                        "id -nG '$_INVOKING_USER' | tr ' ' '\n' | grepq -x i2c"
 check N.6 "python3-pil, fonts-dejavu-core, i2c-tools installed" "dpkg -s python3-pil fonts-dejavu-core i2c-tools"
 check N.7 "Pillow importable from the app venv"                 "'$PROJECT_DIR/.venv/bin/python' -c 'from PIL import Image, ImageDraw, ImageFont'"
 check N.8 "ipr-led-halt.sh blanks the OLED at halt (0xAE)"      "grep -q '0xAE' /usr/local/sbin/ipr-led-halt.sh"
@@ -545,9 +550,9 @@ check O.2 "installed BLE daemon reads the runtime typing speed"     "grep -q 'KE
 check O.3 "installed BLE daemon publishes typing progress"     "grep -q 'PROGRESS_FILE' /usr/local/bin/bt_hid_ble_daemon.py"
 check O.4 "installed BLE daemon publishes the bond state"     "grep -q 'LINK_FILE' /usr/local/bin/bt_hid_ble_daemon.py"
 check O.5 "installed BLE daemon does NOT register GATT 0x1801"     "! grep -q 'UUID_GATT_SERVICE' /usr/local/bin/bt_hid_ble_daemon.py"
-check O.6 "BLE daemon registered its GATT application"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grep -q 'GATT application registered'"
-check O.7 "BLE daemon is advertising, with an interval it chose"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grep -qE 'Registered GATT\+ADV.*(fast|medium|slow)'"
-check O.8 "an advertising instance is actually active"     "busctl --system get-property org.bluez /org/bluez/hci0 org.bluez.LEAdvertisingManager1 ActiveInstances | grep -qv ' 0$'"
+check O.6 "BLE daemon registered its GATT application"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grepq 'GATT application registered'"
+check O.7 "BLE daemon is advertising, with an interval it chose"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grepq -E 'Registered GATT\+ADV.*(fast|medium|slow)'"
+check O.8 "an advertising instance is actually active"     "busctl --system get-property org.bluez /org/bluez/hci0 org.bluez.LEAdvertisingManager1 ActiveInstances | grepq -v ' 0$'"
 
 # The runtime files: the daemon creates two at startup, the application writes
 # the third on its first loop.  The progress file only appears after a send, so
@@ -574,6 +579,13 @@ elif [ "$_env_delay" = "$_cfg_delay" ]; then
 else
     record_fail O.14 "typing speed disagrees: /opt/ipr_common.env says ${_env_delay} ms, config.json says ${_cfg_delay} ms"
 fi
+
+# A keyboard should present itself as a keyboard.  BlueZ's LE Audio servers
+# (vcp, micp, bass) otherwise register Volume Control, Microphone Control and
+# Broadcast Audio Scan in the GATT database -- services a PC then tries to set
+# up for an audio device that does not exist.
+check O.15 "bluetoothd runs without the LE Audio plugins (vcp, micp, bass)"     "grep -q -- 'vcp,micp,bass' /etc/systemd/system/bluetooth.service.d/override.conf"
+check O.16 "the adapter advertises no audio services"     "! bluetoothctl show | grepq -E 'Volume Control|Microphone Control|Broadcast Audio Scan|Audio Input Control|Volume Offset Control'"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 section "J — Manual / interactive checks  (skipped with --auto)"

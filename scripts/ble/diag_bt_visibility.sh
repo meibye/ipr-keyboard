@@ -15,6 +15,11 @@
 # sudo: yes
 #
 set -euo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 FIX=0
 HCI="hci0"
@@ -78,20 +83,20 @@ section "2) Adapter state via btmgmt"
 BTINFO="$(btmgmt -i "$HCI" info 2>&1 || true)"
 echo "$BTINFO"
 
-if echo "$BTINFO" | grep -qi "No such controller"; then
+if echo "$BTINFO" | grepq -i "No such controller"; then
   fail "Controller ${HCI} not found. Check: btmgmt list ; hciconfig -a"
   exit 3
 fi
 
 # Very coarse checks (btmgmt output varies by version)
-echo "$BTINFO" | grep -qi "current settings:.*powered"      && pass "Adapter is Powered"      || fail "Adapter is NOT powered"
-echo "$BTINFO" | grep -qi "current settings:.*connectable"  && pass "Adapter is Connectable" || warn "Adapter is NOT connectable"
-echo "$BTINFO" | grep -qi "current settings:.*discoverable" && pass "Adapter is Discoverable" || warn "Adapter is NOT discoverable (host scanning won't see it)"
-echo "$BTINFO" | grep -qi "current settings:.*le"           && pass "LE is enabled"          || warn "LE not shown as enabled (should be ON for BLE HID)"
+echo "$BTINFO" | grepq -i "current settings:.*powered"      && pass "Adapter is Powered"      || fail "Adapter is NOT powered"
+echo "$BTINFO" | grepq -i "current settings:.*connectable"  && pass "Adapter is Connectable" || warn "Adapter is NOT connectable"
+echo "$BTINFO" | grepq -i "current settings:.*discoverable" && pass "Adapter is Discoverable" || warn "Adapter is NOT discoverable (host scanning won't see it)"
+echo "$BTINFO" | grepq -i "current settings:.*le"           && pass "LE is enabled"          || warn "LE not shown as enabled (should be ON for BLE HID)"
 
 # Advertising state is not always shown in `info`, but we still attempt to read it:
 ADVSTATE="$(btmgmt -i "$HCI" info 2>&1 || true)"
-if echo "$ADVSTATE" | grep -qi "current settings:.*advertising"; then
+if echo "$ADVSTATE" | grepq -i "current settings:.*advertising"; then
   pass "Adapter is ADVERTISING"
 else
   fail "Adapter is NOT advertising"
@@ -105,7 +110,7 @@ systemctl cat bluetooth.service || true
 BTD_PS="$(ps -ef | grep -E '[b]luetoothd' || true)"
 echo "$BTD_PS"
 
-if echo "$BTD_PS" | grep -q -- "--experimental"; then
+if echo "$BTD_PS" | grepq -- "--experimental"; then
   pass "bluetoothd is running with --experimental"
 else
   warn "bluetoothd does NOT show --experimental (some stacks need it for LE adv/GATT behaviors)"
@@ -134,8 +139,8 @@ section "6) Quick check: bluetoothctl show"
 # bluetoothctl is sometimes blocked by rfkill / permissions; still try
 BTCTL_SHOW="$(bluetoothctl show 2>&1 || true)"
 echo "$BTCTL_SHOW"
-echo "$BTCTL_SHOW" | grep -qi "Powered: yes" && pass "bluetoothctl: Powered yes" || warn "bluetoothctl: Powered not yes"
-echo "$BTCTL_SHOW" | grep -qi "Discoverable: yes" && pass "bluetoothctl: Discoverable yes" || warn "bluetoothctl: Discoverable not yes"
+echo "$BTCTL_SHOW" | grepq -i "Powered: yes" && pass "bluetoothctl: Powered yes" || warn "bluetoothctl: Powered not yes"
+echo "$BTCTL_SHOW" | grepq -i "Discoverable: yes" && pass "bluetoothctl: Discoverable yes" || warn "bluetoothctl: Discoverable not yes"
 
 section "7) Optional: apply best-effort fixes"
 if [[ "$FIX" -eq 1 ]]; then

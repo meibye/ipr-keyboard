@@ -49,6 +49,11 @@
 # sudo: yes
 
 set -eo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 # Color codes
 RED='\033[0;31m'
@@ -688,7 +693,7 @@ if [[ "$wizard_step" -le 6 ]]; then
       # Check if key is already added
       KEY_FINGERPRINT=$(ssh-keygen -lf "$SSH_KEY" | awk '{print $2}')
       echo -e "${BLUE}Debug: Key fingerprint: $KEY_FINGERPRINT${NC}"
-      if ! sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh-add -l | grep -q "$KEY_FINGERPRINT"; then
+      if ! sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh-add -l | grepq "$KEY_FINGERPRINT"; then
         echo -e "${YELLOW}Debug: Key not found in agent, adding...${NC}"
         sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh-add "$SSH_KEY"
         echo "SSH key $SSH_KEY added to ssh-agent."
@@ -704,7 +709,7 @@ if [[ "$wizard_step" -le 6 ]]; then
   set +e
   SSH_TEST_OUTPUT=$(sudo -u "$SSH_USER" SSH_AUTH_SOCK="$SSH_AUTH_SOCK_PATH" ssh -T git@github.com 2>&1)
   echo "$SSH_TEST_OUTPUT"
-  if echo "$SSH_TEST_OUTPUT" | grep -q "successfully authenticated"; then
+  if echo "$SSH_TEST_OUTPUT" | grepq "successfully authenticated"; then
     success "SSH authentication to GitHub succeeded."
   else
   

@@ -57,6 +57,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck source=../lib/ssh_diag.sh
+source "$SCRIPT_DIR/../lib/ssh_diag.sh"
 
 HOST=""
 ENV_FILE="$REPO_ROOT/provision/common.env"
@@ -119,7 +121,8 @@ case "$HOST" in
 esac
 
 log "Checking SSH connectivity ..."
-if ! ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" true 2>/dev/null; then
+# Keep ssh's stderr: it is the only record of *why* the login failed.
+if ! ssh_err="$(ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" true 2>&1 >/dev/null)"; then
     # Every step below needs this connection.  Continuing would mean a
     # password prompt per transfer at best, and a chain of failures at worst,
     # so stop here with a diagnosis instead.
@@ -139,14 +142,8 @@ if ! ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" true 2>/dev/null; then
         echo "       the Windows user's keys or config. Set it up once with:" >&2
         echo >&2
         echo "         ./scripts/deploy/wsl_setup_ssh.sh" >&2
-    elif grep -qi microsoft /proc/version 2>/dev/null; then
-        echo "       In WSL, .local names do not resolve and the Windows keys are not" >&2
-        echo "       shared. If you have not done so on this distribution, run:" >&2
-        echo >&2
-        echo "         ./scripts/deploy/wsl_setup_ssh.sh" >&2
     else
-        echo "       Install your key on the device with:" >&2
-        echo "         ssh-copy-id -i ~/.ssh/ipr_rpi.pub $HOST" >&2
+        ssh_explain_failure "$HOST" "$ssh_err" | sed 's/^/       /' >&2
     fi
 
     echo >&2

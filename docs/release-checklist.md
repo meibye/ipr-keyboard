@@ -230,6 +230,12 @@ where `OledMarqueeFps` may need lowering.
 
 ## Gate 5 — A fresh install, unattended
 
+**First remove "IPR Keyboard" in the PC's Bluetooth settings.**  The install
+wipes the device's half of the bond but not the PC's, and a PC holding a stale
+bond reconnects in a loop — Connected / Not connected, `PC connecting…` on the
+panel — which looks like a fault in the build.  See
+docs/operations/bluetooth-pairing.md.
+
 From a freshly imaged card:
 
 ```bash

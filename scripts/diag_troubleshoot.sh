@@ -23,10 +23,15 @@
 # sudo: no
 
 set -eo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 # Is a systemd unit present on this system?
 #
-# Deliberately not `systemctl list-unit-files | grep -q "$unit"`: grep -q exits
+# Deliberately not `systemctl list-unit-files | grepq "$unit"`: grep -q exits
 # at the first match, the producer is killed by SIGPIPE (141), and the pipefail
 # above then reports the pipeline as failed -- so an installed unit reads as
 # missing.  A direct query has no pipeline at all.

@@ -20,6 +20,11 @@
 # sudo: yes (for full system access)
 
 set -eo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 # Color output
 RED='\033[0;31m'
@@ -346,7 +351,7 @@ else
 fi
 
 # plugdev group membership
-if id -nG "$APP_USER" 2>/dev/null | grep -qw plugdev; then
+if id -nG "$APP_USER" 2>/dev/null | grepq -w plugdev; then
   log "✓ $APP_USER is in plugdev group"
 else
   warn "⚠ $APP_USER is not in plugdev group (MTP access may fail)"

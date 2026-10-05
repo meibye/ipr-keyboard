@@ -22,6 +22,7 @@ exactly like ``GpioMonitor`` without ``RPi.GPIO``.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import threading
 import time
@@ -36,6 +37,14 @@ from .ssd1306 import Ssd1306, device_path, pil_available, pil_unavailable_reason
 # How often to ask whether a PC is paired, while none is connected.  A bond
 # changes only when someone pairs or unpairs, so this is deliberately lazy.
 BOND_CHECK_SECS = 5.0
+
+# While a host is connected but its name is not known yet, ask again this
+# often.  The name is read on the connected edge, and during a first pairing
+# BlueZ may not have resolved it by then -- without a retry the panel would
+# never show it for that whole connection.
+HOST_RETRY_SECS = 5.0
+
+_MAC_LIKE = re.compile(r"(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}")
 
 logger = get_logger()
 
@@ -129,7 +138,15 @@ def bluetooth_host_name() -> str:
         for line in out.splitlines():
             parts = line.split(None, 2)
             if len(parts) >= 3:
-                return parts[2].strip()
+                name = parts[2].strip()
+                # BlueZ sets the alias to the address ("2C-9C-58-2C-12-D8") when
+                # it does not know the device's name -- which is the case for a
+                # PC still holding a bond from before the device was reinstalled.
+                # A MAC on the panel reads as a fault code, and says nothing the
+                # user can act on.
+                if _MAC_LIKE.fullmatch(name):
+                    return ""
+                return name
     except Exception:
         pass
     return ""
@@ -200,6 +217,7 @@ class OledManager:
         self._bt_host_name = ""
         self._bt_bonded = False
         self._next_bond_check = 0.0
+        self._next_host_check = 0.0
         self._hotspot_was = False
         self._hotspot_name = ""
         self._last_phase = screens.BOOT  # phase seen by the last tick
@@ -382,8 +400,13 @@ class OledManager:
 
         if led.bt_connected and not self._bt_was:
             self._bt_host_name = self._bt_host()
+            self._next_host_check = now + HOST_RETRY_SECS
         elif not led.bt_connected:
             self._bt_host_name = ""
+        elif not self._bt_host_name and now >= self._next_host_check:
+            # Connected, name still unknown: try again, lazily.
+            self._next_host_check = now + HOST_RETRY_SECS
+            self._bt_host_name = self._bt_host()
         self._bt_was = led.bt_connected
 
         # Whether a PC has ever been paired, so the panel can say "reconnect it

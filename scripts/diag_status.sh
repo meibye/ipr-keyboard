@@ -21,6 +21,11 @@
 # sudo: no
 
 set -eo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/env_set_variables.sh"
@@ -44,7 +49,7 @@ function section() {
 
 section "Environment & Configuration"
 status_line "User" "$IPR_USER"
-status_line "Project Root" "$IPR_PROJECT_ROOT"
+status_line "Dev root (IPR_PROJECT_ROOT)" "$IPR_PROJECT_ROOT"
 
 CONFIG_FILE="$IPR_PROJECT_ROOT/ipr-keyboard/config.json"
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -63,10 +68,10 @@ AGENT_SVC="bt_hid_agent_unified.service"
 BLE_ACTIVE=false
 AGENT_ACTIVE=false
 
-if systemctl list-units --type=service | grep -q "$BLE_SVC"; then
+if systemctl list-units --type=service | grepq "$BLE_SVC"; then
   if systemctl is-active --quiet "$BLE_SVC"; then BLE_ACTIVE=true; fi
 fi
-if systemctl list-units --type=service | grep -q "$AGENT_SVC"; then
+if systemctl list-units --type=service | grepq "$AGENT_SVC"; then
   if systemctl is-active --quiet "$AGENT_SVC"; then AGENT_ACTIVE=true; fi
 fi
 
@@ -121,7 +126,7 @@ MOUNT_PATH="/mnt/irispen"
 if [[ -f "$CONFIG_FILE" ]]; then
   MOUNT_PATH=$(jq -r '.IrisPenFolder // "/mnt/irispen"' "$CONFIG_FILE" 2>/dev/null || echo "/mnt/irispen")
 fi
-if mount | grep -q "on $MOUNT_PATH "; then
+if mount | grepq "on $MOUNT_PATH "; then
   status_line "IrisPen mount" "mounted at $MOUNT_PATH" "$green"
 else
   status_line "IrisPen mount" "NOT MOUNTED at $MOUNT_PATH" "$red"
@@ -133,7 +138,7 @@ if [[ -f "$CONFIG_FILE" ]]; then
   PORT=$(jq -r '.LogPort // 8080' "$CONFIG_FILE" 2>/dev/null || echo "8080")
 fi
 status_line "Web API Port" "$PORT"
-if ss -tln | grep -q ":$PORT "; then
+if ss -tln | grepq ":$PORT "; then
   status_line "Web API" "LISTENING on port $PORT" "$green"
 else
   status_line "Web API" "NOT LISTENING on port $PORT" "$red"

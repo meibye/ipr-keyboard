@@ -387,3 +387,19 @@ def test_the_pc_hint_fits_the_panel():
     for text in ("Reconnect from PC", "Waiting for PC…"):
         assert font.getbbox(text)[2] <= slot, text
 
+
+
+def test_a_connected_pc_with_no_name_is_connecting_not_connected():
+    """What a PC with a stale bond looks like after the device is reinstalled.
+
+    The PC still holds keys from before; the fresh device has none.  The link
+    comes up, encryption fails, it drops, and the PC tries again -- so the
+    panel saw "connected" with a host whose only name was its MAC address and
+    showed that, which reads as a fault code.  "Connecting" is true of this and
+    of the first seconds of a genuine pairing.
+    """
+    s = compose(ready_snapshot(bt_connected=True, bt_host=""))
+    assert s.lines[0] == Line("PC connecting…", sc.ICON_BT)
+
+    named = compose(ready_snapshot(bt_connected=True, bt_host="MSI"))
+    assert named.lines[0] == Line("MSI", sc.ICON_BT)

@@ -37,6 +37,11 @@
 # sudo: yes
 
 set -euo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 HOTSPOT_CON="ipr-hotspot"
 WLAN_IF="wlan0"
@@ -123,7 +128,7 @@ stop_hotspot() {
   # Do NOT remove the request file here: `systemctl restart` runs ExecStop
   # (this) before ExecStart, and ipr_hotspot_ctl.sh start has just written the
   # file for ExecStart to consume.  The helper's stop command removes it.
-  if nmcli -t -f NAME con show --active 2>/dev/null | grep -qx "${HOTSPOT_CON}"; then
+  if nmcli -t -f NAME con show --active 2>/dev/null | grepq -x "${HOTSPOT_CON}"; then
     log "Taking hotspot down: ${HOTSPOT_CON}"
     nmcli con down "${HOTSPOT_CON}" || true
   else
@@ -239,7 +244,7 @@ apply_wpa2_rsn() {
 }
 
 ensure_hotspot_connection() {
-  if nmcli -t -f NAME con show | grep -qx "${HOTSPOT_CON}"; then
+  if nmcli -t -f NAME con show | grepq -x "${HOTSPOT_CON}"; then
     log "Updating existing hotspot connection: ${HOTSPOT_CON}"
     nmcli con modify "${HOTSPOT_CON}" 802-11-wireless.ssid "${SSID}"
   else
@@ -287,7 +292,7 @@ main() {
     should_start=1
   else
     log "HOTSPOT_MODE=on-demand and no trigger detected — hotspot not started"
-    log "Trigger options: magnet (hold 3 s), ipr_hotspot_ctl.sh start, triple power-cycle, or create IPR_SETUP on /boot/firmware"
+    log "Trigger options: magnet menu > Hotspot (hold 3 s on a device with no display), ipr_hotspot_ctl.sh start, triple power-cycle, or create IPR_SETUP on /boot/firmware"
   fi
 
   if [[ ${should_start} -eq 0 ]]; then

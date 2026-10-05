@@ -40,6 +40,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/ssh_diag.sh
+source "$SCRIPT_DIR/../lib/ssh_diag.sh"
+
 SSH_DIR="$HOME/.ssh"
 MARKER_BEGIN="# --- BEGIN wsl_setup_ssh.sh generated overrides ---"
 MARKER_END="# --- END wsl_setup_ssh.sh generated overrides ---"
@@ -266,19 +270,20 @@ failed=0
 for h in "${HOSTS[@]}"; do
     user="$(ssh -G "$h" 2>/dev/null | awk '/^user /{print $2; exit}')"
     hn="$(ssh -G "$h" 2>/dev/null | awk '/^hostname /{print $2; exit}')"
-    if ssh -o BatchMode=yes -o ConnectTimeout=8 "$h" true 2>/dev/null; then
+    # Keep ssh's stderr: it is the only record of *why* a login failed.
+    if err="$(ssh -o BatchMode=yes -o ConnectTimeout=8 "$h" true 2>&1 >/dev/null)"; then
         echo "  ok    $h  ($user@$hn) — key login works"
     else
         echo "  FAIL  $h  ($user@$hn)"
+        ssh_explain_failure "$h" "$err" | sed 's/^/        /'
         failed=$((failed + 1))
     fi
 done
 
 if [[ $failed -gt 0 ]]; then
     echo
-    warn "$failed host(s) did not accept a key login."
-    warn "If the device is off or on another network, that is expected."
-    warn "Otherwise install the key:  ssh-copy-id -i ~/.ssh/ipr_rpi.pub <host>"
+    warn "$failed host(s) did not accept a key login; the reason is under each FAIL."
+    warn "A device that is off or on another network is expected to fail."
     exit 1
 fi
 

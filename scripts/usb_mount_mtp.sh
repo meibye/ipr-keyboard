@@ -22,6 +22,11 @@
 # sudo: no
 
 set -eo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,7 +35,7 @@ source "$SCRIPT_DIR/env_set_variables.sh"
 
 MOUNTPOINT="/mnt/irispen"
 
-if mount | grep -q " $MOUNTPOINT "; then
+if mount | grepq " $MOUNTPOINT "; then
   echo "[usb_mount_mtp] Unmounting IRISPen MTP from $MOUNTPOINT..."
   fusermount -u "$MOUNTPOINT" || sudo umount "$MOUNTPOINT" || true
   echo "[usb_mount_mtp] Unmounted."

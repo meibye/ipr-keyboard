@@ -36,6 +36,11 @@
 # sudo: yes
 
 set -euo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 HOTSPOT_SERVICE="ipr-provision.service"
 HOTSPOT_CON="ipr-hotspot"
@@ -49,7 +54,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 hotspot_up() {
-  nmcli -t -f NAME con show --active 2>/dev/null | grep -qx "${HOTSPOT_CON}"
+  nmcli -t -f NAME con show --active 2>/dev/null | grepq -x "${HOTSPOT_CON}"
 }
 
 case "${1:-}" in

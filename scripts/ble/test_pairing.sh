@@ -22,10 +22,15 @@
 # sudo: no
 
 set -eo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 # Is a systemd unit present on this system?
 #
-# Deliberately not `systemctl list-unit-files | grep -q "$unit"`: grep -q exits
+# Deliberately not `systemctl list-unit-files | grepq "$unit"`: grep -q exits
 # at the first match, the producer is killed by SIGPIPE (141), and the pipefail
 # above then reports the pipeline as failed -- so an installed unit reads as
 # missing.  A direct query has no pipeline at all.
@@ -227,18 +232,18 @@ while true; do
   # Show new log entries with highlighting
   if [[ -f "$LOG_FILE" ]]; then
     tail -n 50 "$LOG_FILE" | grep -E "\[agent\]" | tail -n 10 | while read -r line; do
-      if echo "$line" | grep -qi "passkey"; then
+      if echo "$line" | grepq -i "passkey"; then
         # Extract and highlight passkey
-        if echo "$line" | grep -qE "passkey=[0-9]{6}"; then
+        if echo "$line" | grepq -E "passkey=[0-9]{6}"; then
           PASSKEY=$(echo "$line" | grep -oE "passkey=[0-9]{6}" | cut -d= -f2)
           echo -e "${GREEN}>>> PASSKEY: ${MAGENTA}${PASSKEY}${GREEN} <<<${RESET}"
         fi
         echo -e "${YELLOW}$line${RESET}"
-      elif echo "$line" | grep -qi "pincode"; then
+      elif echo "$line" | grepq -i "pincode"; then
         echo -e "${YELLOW}$line${RESET}"
-      elif echo "$line" | grep -qi "confirmation"; then
+      elif echo "$line" | grepq -i "confirmation"; then
         echo -e "${GREEN}$line${RESET}"
-      elif echo "$line" | grep -qi "authorize"; then
+      elif echo "$line" | grepq -i "authorize"; then
         echo -e "${BLUE}$line${RESET}"
       else
         echo "$line"

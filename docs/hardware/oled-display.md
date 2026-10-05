@@ -58,7 +58,7 @@ pattern for it — see `gpio-wiring.md`.
 | Header | When | Body |
 |---|---|---|
 | `STARTING…` | from a few seconds after power-on (`ipr-oled-boot.service`), then the application | boot checklist: System / Network / Bluetooth / Application, continued by the application as Services / Network / Bluetooth / Dashboard |
-| `READY` | magnet tap, or a status change | PC name (or `Waiting for PC…`), pen (`Pen ready` / `Pen busy (mounting)`), Wi-Fi name and IP |
+| `READY` | magnet tap, or a status change | the PC line: its name when connected; `PC connecting…` when a link is up but the name is not known (a first pairing, or a PC with a stale bond after a reinstall); `Reconnect from PC` when a paired PC is away; `Waiting for PC…` when none was ever paired. Then the pen (`Pen ready` / `Pen busy (mounting)`), Wi-Fi name and IP |
 | `NOT READY` | as `READY`, when the device is waiting on the **user** | the waiting line gets a warning triangle ⚠: `Plug in the pen`, `No Wi-Fi: see menu`.  A PC that has not connected yet does not count — it connects by itself |
 | `PROBLEM` | as `READY`, when the **device** is at fault | the failing line gets a ✗: `Service down: …`, `USB port off — reboot` |
 | `SENDING…` | a scan is being typed | sweeping bar, `→ <PC>`, `N characters` |

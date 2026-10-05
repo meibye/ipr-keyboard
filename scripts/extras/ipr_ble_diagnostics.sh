@@ -17,6 +17,11 @@
 # purpose: Perform comprehensive BLE HID diagnostics
 
 set -eo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 RED="\033[0;31m"; GREEN="\033[0;32m"; YELLOW="\033[1;33m"; RESET="\033[0m"
 
@@ -32,7 +37,7 @@ fi
 ok "Adapter found"
 
 say "2. Checking HID UUID exposure (0x1812)"
-if bluetoothctl show | grep -qi "00001812"; then
+if bluetoothctl show | grepq -i "00001812"; then
     ok "HID service (00001812-0000-1000-8000-00805f9b34fb) exposed"
 else
     err "HID service not visible – BLE HID daemon may not be registered"

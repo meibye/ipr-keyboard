@@ -18,6 +18,11 @@
 # sudo: no
 
 set -eo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 # Load environment variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,7 +42,7 @@ if [[ ! -d "$VENV_DIR" ]]; then
   exit 1
 fi
 
-if ! mount | grep -q " $MTP_ROOT "; then
+if ! mount | grepq " $MTP_ROOT "; then
   echo "[usb_sync_cache][ERROR] $MTP_ROOT is not mounted."
   echo "       Mount with: ./scripts/usb_mount_mtp.sh"
   exit 1

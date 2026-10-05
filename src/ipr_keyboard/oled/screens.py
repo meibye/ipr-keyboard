@@ -400,7 +400,12 @@ def _status_screen(snap: Snapshot, badge: str) -> Screen:
         )
         bt_line = Line(f"Service down: {names}", ICON_ERR)
     elif snap.bt_connected:
-        bt_line = Line(snap.bt_host or "PC connected", ICON_BT)
+        # No name yet is not the same as "connected and working": it is what a
+        # PC with a stale bond looks like after the device was reinstalled --
+        # the link comes up, encryption fails, it drops, and repeats.  It is
+        # also the first seconds of a genuine pairing.  "Connecting" is true of
+        # both; the real name replaces it as soon as BlueZ knows it.
+        bt_line = Line(snap.bt_host or "PC connecting…", ICON_BT)
     elif snap.bt_bonded:
         # Paired, but away.  The device advertises and waits -- a BLE
         # peripheral cannot call the host back -- so say whose move it is.

@@ -24,6 +24,11 @@
 # sudo: yes
 
 set -euo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 # Boot partition location (try common mount points)
 BOOT_MOUNTS=(/boot/firmware /boot)
@@ -47,7 +52,7 @@ wipe_wifi_profiles() {
   while IFS= read -r name; do
     [[ -z "$name" ]] && continue
     # Identify Wi-Fi connections and delete them
-    if nmcli -t -f connection.type con show "$name" 2>/dev/null | grep -q "802-11-wireless"; then
+    if nmcli -t -f connection.type con show "$name" 2>/dev/null | grepq "802-11-wireless"; then
       # Skip the hotspot connection
       if [[ "$name" == "ipr-hotspot" ]]; then
         log "Skipping hotspot connection: $name"

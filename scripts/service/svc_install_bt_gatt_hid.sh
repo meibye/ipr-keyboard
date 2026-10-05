@@ -141,11 +141,18 @@ if [[ -f "$BT_MAIN_CONF" ]] && ! grep -q '^Experimental=true' "$BT_MAIN_CONF"; t
   fi
 fi
 
+# vcp, micp and bass are BlueZ's LE Audio servers.  Left loaded, they put
+# Volume Control, Audio Input Control, Volume Offset Control, Microphone
+# Control and Broadcast Audio Scan into the GATT database of a device that is
+# a keyboard and nothing else -- services a PC then tries to set up for an
+# audio device that does not exist.  This list is the one in force: step 04
+# writes it after bt_configure_system.sh (step 01), which keeps a matching
+# list so the two cannot drift apart again.
 echo "=== [svc_install_bt_gatt_hid] Writing $BT_OVERRIDE_FILE ==="
 cat > "$BT_OVERRIDE_FILE" <<'EOF'
 [Service]
 ExecStart=
-ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental --noplugin=sap,avrcp,a2dp,network,input,midi,neard,wiimote,sixaxis,autopair,hostname,bap
+ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental --noplugin=sap,avrcp,a2dp,network,input,midi,neard,wiimote,sixaxis,autopair,hostname,bap,vcp,micp,bass
 ConfigurationDirectoryMode=0755
 EOF
 

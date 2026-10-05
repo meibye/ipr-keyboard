@@ -29,6 +29,11 @@
 # sudo: no
 
 set -euo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -84,7 +89,7 @@ if [[ -z "${IPR_PASS:-}" ]]; then
 fi
 curl -sk -c "$COOKIES" -o /dev/null -w '%{http_code}' \
      -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
-     -d "{\"username\":\"$IPR_USER\",\"password\":\"$IPR_PASS\"}" | grep -q '^20' \
+     -d "{\"username\":\"$IPR_USER\",\"password\":\"$IPR_PASS\"}" | grepq '^20' \
     || die "Login to $BASE failed for user $IPR_USER"
 
 api() { curl -sk -b "$COOKIES" "$@"; }

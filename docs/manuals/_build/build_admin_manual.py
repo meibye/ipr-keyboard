@@ -10,8 +10,8 @@ from docx_helpers import Manual
 OUT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PAYLOAD_SCRIPT = REPO_ROOT / "scripts" / "deploy" / "make_payload.sh"
-VERSION = "2.3.0"
-DATE = "3. oktober 2026"
+VERSION = "2.3.1"
+DATE = "5. oktober 2026"
 
 # Danish rationale for each payload entry.  The entries themselves come from
 # make_payload.sh — this maps them to manual prose.  The keys are checked
@@ -527,11 +527,16 @@ def build() -> None:
              "SSH er ikke slået til på imaget.",
              "Opret filen ssh på boot-partitionen, og start enheden igen."],
             ["Permission denied (publickey)",
-             "Nøglen ligger ikke i authorized_keys, eller rettighederne er for løse.",
+             "Nøglen ligger ikke i authorized_keys, rettighederne er for løse — eller "
+             "der er logget ind som den forkerte bruger. En bar IP-adresse springer "
+             "aliassets User-linje over, så ssh bruger PC-brugerens navn.",
+             "Brug aliasset: ssh-copy-id -i ~/.ssh/ipr_rpi.pub ipr-prod-zero2. "
              "Kontrollér chmod 700 ~/.ssh og chmod 600 ~/.ssh/authorized_keys på enheden."],
             ["REMOTE HOST IDENTIFICATION HAS CHANGED",
              "Enheden er provisioneret på ny og har fået en ny værtsnøgle.",
-             "Fjern den gamle post med ssh-keygen -R ipr-prod-zero2.local"],
+             "Fjern den gamle post under den adresse, ssh faktisk bruger — ssh -G "
+             "ipr-prod-zero2 viser den på hostname-linjen. Er adressen fastlagt, som "
+             "under WSL, er det IP-adressen: ssh-keygen -R 192.168.1.97"],
             ["Forbindelsen dør midt i en kørsel",
              "Wi-Fi-strømbesparelse eller SSH-timeout.",
              "Kør lange opgaver under tmux, så de overlever et afbrud."],
@@ -656,6 +661,18 @@ def build() -> None:
         "\n"
         "# Kontrollér resultatet\n"
         "ssh ipr-prod-zero2 true && echo ok"
+    )
+    m.p("Skriptet slutter med at prøve et nøglelogin på hver enhed. En enhed, der ikke "
+        "svarer, markeres FAIL med årsagen på linjen under: slukket eller på et andet "
+        "net, navnet kan ikke slås op, SSH er ikke startet endnu, ny værtsnøgle, eller "
+        "nøglen afvises. Kommandoen, der retter fejlen, står med. En slukket enhed giver "
+        "altid FAIL og kan ignoreres.")
+    m.p("Skal nøglen lægges på enheden fra WSL, så brug aliasset og ikke IP-adressen. "
+        "Aliasset bærer User meibye; en bar adresse logger ind som WSL-brugeren og "
+        "afvises med Permission denied, selv når nøglen er i orden.")
+    m.code(
+        "ssh-copy-id -i ~/.ssh/ipr_rpi.pub ipr-prod-zero2     # rigtigt\n"
+        "ssh-copy-id -i ~/.ssh/ipr_rpi.pub 192.168.1.97       # forkert bruger"
     )
     m.p("Et symbolsk link fra WSL til Windows-mappen virker ikke: filer på Windows-drevet "
         "fremstår med rettigheden 0777, og ssh afviser en privat nøgle, der er så åben. "
@@ -2160,6 +2177,14 @@ def build() -> None:
             ["Enheden findes to gange på listen.",
              "Rester efter en tidligere parring.",
              "Fjern begge poster i Windows, slet bindingen på Pi'en, og par forfra."],
+            ["Efter en geninstallation af enheden skifter PC'en hele tiden mellem "
+             "Tilsluttet og Ikke tilsluttet, og displayet viser “PC connecting…”.",
+             "PC'en har stadig nøglerne fra før geninstallationen; den nye "
+             "installation har ingen. På Pi'en viser bluetoothctl info <MAC> "
+             "“Paired: no”, og navnet er blot adressen.",
+             "Fjern “IPR Keyboard” i Windows, og par forfra. Enheden kan ikke selv "
+             "rette det — den kan ikke tage imod nøgler, den ikke har. Næste gang: "
+             "fjern enheden på PC'en, FØR den geninstalleres."],
         ],
         widths=[4.2, 4.8, 6.6],
         caption="Fejlmønstre på værtssiden.",
@@ -2385,7 +2410,7 @@ def build() -> None:
         "ssh -i ~/.ssh/ipr_rpi meibye@ipr-prod-zero2.local   # over hjemmenettet\n"
         "ssh -i ~/.ssh/ipr_rpi meibye@10.42.0.1              # over hotspottet\n"
         "ssh-copy-id -i ~/.ssh/ipr_rpi.pub meibye@ipr-prod-zero2.local\n"
-        "ssh-keygen -R ipr-prod-zero2.local                  # ryd gammel værtsnøgle\n"
+        "ssh-keygen -R <adresse>                             # ryd gammel værtsnøgle (ssh -G viser adressen)\n"
         "./scripts/deploy/make_payload.sh                     # pak kun det nodvendige\n"
         "scp /tmp/ipr-deploy.tgz ipr-prod-zero2:/tmp/\n"
         "ssh ipr-prod-zero2 \"mkdir -p ~/dev/ipr-keyboard && \\\n"

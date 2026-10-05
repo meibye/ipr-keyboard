@@ -28,6 +28,11 @@
 # sudo: yes
 
 set -euo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 log()   { echo -e "${GREEN}[oled-support]${NC} $*"; }
@@ -134,7 +139,7 @@ fi
 # 4. Group i2c — /dev/i2c-N is root:i2c 0660; no sudoers entry needed
 # ---------------------------------------------------------------------------
 if getent group i2c >/dev/null; then
-  if id -nG "${APP_USER}" | tr ' ' '\n' | grep -qx i2c; then
+  if id -nG "${APP_USER}" | tr ' ' '\n' | grepq -x i2c; then
     log "${APP_USER} already in group i2c"
   else
     usermod -aG i2c "${APP_USER}"

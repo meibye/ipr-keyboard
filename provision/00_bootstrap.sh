@@ -24,6 +24,11 @@
 # sudo: yes
 
 set -euo pipefail
+# `cmd | grep -q` under pipefail is a race: grep exits at its first match,
+# cmd can then die of SIGPIPE, and pipefail reports the whole pipeline as
+# failed -- a running service reads as "inactive".  grepq reads to the end.
+grepq() { grep "$@" >/dev/null; }
+
 
 # Color output
 RED='\033[0;31m'
@@ -320,7 +325,7 @@ else
     iw dev "$WIFI_IFACE" set power_save off 2>/dev/null || true
 
     # Report what is actually true, not what was attempted.
-    if iw dev "$WIFI_IFACE" get power_save 2>/dev/null | grep -qi 'power save: off'; then
+    if iw dev "$WIFI_IFACE" get power_save 2>/dev/null | grepq -i 'power save: off'; then
       log "Wi-Fi power save is now OFF."
       WIFI_PS_STATE="disabled"
     else

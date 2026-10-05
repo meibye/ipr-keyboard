@@ -386,3 +386,25 @@ def test_the_timeout_never_goes_below_a_minute():
     rig = Rig()
     rig.mgr.set_display_timeout(0)
     assert rig.mgr._display_hold >= 60.0
+
+
+def test_a_mac_address_is_never_shown_as_the_pc_name(monkeypatch):
+    """BlueZ uses the address as the alias when it does not know the name."""
+    import subprocess
+
+    from ipr_keyboard.oled import manager as mgr
+
+    def _fake(out):
+        monkeypatch.setattr(
+            subprocess, "check_output", lambda *a, **k: out, raising=True
+        )
+
+    _fake("Device 2C:9C:58:2C:12:D8 2C-9C-58-2C-12-D8\n")
+    assert mgr.bluetooth_host_name() == ""
+    _fake("Device 2C:9C:58:2C:12:D8 2C:9C:58:2C:12:D8\n")
+    assert mgr.bluetooth_host_name() == ""
+    _fake("Device 2C:9C:58:2C:12:D8 MSI\n")
+    assert mgr.bluetooth_host_name() == "MSI"
+    # A real name that merely contains hex is still a name.
+    _fake("Device 2C:9C:58:2C:12:D8 Desk-PC-2C\n")
+    assert mgr.bluetooth_host_name() == "Desk-PC-2C"

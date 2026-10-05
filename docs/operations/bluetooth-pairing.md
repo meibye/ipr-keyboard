@@ -220,3 +220,41 @@ emits the indication across a daemon restart (it rebuilds the application's
 part of the database from scratch), and whether Windows honours it.  `btmon`
 during a reconnect would show it.
 
+
+## After reinstalling the device
+
+**Remove "IPR Keyboard" on the PC before reinstalling the device, or straight
+after.**  A bond has two halves.  A fresh install wipes the device's half, but
+the PC keeps its own — and the device still has the same public address, so
+the PC recognises it and tries to reconnect with keys the device no longer
+has.
+
+What it looks like, measured on 5 October 2026 after a fresh install:
+
+* the PC's Bluetooth panel toggles between **Connected** and **Not
+  connected**, for as long as you leave it;
+* the device's panel says **`PC connecting…`** (it used to show the PC's MAC
+  address, which BlueZ uses as the name of a device it has never bonded with);
+* on the device, `bluetoothctl info <PC-MAC>` shows `Paired: no`, and the alias
+  is the address itself.
+
+The link comes up, encryption fails because only one side has a key, the link
+drops, and the PC tries again.  **The device cannot fix this** — it cannot
+accept a key it does not have.  Remove the device on the PC and pair again.
+
+The panel's first-pairing state is the useful check on a fresh install: with
+nothing ever paired it says `Waiting for PC…`; with a stale PC trying, it says
+`PC connecting…` and never settles.
+
+## LE Audio services are disabled
+
+BlueZ's LE Audio servers — the `vcp`, `micp` and `bass` plugins — register
+Volume Control, Audio Input Control, Volume Offset Control, Microphone Control
+and Broadcast Audio Scan in the GATT database when they are loaded.  On a
+device that is a keyboard and nothing else, a PC enumerating its services then
+tries to set up an audio device that does not exist.  Both installers that
+write bluetoothd's `--noplugin` list now include them, and the lists match:
+`svc_install_bt_gatt_hid.sh` (provisioning step 04, the one in force) and
+`bt_configure_system.sh` (step 01).  The post-provision audit checks both the
+override (O.15) and the adapter itself (O.16).
+

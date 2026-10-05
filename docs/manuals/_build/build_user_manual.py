@@ -213,6 +213,10 @@ def build() -> None:
         ("Flytning til en anden arbejdsplads: ", "tag strøm og USB-kabel fra, flyt boksen, "
          "og tilslut igen. Parringen med PC'en huskes."),
         ("Flytning til en anden PC: ", "den nye PC skal parres. Se afsnit 3.3."),
+        ("Når boksen er blevet geninstalleret: ", "fjern “IPR Keyboard” under "
+         "Bluetooth på PC'en, og par igen (afsnit 3.3). PC'en husker den gamle "
+         "parring, men det gør boksen ikke længere — så skifter PC'en hele tiden "
+         "mellem tilsluttet og ikke tilsluttet, og displayet viser “PC connecting…”."),
     ])
     m.note("Sluk aldrig for boksen midt i en overførsel — vent til teksten er skrevet "
            "færdig på skærmen.", "warn")
