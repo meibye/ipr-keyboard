@@ -146,8 +146,10 @@ fi
 # Control and Broadcast Audio Scan into the GATT database of a device that is
 # a keyboard and nothing else -- services a PC then tries to set up for an
 # audio device that does not exist.  This list is the one in force: step 04
-# writes it after bt_configure_system.sh (step 01), which keeps a matching
-# list so the two cannot drift apart again.
+# writes it after bt_configure_system.sh (step 01).  The two lists both
+# exclude the audio plugins but otherwise still differ (step 01 also drops
+# health, battery and deviceinfo; this one drops hostname).  None of those
+# adds a GATT service, so the difference is harmless -- but it is real.
 echo "=== [svc_install_bt_gatt_hid] Writing $BT_OVERRIDE_FILE ==="
 cat > "$BT_OVERRIDE_FILE" <<'EOF'
 [Service]

@@ -253,8 +253,38 @@ Volume Control, Audio Input Control, Volume Offset Control, Microphone Control
 and Broadcast Audio Scan in the GATT database when they are loaded.  On a
 device that is a keyboard and nothing else, a PC enumerating its services then
 tries to set up an audio device that does not exist.  Both installers that
-write bluetoothd's `--noplugin` list now include them, and the lists match:
+write bluetoothd's `--noplugin` list now include them:
 `svc_install_bt_gatt_hid.sh` (provisioning step 04, the one in force) and
-`bt_configure_system.sh` (step 01).  The post-provision audit checks both the
-override (O.15) and the adapter itself (O.16).
+`bt_configure_system.sh` (step 01).  An earlier revision of this page said the
+two lists "match"; they do not -- step 01 also drops health, battery and
+deviceinfo, step 04 drops hostname -- though none of those adds a GATT service.
+The post-provision audit checks both the override (O.15) and the adapter
+itself (O.16).
+
+## Two Device Information services, and the identity Windows uses
+
+After the audio services went, a fresh read of the database from the PC still
+listed Device Information (`180a`) twice.  Neither comes from a plugin:
+
+* **BlueZ adds one itself.**  `DeviceID` in `/etc/bluetooth/main.conf` is
+  commented out, so BlueZ uses its built-in default, `usb:1d6b:0246:<version>`
+  (Linux Foundation / BlueZ), and publishes it as a Device Information service.
+* **The daemon adds another**, with the identity it is configured for:
+  `BT_USB_VID`/`BT_USB_PID`/`BT_USB_VER`, default `1209:0001:0100`, and
+  manufacturer "IPR".
+
+Windows reads the first one.  Its HID device's hardware ID on the paired
+laptop is `..._Dev_VID&021d6b_PID&0246_REV&0552` -- BlueZ's identity, not
+ours.  Two consequences:
+
+* The daemon's Device Information service, and the `BT_USB_*` settings, have no
+  effect on how Windows identifies the keyboard.
+* `REV 0552` is the BlueZ version (5.82).  The keyboard's identity in Windows is
+  therefore tied to the bluez package: an upgrade changes it, and Windows may
+  treat the result as a different device.
+
+Adding `deviceinfo` to `--noplugin` does **not** remove BlueZ's copy -- that
+service is core, not a plugin.  The fix is to set `DeviceID` explicitly and
+drop the daemon's duplicate (or the reverse), which changes the identity
+Windows sees once, and so costs one re-pair.
 
