@@ -167,19 +167,32 @@ check_boot_marker() {
 # ---------------------------------------------------------------------------
 
 check_boot_count() {
+  # Counts BOOTS, not runs of this script.  It used to count every execution,
+  # and the service is restarted by install_provision_service.sh -- which a
+  # routine full update runs.  So "update, it fails, update again, reboot"
+  # inside the window reached the trigger and dropped the device off its home
+  # Wi-Fi into hotspot mode.  The kernel's per-boot ID tells a reboot from a
+  # restart: the same ID means the same boot, and is not counted again.
   mkdir -p "$(dirname "${BOOT_COUNT_FILE}")"
 
   local count=1
-  local now
+  local now boot_id
   now=$(date +%s)
+  boot_id=$(cat "${BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}" 2>/dev/null || echo unknown)
 
   if [[ -f "${BOOT_COUNT_FILE}" ]]; then
-    local stored_count stored_time
-    read -r stored_count stored_time < "${BOOT_COUNT_FILE}" 2>/dev/null || true
+    local stored_count stored_time stored_boot
+    read -r stored_count stored_time stored_boot < "${BOOT_COUNT_FILE}" 2>/dev/null || true
     stored_count="${stored_count:-0}"
     stored_time="${stored_time:-0}"
-    local age=$(( now - stored_time ))
+    stored_boot="${stored_boot:-}"   # absent in files written before this fix
 
+    if [[ -n "${stored_boot}" && "${stored_boot}" == "${boot_id}" ]]; then
+      log "Boot count: ${stored_count}/${BOOT_COUNT_TRIGGER} unchanged (service restarted, not a new boot)."
+      return 1
+    fi
+
+    local age=$(( now - stored_time ))
     if (( age < BOOT_COUNT_WINDOW )); then
       count=$(( stored_count + 1 ))
     fi
@@ -188,12 +201,12 @@ check_boot_count() {
 
   if (( count >= BOOT_COUNT_TRIGGER )); then
     log "Triple power-cycle detected (${count}/${BOOT_COUNT_TRIGGER} within ${BOOT_COUNT_WINDOW}s) — starting hotspot"
-    printf '%s %s\n' "0" "${now}" > "${BOOT_COUNT_FILE}"  # reset counter
+    printf '%s %s %s\n' "0" "${now}" "${boot_id}" > "${BOOT_COUNT_FILE}"  # reset counter
     return 0
   fi
 
   log "Boot count: ${count}/${BOOT_COUNT_TRIGGER} (window ${BOOT_COUNT_WINDOW}s). Power-cycle ${BOOT_COUNT_TRIGGER} times rapidly to trigger hotspot."
-  printf '%s %s\n' "${count}" "${now}" > "${BOOT_COUNT_FILE}"
+  printf '%s %s %s\n' "${count}" "${now}" "${boot_id}" > "${BOOT_COUNT_FILE}"
   return 1
 }
 

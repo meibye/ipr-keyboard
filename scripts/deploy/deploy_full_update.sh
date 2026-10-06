@@ -12,6 +12,7 @@
 #   2. Install BLE daemon binaries and service files
 #   3. Install Bluetooth keyboard helpers
 #   3b/3b2. Status LED and OLED display support (config.txt, units, packages)
+#   3c-3g. Firewall, pen automount, observability, hotspot service, network helper
 #   4. Reload systemd unit files
 #   4b. Generate TLS certificates if not present
 #   5. Restart all services in dependency order
@@ -120,6 +121,25 @@ echo ""
 # ---- 3e. Observability ----
 echo "[3e/5] Installing persistent journal and OnFailure incident log…"
 bash "$SCRIPT_DIR/../headless/install_observability.sh"
+echo "      OK"
+echo ""
+
+# ---- 3f/3g. Helpers that run from installed COPIES, not from the repo ----
+# Provisioning installs these; this "full" update used to skip them, so a fix
+# to either never reached the device: the hotspot service runs
+# /usr/local/sbin/ipr-provision.sh and the dashboard's network settings run
+# /usr/local/bin/ipr_net_apply.sh -- copies, refreshed only here.  Found when a
+# corrected boot message and a pipefail race fix were sitting in the repo but
+# not in the copies actually executing.  (Still deliberately skipped:
+# install_packages.sh -- apt, slow, not an update -- install_dbg_tools.sh,
+# which is opt-in, and svc_install_systemd.sh, which regenerates the app unit.)
+echo "[3f/5] Installing the hotspot service and its script (ipr-provision.sh)…"
+bash "$SCRIPT_DIR/../headless/install_provision_service.sh"
+echo "      OK"
+echo ""
+
+echo "[3g/5] Installing the network-apply helper (ipr_net_apply.sh)…"
+bash "$SCRIPT_DIR/../service/install_network_helper.sh"
 echo "      OK"
 echo ""
 
