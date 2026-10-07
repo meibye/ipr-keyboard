@@ -43,6 +43,10 @@ Must report **0 failures**; the result is kept at
 `/opt/ipr_state/provision_verify.log`.  Skips are expected — they are the
 manual checks in gate 3.
 
+If the audit reports **O.17** failed, the keyboard is presenting bluetoothd's
+default identity instead of the configured one.  Re-run
+`svc_install_bt_gatt_hid.sh`, restart bluetoothd, and re-pair the PC once.
+
 Section **O** is the one to read first on a fresh install: it checks the three
 tmpfs files that carry state between the BLE daemon and the application, and
 that the env default and the saved typing speed agree.  None of those is needed

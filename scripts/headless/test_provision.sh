@@ -587,6 +587,23 @@ fi
 check O.15 "bluetoothd runs without the LE Audio plugins (vcp, micp, bass)"     "grep -q -- 'vcp,micp,bass' /etc/systemd/system/bluetooth.service.d/override.conf"
 check O.16 "the adapter advertises no audio services"     "! bluetoothctl show | grepq -E 'Volume Control|Microphone Control|Broadcast Audio Scan|Audio Input Control|Volume Offset Control'"
 
+# One identity, set on purpose.  Unset, bluetoothd publishes its own default
+# (usb:1d6b:0246:<BlueZ version>) and a host reads that one -- so the keyboard's
+# identity in Windows changed with the bluez package.  Expected: the DeviceID
+# svc_install_bt_gatt_hid.sh derived from BT_USB_*, visible as the Modalias.
+_vid="$(grep -oE '^BT_USB_VID="?0[xX][0-9A-Fa-f]+' /opt/ipr_common.env 2>/dev/null | grep -oE '[0-9A-Fa-f]+$' || true)"
+_pid="$(grep -oE '^BT_USB_PID="?0[xX][0-9A-Fa-f]+' /opt/ipr_common.env 2>/dev/null | grep -oE '[0-9A-Fa-f]+$' || true)"
+_want="$(printf 'v%04Xp%04X' "$((16#${_vid:-0}))" "$((16#${_pid:-0}))")"
+_got="$(bluetoothctl show 2>/dev/null | grep -oE 'Modalias: usb:v[0-9A-Fa-f]{4}p[0-9A-Fa-f]{4}' | sed 's/.*usb://' || true)"
+if [ -z "$_vid" ] || [ -z "$_pid" ]; then
+    record_skip O.17 "BT_USB_VID/PID not set in /opt/ipr_common.env"
+elif [ "${_got^^}" = "${_want^^}" ]; then
+    record_pass O.17 "the adapter publishes the configured identity (${_got})"
+else
+    record_fail O.17 "the adapter publishes ${_got:-nothing}, expected ${_want} (DeviceID not applied, or bluetoothd not restarted)"
+fi
+check O.18 "the BLE daemon does not add a second Device Information service"     "! grep -q 'DeviceInfoService' /usr/local/bin/bt_hid_ble_daemon.py"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 section "J — Manual / interactive checks  (skipped with --auto)"
 # ═══════════════════════════════════════════════════════════════════════════════

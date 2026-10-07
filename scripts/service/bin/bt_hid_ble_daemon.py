@@ -268,10 +268,6 @@ UUID_BOOT_KEYBOARD_INPUT_REPORT = "2a22"
 UUID_BOOT_KEYBOARD_OUTPUT_REPORT = "2a32"
 UUID_REPORT_REFERENCE = "2908"
 
-UUID_DIS_SERVICE = "180a"
-UUID_PNP_ID = "2a50"
-UUID_MANUFACTURER = "2a29"
-UUID_MODEL_NUMBER = "2a24"
 
 UUID_BATTERY_SERVICE = "180f"
 # NOT registered here: the Generic Attribute service (0x1801) and its Service
@@ -1162,42 +1158,12 @@ class HidService(Service):
         )
 
 
-class DeviceInfoService(Service):
-    def __init__(self, bus, index):
-        super().__init__(bus, index, UUID_DIS_SERVICE)
-
-        manufacturer = env_str("BT_MANUFACTURER", "IPR")
-        model = env_str("BT_MODEL", "IPR Keyboard")
-
-        vid = env_hex_int("BT_USB_VID", 0x1209) & 0xFFFF
-        pid = env_hex_int("BT_USB_PID", 0x0001) & 0xFFFF
-        ver = env_hex_int("BT_USB_VER", 0x0100) & 0xFFFF
-
-        pnp = bytes(
-            [
-                0x02,  # USB Vendor ID source
-                vid & 0xFF,
-                (vid >> 8) & 0xFF,
-                pid & 0xFF,
-                (pid >> 8) & 0xFF,
-                ver & 0xFF,
-                (ver >> 8) & 0xFF,
-            ]
-        )
-
-        self.add_characteristic(
-            StaticValueCharacteristic(bus, 0, UUID_PNP_ID, ["read"], self, pnp)
-        )
-        self.add_characteristic(
-            StaticValueCharacteristic(
-                bus, 1, UUID_MANUFACTURER, ["read"], self, manufacturer.encode("utf-8")
-            )
-        )
-        self.add_characteristic(
-            StaticValueCharacteristic(
-                bus, 2, UUID_MODEL_NUMBER, ["read"], self, model.encode("utf-8")
-            )
-        )
+# No Device Information service (0x180A) is registered here.  bluetoothd
+# publishes its own, carrying its DeviceID, and that is the one a host reads --
+# so a second one here only gave the device two conflicting identities, and
+# Windows used bluetoothd's (VID 1d6b, PID 0246, REV = the BlueZ version).  The
+# identity is now set once, as DeviceID in /etc/bluetooth/main.conf, from
+# BT_USB_VID/PID/VER, by scripts/service/svc_install_bt_gatt_hid.sh.
 
 
 class BatteryLevelCharacteristic(Characteristic):
@@ -1745,11 +1711,9 @@ def main() -> None:
 
     app = Application(bus)
     hid = HidService(bus, 0, notify_state)
-    dis = DeviceInfoService(bus, 1)
     battery = BatteryService(bus, 2)
 
     app.add_service(hid)
-    app.add_service(dis)
     app.add_service(battery)
 
     adv = Advertisement(

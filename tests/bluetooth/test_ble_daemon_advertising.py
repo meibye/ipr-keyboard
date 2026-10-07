@@ -192,8 +192,25 @@ def test_the_daemon_does_not_register_the_gatt_service_itself(daemon):
     assert 'UUID_SERVICE_CHANGED' not in src
     assert "GattProfileService" not in src
 
-    # And the services it does register are the three BlueZ leaves to us.
+    # And the services it does register are the ones BlueZ leaves to us.
     assert daemon.UUID_HID_SERVICE == "1812"
-    assert daemon.UUID_DIS_SERVICE == "180a"
     assert daemon.UUID_BATTERY_SERVICE == "180f"
+
+
+def test_the_daemon_does_not_register_a_device_information_service(daemon):
+    """BlueZ publishes 0x180A itself, and hosts read the first one.
+
+    The daemon used to add a second, with the configured IPR identity.  Windows
+    read bluetoothd's instead -- the paired laptop's HID hardware ID was
+    VID 1d6b / PID 0246 / REV 0552, the BlueZ default with the BlueZ VERSION as
+    the revision -- so the keyboard's identity in Windows changed whenever the
+    bluez package did, and the daemon's identity was never seen.  The identity
+    is now DeviceID in main.conf, written by svc_install_bt_gatt_hid.sh.
+    """
+    src = pathlib.Path("scripts/service/bin/bt_hid_ble_daemon.py").read_text(
+        encoding="utf-8"
+    )
+    assert "DeviceInfoService" not in src
+    assert not hasattr(daemon, "UUID_DIS_SERVICE")
+    assert '"180a"' not in src.lower()
 

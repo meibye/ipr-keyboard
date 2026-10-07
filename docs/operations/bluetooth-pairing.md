@@ -269,9 +269,9 @@ listed Device Information (`180a`) twice.  Neither comes from a plugin:
 * **BlueZ adds one itself.**  `DeviceID` in `/etc/bluetooth/main.conf` is
   commented out, so BlueZ uses its built-in default, `usb:1d6b:0246:<version>`
   (Linux Foundation / BlueZ), and publishes it as a Device Information service.
-* **The daemon adds another**, with the identity it is configured for:
-  `BT_USB_VID`/`BT_USB_PID`/`BT_USB_VER`, default `1209:0001:0100`, and
-  manufacturer "IPR".
+* **The daemon added another** (until 2026-10-07), with the identity it was
+  configured for: `BT_USB_VID`/`BT_USB_PID`/`BT_USB_VER`, and manufacturer
+  "IPR".
 
 Windows reads the first one.  Its HID device's hardware ID on the paired
 laptop is `..._Dev_VID&021d6b_PID&0246_REV&0552` -- BlueZ's identity, not
@@ -284,7 +284,33 @@ ours.  Two consequences:
   treat the result as a different device.
 
 Adding `deviceinfo` to `--noplugin` does **not** remove BlueZ's copy -- that
-service is core, not a plugin.  The fix is to set `DeviceID` explicitly and
-drop the daemon's duplicate (or the reverse), which changes the identity
-Windows sees once, and so costs one re-pair.
+service is core, not a plugin.
+
+### Fixed: one identity, set on purpose
+
+* `svc_install_bt_gatt_hid.sh` writes `DeviceID = usb:<VID>:<PID>:<VER>` into
+  the `[General]` section of `/etc/bluetooth/main.conf`, from `BT_USB_VID`,
+  `BT_USB_PID` and `BT_USB_VER` in `/opt/ipr_common.env`.  It replaces the
+  stock commented example in place, changes nothing else, and is idempotent.
+  If the values are missing it leaves `main.conf` alone rather than publish
+  `usb:0000:0000:0000`.
+* The daemon no longer registers a Device Information service, so there is
+  exactly one, bluetoothd's, carrying the configured identity.
+* The identity is **`1209:0001:0100`**: pid.codes, the open-source hardware
+  VID, with its PID for testing and internal use.  The example env previously
+  carried `0x1234` / `0x5678` -- BlueZ's own placeholder -- and so did the
+  devices built from it.  If the hardware is ever published, register a PID
+  at pid.codes and change it once.
+* `BT_MANUFACTURER` and `BT_MODEL` are no longer published: bluetoothd's
+  Device Information service carries the PnP ID only.  Hosts show the name
+  from `BT_DEVICE_NAME`.
+
+Audit O.17 checks the adapter's Modalias equals the configured identity -- it
+failed on the production device before this change, as `v1D6Bp0246` against
+an expected `v1234p5678` -- and O.18 that the daemon adds no second service.
+
+**Changing the identity costs one re-pair.**  Windows files the keyboard under
+its VID/PID/revision, so after a change remove "IPR Keyboard" on the PC and
+pair again.  That is also why the identity must not track the BlueZ version:
+under the old default, an `apt upgrade` of bluez was such a change.
 

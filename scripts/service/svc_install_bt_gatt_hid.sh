@@ -89,11 +89,9 @@ BT_HCI="hci0"
 # Advertising/local name
 BT_DEVICE_NAME="IPR Keyboard (Dev)"
 
-# Device Information Service values
-BT_MANUFACTURER="IPR"
-BT_MODEL="IPR Keyboard"
-
-# PnP ID (USB VID/PID/VER). Linux Foundation defaults are fine for testing.
+# The keyboard's identity (PnP ID: USB VID/PID/version).  Published by
+# bluetoothd as its DeviceID -- see "Device identity" below.  0x1209 is
+# pid.codes (open-source hardware); 0x0001 is its test PID.
 BT_USB_VID="0x1209"
 BT_USB_PID="0x0001"
 BT_USB_VER="0x0100"
@@ -138,6 +136,56 @@ if [[ -f "$BT_MAIN_CONF" ]] && ! grep -q '^Experimental=true' "$BT_MAIN_CONF"; t
     sed -i '/^\[General\]/a Experimental=true' "$BT_MAIN_CONF"
   else
     printf '\n[General]\nExperimental=true\n' >> "$BT_MAIN_CONF"
+  fi
+fi
+
+# ------------------------------------------------------------------------------
+# Device identity.
+#
+# bluetoothd publishes a Device Information service (0x180A) of its own,
+# carrying its DeviceID.  With DeviceID unset that is its built-in default,
+# usb:1d6b:0246:<BlueZ version> -- and it is the one Windows reads: a paired
+# laptop's HID hardware ID was ..._VID&021d6b_PID&0246_REV&0552.  So the
+# keyboard's identity in Windows was tied to the bluez PACKAGE, and an upgrade
+# could change it and force a re-pair.
+#
+# The daemon used to publish a second 0x180A with the configured identity,
+# which Windows never read.  Now there is one: bluetoothd's, set here from the
+# same BT_USB_* values.
+# ------------------------------------------------------------------------------
+hex4() {  # "0x1209" / "1209" / "0X1209" -> "1209"
+  local v="${1#0x}"; v="${v#0X}"
+  printf '%04x' "$((16#${v:-0}))"
+}
+env_value() {  # value of KEY in $ENV_FILE, quotes stripped
+  grep -E "^$1=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"'"'"
+}
+DEVICE_ID="usb:$(hex4 "$(env_value BT_USB_VID)"):$(hex4 "$(env_value BT_USB_PID)"):$(hex4 "$(env_value BT_USB_VER)")"
+
+set_main_conf_key() {  # key value -- in [General], replacing a commented example too
+  local key="$1" value="$2" tmp="${BT_MAIN_CONF}.tmp"
+  grep -q '^\[General\]' "$BT_MAIN_CONF" || printf '\n[General]\n' >> "$BT_MAIN_CONF"
+  awk -v k="$key" -v v="$value" '
+    BEGIN { in_general = 0; done = 0 }
+    /^\[/ {
+      if (in_general && !done) { print k " = " v; done = 1 }
+      in_general = ($0 == "[General]")
+    }
+    in_general && !done && $0 ~ "^[#[:space:]]*" k "[[:space:]]*=" {
+      print k " = " v; done = 1; next
+    }
+    in_general && $0 ~ "^[[:space:]]*" k "[[:space:]]*=" { next }   # drop duplicates
+    { print }
+    END { if (!done) print k " = " v }
+  ' "$BT_MAIN_CONF" > "$tmp" && mv "$tmp" "$BT_MAIN_CONF"
+}
+
+if [[ -f "$BT_MAIN_CONF" ]]; then
+  if [[ "$DEVICE_ID" == "usb:0000:0000:0000" ]]; then
+    echo "WARN: BT_USB_VID/PID/VER missing from $ENV_FILE -- leaving DeviceID alone"
+  else
+    set_main_conf_key "DeviceID" "$DEVICE_ID"
+    echo "=== [svc_install_bt_gatt_hid] DeviceID = $DEVICE_ID (takes effect when bluetoothd restarts) ==="
   fi
 fi
 
