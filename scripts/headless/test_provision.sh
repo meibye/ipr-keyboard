@@ -568,16 +568,25 @@ else
     record_skip O.13 "nothing typed since boot — the progress file appears on the first send"
 fi
 
-# The env default and the saved setting must agree, or the device silently
-# types at a speed nobody chose: this one bit a production device.
+# The speed actually in force must be the configured one.  A choice saved
+# from Settings (config.json) wins; otherwise the provisioned BT_KEY_DELAY_MS,
+# which is also the app's default.  This used to skip whenever config.json had
+# no TypingDelayMs -- always, on a fresh install -- while the app silently
+# applied a hard-coded 20 ms over the provisioned 12: a fresh device typed at
+# 25 characters a second instead of ~40, and this check said nothing.
 _env_delay="$(grep -oE '^BT_KEY_DELAY_MS="?[0-9]+' /opt/ipr_common.env 2>/dev/null | grep -oE '[0-9]+$' || true)"
 _cfg_delay="$(grep -oE '"TypingDelayMs"[[:space:]]*:[[:space:]]*[0-9]+' "$PROJECT_DIR/config.json" 2>/dev/null | grep -oE '[0-9]+$' || true)"
-if [ -z "$_cfg_delay" ]; then
-    record_skip O.14 "TypingDelayMs not yet saved in config.json (the default applies)"
-elif [ "$_env_delay" = "$_cfg_delay" ]; then
-    record_pass O.14 "typing speed agrees: env ${_env_delay} ms = config ${_cfg_delay} ms"
+_want="${_cfg_delay:-$_env_delay}"
+if [ -n "$_cfg_delay" ]; then _src="config.json (chosen in Settings)"; else _src="/opt/ipr_common.env (provisioned)"; fi
+_got="$(tr -dc '0-9' < /run/ipr_bt_key_delay 2>/dev/null || true)"
+if [ -z "$_got" ]; then
+    record_skip O.14 "no /run/ipr_bt_key_delay — the daemon does not take a runtime speed"
+elif [ -z "$_want" ]; then
+    record_skip O.14 "no typing speed configured anywhere (the built-in 20 ms applies)"
+elif [ "$_got" = "$_want" ]; then
+    record_pass O.14 "typing at the configured speed: ${_got} ms, from ${_src}"
 else
-    record_fail O.14 "typing speed disagrees: /opt/ipr_common.env says ${_env_delay} ms, config.json says ${_cfg_delay} ms"
+    record_fail O.14 "typing at ${_got} ms, but ${_src} says ${_want} ms"
 fi
 
 # A keyboard should present itself as a keyboard.  BlueZ's LE Audio servers

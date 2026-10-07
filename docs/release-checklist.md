@@ -220,10 +220,14 @@ restarts `bt_hid_agent_unified.service` and `bt_hid_ble.service`.
       `bt_hid_ble.service` has `EnvironmentFile=-/opt/ipr_common.env`, and the
       leading `-` means a missing file is not an error — so editing
       `/etc/default/bt_hid_ble` changes nothing and fails silently.
-- [ ] After a release, check that the env default and the saved
-      `TypingDelayMs` say the same thing.  A device left at
-      `BT_KEY_DELAY_MS=12` that then saves the 20 ms default gets **slower**,
-      and nothing announces it.
+- [ ] The typing speed in force is the configured one (audit **O.14**).  The
+      app's default used to be a hard-coded 20 ms that silently overrode the
+      provisioned `BT_KEY_DELAY_MS` (12 ms in the shipped example) once a
+      second, so every fresh install typed at ~25 characters a second instead
+      of ~40 -- and O.14 skipped right past it because a fresh `config.json`
+      has no `TypingDelayMs`.  The app's default is now the provisioned value,
+      a choice saved in Settings still wins, and O.14 compares what is in
+      force against whichever of those applies.
 
 ## Gate 4 — Both boards
 

@@ -6,6 +6,7 @@ and singleton pattern for application-wide config access.
 
 from __future__ import annotations
 
+import os
 import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -17,6 +18,41 @@ from ..logging.logger import get_logger
 logger = get_logger()
 
 VERSION = '2026-04-12 19:40:39'
+
+
+def _provisioned_typing_delay(default: int = 20) -> int:
+    """The typing speed provisioning chose: BT_KEY_DELAY_MS.
+
+    There used to be two defaults that disagreed.  The BLE daemon starts at
+    BT_KEY_DELAY_MS from /opt/ipr_common.env (12 ms in the shipped example),
+    but this app re-applies TypingDelayMs about once a second and its default
+    was a hard-coded 20 -- so every fresh install silently typed at 25
+    characters a second instead of the ~40 provisioning asked for, and nothing
+    said so.  The app's default now IS the provisioned value; a speed chosen
+    in Settings is saved to config.json and still wins.
+
+    ipr_keyboard.service does not load the env file, so it is read directly
+    (it belongs to the app user).  Read once, at import: from_dict() builds a
+    default config on every get(), about once a second.
+    """
+    raw = os.environ.get("BT_KEY_DELAY_MS")
+    if raw is None:
+        env_file = Path(os.environ.get("IPR_COMMON_ENV", "/opt/ipr_common.env"))
+        try:
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                key, sep, value = line.strip().partition("=")
+                if sep and key == "BT_KEY_DELAY_MS":
+                    raw = value.strip().strip('"').strip("'")
+        except OSError:
+            pass
+    try:
+        ms = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return default
+    return ms if 1 <= ms <= 200 else default
+
+
+_PROVISIONED_TYPING_DELAY_MS = _provisioned_typing_delay()
 
 def log_version_info():
     logger.info(f"==== ipr_keyboard.config.manager VERSION: {VERSION} ====")
@@ -103,8 +139,9 @@ class AppConfig:
     # negotiates (7.5-30 ms on Windows); below that the host drops or
     # reorders keystrokes, which is far worse than slow, so lower it by
     # measurement with Debug -> Typing speed trial.
-    # See docs/operations/performance.md.
-    TypingDelayMs: int = 20
+    # See docs/operations/performance.md.  Defaults to the provisioned
+    # BT_KEY_DELAY_MS, so the app and the daemon start out agreeing.
+    TypingDelayMs: int = _PROVISIONED_TYPING_DELAY_MS
     # Performance KPIs. Off by default; see ipr_keyboard/metrics.py.
     MetricsEnabled: bool = False
 
