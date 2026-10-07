@@ -309,8 +309,30 @@ Audit O.17 checks the adapter's Modalias equals the configured identity -- it
 failed on the production device before this change, as `v1D6Bp0246` against
 an expected `v1234p5678` -- and O.18 that the daemon adds no second service.
 
-**Changing the identity costs one re-pair.**  Windows files the keyboard under
-its VID/PID/revision, so after a change remove "IPR Keyboard" on the PC and
-pair again.  That is also why the identity must not track the BlueZ version:
-under the old default, an `apt upgrade` of bluez was such a change.
+**A re-pair does not make Windows see a changed identity.**  Windows keeps a
+fingerprint of each Bluetooth device -- including its PnP ID -- under
+`HKLM\SYSTEM\CurrentControlSet\Services\BTHPORT\Parameters\Devices\<address>`
+(`FingerprintString`), and "Remove device" does not clear it.  Measured on
+2026-10-07: the device was broadcasting `1209:0001:0100` (an uncached read of
+characteristic 0x2A50 confirmed it), the laptop removed and re-paired it 28 s
+after the change, and the new HID entries were still created with
+`VID&021d6b_PID&0246_REV&0552` -- taken from a fingerprint recorded earlier
+that day.
+
+So on a PC that has seen the device before, the old identity persists until
+Windows refreshes that fingerprint on its own.  It does not affect typing.
+A PC that has never paired with the device gets the configured identity
+directly.  Clearing it by hand means deleting the fingerprint values under
+that key (admin) and re-pairing; there is rarely a reason to.
+
+This is also why the identity must not track the BlueZ version.  The device
+now broadcasts a fixed identity, so whenever Windows does refresh its
+fingerprint it settles on the configured value for good; under the old
+default, every bluez upgrade was a fresh change.
+
+**A lead, not yet followed:** the same registry key shows the device
+*requests* a connection interval of 24-40 x 1.25 ms (30-50 ms).  Measured
+throughput (~40 characters a second) shows Windows did not apply it, but it is
+the parameter behind the typing-speed ceiling in performance.md -- if a host
+ever honoured it, typing would slow sharply.
 
