@@ -125,6 +125,23 @@ def _pen_state_path() -> Path:
     return project_root() / _PEN_STATE_FILE
 
 
+def _next_new_scan(delivered: DeliveryLog, folder: Path) -> Path | None:
+    """The oldest scan in `folder` not yet typed, or None.
+
+    First sight of a folder baselines it: everything already there counts as
+    done, so an upgrade or a re-plug types nothing old.  An EMPTY folder is
+    baselined too.  It used to be skipped until something appeared in it, and
+    then that first scan was the baseline -- on a fresh install, with the
+    pen's folder emptied by earlier deliveries, the first scan was never
+    typed.
+    """
+    files = detector.list_files(folder)  # oldest first
+    if not delivered.knows(folder):
+        delivered.baseline(folder, files)
+        return None
+    return delivered.next_undelivered(folder, files)
+
+
 def run_usb_bt_loop():
     """Main USB monitoring and Bluetooth forwarding loop.
 
@@ -179,17 +196,7 @@ def run_usb_bt_loop():
                 logger.debug("Folder does not exist yet: %s", folder)
                 continue
 
-            files = detector.list_files(folder)  # oldest first
-            if not files:
-                continue
-
-            if not delivered.knows(folder):
-                # First sight of this folder: everything already there counts
-                # as done, so an upgrade or a re-plug types nothing old.
-                delivered.baseline(folder, files)
-                continue
-
-            candidate = delivered.next_undelivered(folder, files)
+            candidate = _next_new_scan(delivered, folder)
             if candidate is not None:
                 try:
                     found_mtime = candidate.stat().st_mtime
