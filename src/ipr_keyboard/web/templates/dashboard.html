@@ -1695,9 +1695,29 @@ async function loadPenFiles() {
   list.innerHTML = '<li style="color:var(--color-text-muted);font-size:13px"><span class="spinner"></span> Loading…</li>';
   try {
     const data = await apiFetch('/api/debug/pen-files');
-    folderEl.textContent = data.folder || '';
+    const found = data.found_folders || [];
+    folderEl.textContent = (found.length ? found : (data.folders || [])).join(', ');
     if (!data.files || data.files.length === 0) {
-      list.innerHTML = '<li style="color:var(--color-text-muted);font-size:13px">No files found in pen folder.</li>';
+      // Empty is normal: a scan is deleted from the pen once it is typed.
+      // The pen's own history screen keeps showing it -- that history lives
+      // inside the pen's app, where the device cannot see or delete it.
+      const muted = 'color:var(--color-text-muted);font-size:13px';
+      let why;
+      if (!found.length) {
+        why = 'The pen is not connected, or its scan folder was not found.';
+      } else if (data.delete_after_send) {
+        why = 'No scans are waiting on the pen. Each scan is deleted from the pen after it is typed, '
+            + "so this list is usually empty. The pen's own history screen can still show it.";
+      } else {
+        why = 'No scans on the pen.';
+      }
+      const handled = (data.handled || []).map(h => `
+        <li>
+          <div style="font-size:14px">${escapeHtml(h.name)}</div>
+          <div class="pen-file-meta">${h.size_bytes.toLocaleString()} bytes · ${h.modified_at}</div>
+        </li>`).join('');
+      list.innerHTML = `<li style="${muted}">${why}</li>`
+        + (handled ? `<li style="${muted};margin-top:8px"><strong>Recently handled scans</strong></li>${handled}` : '');
       return;
     }
     list.innerHTML = data.files.map((f, i) => `

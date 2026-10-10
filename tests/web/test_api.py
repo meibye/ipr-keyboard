@@ -565,3 +565,41 @@ def test_api_action_hotspot_requires_confirm_to_start(flask_client, temp_config,
     res = flask_client.post("/api/actions/hotspot", json={"enabled": True})
     assert res.status_code == 400
     assert res.get_json()["error"]["code"] == "confirmation_required"
+
+
+def test_debug_pen_files_explains_an_empty_folder(flask_client, temp_config, monkeypatch, tmp_path):
+    """Empty after delivery is normal; the handled scans are listed instead."""
+    import json as _json
+
+    from ipr_keyboard.config.manager import ConfigManager
+    from ipr_keyboard.web import api
+
+    pen_dir = tmp_path / "pen"
+    pen_dir.mkdir()
+    state = tmp_path / "pen_state.json"
+    state.write_text(
+        _json.dumps({str(pen_dir): ["20261010191218.txt|1791652339|834", "20261010191345.txt|1791652425|613"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(api, "_pen_state_path", lambda: state)
+    ConfigManager.instance().update(IrisPenFolders=[str(pen_dir)], DeleteFiles=True)
+
+    data = flask_client.get("/api/debug/pen-files").get_json()
+
+    assert data["files"] == []
+    assert data["delete_after_send"] is True
+    assert data["found_folders"] == [str(pen_dir)]
+    assert [h["name"] for h in data["handled"]] == ["20261010191345.txt", "20261010191218.txt"]
+    assert data["handled"][0]["size_bytes"] == 613
+
+
+def test_debug_pen_files_without_a_pen(flask_client, temp_config, monkeypatch, tmp_path):
+    from ipr_keyboard.config.manager import ConfigManager
+    from ipr_keyboard.web import api
+
+    monkeypatch.setattr(api, "_pen_state_path", lambda: tmp_path / "absent.json")
+    ConfigManager.instance().update(IrisPenFolders=[str(tmp_path / "no-pen")])
+
+    data = flask_client.get("/api/debug/pen-files").get_json()
+
+    assert data["found_folders"] == [] and data["handled"] == []

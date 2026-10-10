@@ -30,6 +30,9 @@ from .logging.logger import get_logger
 
 logger = get_logger()
 
+#: The log's file name, in the project root (main.py and the dashboard).
+STATE_FILE = "pen_state.json"
+
 # Keys kept per folder.  Bounded so the file cannot grow without end on a pen
 # whose scans are never deleted; the oldest are dropped first, and a dropped
 # file would only be re-delivered if it were still on the pen after hundreds
@@ -120,6 +123,36 @@ class DeliveryLog:
         keys.append(key)
         del keys[:-MAX_KEYS_PER_FOLDER]
         self.save()
+
+    @staticmethod
+    def recent(path: Path | str, limit: int = 10) -> list[dict]:
+        """The scans most recently handled, newest first, read without logging.
+
+        For the dashboard, which polls: it must neither log on every refresh
+        nor hold the loop's instance.  "Handled" is typed, or already on the
+        pen when its folder was first seen.  The scans themselves are usually
+        gone -- deleted from the pen after typing -- so this is the only
+        record of them.
+        """
+        try:
+            raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        out = []
+        for folder, keys in (raw.items() if isinstance(raw, dict) else ()):
+            if not isinstance(keys, list):
+                continue
+            for key in keys:
+                name, _, rest = str(key).partition("|")
+                mtime, _, size = rest.partition("|")
+                try:
+                    out.append(
+                        {"name": name, "folder": folder, "mtime": int(mtime), "size_bytes": int(size)}
+                    )
+                except ValueError:
+                    continue
+        out.sort(key=lambda e: e["mtime"], reverse=True)
+        return out[:limit]
 
     def next_undelivered(self, folder: Path, files: list[Path]) -> Path | None:
         """The oldest file in `files` that has not been typed yet."""

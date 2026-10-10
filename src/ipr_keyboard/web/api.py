@@ -1414,6 +1414,14 @@ def api_debug_send_file():
         return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
 
 
+def _pen_state_path() -> Path:
+    """Where the watch loop records the scans it has handled (see delivery.py)."""
+    from ..delivery import STATE_FILE
+    from ..utils.helpers import project_root
+
+    return project_root() / STATE_FILE
+
+
 @bp_api.get("/debug/pen-files")
 def api_debug_pen_files():
     try:
@@ -1438,8 +1446,26 @@ def api_debug_pen_files():
                     })
                 except OSError:
                     pass
+        from ..delivery import DeliveryLog
+
+        handled = [
+            {
+                "name": e["name"],
+                "size_bytes": e["size_bytes"],
+                "modified_at": datetime.fromtimestamp(e["mtime"], tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+            for e in DeliveryLog.recent(_pen_state_path())
+        ]
         folders = list(cfg.IrisPenFolders or [])
-        return jsonify({"folders": folders, "files": files_result})
+        return jsonify({
+            "folders": folders,
+            "found_folders": [str(f) for f in expand_folders(cfg.IrisPenFolders)],
+            "files": files_result,
+            # An empty list is the normal state: a scan is deleted from the
+            # pen once typed.  Say so, and show what was handled.
+            "delete_after_send": bool(cfg.DeleteFiles),
+            "handled": handled,
+        })
     except Exception:
         logger.exception("API error")
         return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500

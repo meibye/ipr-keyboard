@@ -26,7 +26,7 @@ from .usb import detector as usb_detector, reader as usb_reader, deleter as usb_
 from . import keydelay, metrics
 from .web.server import create_app
 from .web import server as web_server
-from .delivery import DeliveryLog
+from .delivery import STATE_FILE, DeliveryLog
 from .gpio_monitor import GpioMonitor, gpio_available
 from .menu import MenuLogic
 from .oled.manager import OledManager
@@ -117,7 +117,7 @@ def run_web_server():
                 os.kill(os.getpid(), signal.SIGTERM)
 
 
-_PEN_STATE_FILE = "pen_state.json"
+_PEN_STATE_FILE = STATE_FILE
 
 
 def _pen_state_path() -> Path:

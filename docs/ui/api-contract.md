@@ -646,22 +646,38 @@ Example response
 
 #### GET /api/debug/pen-files
 
-Lists files in the configured pen folder (`IrisPenFolder` in config).
+Lists files in the configured pen folders (`IrisPenFolders` in config).
 Returns up to 8 KB of content per file; larger files are truncated (indicated by `truncated: true`).
+
+An empty `files` list is the normal state: with `DeleteFiles` on, a scan is
+deleted from the pen as soon as it is typed.  The pen's own history screen
+keeps showing it -- that history is private to the pen's app and not visible
+over USB -- so the response also carries what the device has handled:
+
+- `found_folders` -- the configured folders that exist now (empty: no pen).
+- `delete_after_send` -- `DeleteFiles`, so the page can say why it is empty.
+- `handled` -- up to 10 scans most recently handled, newest first, from the
+  delivery log (`pen_state.json`): typed, or already on the pen when its
+  folder was first seen.
 
 Example response
 ```json
 {
-  "folder": "/mnt/irispen",
+  "folders": ["/mnt/irispen/*/Scan text and save"],
+  "found_folders": ["/mnt/irispen/Internal shared storage/Scan text and save"],
   "files": [
     {
       "name": "note.txt",
-      "path": "/mnt/irispen/note.txt",
+      "path": "/mnt/irispen/Internal shared storage/Scan text and save/note.txt",
       "size_bytes": 142,
       "modified_at": "2026-04-26T14:00:00Z",
       "content": "Hello world\n",
       "truncated": false
     }
+  ],
+  "delete_after_send": true,
+  "handled": [
+    { "name": "20261010191345.txt", "size_bytes": 613, "modified_at": "2026-10-10T17:13:45Z" }
   ]
 }
 ```
