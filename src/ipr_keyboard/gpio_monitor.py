@@ -141,6 +141,13 @@ HOTSPOT_REQUEST_TIMEOUT_SECS: float = 40.0  # nmcli con up on a Zero W can be sl
 FAIL_FLASH_SECS: float = 3.0
 PROBE_INTERVAL_ACTIVE_SECS: float = 2.0  # while the LED is showing status
 PROBE_INTERVAL_IDLE_SECS: float = 5.0  # while the LED is off / blue solid
+# The probe itself is cheap (sysfs); the two subprocesses behind it are not.
+# Each nmcli or systemctl run opens a fresh system D-Bus connection, and at
+# the probe rate that was ~35,000 connections a day on a Zero.  Their answers
+# are reused until something cheap says they may have changed, or they age.
+NETWORK_MAX_AGE_SECS: float = 60.0  # nmcli, while the WiFi link looks unchanged
+NETWORK_SETTLE_SECS: float = 30.0  # keep asking nmcli this long after a link change
+SERVICES_MAX_AGE_SECS: float = 30.0  # systemctl is-active
 
 
 class _ReedFilter:
@@ -231,14 +238,63 @@ class SystemProbe:
         self.failed_services: tuple[str, ...] = ()
         self.ssid = ""  # active WiFi profile name (empty when not connected)
         self.ip = ""  # our address on the route out (empty without a route)
+        self._net_at: float | None = None  # when nmcli last answered
+        self._net_seen: tuple | None = None  # the cheap link picture it answered for
+        self._net_changed_at = 0.0
+        self._svc_at: float | None = None  # when systemctl last answered
 
-    def refresh(self) -> None:
-        self.hotspot_active, self.wifi_connected, self.ssid = self._network_state()
+    def invalidate(self) -> None:
+        """Ask nmcli and systemctl again on the next refresh.
+
+        For the moments a person is looking: a tap that wakes the status, and
+        a hotspot request waiting to see the hotspot come up or go down.
+        """
+        self._net_at = None
+        self._svc_at = None
+
+    def refresh(self, now: float | None = None) -> None:
+        now = time.monotonic() if now is None else now
+        self.ip = self._ip_state()
+        seen = (self._link_state(), self.ip)
+        if seen != self._net_seen:
+            self._net_seen = seen
+            self._net_changed_at = now
+        if (
+            self._net_at is None
+            or now - self._net_at >= NETWORK_MAX_AGE_SECS
+            or now - self._net_changed_at < NETWORK_SETTLE_SECS
+        ):
+            self.hotspot_active, self.wifi_connected, self.ssid = self._network_state()
+            self._net_at = now
+        if self._svc_at is None or now - self._svc_at >= SERVICES_MAX_AGE_SECS:
+            self.failed_services = self._failed_services()
+            self.services_ok = not self.failed_services
+            self._svc_at = now
         self.bt_connected = self._bt_state()
         self.development = self._mode_state()
-        self.failed_services = self._failed_services()
-        self.services_ok = not self.failed_services
-        self.ip = self._ip_state()
+
+    @staticmethod
+    def _link_state() -> tuple[tuple[str, str], ...]:
+        """Each WiFi interface and its operstate, from sysfs (no subprocess).
+
+        Joining, leaving, or turning into a hotspot flips this, or our
+        address; either sends the next refresh to nmcli for the details.
+        """
+        root = "/sys/class/net"
+        try:
+            names = sorted(os.listdir(root))
+        except OSError:
+            return ()
+        links = []
+        for name in names:
+            if not os.path.isdir(os.path.join(root, name, "wireless")):
+                continue
+            try:
+                with open(os.path.join(root, name, "operstate"), encoding="utf-8") as fh:
+                    links.append((name, fh.read().strip()))
+            except OSError:
+                links.append((name, "?"))
+        return tuple(links)
 
     @staticmethod
     def _failed_services() -> tuple[str, ...]:
@@ -528,6 +584,7 @@ class LedLogic:
         self.phase = Phase.BOOT
         self._deadline = 0.0  # phase-specific timeout
         self._next_probe = 0.0
+        self._fresh_probe = False  # next probe bypasses the probe's cache
         self._reed_was = False
         self._press_start = 0.0
         self._reed = _ReedFilter()
@@ -632,6 +689,12 @@ class LedLogic:
         self._next_probe = now + interval
         if self.phase in (Phase.RESETTING, Phase.SHUTTING_DOWN):
             return
+        if self._fresh_probe or self.phase == Phase.HOTSPOT_BUSY:
+            # Someone is watching: answer from nmcli/systemctl, not the cache.
+            invalidate = getattr(self._probe, "invalidate", None)
+            if invalidate:
+                invalidate()
+        self._fresh_probe = False
         try:
             self._probe.refresh()
         except Exception as exc:  # never let a probe kill the LED loop
@@ -641,6 +704,7 @@ class LedLogic:
         self.phase = Phase.STATUS
         self._deadline = now + self._idle_timeout
         self._next_probe = 0.0  # refresh immediately on the next tick
+        self._fresh_probe = True
 
     def _handle_reed(self, now: float, closed: bool) -> None:
         # The menu owns the magnet while it is open: a tap moves, a long press

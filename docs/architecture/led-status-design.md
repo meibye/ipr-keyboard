@@ -88,9 +88,20 @@ so it is covered by unit tests with a fake clock, probe and actions
 the reed switch, ticks the logic and writes the LED (only on change).
 
 Phases: `BOOT → STATUS → IDLE`, plus `HOTSPOT_BUSY`, `HOTSPOT_ON`,
-`FAIL_FLASH`, `RESETTING`.  Probes (`nmcli con show --active`,
-`bluetoothctl devices Connected`) run every 2 s while the LED shows status and
-every 5 s while idle or solid blue — never in the 20 Hz loop itself.
+`FAIL_FLASH`, `RESETTING`.  The probe refreshes every 2 s while the LED shows
+status and every 5 s while idle or solid blue — never in the 20 Hz loop
+itself.  Each refresh reads the cheap facts from sysfs (a Bluetooth link under
+`/sys/class/bluetooth`, each WiFi interface's operstate, our address on the
+route out).  The two answers that need a subprocess are cached, because every
+`nmcli` or `systemctl` run opens a new system D-Bus connection — at the probe
+rate that was about 35,000 a day:
+
+- `nmcli con show --active` (hotspot, WiFi, SSID) is asked again when the WiFi
+  operstate or our address changes, for 30 s after such a change while
+  NetworkManager catches up, and otherwise once a minute.
+- `systemctl is-active` (the core services) is asked every 30 s.
+- A tap that wakes the status, and every probe while a hotspot request is
+  pending, bypass the cache.
 
 Hotspot state is **read from NetworkManager** (`ipr-hotspot` connection
 active), never from the unit state.  This also makes the LED show blue when
