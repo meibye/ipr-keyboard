@@ -118,7 +118,7 @@ class Canvas:
 def fig_system_overview():
     c = Canvas(1000, 400)
     c.title("Sådan hænger det sammen",
-            "Skanneren gemmer tekst som fil — brotoget sender teksten videre som tastetryk")
+            "Skanneren gemmer tekst som fil — boksen sender teksten videre som tastetryk")
 
     y, h = 130, 120
     c.node(60, y, 220, h, "IRIS-skanner",
@@ -145,7 +145,7 @@ def fig_system_overview():
 
     c.box(60, 320, 880, 56, fill=PANEL, outline=LINE, width=1, radius=8)
     c.text(500, 348,
-           "PC'en ser brotoget som et almindeligt Bluetooth-tastatur. "
+           "PC'en ser boksen som et almindeligt Bluetooth-tastatur. "
            "Teksten havner dér, hvor markøren står.",
            F(12), INK, anchor="mm")
     c.save("fig01_systemoversigt.png")
@@ -165,19 +165,19 @@ def fig_connections():
 
     # ports
     c.box(378, 236, 84, 30, fill=BG, outline=MUTED, width=2, radius=5)
-    c.text(420, 251, "PWR", F(10, True), MUTED, anchor="mm")
+    c.text(420, 251, "PWR/PC", F(10, True), MUTED, anchor="mm")
     c.box(474, 236, 84, 30, fill=BG, outline=MUTED, width=2, radius=5)
-    c.text(516, 251, "USB", F(10, True), MUTED, anchor="mm")
+    c.text(516, 251, "PEN", F(10, True), MUTED, anchor="mm")
     # LED + magnet spot
     c.circle(600, 251, 10, GREEN_BG, GREEN, 2)
     c.text(600, 272, "LED", F(10), MUTED, anchor="ma")
 
     # 1 power
-    c.node(60, 90, 230, 80, "1. Strøm", ["USB-strømforsyning", "i PWR-porten"], AMBER, AMBER_BG)
+    c.node(60, 90, 230, 80, "1. Strøm", ["USB-strømforsyning", "i PWR/PC-porten"], AMBER, AMBER_BG)
     c.arrow(295, 130, 415, 232, AMBER)
 
     # 2 pen
-    c.node(60, 300, 230, 80, "2. IRIS-skanner", ["USB-kabel fra pennen", "i USB-porten"], PURPLE, PURPLE_BG)
+    c.node(60, 300, 230, 80, "2. IRIS-skanner", ["USB-kabel fra pennen", "i PEN-porten"], PURPLE, PURPLE_BG)
     c.arrow(295, 340, 508, 272, PURPLE)
 
     # 3 PC bluetooth
@@ -192,7 +192,7 @@ def fig_connections():
     c.box(60, 405, 880, 48, fill=PANEL, outline=LINE, width=1, radius=8)
     c.text(500, 429,
            "Vent ca. 1 minut efter strøm er tilsluttet, før du forventer forbindelse. "
-           "Brotoget starter selv op.",
+           "Boksen starter selv op.",
            F(12), INK, anchor="mm")
     c.save("fig02_tilslutning.png")
 
@@ -203,7 +203,7 @@ def fig_connections():
 def fig_led_colours():
     rows = [
         ((255, 255, 255), "Hvid, konstant", "Strømmen er lige sat til", MUTED),
-        ((255, 255, 255), "Hvid, hurtigt blink", "Brotoget starter op — vent ca. 1 minut", MUTED),
+        ((255, 255, 255), "Hvid, hurtigt blink", "Boksen starter op — vent ca. 1 minut", MUTED),
         ((255, 255, 255), "Hvid, tre korte blink", "Magneten er registreret — hold fast, eller fjern den igen", MUTED),
         ((46, 160, 87), "Grøn, konstant", "Alt er klar — netværk og Bluetooth er forbundet", GREEN),
         ((240, 180, 40), "Gul/ravfarvet, konstant", "Netværk OK, men PC'en er ikke forbundet endnu", AMBER),
@@ -344,8 +344,8 @@ def fig_user_troubleshoot():
          "Gul = PC ikke forbundet.\nRød = intet netværk.\nSe afsnittet om lampens farver.")
     step(310, "Står markøren i det rigtige\nfelt eller dokument på PC'en?", True,
          "Klik i feltet, hvor teksten\nskal stå, og skan igen.")
-    step(420, "Er skanneren sat til med\nUSB-kablet?", False,
-         "Sæt USB-kablet i igen,\nog vent 30 sekunder.")
+    step(420, "Er skanneren sat i\nPEN-porten?", False,
+         "Sæt kablet i PEN-porten\nigen, og vent 30 sekunder.")
 
     c.box(290, 500, 350, 92, fill=AMBER_BG, outline=AMBER, width=2, radius=10)
     c.text(465, 516, "Stadig ingen tekst?", F(13, True), AMBER, anchor="ma")

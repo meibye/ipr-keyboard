@@ -2607,8 +2607,9 @@ def build() -> Manual:
              "Kabinettets to porte skal kunne skelnes."],
             ["B2", "Nærbillede af portene",
              "Brugermanual, afsnit 3.2",
-             "Samme enhed set direkte fra portsiden med begge USB-porte i fokus. Tilføj "
-             "efterfølgende to grafiske etiketter: “PWR — strøm” og “USB — skanner”, med "
+             "Samme enhed set direkte fra portsiden med begge porte i fokus, så "
+             "kabinettets mærkning PWR/PC og PEN kan læses. Tilføj efterfølgende to grafiske "
+             "etiketter: “PWR/PC — strøm” og “PEN — skanner”, med "
              "pile til de respektive porte."],
             ["B3", "Magneten i brug",
              "Brugermanual, afsnit 5.2",

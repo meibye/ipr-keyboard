@@ -104,11 +104,11 @@ def build() -> None:
     m.p("Følg trinene i denne rækkefølge:", bold=True)
     m.bullets([
         ("Sæt strøm til boksen. ",
-         "Brug PWR-porten. Lampen blinker hvidt, mens boksen starter op."),
+         "Brug porten mærket PWR/PC. Lampen blinker hvidt, mens boksen starter op."),
         ("Vent ca. 1 minut. ",
          "Boksen er klar, når den hvide blinken er ophørt."),
         ("Sæt IRIS-skanneren til med USB-kablet. ",
-         "Brug USB-porten på boksen — ikke PWR-porten."),
+         "Brug porten mærket PEN på boksen — ikke PWR/PC-porten."),
         ("Par PC'en med boksen. ",
          "Kun nødvendigt første gang. Se afsnit 3.3."),
     ], numbered=True)
@@ -393,7 +393,7 @@ def build() -> None:
                           "skal gøre det. Linjen har en advarselstrekant ⚠ og siger hvad: "
                           "fx at pennen ikke er sat i, eller at der ikke er noget netværk."],
             ["PROBLEM", "En linje har et ✗ og siger, hvad der er galt med selve boksen: "
-                        "pennens USB-port slået fra, en tjeneste stoppet. Det er ikke noget, "
+                        "PEN-porten slået fra, en tjeneste stoppet. Det er ikke noget, "
                         "du selv retter — kontakt administratoren."],
             ["SENDING… / SENT ✓ / SEND FAILED",
              "En skanning skrives ind i PC'en, blev skrevet ind, eller kunne ikke (teksten "
@@ -591,8 +591,8 @@ def build() -> None:
 
     m.h2("Kom i gang")
     m.bullets([
-        "Strøm i PWR-porten → vent 1 minut.",
-        "Skanner i USB-porten.",
+        "Strøm i PWR/PC-porten → vent 1 minut.",
+        "Skanner i PEN-porten.",
         "Klik i feltet på PC'en → skan.",
     ], numbered=True)
 
@@ -614,7 +614,7 @@ def build() -> None:
     m.bullets([
         "Hold magneten tæt på boksen — hvad viser lampen?",
         "Står markøren i det rigtige felt?",
-        "Er skanneren sat i USB-porten?",
+        "Er skanneren sat i PEN-porten?",
         "Tag strømmen fra i 10 sekunder, og sæt den til igen.",
         "Hjælper det ikke: kontakt din administrator.",
     ], numbered=True)
