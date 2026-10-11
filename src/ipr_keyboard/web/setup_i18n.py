@@ -211,7 +211,6 @@ _EN: dict[str, str] = {
     "home_login_lbl": "Login",
     "home_login_val": "ipr  /  hotspot password above",
     # Home — Dashboard card
-    "home_dash_title": "Main Dashboard",
     "home_dash_url": "Address",
     "home_dash_login": "Login",
     "home_dash_login_changed": "admin  /  the password you set",
@@ -349,7 +348,6 @@ _DA: dict[str, str] = {
     "home_login_lbl": "Log ind",
     "home_login_val": "ipr  /  hotspot-adgangskoden ovenfor",
     # Home — Dashboard card
-    "home_dash_title": "Betjeningssiden",
     "home_dash_url": "Adresse",
     "home_dash_login": "Log ind",
     "home_dash_login_changed": "admin  /  den adgangskode, du selv har valgt",

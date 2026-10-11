@@ -64,7 +64,7 @@ def error(msg):
 def check_gpio_available():
     """Check if GPIO access is available"""
     try:
-        import RPi.GPIO as GPIO
+        import RPi.GPIO  # noqa: F401 -- the import is the check; it raises off a Pi
 
         return True
     except ImportError:

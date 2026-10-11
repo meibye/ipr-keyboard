@@ -22,9 +22,6 @@ import json
 import os
 import subprocess
 import sys
-import urllib.request
-import ssl
-import http.cookiejar
 
 ROWS = [
     ("boot_to_process_s",  "Boot -> app process",     "s"),

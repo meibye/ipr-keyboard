@@ -7,7 +7,6 @@ read from stdin, and every answer comes from the answer file or its documented
 default.
 """
 
-import pathlib
 import shutil
 import subprocess
 import sys

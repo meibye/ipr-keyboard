@@ -290,9 +290,9 @@ def _bt_info() -> dict:
                 mac = parts[1]
                 info = _run(["bluetoothctl", "info", mac])
                 connected = any(
-                    "yes" in l.split(":", 1)[-1].lower()
-                    for l in info.splitlines()
-                    if "Connected:" in l
+                    "yes" in ln.split(":", 1)[-1].lower()
+                    for ln in info.splitlines()
+                    if "Connected:" in ln
                 )
                 name = parts[2] if len(parts) == 3 else mac
                 devices.append({"mac": mac, "name": name, "connected": connected})

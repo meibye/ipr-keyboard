@@ -144,8 +144,6 @@ def _check_cert_renewal() -> str:
     if not os.path.isfile(cert):
         return "cert missing"
     try:
-        import ssl as _ssl
-        ctx = _ssl.create_default_context()
         # Use openssl to get the expiry without needing a live connection
         import datetime
         out = subprocess.check_output(
@@ -444,7 +442,7 @@ def _show_app_detail(stdscr, label, desc, status):
         port = _get_web_port()
         _addstr(stdscr, row, 2, f"URL: https://<device-ip>:{port}/")
         row += 1
-        _addstr(stdscr, row, 2, f"Setup: https://10.42.0.1/setup/")
+        _addstr(stdscr, row, 2, "Setup: https://10.42.0.1/setup/")
     elif label == "Hotspot":
         secret = "/etc/ipr-hotspot.secret"
         if os.path.isfile(secret):

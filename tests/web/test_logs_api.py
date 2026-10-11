@@ -3,8 +3,6 @@
 Tests the Flask web API for viewing application logs.
 """
 
-from pathlib import Path
-
 
 def test_get_log_whole(flask_client, temp_log_dir):
     """Test GET /logs/ returns full log content.
@@ -72,7 +70,7 @@ def test_get_log_tail(flask_client, temp_log_dir):
     assert "log" in data
 
     # Should have approximately the last 5 lines
-    lines = [l for l in data["log"].strip().split("\n") if l]
+    lines = [ln for ln in data["log"].strip().split("\n") if ln]
     # Due to buffering and multi-line log entries, we just verify it's not empty
     assert len(lines) > 0
 

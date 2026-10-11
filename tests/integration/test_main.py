@@ -3,11 +3,7 @@
 Tests the main application entry point and workflows.
 """
 
-import threading
-import time
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import MagicMock
 
 
 def test_run_web_server_creates_app(temp_config, monkeypatch):
@@ -15,7 +11,6 @@ def test_run_web_server_creates_app(temp_config, monkeypatch):
 
     Verifies that the web server is started with correct port.
     """
-    from ipr_keyboard.config.manager import ConfigManager
     from ipr_keyboard.main import run_web_server
 
     app_mock = MagicMock()
@@ -49,7 +44,6 @@ def test_main_initializes_config(temp_config, monkeypatch):
         return MagicMock()
 
     # Mock threading.Thread
-    original_thread = threading.Thread
 
     def mock_thread(**kwargs):
         started["count"] += 1
@@ -97,7 +91,7 @@ def test_usb_bt_loop_handles_missing_folder(temp_config, monkeypatch):
     from ipr_keyboard.main import run_usb_bt_loop
 
     # Ensure IrisPenFolder doesn't exist
-    cfg = ConfigManager.instance().get()
+    ConfigManager.instance().get()
 
     loop_count = {"count": 0}
 
@@ -364,7 +358,8 @@ def test_usb_bt_loop_baselines_unknown_folder_and_persists_mark(
     assert str(usb_folder) in state
 
     # A newer file is delivered; the persisted mark then blocks a second delivery
-    import os as _os, time as _time
+    import os as _os
+    import time as _time
 
     new = usb_folder / "new.txt"
     new.write_text("fresh scan")

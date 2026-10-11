@@ -5,7 +5,6 @@ Implements all /api/ endpoints as defined in docs/ui/api-contract.md.
 
 from __future__ import annotations
 
-import io
 import json
 import os
 import re

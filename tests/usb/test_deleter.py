@@ -3,9 +3,7 @@
 Tests file and folder deletion operations.
 """
 
-import os
 from pathlib import Path
-from unittest.mock import patch
 
 from ipr_keyboard.usb import deleter
 
@@ -216,7 +214,6 @@ def test_delete_newest_with_failure(usb_folder, sample_text_files, monkeypatch):
 
     Verifies that None is returned if the deletion fails.
     """
-    original_unlink = Path.unlink
 
     def fail_unlink(self):
         raise OSError("Permission denied")

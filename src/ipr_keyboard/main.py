@@ -13,10 +13,7 @@ import threading
 import time
 from pathlib import Path
 
-_TLS_CERT = Path("/etc/ipr-ssl/server.crt")
-_TLS_KEY = Path("/etc/ipr-ssl/server.key")
-
-from .config.manager import ConfigManager, log_version_info
+from .config.manager import ConfigManager
 from .config import manager as config_manager
 from .bluetooth.keyboard import BluetoothKeyboard
 from .bluetooth import keyboard as bt_keyboard
@@ -27,10 +24,13 @@ from . import keydelay, metrics
 from .web.server import create_app
 from .web import server as web_server
 from .delivery import STATE_FILE, DeliveryLog
-from .gpio_monitor import GpioMonitor, gpio_available
+from .gpio_monitor import GpioMonitor
 from .menu import MenuLogic
 from .oled.manager import OledManager
 from .recovery import RecoveryInfo
+
+_TLS_CERT = Path("/etc/ipr-ssl/server.crt")
+_TLS_KEY = Path("/etc/ipr-ssl/server.key")
 
 logger = get_logger()
 

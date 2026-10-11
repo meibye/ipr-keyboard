@@ -230,9 +230,7 @@ def create_app() -> Flask:
             "dbus.service",
             "systemd-udevd.service",
         ]
-        import flask
-
-        selected_units = flask.request.args.getlist("unit")
+        selected_units = request.args.getlist("unit")
         if not selected_units:
             selected_units = ["ipr_keyboard.service"]
         # Build journalctl command
@@ -256,7 +254,7 @@ def create_app() -> Flask:
     def pairing():
         result = error = None
         # Start pairing on POST
-        if flask.request.method == "POST":
+        if request.method == "POST":
             try:
                 out = _run_cmd(["bluetoothctl", "pairable", "on"])
                 out += _run_cmd(["bluetoothctl", "discoverable", "on"])
@@ -289,14 +287,14 @@ def create_app() -> Flask:
         config_mgr = ConfigManager.instance()
         config_obj = config_mgr.get()
         config_dict = config_obj.to_dict()
-        if flask.request.method == "POST":
-            if "restart" in flask.request.form:
+        if request.method == "POST":
+            if "restart" in request.form:
                 try:
                     subprocess.Popen(["sudo", "reboot"])
                     result = "Restarting machine..."
                 except Exception as exc:
                     error = f"Failed to restart: {exc}"
-            elif "shutdown" in flask.request.form:
+            elif "shutdown" in request.form:
                 try:
                     subprocess.Popen(["sudo", "shutdown", "-h", "now"])
                     result = "Shutting down machine..."
@@ -304,7 +302,7 @@ def create_app() -> Flask:
                     error = f"Failed to shutdown: {exc}"
             else:
                 update_kwargs = {}
-                for key, value in flask.request.form.items():
+                for key, value in request.form.items():
                     if key in config_dict:
                         # Type conversion
                         field_type = type(getattr(config_obj, key))

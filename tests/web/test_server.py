@@ -203,3 +203,17 @@ def test_a_missing_asset_still_produces_a_usable_url(temp_config):
     with app.test_request_context():
         url = app.jinja_env.globals["asset_url"]("does-not-exist.css")
     assert url.endswith("/static/does-not-exist.css"), url
+
+
+def test_the_old_pages_accept_a_post(flask_client, monkeypatch):
+    """POST to /pairing/ and /config/ used `flask.request` without importing
+    flask, so both raised NameError (500) -- only GET was ever tested."""
+    from ipr_keyboard.web import server
+
+    ran = []
+    monkeypatch.setattr(server, "_run_cmd", lambda cmd: ran.append(cmd) or "")
+    monkeypatch.setattr(server.subprocess, "check_output", lambda *a, **k: "")
+
+    assert flask_client.post("/pairing/").status_code == 200
+    assert ["bluetoothctl", "pairable", "on"] in ran
+    assert flask_client.post("/config/", data={}).status_code == 200

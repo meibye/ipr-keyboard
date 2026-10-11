@@ -186,7 +186,7 @@ def main() -> None:
     adapter = find_adapter(bus, args.adapter)
     set_adapter_ready(bus, adapter, verbose=verbose)
 
-    agent = Agent(bus=bus, path=AGENT_PATH, verbose=verbose)
+    _agent = Agent(bus=bus, path=AGENT_PATH, verbose=verbose)  # exported on the bus; kept referenced
     mgr = dbus.Interface(bus.get_object(BLUEZ, "/org/bluez"), AGENT_MGR_IFACE)
 
     try:

@@ -4,7 +4,6 @@ Tests path resolution and JSON file operations.
 """
 
 import json
-from pathlib import Path
 
 from ipr_keyboard.utils.helpers import (
     project_root,

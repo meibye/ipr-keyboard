@@ -4,7 +4,6 @@ Tests synchronization from MTP mount to local cache.
 """
 
 import os
-import time
 from pathlib import Path
 
 from ipr_keyboard.usb.mtp_sync import sync_mtp_to_cache, _iter_text_files, SyncResult

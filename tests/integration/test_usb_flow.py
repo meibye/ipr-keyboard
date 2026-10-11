@@ -4,7 +4,6 @@ Tests the complete flow from file detection to reading and deletion.
 """
 
 import time
-from pathlib import Path
 
 from ipr_keyboard.usb import detector, reader, deleter
 

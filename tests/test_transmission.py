@@ -7,7 +7,6 @@ import importlib
 def _reset():
     """Re-import the module to reset global state between tests."""
     import ipr_keyboard.transmission as tx
-    import importlib
 
     importlib.reload(tx)
     return tx
