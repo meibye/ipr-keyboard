@@ -271,7 +271,31 @@ def explain(incident: Incident, state: str, is_handled: bool) -> dict:
     }
 
 
-def summary(incidents: list[Incident], handled_ids: set[str]) -> tuple[int, int, str]:
-    """(open, handled, the latest open line) — for the Home card."""
+def home_summary(
+    incidents: list[Incident], handled_ids: set[str], states: dict[str, str]
+) -> dict:
+    """What the Home card shows.
+
+    An open incident stays open until someone marks it handled -- a service
+    that restarts by itself does not clear it, or one that fails every night
+    would never be noticed.  But "a service is down now" and "something
+    failed and recovered, have a look" are different things, and one red
+    count for both read as a live fault.  So the open ones are split:
+
+    attention  the service is still down (the panel says *Not running*)
+    recovered  everything else open: running again, starting, finished, or
+               not running because nothing needs it (the pen unplugged)
+    """
     open_ = [i for i in incidents if i.id not in handled_ids]
-    return len(open_), len(incidents) - len(open_), (open_[-1].line if open_ else "")
+    attention = sum(
+        1
+        for i in open_
+        if explain(i, states.get(i.unit, "unknown"), False)["now_state"] == "error"
+    )
+    return {
+        "open": len(open_),
+        "attention": attention,
+        "recovered": len(open_) - attention,
+        "handled": len(incidents) - len(open_),
+        "last": open_[-1].line if open_ else "",
+    }

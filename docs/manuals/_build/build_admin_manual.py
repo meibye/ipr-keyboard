@@ -1165,8 +1165,9 @@ def build() -> Manual:
         "telefon, der viser siden — ikke enhedens. Kun displayet på selve enheden viser "
         "enhedens egen tid.")
     m.p("Forsidens boks “Device” viser tilstand (drift/udvikling), om hotspottet er tændt "
-        "(med SSID), hvilket netværk enheden er på med IP-adresse, antal åbne "
-        "hændelser (fx “1 open ›”; et klik åbner listen, afsnit 9.5) og en sætning om, "
+        "(med SSID), hvilket netværk enheden er på med IP-adresse, de åbne hændelser "
+        "(rødt “needs attention”, mens en tjeneste stadig er nede; gult “recovered — "
+        "review”, når den kører igen; et klik åbner listen, afsnit 9.5) og en sætning om, "
         "hvor enheden kan nås. Administratorer får "
         "knapperne Start hotspot / Stop hotspot; start kræver bekræftelse, fordi enheden "
         "forlader hjemmenettet, mens hotspottet er tændt — siden holder op med at svare "
@@ -2032,8 +2033,11 @@ def build() -> Manual:
         widths=[3.6, 12.0],
         caption="Tre lag, installeret af install_observability.sh.",
     )
-    m.p("Efter en hændelse — på dashboardet: tallet “Incidents” i boksen Device på "
-        "forsiden er antallet af åbne hændelser, og et klik åbner listen. For hver "
+    m.p("Efter en hændelse — på dashboardet: “Incidents” i boksen Device på forsiden "
+        "viser rødt “N needs attention”, mens en fejlet tjeneste stadig er nede, og gult "
+        "“N recovered — review”, når den kører igen. En hændelse forbliver åben, til den "
+        "markeres som håndteret — også når tjenesten er kommet sig — så en fejl, der "
+        "gentager sig hver nat, stadig ses. Et klik åbner listen. For hver "
         "hændelse står i almindeligt sprog, hvad der stoppede og hvad den del gør, om den "
         "kører igen nu, og hvad man skal gøre. “Show log” viser tjenestens journal fra tre "
         "minutter før til et minut efter fejlen. En administrator kan genstarte "

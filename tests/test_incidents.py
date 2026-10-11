@@ -111,10 +111,45 @@ def test_every_known_unit_and_result_has_words():
 def test_handled_incidents_stop_counting_but_stay_in_the_log(tmp_path):
     items = il.parse(LOG)
     path = tmp_path / "handled.json"
-    assert il.summary(items, il.handled(path)) == (2, 0, items[-1].line)
+    running = {"bt_hid_ble": "active", "irispen-mount": "active"}
+    s = il.home_summary(items, il.handled(path), running)
+    assert (s["open"], s["handled"], s["last"]) == (2, 0, items[-1].line)
     assert il.mark_handled(path, [items[-1].id], items) == 1
-    assert il.summary(items, il.handled(path)) == (1, 1, items[0].line)
+    s = il.home_summary(items, il.handled(path), running)
+    assert (s["open"], s["handled"], s["last"]) == (1, 1, items[0].line)
     assert il.mark_handled(path, [items[-1].id], items) == 0  # already handled
+
+
+def test_a_recovered_incident_stays_open_but_is_not_a_live_fault():
+    """It still wants a look -- one that recurs every night must be noticed --
+    but it must not read like a service that is down now."""
+    items = il.parse(LOG)
+    s = il.home_summary(
+        items, set(), {"bt_hid_ble": "active", "irispen-mount": "active"}
+    )
+    assert (s["open"], s["attention"], s["recovered"]) == (2, 0, 2)
+
+
+def test_a_service_still_down_needs_attention():
+    items = il.parse(LOG)
+    s = il.home_summary(
+        items, set(), {"bt_hid_ble": "failed", "irispen-mount": "active"}
+    )
+    assert (s["attention"], s["recovered"]) == (1, 1)
+
+
+def test_the_pen_connection_down_without_a_pen_is_not_a_live_fault():
+    items = il.parse(LOG)
+    s = il.home_summary(
+        items, set(), {"bt_hid_ble": "active", "irispen-mount": "inactive"}
+    )
+    assert (s["attention"], s["recovered"]) == (0, 2)
+
+
+def test_nothing_open_is_nothing_to_show():
+    items = il.parse(LOG)
+    s = il.home_summary(items, {i.id for i in items}, {})
+    assert s == {"open": 0, "attention": 0, "recovered": 0, "handled": 2, "last": ""}
 
 
 def test_only_lines_still_in_the_log_are_kept_as_handled(tmp_path):
@@ -202,6 +237,18 @@ def test_marking_one_handled_takes_it_off_the_home_count(flask_client, incident_
     dev = api._build_device_data()
     assert dev["incidents_count"] == 1 and dev["incidents_handled"] == 1
     assert "bt_hid_ble" in dev["last_incident"]
+    # The one left open is bt_hid_ble, still down in this fixture.
+    assert dev["incidents_attention"] == 1 and dev["incidents_recovered"] == 0
+
+
+def test_the_home_count_asks_systemctl_only_with_open_incidents(
+    flask_client, incident_files, monkeypatch
+):
+    asked = []
+    monkeypatch.setattr(il, "unit_states", lambda units: asked.append(units) or {})
+    flask_client.post("/api/incidents/handled", json={"all": True})
+    dev = api._build_device_data()
+    assert dev["incidents_count"] == 0 and asked == []
 
 
 def test_mark_all_handled(flask_client, incident_files):

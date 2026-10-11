@@ -77,7 +77,7 @@ The default screen for normal users.
 | [View Activity]                                           [Open Settings]        |
 +----------------------------------------------------------------------------------+
 | Device   Mode  Production   Hotspot  Off   Network  Home · 192.168.1.97          |
-|          Incidents  [1 open ›]                                                   |
+|          Incidents  [1 recovered — review ›]  (red "needs attention" if down)    |
 +----------------------------------------------------------------------------------+
 | Incidents  (opens from the count)                                                |
 |  Pen connection stopped                                      Running again       |

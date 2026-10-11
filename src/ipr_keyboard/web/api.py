@@ -590,19 +590,21 @@ def _incidents_handled_path() -> Path:
     return project_root() / incident_log.HANDLED_FILE
 
 
-def _incidents() -> tuple[int, int, str]:
-    """(open, handled, the latest open line) -- see incidents.py."""
-    return incident_log.summary(
-        incident_log.read(_INCIDENTS_FILE),
-        incident_log.handled(_incidents_handled_path()),
-    )
+def _incidents() -> dict[str, Any]:
+    """The Home card's incident counts -- see incidents.home_summary().  Asks
+    systemctl (one call) only when there are open incidents."""
+    items = incident_log.read(_INCIDENTS_FILE)
+    done = incident_log.handled(_incidents_handled_path())
+    open_units = [i.unit for i in items if i.id not in done]
+    states = incident_log.unit_states(open_units) if open_units else {}
+    return incident_log.home_summary(items, done, states)
 
 
 def _build_device_data() -> dict[str, Any]:
     mode = _device_mode()
     hotspot = _hotspot_active()
     home = _home_wifi_active()
-    count, handled_count, last = _incidents()
+    incidents = _incidents()
     if hotspot:
         reach = "Reachable only via the hotspot (10.42.0.1) while it is on"
     elif mode == "development":
@@ -617,9 +619,11 @@ def _build_device_data() -> dict[str, Any]:
         "ip": _get_current_ip(),
         "hostname": _run(["hostname"]).strip(),
         "reachability": reach,
-        "incidents_count": count,
-        "incidents_handled": handled_count,
-        "last_incident": last,
+        "incidents_count": incidents["open"],
+        "incidents_attention": incidents["attention"],
+        "incidents_recovered": incidents["recovered"],
+        "incidents_handled": incidents["handled"],
+        "last_incident": incidents["last"],
         "device_time": _device_local_time(),
         "device_epoch": time.time(),
     }

@@ -433,8 +433,9 @@ def build() -> None:
             ["Forside", "Samlet status: er alt klar, eller er der noget, der kræver "
                         "opmærksomhed. Boksen “Enhed” viser tilstand (drift/udvikling), om "
                         "opsætningsnetværket er tændt, hvilket netværk boksen er på, og om "
-                        "der er åbne hændelser. Klik på tallet for at se, hvad der skete, "
-                        "om det virker igen, og hvad du skal gøre."],
+                        "der er åbne hændelser: rødt, hvis noget stadig ikke kører, gult, "
+                        "hvis det er gået i gang igen af sig selv. Klik for at se, hvad der "
+                        "skete, og hvad du skal gøre."],
             ["Forbindelser", "Om PC'en er forbundet, og om skanneren er fundet."],
             ["Aktivitet", "Om der sendes tekst lige nu, og hvad der er sendt for nylig."],
             ["Hændelser", "En liste i almindeligt sprog over, hvad der er sket."],

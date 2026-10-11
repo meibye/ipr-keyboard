@@ -48,9 +48,12 @@ Installed by `scripts/headless/install_observability.sh` (provisioning and
 
 ## What to do after an incident
 
-**On the dashboard** (Home ▸ Device ▸ *Incidents*): the count is the number
-of open incidents; selecting it lists each one with what failed, whether it
-is running again, and what to do.  *Show log* gives that service's journal
+**On the dashboard** (Home ▸ Device ▸ *Incidents*): red *N needs
+attention* while a failed service is still down, amber *N recovered —
+review* once it runs again.  Recovering does not close an incident — only
+*Mark as handled* does — so a service that fails every night still shows.
+Selecting the count lists each one with what failed, whether it is running
+again, and what to do.  *Show log* gives that service's journal
 around the moment it failed, *Restart* restarts the Bluetooth services, and
 *Mark as handled* takes an incident out of the count.  The log file itself is
 never changed -- "handled" is kept in `incidents_handled.json` next to the

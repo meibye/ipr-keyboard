@@ -866,6 +866,8 @@ Device-level facts for the home page's *Device* card (session required):
   "hostname": "ipr-prod-zero2",
   "reachability": "SSH and dashboard open on the home network",
   "incidents_count": 0,
+  "incidents_attention": 0,
+  "incidents_recovered": 0,
   "incidents_handled": 0,
   "last_incident": "",
   "device_time": "2026-09-13 14:00:00 CEST",
@@ -877,8 +879,14 @@ Device-level facts for the home page's *Device* card (session required):
 The top-bar clock is the device's clock (`device_epoch`), ticked locally and
 shown in the viewer's time zone.  `incidents_count` counts the **open**
 incidents (not yet marked handled) and `last_incident` is the newest open
-line; `incidents_handled` counts the ones marked handled.  The count opens
-the incident panel, fed by `/api/incidents`.
+line; `incidents_handled` counts the ones marked handled.  The open ones are
+split for the Home card (`incidents.home_summary()`, one `systemctl
+is-active` call, made only when something is open):
+`incidents_attention` -- the service is still down (red, "needs
+attention"); `incidents_recovered` -- the rest: running again, starting,
+or not running because nothing needs it (amber, "recovered — review").  An
+incident stays open, whichever it is, until it is marked handled.  The count
+opens the incident panel, fed by `/api/incidents`.
 
 ## `GET /api/time`
 

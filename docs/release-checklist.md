@@ -202,9 +202,10 @@ restarts `bt_hid_agent_unified.service` and `bt_hid_ble.service`.
 - [ ] Every time on the dashboard (top-bar clock, events, logs, pen files,
       incidents) matches the viewing computer's clock and zone.
 - [ ] On the device, `sudo systemctl kill -s KILL bt_hid_agent_unified.service`
-      (a clean *stop* is not a failure and records nothing).  The Home card
-      gains an open incident; the panel says *Bluetooth pairing helper
-      stopped* and "stopped forcibly", and — once systemd has restarted it —
+      (a clean *stop* is not a failure and records nothing).  Once systemd
+      has restarted it, the Home card reads amber *1 recovered — review*
+      (red *needs attention* only while a service stays down); the panel
+      says *Bluetooth pairing helper stopped*, "stopped forcibly" and
       *Running again*.  *Show log* shows the kill and the restart.
 - [ ] *Mark as handled* takes it out of the Home count; *Show handled*
       brings it back; the log file itself is unchanged.

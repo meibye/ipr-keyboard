@@ -570,7 +570,13 @@ def test_api_device_returns_mode_hotspot_and_incidents(
     monkeypatch.setattr(
         api_mod,
         "_incidents",
-        lambda: (2, 1, "2026-09-12T13:06:49  bt_hid_ble.service failed"),
+        lambda: {
+            "open": 2,
+            "attention": 1,
+            "recovered": 1,
+            "handled": 1,
+            "last": "2026-09-12T13:06:49  bt_hid_ble.service failed",
+        },
     )
     monkeypatch.setattr(api_mod, "_get_current_ip", lambda: "192.168.1.97")
 
@@ -584,6 +590,7 @@ def test_api_device_returns_mode_hotspot_and_incidents(
     assert d["home_network"] is True
     assert d["incidents_count"] == 2
     assert d["incidents_handled"] == 1
+    assert d["incidents_attention"] == 1 and d["incidents_recovered"] == 1
     assert "SSH and dashboard open" in d["reachability"]
 
 

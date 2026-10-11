@@ -132,7 +132,9 @@
       <p class="card-explanation" style="margin-bottom:8px">
         An incident is recorded each time one of the device's services stops
         unexpectedly. Most recover by themselves; each one below says whether
-        it is running again and what to do.
+        it is running again and what to do. An incident stays on the Home card
+        until it is marked as handled — so one that keeps coming back is
+        noticed.
       </p>
       <ul class="inc-list" id="inc-list"></ul>
       <div class="action-row" id="inc-actions" style="margin-top:8px">
@@ -894,13 +896,27 @@ async function loadHomeDevice() {
     hsEl.className = 'hm-value ' + (d.hotspot_active ? 'state-warning' : 'state-muted');
     const netEl = document.getElementById('dv-network');
     netEl.textContent = (d.home_network ? 'Home network' : (d.hotspot_active ? 'Hotspot only' : 'Not connected')) + (d.ip ? ' · ' + d.ip : '');
+    // Red only while a service is still down; amber for failures that
+    // recovered but nobody has reviewed yet.  Neither clears by itself:
+    // "Mark as handled" in the panel does (incidents.home_summary()).
     const incEl = document.getElementById('dv-incidents');
-    incEl.textContent = d.incidents_count
-      ? d.incidents_count + ' open ›'
-      : (d.incidents_handled ? 'None open ›' : 'None');
-    incEl.className = 'hm-value inc-count ' + (d.incidents_count ? 'state-error' : 'state-ready');
+    const att = d.incidents_attention || 0;
+    const rec = d.incidents_recovered || 0;
+    if (att) {
+      incEl.textContent = att + (att === 1 ? ' needs' : ' need') + ' attention'
+        + (rec ? ' · ' + rec + ' to review' : '') + ' ›';
+      incEl.className = 'hm-value inc-count state-error';
+      incEl.title = 'A service is still not running: show what to do';
+    } else if (rec) {
+      incEl.textContent = rec + ' recovered — review ›';
+      incEl.className = 'hm-value inc-count state-warning';
+      incEl.title = 'Something failed and recovered by itself: look, then mark it as handled';
+    } else {
+      incEl.textContent = d.incidents_handled ? 'None ›' : 'None';
+      incEl.className = 'hm-value inc-count state-ready';
+      incEl.title = d.incidents_handled ? 'Show the handled incidents' : '';
+    }
     incEl.disabled = !d.incidents_count && !d.incidents_handled;
-    incEl.title = d.incidents_count ? 'Show what happened and what to do' : '';
     document.getElementById('dv-reach').textContent = d.reachability || '';
     if (d.device_epoch) iprTime.startClock(document.getElementById('topbar-clock'), d.device_epoch);
     const acts = document.getElementById('dv-actions');

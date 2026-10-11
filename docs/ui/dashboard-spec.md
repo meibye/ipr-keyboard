@@ -154,8 +154,12 @@ Must show:
 - system health state
 - last significant event
 - quick link to activity and settings
-- the **Device** card: mode, hotspot, network, and the number of **open
-  incidents**.  The number opens the incident panel: per incident, what
+- the **Device** card: mode, hotspot, network, and the **open
+  incidents** -- red "N needs attention" while a service is still down,
+  amber "N recovered — review" when it failed and runs again, green "None"
+  otherwise.  An incident stays open until it is marked as handled, even
+  after the service recovers, so one that keeps coming back is noticed.
+  The count opens the incident panel: per incident, what
   stopped (in plain words), whether it is running again, what to do, its log
   around that moment, and — for an admin — Restart (Bluetooth services) and
   Mark as handled.  Handled incidents stop counting but can be shown again
