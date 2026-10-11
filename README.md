@@ -7,7 +7,7 @@ IrisPen text-file ingestion to Bluetooth keyboard output on Raspberry Pi.
 See:
 - docs/README.md
 - docs/architecture/ARCHITECTURE.md
-- docs/operations/device-bringup.md
+- DEVICE_BRINGUP.md
 
 ## Current State
 

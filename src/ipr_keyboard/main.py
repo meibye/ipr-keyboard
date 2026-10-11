@@ -245,7 +245,7 @@ def run_usb_bt_loop():
             # Delete after a successful send (or an unreadable/oversized file
             # that will never send).  A scan whose send FAILED stays on the pen:
             # deleting it would lose the text; it is not retried automatically
-            # (the folder watcher tracks the newest mtime), but it is still
+            # (it was marked delivered before the send), but it is still
             # there for the user to see and re-scan or copy.
             ok = deleter.delete_file(found_file)
             if ok:

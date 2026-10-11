@@ -1,63 +1,51 @@
 # src/ipr_keyboard/web/
 
-Flask web layer for the IPR Pen Bridge dashboard and legacy status/config/log/pairing endpoints.
+Flask web layer: the dashboard, its JSON API, the setup portal on the
+hotspot, and a few legacy pages.
 
 ## Files
 
-- `server.py`: app factory, root endpoint, and legacy HTML endpoints
-- `api.py`: `/api/` Blueprint — dashboard JSON API (see docs/ui/api-contract.md)
-- `templates/dashboard.html`: image-first SPA dashboard (primary UI)
-- `templates/index.html`: legacy index page (kept for compatibility)
-- `templates/status.html`: legacy status page
-- `templates/config.html`: legacy configuration page
-- `templates/logs.html`, `templates/logs_select.html`: legacy log viewers
-- `templates/pairing.html`: pairing UI, rendered by server.py
-- `static/`: SVG icons and device illustration assets
+- `server.py`: app factory, login, the dashboard root and the legacy HTML pages
+- `api.py`: `/api/` blueprint — the dashboard's JSON API.  **Every endpoint
+  is documented in `docs/ui/api-contract.md`**; that file is the reference,
+  not this one.
+- `setup.py`, `setup_i18n.py`: the setup portal at `/setup/` (hotspot;
+  English and Danish), with its own login
+- `auth.py`: dashboard accounts in `users.json`, hashed
+- `templates/dashboard.html`: the image-first single-page dashboard (primary UI)
+- `templates/login.html`: dashboard login
+- `templates/setup/`: the setup portal's pages
+- `templates/index.html`, `status.html`, `config.html`, `logs.html`,
+  `logs_select.html`, `pairing.html`: legacy pages
+- `static/`: SVG icons and the device-flow illustration, `ipr.css`,
+  `setup.css`, and `localtime.js` (shows every time in the viewer's time zone)
 
-## Endpoints Registered by `create_app()`
+## Routes registered by `create_app()`
 
-### Dashboard API (`/api/` prefix)
+- `/` — the dashboard; `/login`, `/logout`; `/health` (JSON, no login)
+- `/api/...` — see `docs/ui/api-contract.md`
+- `/setup/...` — the setup portal
+- `/status`, `/pairing/` — legacy HTML pages
+- `/config/` and `/logs/` — answered by the `config` and `logs`
+  blueprints (JSON config; the log file as text).  `server.py` also defines
+  HTML pages at those two paths, but the blueprints are registered first and
+  win, so those pages are not reachable.
 
-- `GET /api/status` — full dashboard state (Home screen)
-- `GET /api/status/bluetooth` — Bluetooth sub-state
-- `GET /api/status/pen` — Pen / scanner sub-state
-- `GET /api/status/transmission` — Transmission sub-state
-- `GET /api/status/system` — System health sub-state
-- `GET /api/events` — translated UI event list (filterable)
-- `GET /api/events/latest` — most recent event
-- `GET /api/logs/raw` — raw log lines for diagnostics
-- `GET /api/config` — dashboard-scoped configuration
-- `POST /api/config` — update configuration
-- `POST /api/actions/pairing` — enable/disable Bluetooth pairing mode
-- `POST /api/actions/rescan-pen` — request pen rescan
-- `POST /api/actions/reconnect-bluetooth` — request Bluetooth reconnect
-- `POST /api/actions/reboot` — reboot device (requires `{"confirm": true}`)
-- `POST /api/actions/shutdown` — shut down device (requires `{"confirm": true}`)
-- `GET /api/stream` — Server-Sent Events for live dashboard updates
-
-### Legacy HTML endpoints
-
-- `GET /` — dashboard SPA (dashboard.html)
-- `GET /health` — JSON health check
-- `GET /status` — HTML system status page
-- `GET /config/`, `POST /config/` — HTML configuration page
-- `GET /logs/` — HTML log viewer
-- `GET /pairing/`, `POST /pairing/` — HTML pairing page
-
-## Static Assets (`static/`)
-
-SVG icons for dashboard state display:
-
-- `icon-bt-connected.svg`, `icon-bt-waiting.svg` — Bluetooth state icons
-- `icon-pen-ready.svg`, `icon-pen-missing.svg` — Pen state icons
-- `icon-tx-idle.svg`, `icon-tx-active.svg` — Transmission state icons
-- `icon-system-ok.svg`, `icon-system-warning.svg` — System health icons
-- `device-flow.svg` — Pen → Pi → PC connection flow illustration
+Every route except `/health`, `/login`, `/logout`, `/api/auth/login` and
+`/setup` needs a signed-in session.
 
 ## Implementation Notes
 
-- `/api/status` reads `bluetoothctl` and `systemctl` output and translates to user-facing state.
-- Reboot and shutdown actions require an explicit `{"confirm": true}` JSON body.
-- Events are stored in an in-memory circular buffer (max 200 events, reset on restart).
-- The SSE `/api/stream` endpoint pushes new events and periodic heartbeat pings.
-- Pairing routes and the power actions execute privileged shell/systemctl calls.
+- Live state reaches the dashboard by Server-Sent Events (`/api/stream`): a
+  `status_update` every `StatusIntervalSeconds`, every second while a send
+  is on screen.
+- The status builders read the Bluetooth link from sysfs and cache
+  `bluetoothctl` / `systemctl` answers (see the API contract), so an open
+  dashboard costs the device almost nothing per tick.
+- Events are translated from the journal (`journalctl -o short-iso`) on
+  request; each carries the journal entry's own time.
+- Times leave the server as instants (UTC or with an offset) and are shown
+  in the viewer's time zone by `static/localtime.js`.
+- Privileged actions (reboot, shutdown, hotspot, service restarts, network,
+  date and time) go through root helpers with narrow sudoers entries —
+  `ipr_hotspot_ctl.sh`, `ipr_mode_ctl.sh`, `ipr_net_apply.sh`.

@@ -64,6 +64,18 @@ pytest tests/ -v --tb=short --cov=src/ipr_keyboard --cov-report=term-missing -rs
 | `tests/web/test_logs_api.py` | Log file list, content, streaming |
 | `tests/web/test_server.py` | Blueprint registration, auth middleware, secret key |
 | `tests/web/test_setup.py` | Setup blueprint, login, Wi-Fi config, reboot/shutdown |
+| `tests/test_first_scan.py` | The first scan into an empty pen folder is typed (empty baseline) |
+| `tests/test_incidents.py` | The incident log explained, handled, its log window, restart (`incidents.py`, `/api/incidents`) |
+| `tests/test_probe_cache.py` | The LED/panel status probe caches nmcli/systemctl instead of a D-Bus client per tick |
+| `tests/config/test_typing_delay_default.py` | The app's typing-speed default is the provisioned `BT_KEY_DELAY_MS` |
+| `tests/web/test_status_probe_cache.py` | The dashboard status reads the BLE link from sysfs and caches bluetoothctl/systemctl |
+| `tests/web/test_time_api.py` | Settings ▸ Date and time: read, sync, set, zone, validation, admin only |
+| `tests/web/test_viewer_time_zone.py` | Times leave the server as instants; `localtime.js` shows them in the viewer's zone (needs node) |
+| `tests/scripts/test_bt_device_id.py` | The keyboard's Bluetooth identity is set once, as bluetoothd's DeviceID |
+| `tests/scripts/test_hotspot_boot_counter.py` | The triple-power-cycle hotspot trigger counts boots, not script runs |
+| `tests/scripts/test_no_grep_q_race.py` | No script uses `cmd \| grep -q` under pipefail |
+| `tests/scripts/test_script_modes.py` | Every script is executable in git |
+| `tests/scripts/test_ssh_diag.py` | `scripts/lib/ssh_diag.sh` keeps ssh's errors visible |
 
 ### Coverage targets
 
@@ -431,7 +443,7 @@ Steps:
 
 The container runs on Linux (via WSL2), giving a much closer match to the RPi environment
 than running pytest natively on Windows.  systemd calls and RPi.GPIO are both mocked in tests,
-so all 210+ tests pass in the container without hardware.
+so the whole suite (about 670 tests, 2026-10) passes in the container without hardware.
 
 ---
 

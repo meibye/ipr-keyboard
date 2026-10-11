@@ -198,6 +198,20 @@ restarts `bt_hid_agent_unified.service` and `bt_hid_ble.service`.
       on), and names a bottleneck instead of staying empty.
 - [ ] After the trial, Settings still shows the speed you started with.
 
+**Incidents and time** (dashboard)
+- [ ] Every time on the dashboard (top-bar clock, events, logs, pen files,
+      incidents) matches the viewing computer's clock and zone.
+- [ ] On the device, `sudo systemctl kill -s KILL bt_hid_agent_unified.service`
+      (a clean *stop* is not a failure and records nothing).  The Home card
+      gains an open incident; the panel says *Bluetooth pairing helper
+      stopped* and "stopped forcibly", and — once systemd has restarted it —
+      *Running again*.  *Show log* shows the kill and the restart.
+- [ ] *Mark as handled* takes it out of the Home count; *Show handled*
+      brings it back; the log file itself is unchanged.
+- [ ] Settings ▸ Date and time: "Set from the internet" is *Yes*, and the
+      comparison with this computer says *The same*.  *Sync with internet
+      time* answers within 15 s.
+
 **Network and recovery**
 - [ ] With the hotspot up, the panel's `SETUP MODE` screen says
       `Hold: menu to stop`, and following it actually stops the hotspot.  The

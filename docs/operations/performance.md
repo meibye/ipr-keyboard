@@ -48,9 +48,12 @@ Two reports per character (press, then release) make **40 ms per character —
 25 characters a second**.  A 500-character scan therefore takes 20 seconds,
 and nothing else in the pipeline comes close to that.
 
-The delay is `BT_KEY_DELAY_MS` (default 20, unchanged) in
-`/opt/ipr_common.env` — the file `bt_hid_ble.service` already reads — which
-sets it for the daemon's lifetime.
+The delay is `BT_KEY_DELAY_MS` in `/opt/ipr_common.env` — the file
+`bt_hid_ble.service` already reads — which sets it for the daemon's
+lifetime.  The code's own fallback is 20 ms; the shipped
+`provision/common.env` and `common.env.example` set **12 ms**, so a standard
+install types at about 40 characters a second.  The application's default
+`TypingDelayMs` is that same provisioned value (`config/manager.py`).
 
 **Normally you change it in the dashboard instead**: Settings → Typing
 speed, which saves `TypingDelayMs` and writes it to
@@ -65,8 +68,8 @@ Either way, lower it by measurement, not by hope:
 
 | Value | Nominal chars/s | Achievable | Note |
 |---|---|---|---|
-| 20 ms | 25 | **25** | the default; the delay is what limits the device |
-| 12 ms | 42 | **~40** | usually the practical best |
+| 20 ms | 25 | **25** | "Normal"; the code's fallback; the delay is what limits the device |
+| 12 ms | 42 | **~40** | "Fast"; the shipped env file's value, usually the practical best |
 | 8 ms | 62 | ~33–44 | at or below the host's interval: no real gain |
 | 4 ms | 125 | ~33–44 | no gain, and expect loss |
 
@@ -155,8 +158,8 @@ behaving as before; progress reporting can never make a send hang.
 ## Measured on a Zero 2 W
 
 Two sends on 3 October 2026, one BLE host connected.  The device was running
-`BT_KEY_DELAY_MS=12`, **not** the 20 ms default — worth stating, because the
-figures only make sense against the right setting:
+`BT_KEY_DELAY_MS=12` (the shipped value), **not** the code's 20 ms fallback —
+worth stating, because the figures only make sense against the right setting:
 
 | Stage | Measured |
 |---|---|
@@ -168,8 +171,9 @@ So the model holds: 0.8 ms per character above the two HID reports, which is
 the connection interval and the report itself.  Measured throughput was 39.5
 characters a second against the 41.7 the table predicts for 12 ms.
 
-At the **20 ms default** that is 25 characters a second, so a 1 500-character
-page takes about **60 s**; at 12 ms about 37 s, and at 8 ms about 24 s.  The
+At **20 ms** ("Normal") that is 25 characters a second, so a 1 500-character
+page takes about **60 s**; at the shipped 12 ms about 37 s, and at 8 ms about
+24 s.  The
 delay is the only part of the chain worth tuning.
 
 ## A measurement must not be able to cost a scan

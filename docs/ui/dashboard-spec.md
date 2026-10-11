@@ -154,6 +154,11 @@ Must show:
 - system health state
 - last significant event
 - quick link to activity and settings
+- the **Device** card: mode, hotspot, network, and the number of **open
+  incidents**.  The number opens the incident panel: per incident, what
+  stopped (in plain words), whether it is running again, what to do, its log
+  around that moment, and — for an admin — Restart (Bluetooth services) and
+  Mark as handled.  Handled incidents stop counting but can be shown again
 
 Key behavior:
 
@@ -210,6 +215,12 @@ device. The explanation must say that faster is not always better — a PC that
 cannot keep up loses characters — and point at Debug → Typing speed trial.
 When the speed in force differs from the saved one, say so: until the next
 scan the device is still typing at the old speed.
+
+Includes **Date and time**: the device clock (in the viewer's zone), how far
+it is from the viewer's clock, whether it is set from the internet, and the
+device's own time zone.  An admin can sync with internet time, set the clock
+from the viewer's computer (for a device without internet), and change the
+device's zone (used on its display and in its logs).
 
 ### 6. Debug
 

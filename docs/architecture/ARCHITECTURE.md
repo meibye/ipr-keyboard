@@ -1,6 +1,7 @@
 # ARCHITECTURE
 
-Current-state architecture baseline for `ipr-keyboard` (audited 2026-02-15).
+Current-state architecture baseline for `ipr-keyboard` (audited 2026-02-15;
+checked against the source 2026-10-11).
 
 ## 1. System Intent
 
@@ -9,8 +10,9 @@ Bridge IrisPen-produced text files to host keystrokes using a Raspberry Pi BLE H
 ## 2. Runtime Topology
 
 ```text
-IrisPen folder (config.json -> IrisPenFolder)
+IrisPen folders (config.json -> IrisPenFolders, MTP mount /mnt/irispen)
     -> src/ipr_keyboard/usb/detector.py
+    -> src/ipr_keyboard/delivery.py   (which scans are new: pen_state.json)
     -> src/ipr_keyboard/usb/reader.py
     -> src/ipr_keyboard/bluetooth/keyboard.py
     -> /usr/local/bin/bt_kb_send
@@ -48,6 +50,9 @@ Blueprint in `src/ipr_keyboard/web/api.py`. SVG assets live in `src/ipr_keyboard
 - `src/ipr_keyboard/bt_progress.py` (how far the daemon has got through typing)
 - `src/ipr_keyboard/bt_link.py` (which PCs are paired, for the panel's hint)
 - `src/ipr_keyboard/recovery.py` (hotspot and dashboard credentials on the panel, reveal-limited)
+- `src/ipr_keyboard/incidents.py` (the incident log explained for the dashboard: what failed, whether it still is, what to do, which are handled)
+- `src/ipr_keyboard/web/setup.py` (setup portal on the hotspot) and `src/ipr_keyboard/web/auth.py` (dashboard accounts)
+- `src/ipr_keyboard/web/static/localtime.js` (every time on a page shown in the viewer's time zone)
 
 ### Support (Current)
 
@@ -104,10 +109,20 @@ runs is silently undone.
 - `/etc/default/bt_hid_agent_unified` managed by `scripts/lib/bt_agent_unified_env.sh`
 - `/etc/ipr-hotspot.secret` (mode 0640, root:ipr-ssl) — hotspot SSID and random password, written by `ipr-provision.sh` on first run; optional GPIO gate via `/etc/default/ipr-provision`
 - `/run/ipr_bt_keyboard_fifo` — created by `bt_hid_ble_daemon.py` (root), owned to `APP_USER` from `/opt/ipr_common.env`, mode 0600: the app writes, the daemon reads. A root-owned FIFO means `APP_USER` is missing from the env file.
-- `/etc/sudoers.d/<user>-ipr-gpio` — NOPASSWD grant for `/usr/local/bin/ipr_hotspot_ctl.sh` (hotspot start/stop, WiFi reset) and reboot/shutdown, installed by `scripts/headless/install_gpio_support.sh`
+- `/etc/sudoers.d/<user>-ipr-gpio` — NOPASSWD grant for `/usr/local/bin/ipr_hotspot_ctl.sh` (hotspot start/stop, WiFi reset, power, restarting the Bluetooth services, and the device's date, time and time zone) and reboot/shutdown, installed by `scripts/headless/install_gpio_support.sh`
 - `/boot/firmware/config.txt` managed block `gpio=22,23,24=op,dh` — status LED solid white from power-on; `/etc/default/ipr-led` — pin numbers for the boot blink
 - `/boot/firmware/config.txt` managed block `dtparam=i2c_arm=on` + `i2c_arm_baudrate=400000`, `/etc/modules-load.d/ipr-oled.conf` (`i2c-dev`), `/etc/default/ipr-oled` (bus, address, rotation and `REPO_DIR` for the halt blanking and the boot screen); app user in group `i2c` — all by `scripts/headless/install_oled_support.sh`
-- `/etc/systemd/journald.conf.d/ipr.conf` — persistent journal, 64 MB / 1 month; `/var/lib/ipr-keyboard/incidents.log` — one line per failed core unit
+- `/etc/systemd/journald.conf.d/ipr.conf` — persistent journal, 64 MB / 1 month; `/var/lib/ipr-keyboard/incidents.log` — one line per failed core unit (shown, explained and acknowledged on the dashboard; the acknowledgements are in `incidents_handled.json`, below)
+- Clock: `systemd-timesyncd` (NTP, outbound — the firewall only filters incoming traffic); no battery-backed clock.  Settings ▸ Date and time can sync, set and change the zone.
+
+### Application State (repository root, app user)
+
+- `config.json` (from `config.default.json`), `users.json` — configuration and dashboard accounts
+- `pen_state.json` — scans already delivered, per folder (`delivery.py`)
+- `incidents_handled.json` — incidents marked handled on the dashboard
+- `logs/ipr_keyboard.log` — rotating application log (the journal has the same)
+
+None of these is ever in the install payload (`scripts/deploy/make_payload.sh`).
 - `/var/lib/ipr-keyboard/mode` — `production` (default) or `development`; read by `ipr-firewall.sh`, `gpio_monitor.py` (probe state), the OLED mode badge and the setup portal. `/etc/sudoers.d/<user>-ipr-mode` lets the app toggle it (magnet 10 s).
 
 ## 6. Legacy and Deprecated Patterns

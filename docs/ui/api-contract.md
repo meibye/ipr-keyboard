@@ -41,10 +41,48 @@ When the dashboard implementation PR lands, the old routes can be deprecated inc
 
 ## Authentication
 
-Current expected deployment is on a trusted local network.
-No authentication is required by this initial contract.
+Every page and `/api/` endpoint needs a signed-in session (a Flask session
+cookie), except `/health`, `/login`, `/logout`, `/api/auth/login` and the
+setup portal under `/setup` (which has its own login).  Without one, `/api/`
+answers `401 {"error": {"code": "unauthenticated", ...}}` and pages redirect
+to `/login` -- or to the setup login for a client on the hotspot
+(10.42.0.x).  Endpoints marked **(admin)** also need an admin account and
+answer `403 forbidden` otherwise.  Accounts live in `users.json`
+(`web/auth.py`); the first admin password is generated at install.
 
-If authentication is added later, it should be added in a backward-compatible and lightweight way.
+#### POST /api/auth/login
+
+Body `{"username": "...", "password": "..."}`.  `{"ok": true, "username"}`
+and a session cookie, or `401 invalid_credentials`.  `/login` is the same as
+a form.
+
+#### POST /api/auth/logout
+
+Ends the session.  `{"ok": true}`.
+
+#### GET /api/auth/me
+
+`{"username": "admin", "is_admin": true}`; 401 when not signed in.  The
+dashboard uses it to show or hide admin-only controls.
+
+#### GET /api/auth/users  (admin)
+
+`{"users": [...]}` -- the accounts, without passwords.
+
+#### POST /api/auth/users  (admin)
+
+Body `{"username", "password", "is_admin": false}`.  400 with the reason
+when the name or password is not accepted.
+
+#### PUT /api/auth/users/\<username\>
+
+Body `{"password": "..."}` and/or `{"is_admin": true|false}`.  A user may
+change their own password; anything else needs an admin.  An admin cannot
+remove their own admin status.
+
+#### DELETE /api/auth/users/\<username\>  (admin)
+
+Deletes the account; not your own.
 
 ## Common response conventions
 ### Success response
@@ -446,6 +484,25 @@ Example response
 }
 ```
 
+#### GET /api/network
+
+The home network settings shown under Settings > Network:
+`{"current_ip", "interface", "mode": "dhcp"|"static", "static_ip",
+"static_netmask", "static_gateway", "port"}`.
+
+#### POST /api/network  (admin)
+
+Body: any of `mode`, `static_ip`, `static_netmask`, `static_gateway`,
+`port` (1024-65535).  Only values that differ from the stored ones count.
+A change of mode or address is applied to the NetworkManager home profile
+at once (through `ipr_net_apply.sh`), so the browser may have to reconnect
+at the new address; the `port` takes effect after a reboot.
+
+#### GET /api/version
+
+The package version, Python version and each module's `VERSION` stamp --
+the Settings > Software card.
+
 ### Action endpoints
 #### POST /api/actions/pairing
 
@@ -490,6 +547,12 @@ Example response
   "message": "Bluetooth reconnect started."
 }
 ```
+
+#### POST /api/actions/apply-network  (admin)
+
+Body `{"confirm": true}` (400 `confirmation_required` without it).
+Re-applies the stored network settings to the home profile; the connection
+drops briefly if the address changes.
 
 #### POST /api/actions/reboot
 

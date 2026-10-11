@@ -1097,10 +1097,12 @@ def build() -> None:
                                                     "på hovedet."],
             ["OledSendHoldSeconds", "10", "Hvor længe SENT/SEND FAILED bliver stående."],
             ["OledMarqueeFps", "8", "Gentegningsrate, mens en lang linje ruller; 6 på Zero W."],
-            ["TypingDelayMs", "20", "Skrivehastighed: pause i millisekunder efter hver "
-                                    "HID-rapport. Der sendes to rapporter pr. tegn, så 20 ms "
-                                    "giver 25 tegn i sekundet. Dette er næsten hele den tid, "
-                                    "en skanning tager. Se afsnit 9.6."],
+            ["TypingDelayMs", "12", "Skrivehastighed: pause i millisekunder efter hver "
+                                    "HID-rapport. Der sendes to rapporter pr. tegn, så 12 ms "
+                                    "giver ca. 40 tegn i sekundet. Standardværdien er "
+                                    "BT_KEY_DELAY_MS fra /opt/ipr_common.env (12 i den "
+                                    "leverede fil; 20, hvis den ikke er sat). Dette er næsten "
+                                    "hele den tid, en skanning tager. Se afsnit 9.6."],
             ["MetricsEnabled", "false", "Registrér ydelsestal (opstartstid, forsinkelse fra pen "
                                         "til Bluetooth). Slået fra som standard; se afsnit 9.4."],
         ],
@@ -1115,9 +1117,13 @@ def build() -> None:
            "test_provision.sh advarer, hvis porten ikke er 443.", "info")
 
     m.h2("4.2 Konfiguration via dashboardet")
+    m.p("Alle datoer og klokkeslæt på dashboardet vises i tidszonen på den computer eller "
+        "telefon, der viser siden — ikke enhedens. Kun displayet på selve enheden viser "
+        "enhedens egen tid.")
     m.p("Forsidens boks “Device” viser tilstand (drift/udvikling), om hotspottet er tændt "
-        "(med SSID), hvilket netværk enheden er på med IP-adresse, antal registrerede "
-        "hændelser (afsnit 9.5) og en sætning om, hvor enheden kan nås. Administratorer får "
+        "(med SSID), hvilket netværk enheden er på med IP-adresse, antal åbne "
+        "hændelser (fx “1 open ›”; et klik åbner listen, afsnit 9.5) og en sætning om, "
+        "hvor enheden kan nås. Administratorer får "
         "knapperne Start hotspot / Stop hotspot; start kræver bekræftelse, fordi enheden "
         "forlader hjemmenettet, mens hotspottet er tændt — siden holder op med at svare "
         "dér og nås igen på https://10.42.0.1/login. Knapperne bruger samme hjælper som "
@@ -1139,6 +1145,14 @@ def build() -> None:
                                "eller bytter plads, hvilket er værre end at vente. Ændringen "
                                "gælder fra næste skanning, uden genstart af Bluetooth-tjenesten "
                                "og uden at parringen mistes. Se afsnit 9.6."),
+        ("Dato og tid — ", "enhedens ur (vist i din tidszone), hvor meget det afviger fra "
+                           "din computers ur, om det stilles fra internettet (NTP) og fra "
+                           "hvilken server, og enhedens egen tidszone. En administrator kan "
+                           "synkronisere med internettid nu, stille uret efter sin egen "
+                           "computer (når enheden er uden internet, fx på hotspottet) og "
+                           "skifte enhedens tidszone, som bruges på displayet og i logfilerne. "
+                           "Går gennem hjælperen ipr_hotspot_ctl.sh (time sync | set | zone). "
+                           "API: GET/POST /api/time, GET /api/time/zones."),
         ("Diagnostik — ", "logniveau og statusopdateringsinterval."),
         ("Strøm — ", "genstart og nedlukning, begge med bekræftelse."),
     ])
@@ -1974,7 +1988,17 @@ def build() -> None:
         widths=[3.6, 12.0],
         caption="Tre lag, installeret af install_observability.sh.",
     )
-    m.p("Efter en hændelse:")
+    m.p("Efter en hændelse — på dashboardet: tallet “Incidents” i boksen Device på "
+        "forsiden er antallet af åbne hændelser, og et klik åbner listen. For hver "
+        "hændelse står i almindeligt sprog, hvad der stoppede og hvad den del gør, om den "
+        "kører igen nu, og hvad man skal gøre. “Show log” viser tjenestens journal fra tre "
+        "minutter før til et minut efter fejlen. En administrator kan genstarte "
+        "Bluetooth-tjenesterne derfra og markere hændelsen som håndteret (“Mark as "
+        "handled”); den tæller så ikke længere med på forsiden, men kan vises igen. Selve "
+        "hændelsesloggen ændres aldrig — markeringerne gemmes i incidents_handled.json i "
+        "programmappen. API: GET /api/incidents, GET /api/incidents/log, "
+        "POST /api/incidents/handled og /api/incidents/restart.")
+    m.p("På enheden:")
     m.code(
         "cat /var/lib/ipr-keyboard/incidents.log\n"
         "journalctl -u <enhed> --since \"<tidspunkt>\" --no-pager\n"
@@ -1989,15 +2013,17 @@ def build() -> None:
     m.p("Skrivehastigheden er den enkeltfaktor, der betyder mest for, hvor lang tid en "
         "skanning tager. Enheden sender to HID-rapporter pr. tegn (tast ned og tast op) "
         "og venter TypingDelayMs efter hver, så hastigheden er 1000 / (2 × TypingDelayMs) "
-        "tegn i sekundet. Ved standardværdien 20 ms er det 25 tegn i sekundet: en side på "
-        "1.500 tegn tager ca. 60 sekunder, og resten af kæden (detektion, læsning, kø) "
-        "bidrager med under et halvt sekund tilsammen.")
+        "tegn i sekundet. En ny installation bruger BT_KEY_DELAY_MS fra /opt/ipr_common.env "
+        "— 12 ms i den leverede fil, ca. 40 tegn i sekundet: en side på 1.500 tegn tager "
+        "ca. 37 sekunder (ved Normal, 20 ms, ca. 60 sekunder). Resten af kæden (detektion, "
+        "læsning, kø) bidrager med under et halvt sekund tilsammen.")
     m.table(
         ["Indstilling", "Værdi", "Teoretisk", "Opnåeligt", "Bemærkning"],
         [
-            ["Normal", "20 ms", "25/s", "25/s", "Standard. Her er det forsinkelsen, "
+            ["Normal", "20 ms", "25/s", "25/s", "Her er det forsinkelsen, "
                                                 "der sætter grænsen."],
-            ["Hurtig", "12 ms", "42/s", "ca. 40/s", "I praksis det bedste valg."],
+            ["Hurtig", "12 ms", "42/s", "ca. 40/s", "Standard ved en ny installation. "
+                                                   "I praksis det bedste valg."],
             ["Hurtigere", "8 ms", "62/s", "33–44/s", "På eller under værtens interval: "
                                                      "ingen reel gevinst."],
             ["Hurtigst", "4 ms", "125/s", "33–44/s", "Ingen gevinst, og forvent tab "
@@ -2487,12 +2513,19 @@ def build() -> None:
              "Betjeningshandlinger."],
             ["/api/actions/apply-network · reboot · shutdown", "POST",
              "Kræver confirm=true. De to sidste er strømhandlinger."],
+            ["/api/actions/hotspot", "POST", "Start/stop hotspottet (administrator)."],
+            ["/api/device", "GET", "Boksen Device: tilstand, hotspot, netværk, hændelser, ur."],
+            ["/api/incidents · /log · /handled · /restart", "GET, POST",
+             "Hændelser forklaret, deres log, markér som håndteret, genstart (afsnit 9.5)."],
+            ["/api/time · /api/time/zones", "GET, POST",
+             "Enhedens ur og tidszone; POST kræver administrator."],
+            ["/api/metrics · /api/metrics/reset", "GET, POST", "Ydelsestal (afsnit 9.4)."],
             ["/api/stream", "GET", "Server-Sent Events med løbende tilstand."],
             ["/api/debug/services · /<navn>/<handling>", "GET, POST",
              "Tjenestestatus og start/stop/genstart."],
-            ["/api/debug/send-text · send-file · pen-files", "GET, POST",
-             "Manuel afsendelse og indsigt i pen-mappen."],
-            ["/api/auth/login · logout · me · users", "GET, POST, PATCH, DELETE",
+            ["/api/debug/send-text · send-file · typing-trial · pen-files", "GET, POST",
+             "Manuel afsendelse, skrivehastighedstest og indsigt i pen-mappen."],
+            ["/api/auth/login · logout · me · users", "GET, POST, PUT, DELETE",
              "Sessions- og brugeradministration."],
             ["/api/version", "GET", "Versionsoplysninger for pakke og moduler."],
         ],

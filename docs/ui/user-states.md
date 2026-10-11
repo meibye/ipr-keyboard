@@ -17,6 +17,20 @@ The backend is responsible for mapping raw technical state into the user-facing 
   - an icon or illustration state
   - an optional short explanation
 
+## What the server sends today
+
+The model below also names states kept for later.  These are the ones
+`web/api.py` actually produces (checked 2026-10-11); a page must handle
+these, and may treat the rest as reserved:
+
+| Part | States sent | Notes |
+|---|---|---|
+| Overall | `ready`, `warning`, `error` | `ready` needs Bluetooth `connected` and pen `ready`; anything else short of an error is `warning` ("Not fully ready").  `offline` is the page's own state when it loses the device; `busy` is not sent |
+| Bluetooth | `connected`, `waiting`, `error` | `error` = the BLE service is not running.  `pairing` and `reconnecting` are not sent |
+| Pen | `ready`, `busy` ("Connecting" — found, files being mounted), `missing` (also after an unplug), `error` ("USB port off") | `detecting` and `reading` are not sent; `busy` stands where the model says `detecting` |
+| Transmission | `idle`, `sending` (with `chars`, `chars_sent`, `progress_percent`), `success`, `failed` | `preparing` and `retrying` are not sent |
+| System | `healthy`, `warning` | `warning` = `bt_hid_ble` or `bt_hid_agent_unified` not running |
+
 ---
 
 ## Global overall state

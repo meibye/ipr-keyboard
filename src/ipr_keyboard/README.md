@@ -9,6 +9,7 @@ Python application package for `ipr-keyboard`.
 | `main.py` | Entry point: web thread, the USB→Bluetooth loop, the LED/menu thread and the panel |
 | `transmission.py` | Shared send state (idle / sending / success / failed) and the live character count the panel and dashboard both read |
 | `delivery.py` | Which scans have already been delivered, by `name\|mtime\|size`, so a restart neither re-types nor strands a file |
+| `incidents.py` | The incident log (`/var/lib/ipr-keyboard/incidents.log`) explained for the dashboard: what failed, whether it still is, what to do, and which are handled |
 | `metrics.py` | Performance KPIs — a bounded ring buffer, off unless `MetricsEnabled` |
 | `keydelay.py` | The typing speed, handed to the BLE daemon at runtime (no restart, no re-pairing) |
 | `bt_progress.py` | How far the BLE daemon has got through typing; spans its per-line drains |
@@ -36,7 +37,7 @@ Python application package for `ipr-keyboard`.
 | `web/auth.py` | Dashboard accounts (`users.json`), hashed |
 | `web/templates/dashboard.html` | Image-first SPA dashboard (primary UI) |
 | `web/templates/` | Legacy HTML templates (status, config, logs, pairing) and the setup portal |
-| `web/static/` | SVG icons, the device-flow illustration, and `ipr.css` |
+| `web/static/` | SVG icons, the device-flow illustration, `ipr.css`, and `localtime.js` (times in the viewer's zone) |
 
 ## Runtime Model
 

@@ -177,7 +177,7 @@ def build() -> None:
     m.p("Trin 3 er det, der tager tid. Boksen skriver teksten ind som tastetryk — ét "
         "tegn ad gangen, præcis som en meget hurtig maskinskriver — og den venter et "
         "lille øjeblik mellem hvert tegn, så PC'en kan følge med. Ved standard"
-        "indstillingen bliver det ca. 25 tegn i sekundet: en halv side tager omkring "
+        "indstillingen bliver det ca. 40 tegn i sekundet: en halv side tager omkring "
         "20 sekunder, og displayet viser undervejs, hvor langt den er nået.")
     m.note("Det er med vilje, at der ventes mellem tegnene. Går det hurtigere, end "
            "PC'en kan tage imod, forsvinder der tegn, eller de bytter plads — og det "
@@ -433,7 +433,8 @@ def build() -> None:
             ["Forside", "Samlet status: er alt klar, eller er der noget, der kræver "
                         "opmærksomhed. Boksen “Enhed” viser tilstand (drift/udvikling), om "
                         "opsætningsnetværket er tændt, hvilket netværk boksen er på, og om "
-                        "der er registreret fejl."],
+                        "der er åbne hændelser. Klik på tallet for at se, hvad der skete, "
+                        "om det virker igen, og hvad du skal gøre."],
             ["Forbindelser", "Om PC'en er forbundet, og om skanneren er fundet."],
             ["Aktivitet", "Om der sendes tekst lige nu, og hvad der er sendt for nylig."],
             ["Hændelser", "En liste i almindeligt sprog over, hvad der er sket."],

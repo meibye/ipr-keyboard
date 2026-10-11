@@ -1,22 +1,23 @@
 # src/ipr_keyboard/logging/
 
-Centralized logger and log-view API blueprints.
+The application's logger and a small blueprint that serves its file.
 
 ## Files
 
-- `logger.py`: singleton logger + rotating file handler
-- `web.py`: Flask blueprint for log retrieval
+- `logger.py`: `get_logger()` (singleton), `set_log_level()`, `log_path()`
+- `web.py`: Flask blueprint `bp_logs` at `/logs/`
 
 ## Log Location
 
-- `<repo>/logs/ipr_keyboard.log`
+- `<repo>/logs/ipr_keyboard.log`, rotated at 256 KB with 5 backups (6
+  files at most).  Everything also goes to the journal
+  (`journalctl -u ipr_keyboard.service`), which is what the dashboard reads.
 
-## Rotation Settings
+## Endpoints
 
-- max bytes per file: `256 * 1024`
-- backups: `5`
+- `GET /logs/`: the whole log file as text
+- `GET /logs/tail?lines=<n>`: the last lines (default 200)
 
-## API Endpoints
-
-- `GET /logs/`: full log text
-- `GET /logs/tail?lines=<n>`: tail lines (default 200)
+The blueprint is registered before `server.py`'s own `/logs/` route, so it
+is the one that answers `/logs/`; the journal viewer is the dashboard's
+Debug ▸ Logs (`/api/logs/raw`).

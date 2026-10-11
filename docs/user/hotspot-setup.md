@@ -19,29 +19,34 @@ one of these methods:
 
 | Method | When to use |
 |--------|-------------|
-| **Hold magnet near the reed switch for 3 seconds** | Normal use — magnet stored on or near the device |
+| **Magnet menu** (device with a display): hold the magnet near the reed switch until the menu opens (about a second), then choose **Hotspot: to on** | Normal use — magnet stored on or near the device |
+| **Hold the magnet 3 seconds** (device without a display) | The same, on a device with only the LED |
 | **Power-cycle the device 3 times within 2 minutes** | Magnet not available or device in an enclosure |
 | **Create a file named `IPR_SETUP` on the SD card** | Last resort — requires a PC and SD card reader |
 
-While you hold the magnet the LED blinks blue from the 3-second mark; release
-it and the LED keeps blinking blue while the hotspot starts (a few seconds).
+In the menu, a **tap** (magnet on and off quickly) moves to the next item and
+a **hold** chooses the highlighted one the moment the bar fills.  The menu
+closes by itself when left alone.
+
 When the hotspot is up the LED turns **solid blue** and stays on until the
-hotspot is stopped.  A short red flash means the hotspot could not start —
-try again, or ask your administrator to check the device log.
+hotspot is stopped, and the display shows `SETUP MODE` with the network name
+and the address to open.  A short red flash means the hotspot could not
+start — try again, or ask your administrator to check the device log.
 
 **Step 2 — Connect your phone or laptop to the hotspot**
 
 Open your WiFi settings and look for a network named `ipr-setup-xxxx`
 (where xxxx is unique to your device).  The password is printed on the
-device label, or you can find it on the setup home page after connecting.
+device label; on a device with a display, the menu item **Recovery info**
+shows it too (after a confirming tap, a limited number of times).
 
 **Step 3 — Open the setup page**
 
-In your browser, go to: **http://10.42.0.1/setup/**
+In your browser, go to: **https://10.42.0.1/setup/**
 
 You may see a security warning (self-signed certificate).  To remove this
 warning permanently, download and install the device's CA certificate from
-**http://10.42.0.1/setup/ca.crt** — see the setup home page for instructions.
+**https://10.42.0.1/setup/ca.crt** — see the setup home page for instructions.
 
 **Step 4 — Log in**
 
@@ -57,9 +62,9 @@ shows the dashboard.  The setup home page shows this address too.
 
 **Step 5 — When done**
 
-Hold the magnet near the reed switch for 3 seconds again to turn off the
-hotspot.  The LED blinks blue briefly and then shows the normal status
-colour for 30 seconds before going off.  Alternatively, use the
+Turn the hotspot off from the magnet menu (**Hotspot: to off**), or on a
+device without a display hold the magnet 3 seconds again.  The LED shows the
+normal status colour for 30 seconds before going off.  Alternatively, use the
 Reboot button on the System page — the hotspot does not restart automatically.
 
 ---
@@ -74,11 +79,13 @@ it from the home network disconnects that page — reconnect via the hotspot.
 The device normally runs in **production mode**, in which nothing is
 reachable on the home network — not the dashboard, not SSH.  Only the
 hotspot route above works then.  An administrator can put the device into
-**development mode** (hold the magnet for 10 seconds — the LED turns solid purple,
-release, and it lights solid purple for 3 seconds), after which the dashboard
-and SSH are reachable on the home network.  In development mode the small
-display carries a **`DEV`** badge in its top right corner as a reminder; hold
-the magnet 10 seconds again to return to production mode.  Details:
+**development mode** — on a device with a display from the magnet menu,
+**System ▸ Mode: to development** (one confirming tap); without a display by
+holding the magnet for 10 seconds (the LED turns solid purple; release, and
+it lights solid purple for 3 seconds) — after which the dashboard and SSH are
+reachable on the home network.  In development mode the small display carries
+a **`DEV`** badge in its top right corner as a reminder; the same menu item
+(or a 10-second hold) returns it to production mode.  Details:
 `docs/operations/network-modes.md`.
 
 If the device is in development mode and connected to your home network, you
@@ -108,6 +115,7 @@ for as long as the hotspot is on.
 | Amber solid | WiFi connected, waiting for Bluetooth |
 | Red blinking slowly | No WiFi connection — setup needed |
 | Red solid | Something on the device is not running — power-cycle it; if it stays red, tell your administrator |
+| *Rows marked "while you hold" apply to a device **without** a display, which still uses hold times; with a display the magnet opens the menu instead* | |
 | Blue solid while you hold the magnet | 3 s reached — release to switch the hotspot on/off |
 | Blue blinking | Hotspot is being switched on or off |
 | Blue solid | Hotspot active — you can connect. The device is **not** on the home network while this is on |
@@ -132,7 +140,8 @@ you hold the magnet (it tells you what a release will do).
 | READY | Everything is fine — the lines show the connected PC, the pen and the WiFi network |
 | PROBLEM | One of the lines has a ✗ and says what is wrong (no WiFi, pen port off, a service down) |
 | SENDING… / SENT ✓ / SEND FAILED | A scan is being typed into the PC, was typed, or could not be (the text stays on the pen) |
-| HOLD… / RELEASE → | You are holding the magnet: the bold, marked line is what happens when you let go; activities you have passed disappear |
+| HOLD… | You are holding the magnet: keep holding until the bar fills and the menu opens |
+| MENU | The magnet menu: Hotspot, Display, Recovery info, Power, System, Exit.  Tap to move, hold to choose; it closes by itself |
 | SETUP MODE | The hotspot is on — the screen shows its WiFi name and the address to open |
 | SHUTTING DOWN | Wait until the LED and the screen are off, then unplug |
 
