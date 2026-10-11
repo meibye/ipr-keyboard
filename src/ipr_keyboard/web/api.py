@@ -13,6 +13,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -93,27 +94,84 @@ def _service_active(name: str) -> bool:
         return False
 
 
-def _build_bluetooth_state() -> dict[str, Any]:
-    ble_active = _service_active("bt_hid_ble.service")
-    adapter_out = _run(["bluetoothctl", "show"])
-    powered = "Powered: yes" in adapter_out
+# Every open dashboard rebuilds the status each StatusIntervalSeconds (SSE),
+# and every `bluetoothctl` run registers and drops an "Adv Monitor app" with
+# bluetoothd -- two per build, per open tab, was ~24 a minute on a Zero.  So
+# the answers are cached: the kernel's link list in sysfs (no subprocess)
+# says at once when a host comes or goes, and only then, or once a minute,
+# is bluetoothctl asked for the adapter power and the host's name.  The same
+# reasoning as SystemProbe in gpio_monitor.py.
+_BT_MAX_AGE_SECS = 60.0
+_SERVICES_MAX_AGE_SECS = 10.0
+_STATUS_SERVICES = ("bt_hid_ble.service", "bt_hid_agent_unified.service")
+_status_cache: dict[str, Any] = {}
+_status_lock = threading.Lock()
 
-    connected_device = None
-    if ble_active and powered:
-        try:
-            devices_out = subprocess.check_output(
-                ["bluetoothctl", "devices", "Connected"],
-                text=True,
-                stderr=subprocess.STDOUT,
-                timeout=5,
-            )
-            for line in devices_out.splitlines():
-                parts = line.split(None, 2)
-                if len(parts) >= 3:
-                    connected_device = parts[2].strip()
-                    break
-        except Exception:
-            pass
+
+def _reset_status_cache() -> None:
+    """Forget cached answers (tests; and after an action changes them)."""
+    with _status_lock:
+        _status_cache.clear()
+
+
+def _bt_links() -> tuple[str, ...]:
+    """The kernel's active Bluetooth links (/sys/class/bluetooth/hciN/hciN:H)."""
+    root = "/sys/class/bluetooth"
+    try:
+        links = []
+        for hci in sorted(os.listdir(root)):
+            if hci.startswith("hci"):
+                links += [e for e in os.listdir(os.path.join(root, hci)) if e.startswith(hci + ":")]
+        return tuple(sorted(links))
+    except OSError:
+        return ()
+
+
+def _status_services() -> dict[str, bool]:
+    """Whether the dashboard's core services run: one systemctl call, cached."""
+    now = time.monotonic()
+    with _status_lock:
+        hit = _status_cache.get("services")
+        if hit and now - hit[0] < _SERVICES_MAX_AGE_SECS:
+            return hit[1]
+    try:
+        out = subprocess.run(
+            ["systemctl", "is-active", *_STATUS_SERVICES],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.split()
+    except Exception:
+        out = []
+    states = {name: (i < len(out) and out[i] == "active") for i, name in enumerate(_STATUS_SERVICES)}
+    with _status_lock:
+        _status_cache["services"] = (now, states)
+    return states
+
+
+def _adapter_and_host(links: tuple[str, ...]) -> tuple[bool, str | None]:
+    """(adapter powered, connected host's name), asked of bluetoothctl only
+    when the kernel's link list changed or the answer is a minute old."""
+    now = time.monotonic()
+    with _status_lock:
+        hit = _status_cache.get("bt")
+        if hit and hit[1] == links and now - hit[0] < _BT_MAX_AGE_SECS:
+            return hit[2], hit[3]
+    powered = "Powered: yes" in _run(["bluetoothctl", "show"])
+    host = None
+    if powered and links:
+        for line in _run(["bluetoothctl", "devices", "Connected"]).splitlines():
+            parts = line.split(None, 2)
+            if len(parts) >= 3 and parts[0] == "Device":
+                host = parts[2].strip()
+                break
+    with _status_lock:
+        _status_cache["bt"] = (now, links, powered, host)
+    return powered, host
+
+
+def _build_bluetooth_state() -> dict[str, Any]:
+    ble_active = _status_services()["bt_hid_ble.service"]
+    powered, host = _adapter_and_host(_bt_links())
+    connected_device = host if ble_active and powered else None
 
     if ble_active and powered and connected_device:
         state = "connected"
@@ -165,9 +223,8 @@ def _build_transmission_state() -> dict[str, Any]:
 
 
 def _build_system_state(bt: dict[str, Any]) -> dict[str, Any]:
-    ble_active = _service_active("bt_hid_ble.service")
-    agent_active = _service_active("bt_hid_agent_unified.service")
-    if ble_active and agent_active:
+    services = _status_services()
+    if all(services.values()):
         state, label, explanation = "healthy", "Healthy", "No current warnings"
     else:
         state, label, explanation = "warning", "Warning", "One or more services are not running"
@@ -952,6 +1009,7 @@ def api_action_reconnect_bluetooth():
 
 def _helper_service(action: str, unit: str) -> tuple[bool, str]:
     """systemctl <action> <unit> via ipr_hotspot_ctl.sh (sudoers); (ok, message)."""
+    _reset_status_cache()  # the next status shows the service's new state
     try:
         result = subprocess.run(
             ["sudo", "-n", _HOTSPOT_CTL, "service", action, unit],

@@ -113,6 +113,18 @@ Example response
 }
 ```
 
+How fresh the parts are.  Every open dashboard rebuilds this on each SSE
+tick, so the server avoids a subprocess per build (each `bluetoothctl` run
+also registers and drops an "Adv Monitor app" with bluetoothd):
+
+- a host connecting or leaving shows on the next build -- it is read from the
+  kernel's link list in sysfs;
+- the adapter's power and the host's name come from `bluetoothctl`, asked
+  only when that link list changes, or at most once a minute;
+- whether `bt_hid_ble` and `bt_hid_agent_unified` run comes from one
+  `systemctl is-active` call, at most every 10 s, and at once after a service
+  action from the dashboard.
+
 #### GET /api/status/bluetooth
 
 Returns Bluetooth state only.

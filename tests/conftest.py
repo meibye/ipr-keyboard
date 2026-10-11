@@ -180,6 +180,11 @@ def flask_client(temp_config, monkeypatch, tmp_path):
 
     ConfigManager.instance()
 
+    # The status builders cache bluetoothctl/systemctl answers between calls;
+    # each test starts with none, so its own subprocess mocks are what count.
+    from ipr_keyboard.web import api as api_module
+    api_module._reset_status_cache()
+
     app = create_app()
     app.config["TESTING"] = True
 
