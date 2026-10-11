@@ -8,6 +8,7 @@ import subprocess
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _mock_subprocess_idle(monkeypatch):
     """Patch subprocess so services appear inactive and bluetoothctl returns defaults."""
 
@@ -29,6 +30,7 @@ def _mock_subprocess_idle(monkeypatch):
 # ---------------------------------------------------------------------------
 # Status endpoints
 # ---------------------------------------------------------------------------
+
 
 def test_api_status_returns_json(flask_client, temp_config, monkeypatch):
     """GET /api/status returns 200 with expected top-level fields."""
@@ -95,6 +97,7 @@ def test_api_status_system(flask_client, temp_config, monkeypatch):
 # Event endpoints
 # ---------------------------------------------------------------------------
 
+
 def test_api_events_returns_list(flask_client, temp_config, monkeypatch):
     """GET /api/events returns {items: [...]}."""
     _mock_subprocess_idle(monkeypatch)
@@ -136,6 +139,7 @@ def test_api_events_category_filter(flask_client, temp_config, monkeypatch):
 # Log endpoints
 # ---------------------------------------------------------------------------
 
+
 def test_api_logs_raw(flask_client, temp_config, monkeypatch):
     """GET /api/logs/raw returns {items: [...]}."""
     _mock_subprocess_idle(monkeypatch)
@@ -151,6 +155,7 @@ def test_api_logs_raw(flask_client, temp_config, monkeypatch):
 # ---------------------------------------------------------------------------
 # Config endpoints
 # ---------------------------------------------------------------------------
+
 
 def test_api_config_get(flask_client, temp_config, monkeypatch):
     """GET /api/config returns expected shape."""
@@ -186,9 +191,12 @@ def test_api_config_post(flask_client, temp_config, monkeypatch):
 # Action endpoints — safety checks
 # ---------------------------------------------------------------------------
 
+
 def test_api_reboot_requires_confirm(flask_client, temp_config):
     """POST /api/actions/reboot without confirm returns 400."""
-    res = flask_client.post("/api/actions/reboot", json={}, content_type="application/json")
+    res = flask_client.post(
+        "/api/actions/reboot", json={}, content_type="application/json"
+    )
 
     assert res.status_code == 400
     data = res.get_json()
@@ -197,7 +205,9 @@ def test_api_reboot_requires_confirm(flask_client, temp_config):
 
 def test_api_shutdown_requires_confirm(flask_client, temp_config):
     """POST /api/actions/shutdown without confirm returns 400."""
-    res = flask_client.post("/api/actions/shutdown", json={}, content_type="application/json")
+    res = flask_client.post(
+        "/api/actions/shutdown", json={}, content_type="application/json"
+    )
 
     assert res.status_code == 400
     data = res.get_json()
@@ -286,10 +296,14 @@ def test_api_reconnect_bluetooth(flask_client, temp_config, monkeypatch):
     assert calls == [("restart", "bt_hid_ble")]
 
 
-def test_api_reconnect_bluetooth_reports_helper_failure(flask_client, temp_config, monkeypatch):
+def test_api_reconnect_bluetooth_reports_helper_failure(
+    flask_client, temp_config, monkeypatch
+):
     from ipr_keyboard.web import api as api_mod
 
-    monkeypatch.setattr(api_mod, "_helper_service", lambda a, u: (False, "sudo: a password is required"))
+    monkeypatch.setattr(
+        api_mod, "_helper_service", lambda a, u: (False, "sudo: a password is required")
+    )
     res = flask_client.post("/api/actions/reconnect-bluetooth", json={})
     assert res.status_code == 500
     assert "password" in res.get_json()["message"]
@@ -307,6 +321,7 @@ def test_api_rescan_pen(flask_client, temp_config):
 # ---------------------------------------------------------------------------
 # Debug endpoints
 # ---------------------------------------------------------------------------
+
 
 def test_debug_services_lists_all_six(flask_client, temp_config, monkeypatch):
     """GET /api/debug/services returns all 6 services."""
@@ -327,6 +342,7 @@ def test_debug_services_lists_all_six(flask_client, temp_config, monkeypatch):
 
 def test_debug_services_reflects_inactive(flask_client, temp_config, monkeypatch):
     """GET /api/debug/services marks bt_hid_ble inactive when systemctl returns 1."""
+
     def mock_call(cmd, **kw):
         if "bt_hid_ble" in " ".join(cmd):
             return 1
@@ -425,8 +441,11 @@ def test_debug_send_text_empty_rejected(flask_client, temp_config):
 
 def test_debug_send_text_failure_propagates(flask_client, temp_config, monkeypatch):
     """POST /api/debug/send-text returns ok=False when helper fails."""
+
     def fake_run(cmd, **kw):
-        raise subprocess.CalledProcessError(returncode=1, cmd=cmd, stderr="FIFO not ready")
+        raise subprocess.CalledProcessError(
+            returncode=1, cmd=cmd, stderr="FIFO not ready"
+        )
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
@@ -472,6 +491,7 @@ def test_debug_send_file_success(flask_client, temp_config, monkeypatch, tmp_pat
 def test_debug_pen_files_empty(flask_client, temp_config, monkeypatch, tmp_path):
     """GET /api/debug/pen-files returns empty list for empty folder."""
     from ipr_keyboard.config.manager import ConfigManager
+
     pen_dir = tmp_path / "pen"
     pen_dir.mkdir()
     ConfigManager.instance().update(IrisPenFolders=[str(pen_dir)])
@@ -487,6 +507,7 @@ def test_debug_pen_files_empty(flask_client, temp_config, monkeypatch, tmp_path)
 def test_debug_pen_files_lists_files(flask_client, temp_config, monkeypatch, tmp_path):
     """GET /api/debug/pen-files lists files with content."""
     from ipr_keyboard.config.manager import ConfigManager
+
     pen_dir = tmp_path / "pen"
     pen_dir.mkdir()
     (pen_dir / "note.txt").write_text("Hello pen", encoding="utf-8")
@@ -507,6 +528,7 @@ def test_debug_pen_files_lists_files(flask_client, temp_config, monkeypatch, tmp
 def test_debug_pen_files_content_cap(flask_client, temp_config, monkeypatch, tmp_path):
     """GET /api/debug/pen-files truncates content to 8 KB."""
     from ipr_keyboard.config.manager import ConfigManager
+
     pen_dir = tmp_path / "pen"
     pen_dir.mkdir()
     large = "x" * 20000
@@ -526,6 +548,7 @@ def test_debug_pen_files_content_cap(flask_client, temp_config, monkeypatch, tmp
 def test_debug_requires_auth(temp_config):
     """GET /api/debug/services returns 401 for unauthenticated requests."""
     from ipr_keyboard.web.server import create_app
+
     app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as client:
@@ -533,7 +556,9 @@ def test_debug_requires_auth(temp_config):
     assert res.status_code == 401
 
 
-def test_api_device_returns_mode_hotspot_and_incidents(flask_client, temp_config, monkeypatch):
+def test_api_device_returns_mode_hotspot_and_incidents(
+    flask_client, temp_config, monkeypatch
+):
     """GET /api/device: the home-page Device card fields, no host tools needed."""
     _mock_subprocess_idle(monkeypatch)
     from ipr_keyboard.web import api as api_mod
@@ -542,7 +567,11 @@ def test_api_device_returns_mode_hotspot_and_incidents(flask_client, temp_config
     monkeypatch.setattr(api_mod, "_hotspot_active", lambda: False)
     monkeypatch.setattr(api_mod, "_home_wifi_active", lambda: True)
     monkeypatch.setattr(api_mod, "_hotspot_ssid", lambda: "ipr-setup-abcd")
-    monkeypatch.setattr(api_mod, "_incidents", lambda: (2, "2026-09-12T13:06:49  bt_hid_ble.service failed"))
+    monkeypatch.setattr(
+        api_mod,
+        "_incidents",
+        lambda: (2, "2026-09-12T13:06:49  bt_hid_ble.service failed"),
+    )
     monkeypatch.setattr(api_mod, "_get_current_ip", lambda: "192.168.1.97")
 
     res = flask_client.get("/api/device")
@@ -557,7 +586,9 @@ def test_api_device_returns_mode_hotspot_and_incidents(flask_client, temp_config
     assert "SSH and dashboard open" in d["reachability"]
 
 
-def test_api_action_hotspot_requires_confirm_to_start(flask_client, temp_config, monkeypatch):
+def test_api_action_hotspot_requires_confirm_to_start(
+    flask_client, temp_config, monkeypatch
+):
     _mock_subprocess_idle(monkeypatch)
     from ipr_keyboard.web import api as api_mod
 
@@ -567,7 +598,9 @@ def test_api_action_hotspot_requires_confirm_to_start(flask_client, temp_config,
     assert res.get_json()["error"]["code"] == "confirmation_required"
 
 
-def test_debug_pen_files_explains_an_empty_folder(flask_client, temp_config, monkeypatch, tmp_path):
+def test_debug_pen_files_explains_an_empty_folder(
+    flask_client, temp_config, monkeypatch, tmp_path
+):
     """Empty after delivery is normal; the handled scans are listed instead."""
     import json as _json
 
@@ -578,7 +611,14 @@ def test_debug_pen_files_explains_an_empty_folder(flask_client, temp_config, mon
     pen_dir.mkdir()
     state = tmp_path / "pen_state.json"
     state.write_text(
-        _json.dumps({str(pen_dir): ["20261010191218.txt|1791652339|834", "20261010191345.txt|1791652425|613"]}),
+        _json.dumps(
+            {
+                str(pen_dir): [
+                    "20261010191218.txt|1791652339|834",
+                    "20261010191345.txt|1791652425|613",
+                ]
+            }
+        ),
         encoding="utf-8",
     )
     monkeypatch.setattr(api, "_pen_state_path", lambda: state)
@@ -589,11 +629,16 @@ def test_debug_pen_files_explains_an_empty_folder(flask_client, temp_config, mon
     assert data["files"] == []
     assert data["delete_after_send"] is True
     assert data["found_folders"] == [str(pen_dir)]
-    assert [h["name"] for h in data["handled"]] == ["20261010191345.txt", "20261010191218.txt"]
+    assert [h["name"] for h in data["handled"]] == [
+        "20261010191345.txt",
+        "20261010191218.txt",
+    ]
     assert data["handled"][0]["size_bytes"] == 613
 
 
-def test_debug_pen_files_without_a_pen(flask_client, temp_config, monkeypatch, tmp_path):
+def test_debug_pen_files_without_a_pen(
+    flask_client, temp_config, monkeypatch, tmp_path
+):
     from ipr_keyboard.config.manager import ConfigManager
     from ipr_keyboard.web import api
 

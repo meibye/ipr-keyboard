@@ -66,7 +66,7 @@ def _make_systemctl_stub(tmp_path: Path, loaded_units: list[str]) -> Path:
         textwrap.dedent(
             f"""\
             #!/usr/bin/env bash
-            LOADED="{' '.join(loaded_units)}"
+            LOADED="{" ".join(loaded_units)}"
             if [[ "$1" == "show" ]]; then
                 unit="${{@: -1}}"
                 for u in $LOADED; do
@@ -112,6 +112,7 @@ def _run_bash(script_body: str, path_prepend: Path) -> subprocess.CompletedProce
 # unit_installed()
 # ---------------------------------------------------------------------------
 
+
 @requires_bash
 @pytest.mark.parametrize("script_rel", SCRIPTS_WITH_HELPER)
 def test_unit_installed_reports_installed_unit(tmp_path, script_rel):
@@ -120,9 +121,9 @@ def test_unit_installed_reports_installed_unit(tmp_path, script_rel):
     bindir = _make_systemctl_stub(tmp_path, ["bt_hid_ble.service"])
 
     result = _run_bash(
-        f'set -eo pipefail\n{fn}\n'
+        f"set -eo pipefail\n{fn}\n"
         'if unit_installed "bt_hid_ble.service"; then echo INSTALLED; '
-        'else echo MISSING; fi',
+        "else echo MISSING; fi",
         bindir,
     )
 
@@ -137,9 +138,9 @@ def test_unit_installed_reports_absent_unit(tmp_path, script_rel):
     bindir = _make_systemctl_stub(tmp_path, ["bt_hid_ble.service"])
 
     result = _run_bash(
-        f'set -eo pipefail\n{fn}\n'
+        f"set -eo pipefail\n{fn}\n"
         'if unit_installed "nope.service"; then echo INSTALLED; '
-        'else echo MISSING; fi',
+        "else echo MISSING; fi",
         bindir,
     )
 
@@ -164,6 +165,7 @@ def test_no_list_unit_files_grep_pipeline_remains(script_rel):
 # bt_kb_send FIFO write timeout
 # ---------------------------------------------------------------------------
 
+
 @requires_bash
 @requires_posix
 def test_bt_kb_send_times_out_when_no_reader(tmp_path):
@@ -177,9 +179,7 @@ def test_bt_kb_send_times_out_when_no_reader(tmp_path):
 
     script = (REPO_ROOT / "scripts/ble/bt_kb_send.sh").read_text(encoding="utf-8")
     # Point the helper at the test FIFO instead of /run.
-    script = script.replace(
-        'FIFO="/run/ipr_bt_keyboard_fifo"', f'FIFO="{fifo}"', 1
-    )
+    script = script.replace('FIFO="/run/ipr_bt_keyboard_fifo"', f'FIFO="{fifo}"', 1)
     patched = tmp_path / "bt_kb_send.sh"
     patched.write_text(script, encoding="utf-8")
 
@@ -221,9 +221,7 @@ def test_bt_kb_send_succeeds_with_a_reader(tmp_path):
     thread.start()
 
     script = (REPO_ROOT / "scripts/ble/bt_kb_send.sh").read_text(encoding="utf-8")
-    script = script.replace(
-        'FIFO="/run/ipr_bt_keyboard_fifo"', f'FIFO="{fifo}"', 1
-    )
+    script = script.replace('FIFO="/run/ipr_bt_keyboard_fifo"', f'FIFO="{fifo}"', 1)
     patched = tmp_path / "bt_kb_send.sh"
     patched.write_text(script, encoding="utf-8")
 

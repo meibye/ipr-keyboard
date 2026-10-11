@@ -126,11 +126,19 @@ def test_an_unwritable_state_file_is_not_fatal(tmp_path):
 def test_recent_lists_handled_scans_newest_first(tmp_path):
     state = tmp_path / "pen_state.json"
     state.write_text(
-        json.dumps({"/pen/a": ["old.txt|100|5", "new.txt|300|7"], "/pen/b": ["mid.txt|200|6", "bad-key"]}),
+        json.dumps(
+            {
+                "/pen/a": ["old.txt|100|5", "new.txt|300|7"],
+                "/pen/b": ["mid.txt|200|6", "bad-key"],
+            }
+        ),
         encoding="utf-8",
     )
     recent = DeliveryLog.recent(state, limit=2)
-    assert [(e["name"], e["size_bytes"]) for e in recent] == [("new.txt", 7), ("mid.txt", 6)]
+    assert [(e["name"], e["size_bytes"]) for e in recent] == [
+        ("new.txt", 7),
+        ("mid.txt", 6),
+    ]
 
 
 def test_recent_without_a_log_is_empty(tmp_path):

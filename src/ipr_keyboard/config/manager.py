@@ -12,12 +12,18 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..utils.helpers import config_default_path, config_path, load_json, save_json, seed_from_default
+from ..utils.helpers import (
+    config_default_path,
+    config_path,
+    load_json,
+    save_json,
+    seed_from_default,
+)
 from ..logging.logger import get_logger
 
 logger = get_logger()
 
-VERSION = '2026-04-12 19:40:39'
+VERSION = "2026-04-12 19:40:39"
 
 
 def _provisioned_typing_delay(default: int = 20) -> int:
@@ -53,6 +59,7 @@ def _provisioned_typing_delay(default: int = 20) -> int:
 
 
 _PROVISIONED_TYPING_DELAY_MS = _provisioned_typing_delay()
+
 
 def log_version_info():
     logger.info(f"==== ipr_keyboard.config.manager VERSION: {VERSION} ====")
@@ -160,8 +167,13 @@ class AppConfig:
         if isinstance(folders, list):
             data = dict(data)
             data["IrisPenFolders"] = [
-                (f.replace("/mnt/irispen/Intern delt lagerplads/", "/mnt/irispen/*/", 1)
-                 if isinstance(f, str) else f)
+                (
+                    f.replace(
+                        "/mnt/irispen/Intern delt lagerplads/", "/mnt/irispen/*/", 1
+                    )
+                    if isinstance(f, str)
+                    else f
+                )
                 for f in folders
             ]
         base = cls()
@@ -218,9 +230,9 @@ class ConfigManager:
             for key, value in kwargs.items():
                 if hasattr(self._cfg, key):
                     setattr(self._cfg, key, value)
-            
+
             save_json(self._path, self._cfg.to_dict())
-            
+
             return self.get()
 
     def reload(self) -> AppConfig:

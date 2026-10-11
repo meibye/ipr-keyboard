@@ -8,6 +8,7 @@ def _reset():
     """Re-import the module to reset global state between tests."""
     import ipr_keyboard.transmission as tx
     import importlib
+
     importlib.reload(tx)
     return tx
 
@@ -48,6 +49,7 @@ def test_set_success_increments_items_sent():
 def test_set_success_records_timestamp():
     tx = _reset()
     import time
+
     before = time.time()
     tx.set_sending()
     tx.set_success()

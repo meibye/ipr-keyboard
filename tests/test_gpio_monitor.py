@@ -757,9 +757,9 @@ def test_a_wobble_mid_hold_does_not_split_the_press_into_taps():
 
     rig.press()
     rig.advance(0.4)
-    rig.wobble()          # the magnet shifts
+    rig.wobble()  # the magnet shifts
     rig.advance(0.4)
-    rig.wobble()          # and again
+    rig.wobble()  # and again
     rig.advance(0.4)
     assert _menu_current(rig) == start, "a wobble must not count as a tap"
     rig.advance(gm.MENU_SELECT_SECS)
@@ -778,7 +778,7 @@ def test_a_tap_whose_release_bounces_is_still_a_tap():
     first = _menu_current(rig)
 
     rig.press()
-    rig.advance(gm.MENU_SELECT_SECS - 0.2)   # just short of choosing
+    rig.advance(gm.MENU_SELECT_SECS - 0.2)  # just short of choosing
     rig.release()
     assert rig.actions.calls == [], "nothing was chosen"
     assert _menu_current(rig) != first, "it counted as a tap and stepped on"

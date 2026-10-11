@@ -52,9 +52,8 @@ def sync_mtp_to_cache(
         if dst.exists():
             src_stat = src.stat()
             dst_stat = dst.stat()
-            if (
-                src_stat.st_size == dst_stat.st_size
-                and int(src_stat.st_mtime) == int(dst_stat.st_mtime)
+            if src_stat.st_size == dst_stat.st_size and int(src_stat.st_mtime) == int(
+                dst_stat.st_mtime
             ):
                 skipped.append(src)
                 continue

@@ -24,7 +24,8 @@ from .auth import UserStore
 
 logger = get_logger()
 
-VERSION = '2026-04-12 19:40:34'
+VERSION = "2026-04-12 19:40:34"
+
 
 def log_version_info():
     logger.info(f"==== ipr_keyboard.web.server VERSION: {VERSION} ====")
@@ -100,9 +101,11 @@ def create_app() -> Flask:
     app.register_blueprint(bp_logs)
 
     from .api import bp_api
+
     app.register_blueprint(bp_api)
 
     from .setup import bp_setup
+
     app.register_blueprint(bp_setup)
 
     @app.before_request
@@ -114,7 +117,9 @@ def create_app() -> Flask:
             return
         if not session.get("username"):
             if path.startswith("/api/"):
-                return jsonify({"error": {"code": "unauthenticated", "message": "Login required."}}), 401
+                return jsonify(
+                    {"error": {"code": "unauthenticated", "message": "Login required."}}
+                ), 401
             # Clients on the management hotspot (10.42.0.x) should use the
             # setup login, not the main dashboard login.
             if (request.remote_addr or "").startswith("10.42.0."):
@@ -131,7 +136,9 @@ def create_app() -> Flask:
                 session.clear()
                 session.permanent = True
                 session["username"] = username
-                session["is_admin"] = UserStore.instance().user_info(username)["is_admin"]
+                session["is_admin"] = UserStore.instance().user_info(username)[
+                    "is_admin"
+                ]
                 next_url = request.args.get("next", "")
                 if urlparse(next_url).netloc:
                     next_url = ""
@@ -180,7 +187,9 @@ def create_app() -> Flask:
         log_file = project_root / "ipr-keyboard" / "logs" / "ipr_keyboard.log"
         services = {
             "bt_hid_ble.service": _service_status("bt_hid_ble.service"),
-            "bt_hid_agent_unified.service": _service_status("bt_hid_agent_unified.service"),
+            "bt_hid_agent_unified.service": _service_status(
+                "bt_hid_agent_unified.service"
+            ),
         }
         adapter_info = _run_cmd(["bluetoothctl", "show"])
         devices: list[dict[str, Any]] = []
@@ -222,6 +231,7 @@ def create_app() -> Flask:
             "systemd-udevd.service",
         ]
         import flask
+
         selected_units = flask.request.args.getlist("unit")
         if not selected_units:
             selected_units = ["ipr_keyboard.service"]
@@ -230,10 +240,17 @@ def create_app() -> Flask:
         for u in selected_units:
             cmd += ["-u", u]
         try:
-            log_content = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT)
+            log_content = subprocess.check_output(
+                cmd, text=True, stderr=subprocess.STDOUT
+            )
         except Exception as exc:
             log_content = f"Could not read logs: {exc}"
-        return render_template("logs_select.html", log_content=log_content, units=units, selected_units=selected_units)
+        return render_template(
+            "logs_select.html",
+            log_content=log_content,
+            units=units,
+            selected_units=selected_units,
+        )
 
     @app.route("/pairing/", methods=["GET", "POST"])
     def pairing():
@@ -251,7 +268,9 @@ def create_app() -> Flask:
         # List paired devices
         devices: list[dict[str, str]] = []
         try:
-            devices_out = subprocess.check_output(["bluetoothctl", "devices"], text=True)
+            devices_out = subprocess.check_output(
+                ["bluetoothctl", "devices"], text=True
+            )
             for line in devices_out.splitlines():
                 parts = line.split()
                 if len(parts) >= 2:
@@ -260,7 +279,9 @@ def create_app() -> Flask:
                     devices.append({"mac": mac, "info": info_out})
         except Exception as exc:
             devices.append({"error": f"failed to query devices: {exc}"})
-        return render_template("pairing.html", result=result, error=error, devices=devices)
+        return render_template(
+            "pairing.html", result=result, error=error, devices=devices
+        )
 
     @app.route("/config/", methods=["GET", "POST"])
     def config():
@@ -303,7 +324,9 @@ def create_app() -> Flask:
                     error = f"Failed to update config: {exc}"
                 config_obj = config_mgr.get()
                 config_dict = config_obj.to_dict()
-        return render_template("config.html", config=config_dict, result=result, error=error)
+        return render_template(
+            "config.html", config=config_dict, result=result, error=error
+        )
 
     logger.info("Web server created")
     return app

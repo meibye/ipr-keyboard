@@ -77,7 +77,9 @@ def test_problem_header_when_service_down_pen_port_off_or_no_wifi():
     s = compose(ready_snapshot(wifi_connected=False, ssid="", ip=""))
     assert s.header == "NOT READY"
     assert s.lines[2] == Line("No Wi-Fi — hold 3 s", sc.ICON_WARN)
-    s = compose(ready_snapshot(wifi_connected=False, ssid="", ip="", menu_available=True))
+    s = compose(
+        ready_snapshot(wifi_connected=False, ssid="", ip="", menu_available=True)
+    )
     assert s.lines[2] == Line("No Wi-Fi: see menu", sc.ICON_WARN)
 
 
@@ -386,7 +388,6 @@ def test_the_pc_hint_fits_the_panel():
     slot = render.WIDTH - render.ICON_COL - 2
     for text in ("Reconnect from PC", "Waiting for PC…"):
         assert font.getbbox(text)[2] <= slot, text
-
 
 
 def test_a_connected_pc_with_no_name_is_connecting_not_connected():

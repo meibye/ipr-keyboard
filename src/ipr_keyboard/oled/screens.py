@@ -202,9 +202,7 @@ def compose(snap: Snapshot) -> Screen:
                 # Holding opens the menu on a device with a panel, so the
                 # old "Hold 3 s to stop" did nothing at all when followed.
                 Line(
-                    "Hold: menu to stop"
-                    if snap.menu_available
-                    else "Hold 3s to stop"
+                    "Hold: menu to stop" if snap.menu_available else "Hold 3s to stop"
                 ),
             ),
         )
@@ -389,7 +387,7 @@ def _status_screen(snap: Snapshot, badge: str) -> Screen:
     the pen unplugged the screen used to read READY with "Plug in the pen"
     sitting unremarked in the middle, which nobody noticed.
     """
-    fault = False      # the device is broken
+    fault = False  # the device is broken
     outstanding = False  # the user has something to do
 
     if not snap.services_ok:

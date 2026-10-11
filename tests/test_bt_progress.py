@@ -156,11 +156,17 @@ def test_one_idle_between_lines_does_not_end_the_send(tmp_path):
     p = tmp_path / "progress.json"
     _write(p, state="typing", total=5, sent=0)
     # line one types 5, goes idle; line two types 5 more, then really stops
-    steps = iter([
-        ("typing", 5, 3), ("idle", 5, 5),          # end of line one
-        ("typing", 5, 2), ("typing", 5, 5),        # line two
-        ("idle", 5, 5), ("idle", 5, 5), ("idle", 5, 5),
-    ])
+    steps = iter(
+        [
+            ("typing", 5, 3),
+            ("idle", 5, 5),  # end of line one
+            ("typing", 5, 2),
+            ("typing", 5, 5),  # line two
+            ("idle", 5, 5),
+            ("idle", 5, 5),
+            ("idle", 5, 5),
+        ]
+    )
     t = [0.0]
 
     def _clock():
@@ -176,8 +182,12 @@ def test_one_idle_between_lines_does_not_end_the_send(tmp_path):
 
     watch = bp.TypingWatch(clock=_clock)
     got = bp.wait_until_idle(
-        str(p), poll_s=0.1, clock=_clock, sleep=_sleep,
-        on_progress=watch, settle_s=0.25,
+        str(p),
+        poll_s=0.1,
+        clock=_clock,
+        sleep=_sleep,
+        on_progress=watch,
+        settle_s=0.25,
     )
     assert got.state == "idle"
     # Both lines counted, not just the first.
@@ -189,9 +199,14 @@ def test_one_idle_between_lines_does_not_end_the_send(tmp_path):
 def test_the_watch_sums_the_characters_of_every_drain():
     watch = bp.TypingWatch(clock=lambda: 0.0)
     for state, total, sent in [
-        ("typing", 40, 10), ("typing", 40, 40), ("idle", 40, 40),
-        ("typing", 12, 4), ("typing", 12, 12), ("idle", 12, 12),
-        ("typing", 7, 7), ("idle", 7, 7),
+        ("typing", 40, 10),
+        ("typing", 40, 40),
+        ("idle", 40, 40),
+        ("typing", 12, 4),
+        ("typing", 12, 12),
+        ("idle", 12, 12),
+        ("typing", 7, 7),
+        ("idle", 7, 7),
     ]:
         watch(bp.Progress(state=state, total=total, sent=sent, at=1.0))
     assert watch.total_typed == 40 + 12 + 7
@@ -201,4 +216,3 @@ def test_the_watch_ignores_unknown_readings():
     watch = bp.TypingWatch(clock=lambda: 0.0)
     watch(bp.UNKNOWN)
     assert watch.total_typed == 0 and watch.started_at is None
-

@@ -1,4 +1,5 @@
 """Unit tests for UserStore — credential storage and management."""
+
 import pytest
 
 
@@ -9,7 +10,9 @@ def store(tmp_path, monkeypatch):
 
     users_file = tmp_path / "users.json"
     monkeypatch.setattr(auth_module, "users_path", lambda: users_file)
-    monkeypatch.setattr(auth_module, "users_default_path", lambda: tmp_path / "users.default.json")
+    monkeypatch.setattr(
+        auth_module, "users_default_path", lambda: tmp_path / "users.default.json"
+    )
     monkeypatch.setattr(auth_module, "project_root", lambda: tmp_path)
     auth_module.UserStore._instance = None
 
@@ -29,7 +32,9 @@ def test_default_admin_created_on_first_run(tmp_path, monkeypatch):
 
     users_file = tmp_path / "users.json"
     monkeypatch.setattr(auth_module, "users_path", lambda: users_file)
-    monkeypatch.setattr(auth_module, "users_default_path", lambda: tmp_path / "users.default.json")
+    monkeypatch.setattr(
+        auth_module, "users_default_path", lambda: tmp_path / "users.default.json"
+    )
     monkeypatch.setattr(auth_module, "project_root", lambda: tmp_path)
     auth_module.UserStore._instance = None
 
@@ -43,7 +48,9 @@ def test_initial_password_file_written(tmp_path, monkeypatch):
     from ipr_keyboard.web import auth as auth_module
 
     monkeypatch.setattr(auth_module, "users_path", lambda: tmp_path / "users.json")
-    monkeypatch.setattr(auth_module, "users_default_path", lambda: tmp_path / "users.default.json")
+    monkeypatch.setattr(
+        auth_module, "users_default_path", lambda: tmp_path / "users.default.json"
+    )
     monkeypatch.setattr(auth_module, "project_root", lambda: tmp_path)
     auth_module.UserStore._instance = None
 
@@ -61,7 +68,9 @@ def test_initial_password_allows_login(tmp_path, monkeypatch):
     from ipr_keyboard.web import auth as auth_module
 
     monkeypatch.setattr(auth_module, "users_path", lambda: tmp_path / "users.json")
-    monkeypatch.setattr(auth_module, "users_default_path", lambda: tmp_path / "users.default.json")
+    monkeypatch.setattr(
+        auth_module, "users_default_path", lambda: tmp_path / "users.default.json"
+    )
     monkeypatch.setattr(auth_module, "project_root", lambda: tmp_path)
     auth_module.UserStore._instance = None
 
@@ -255,7 +264,9 @@ def test_singleton_returns_same_instance(tmp_path, monkeypatch):
     from ipr_keyboard.web import auth as auth_module
 
     monkeypatch.setattr(auth_module, "users_path", lambda: tmp_path / "users.json")
-    monkeypatch.setattr(auth_module, "users_default_path", lambda: tmp_path / "users.default.json")
+    monkeypatch.setattr(
+        auth_module, "users_default_path", lambda: tmp_path / "users.default.json"
+    )
     monkeypatch.setattr(auth_module, "project_root", lambda: tmp_path)
     auth_module.UserStore._instance = None
 

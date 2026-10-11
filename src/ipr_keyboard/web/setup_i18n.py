@@ -173,143 +173,137 @@ _SYS_CERT_HINT_DA = (
 _EN: dict[str, str] = {
     # Page title
     "page_title": "IPR Keyboard – Setup",
-
     # Nav
-    "nav_home":    "Home",
-    "nav_status":  "Status",
-    "nav_wifi":    "Wi-Fi",
-    "nav_logs":    "Logs",
-    "nav_system":  "System",
+    "nav_home": "Home",
+    "nav_status": "Status",
+    "nav_wifi": "Wi-Fi",
+    "nav_logs": "Logs",
+    "nav_system": "System",
     "nav_signout": "Sign out",
-
     # Login
-    "login_brand":          "IPR Keyboard",
-    "login_title":          "Setup sign in",
+    "login_brand": "IPR Keyboard",
+    "login_title": "Setup sign in",
     "login_username_label": "Username",
     "login_password_label": "Password",
-    "login_submit":         "Sign in",
-    "login_hint":           "Use the Wi-Fi password shown on the device label,\nor check https://10.42.0.1/setup/ after connecting.",
-    "login_toggle_pw":      "Show or hide password",
-    "login_err_invalid":    "Invalid username or password.",
-    "login_err_ratelimit":  "Too many attempts — wait 60 seconds and try again.",
-
+    "login_submit": "Sign in",
+    "login_hint": "Use the Wi-Fi password shown on the device label,\nor check https://10.42.0.1/setup/ after connecting.",
+    "login_toggle_pw": "Show or hide password",
+    "login_err_invalid": "Invalid username or password.",
+    "login_err_ratelimit": "Too many attempts — wait 60 seconds and try again.",
     # Home — Device card
-    "home_device_title":   "Device",
-    "home_hostname":       "Hostname",
-    "home_mode":           "Mode",
-    "home_mode_prod":      "production",
+    "home_device_title": "Device",
+    "home_hostname": "Hostname",
+    "home_mode": "Mode",
+    "home_mode_prod": "production",
     "home_mode_prod_hint": "no open ports on the home network; setup portal only over the hotspot",
-    "home_mode_dev":       "development",
-    "home_mode_dev_hint":  "SSH and dashboard reachable on the home network (magnet 6 s toggles)",
-    "home_ssh_mdns":       "SSH (mDNS)",
-    "home_net_ip":         "Home network IP",
-    "home_net":            "Home network",
-    "home_badge_on":       "connected",
-    "home_badge_off":      "not connected",
-
+    "home_mode_dev": "development",
+    "home_mode_dev_hint": "SSH and dashboard reachable on the home network (magnet 6 s toggles)",
+    "home_ssh_mdns": "SSH (mDNS)",
+    "home_net_ip": "Home network IP",
+    "home_net": "Home network",
+    "home_badge_on": "connected",
+    "home_badge_off": "not connected",
     # Home — Hotspot card
-    "home_hotspot_title":  "Management Hotspot",
-    "home_ssid":           "SSID",
-    "home_password":       "Password",
-    "home_web_ui":         "Web UI",
-    "home_login_lbl":      "Login",
-    "home_login_val":      "ipr  /  hotspot password above",
-
+    "home_hotspot_title": "Management Hotspot",
+    "home_ssid": "SSID",
+    "home_password": "Password",
+    "home_web_ui": "Web UI",
+    "home_login_lbl": "Login",
+    "home_login_val": "ipr  /  hotspot password above",
     # Home — Dashboard card
-    "home_dash_title":         "Main Dashboard",
-    "home_dash_url":           "Address",
-    "home_dash_login":         "Login",
+    "home_dash_title": "Main Dashboard",
+    "home_dash_url": "Address",
+    "home_dash_login": "Login",
     "home_dash_login_changed": "admin  /  the password you set",
-    "home_dash_initial_note":  ("This is the generated first-login password. Change it in the "
-                                "dashboard (Settings → Account); it disappears from this page "
-                                "as soon as you do."),
-
+    "home_dash_initial_note": (
+        "This is the generated first-login password. Change it in the "
+        "dashboard (Settings → Account); it disappears from this page "
+        "as soon as you do."
+    ),
     # Home — Certificate card
-    "home_dash_title":    "Main dashboard",
-    "home_dash_desc":     "Status, activity and events for day-to-day use. Opens with your dashboard login — not the setup password.",
-    "home_dash_open":     "Open the dashboard",
-    "home_cert_title":    "Trust Certificate",
-    "home_cert_desc":     (
+    "home_dash_title": "Main dashboard",
+    "home_dash_desc": "Status, activity and events for day-to-day use. Opens with your dashboard login — not the setup password.",
+    "home_dash_open": "Open the dashboard",
+    "home_cert_title": "Trust Certificate",
+    "home_cert_desc": (
         "Download and install this certificate once on each device you use here. "
         "After installing it, the browser warning disappears permanently — "
         "you will not need to do this again unless you reset the device."
     ),
     "home_cert_download": "⬇ Download CA Certificate",
-    "home_cert_toggle":   "How to install on your device",
-    "home_cert_instructions": _CERT_INSTRUCTIONS_EN,   # HTML
-
+    "home_cert_toggle": "How to install on your device",
+    "home_cert_instructions": _CERT_INSTRUCTIONS_EN,  # HTML
     # Status
-    "status_services":    "Services",
-    "status_bluetooth":   "Bluetooth",
-    "status_adapter":     "Adapter",
-    "status_powered_on":  "powered on",
+    "status_services": "Services",
+    "status_bluetooth": "Bluetooth",
+    "status_adapter": "Adapter",
+    "status_powered_on": "powered on",
     "status_powered_off": "powered off",
-    "status_active":      "active",
-    "status_connected":   "connected",
-    "status_paired":      "paired, not connected",
+    "status_active": "active",
+    "status_connected": "connected",
+    "status_paired": "paired, not connected",
     "status_paired_devs": "Paired devices",
-    "status_none":        "none",
-
+    "status_none": "none",
     # Wi-Fi
-    "wifi_title":        "Connect to a Wi-Fi Network",
-    "wifi_desc":         (
+    "wifi_title": "Connect to a Wi-Fi Network",
+    "wifi_desc": (
         "Optional — saves credentials so the Pi can also reach the internet. "
         "The hotspot stays active; the Pi connects to this network after reboot."
     ),
-    "wifi_network":      "Network",
-    "wifi_manual_ssid":  "…or type the network name (SSID)",
-    "wifi_ssid_unknown": ("<strong>{ssid}</strong> was not seen in the last network scan — check the "
-                          "spelling (case matters). Tick the confirmation to save it anyway."),  # HTML
+    "wifi_network": "Network",
+    "wifi_manual_ssid": "…or type the network name (SSID)",
+    "wifi_ssid_unknown": (
+        "<strong>{ssid}</strong> was not seen in the last network scan — check the "
+        "spelling (case matters). Tick the confirmation to save it anyway."
+    ),  # HTML
     "wifi_confirm_ssid": "Yes, save the network name exactly as typed:",
     "wifi_manual_placeholder": "e.g. MyHomeWiFi",
-    "wifi_manual_hint":  ("While the hotspot is on, the device cannot scan for networks — "
-                          "type the name exactly as it appears on your router (case-sensitive)."),
-    "wifi_security":     "Security",
-    "wifi_sec_auto":     "Auto (WPA2)",
-    "wifi_sec_open":     "Open",
-    "wifi_password":     "Password",
-    "wifi_placeholder":  "Wi-Fi password",
-    "wifi_show":         "Show",
-    "wifi_save":         "Save & Connect on Reboot",
-    "wifi_rescan":       "Rescan Networks",
-    "wifi_saved":        "Wi-Fi credentials saved for <strong>{ssid}</strong> (exact name as stored). The Pi connects when the hotspot is stopped (magnet 3 s) or after a reboot.",  # HTML
-
+    "wifi_manual_hint": (
+        "While the hotspot is on, the device cannot scan for networks — "
+        "type the name exactly as it appears on your router (case-sensitive)."
+    ),
+    "wifi_security": "Security",
+    "wifi_sec_auto": "Auto (WPA2)",
+    "wifi_sec_open": "Open",
+    "wifi_password": "Password",
+    "wifi_placeholder": "Wi-Fi password",
+    "wifi_show": "Show",
+    "wifi_save": "Save & Connect on Reboot",
+    "wifi_rescan": "Rescan Networks",
+    "wifi_saved": "Wi-Fi credentials saved for <strong>{ssid}</strong> (exact name as stored). The Pi connects when the hotspot is stopped (magnet 3 s) or after a reboot.",  # HTML
     # Logs
-    "logs_title":   "Log Viewer",
+    "logs_title": "Log Viewer",
     "logs_refresh": "Refresh",
-    "logs_device_time":  "Device time",
-    "logs_lines_note":   "last 300 lines per selection; timestamps are device local time",
+    "logs_device_time": "Device time",
+    "logs_lines_note": "last 300 lines per selection; timestamps are device local time",
     "logs_newest_first": "newest first",
-    "logs_follow":       "live (reload every 4 s)",
-
+    "logs_follow": "live (reload every 4 s)",
     # System — Certificate card
-    "sys_cert_title":          "Certificate",
-    "sys_cert_expires":        "Expires",
-    "sys_cert_trust":          "Trust store",
-    "sys_cert_download":       "Download CA cert",
-    "sys_cert_hint":           _SYS_CERT_HINT_EN,   # HTML
-    "sys_cert_renew_btn":      "Renew Certificate",
-    "sys_cert_renew_desc":     (
+    "sys_cert_title": "Certificate",
+    "sys_cert_expires": "Expires",
+    "sys_cert_trust": "Trust store",
+    "sys_cert_download": "Download CA cert",
+    "sys_cert_hint": _SYS_CERT_HINT_EN,  # HTML
+    "sys_cert_renew_btn": "Renew Certificate",
+    "sys_cert_renew_desc": (
         "Generates a new 397-day certificate using the same CA. "
         "Clients that installed the CA cert do not need to reinstall it. "
         "Auto-renewal runs daily in the background."
     ),
-    "sys_cert_renew_confirm":  "Renew the certificate now? The service will restart briefly.",
-
+    "sys_cert_renew_confirm": "Renew the certificate now? The service will restart briefly.",
     # System — Actions card
-    "sys_actions_title":      "System Actions",
-    "sys_actions_desc":       "These actions affect the device immediately.",
-    "sys_reboot_btn":         "Reboot",
-    "sys_reboot_desc":        "Restarts the Pi. Reconnect to the hotspot after ~30 s.",
-    "sys_reboot_confirm":     "Reboot the device now?",
-    "sys_shutdown_btn":       "Shutdown",
-    "sys_shutdown_desc":      "Powers off the Pi safely. Remove power after the LED stops.",
-    "sys_shutdown_confirm":   "Shut down the device now?",
-
+    "sys_actions_title": "System Actions",
+    "sys_actions_desc": "These actions affect the device immediately.",
+    "sys_reboot_btn": "Reboot",
+    "sys_reboot_desc": "Restarts the Pi. Reconnect to the hotspot after ~30 s.",
+    "sys_reboot_confirm": "Reboot the device now?",
+    "sys_shutdown_btn": "Shutdown",
+    "sys_shutdown_desc": "Powers off the Pi safely. Remove power after the LED stops.",
+    "sys_shutdown_confirm": "Shut down the device now?",
     # System — dynamic messages (used in route handlers)
-    "msg_reboot":    "Reboot initiated. Reconnect to the hotspot in about 30 seconds.",
-    "msg_shutdown":  "Shutdown initiated. Remove power after the LED stops blinking.",
-    "msg_cert_ok":   "Certificate renewed. The service is restarting — this page will reload in 10 seconds.",
+    "msg_reboot": "Reboot initiated. Reconnect to the hotspot in about 30 seconds.",
+    "msg_shutdown": "Shutdown initiated. Remove power after the LED stops blinking.",
+    "msg_cert_ok": "Certificate renewed. The service is restarting — this page will reload in 10 seconds.",
     "msg_cert_timeout": "Certificate renewal timed out. Check the journal for details.",
     "msg_cert_no_script": "Certificate renewal script not installed. Run install_provision_service.sh first.",
 }
@@ -317,143 +311,137 @@ _EN: dict[str, str] = {
 _DA: dict[str, str] = {
     # Page title
     "page_title": "IPR Keyboard – Opsætning",
-
     # Nav
-    "nav_home":    "Hjem",
-    "nav_status":  "Status",
-    "nav_wifi":    "Wi-Fi",
-    "nav_logs":    "Logfiler",
-    "nav_system":  "System",
+    "nav_home": "Hjem",
+    "nav_status": "Status",
+    "nav_wifi": "Wi-Fi",
+    "nav_logs": "Logfiler",
+    "nav_system": "System",
     "nav_signout": "Log ud",
-
     # Login
-    "login_brand":          "IPR Keyboard",
-    "login_title":          "Opsætning – log ind",
+    "login_brand": "IPR Keyboard",
+    "login_title": "Opsætning – log ind",
     "login_username_label": "Brugernavn",
     "login_password_label": "Adgangskode",
-    "login_submit":         "Log ind",
-    "login_hint":           "Brug Wi-Fi-adgangskoden vist på enhedsmærkaten,\neller åbn https://10.42.0.1/setup/ efter tilslutning.",
-    "login_toggle_pw":      "Vis eller skjul adgangskode",
-    "login_err_invalid":    "Forkert brugernavn eller adgangskode.",
-    "login_err_ratelimit":  "For mange forsøg — vent 60 sekunder og prøv igen.",
-
+    "login_submit": "Log ind",
+    "login_hint": "Brug Wi-Fi-adgangskoden vist på enhedsmærkaten,\neller åbn https://10.42.0.1/setup/ efter tilslutning.",
+    "login_toggle_pw": "Vis eller skjul adgangskode",
+    "login_err_invalid": "Forkert brugernavn eller adgangskode.",
+    "login_err_ratelimit": "For mange forsøg — vent 60 sekunder og prøv igen.",
     # Home — Device card
-    "home_device_title":   "Enhed",
-    "home_hostname":       "Værtsnavn",
-    "home_mode":           "Tilstand",
-    "home_mode_prod":      "drift",
+    "home_device_title": "Enhed",
+    "home_hostname": "Værtsnavn",
+    "home_mode": "Tilstand",
+    "home_mode_prod": "drift",
     "home_mode_prod_hint": "ingen åbne porte på hjemmenettet; setup-portalen kun via hotspottet",
-    "home_mode_dev":       "udvikling",
-    "home_mode_dev_hint":  "SSH og betjeningsside kan nås på hjemmenettet (magnet 6 s skifter)",
-    "home_ssh_mdns":       "SSH (mDNS)",
-    "home_net_ip":         "Hjemmenetværks-IP",
-    "home_net":            "Hjemmenetværk",
-    "home_badge_on":       "forbundet",
-    "home_badge_off":      "ikke forbundet",
-
+    "home_mode_dev": "udvikling",
+    "home_mode_dev_hint": "SSH og betjeningsside kan nås på hjemmenettet (magnet 6 s skifter)",
+    "home_ssh_mdns": "SSH (mDNS)",
+    "home_net_ip": "Hjemmenetværks-IP",
+    "home_net": "Hjemmenetværk",
+    "home_badge_on": "forbundet",
+    "home_badge_off": "ikke forbundet",
     # Home — Hotspot card
-    "home_hotspot_title":  "Administrationshotspot",
-    "home_ssid":           "SSID",
-    "home_password":       "Adgangskode",
-    "home_web_ui":         "Web-brugerflade",
-    "home_login_lbl":      "Log ind",
-    "home_login_val":      "ipr  /  hotspot-adgangskoden ovenfor",
-
+    "home_hotspot_title": "Administrationshotspot",
+    "home_ssid": "SSID",
+    "home_password": "Adgangskode",
+    "home_web_ui": "Web-brugerflade",
+    "home_login_lbl": "Log ind",
+    "home_login_val": "ipr  /  hotspot-adgangskoden ovenfor",
     # Home — Dashboard card
-    "home_dash_title":         "Betjeningssiden",
-    "home_dash_url":           "Adresse",
-    "home_dash_login":         "Log ind",
+    "home_dash_title": "Betjeningssiden",
+    "home_dash_url": "Adresse",
+    "home_dash_login": "Log ind",
     "home_dash_login_changed": "admin  /  den adgangskode, du selv har valgt",
-    "home_dash_initial_note":  ("Dette er den automatisk oprettede startadgangskode. Skift den "
-                                "på betjeningssiden (Indstillinger → Konto); så forsvinder den "
-                                "fra denne side."),
-
+    "home_dash_initial_note": (
+        "Dette er den automatisk oprettede startadgangskode. Skift den "
+        "på betjeningssiden (Indstillinger → Konto); så forsvinder den "
+        "fra denne side."
+    ),
     # Home — Certificate card
-    "home_dash_title":    "Betjeningssiden",
-    "home_dash_desc":     "Status, aktivitet og hændelser til daglig brug. Åbnes med dit login til betjeningssiden — ikke adgangskoden til opsætning.",
-    "home_dash_open":     "Åbn betjeningssiden",
-    "home_cert_title":    "Stol på certifikat",
-    "home_cert_desc":     (
+    "home_dash_title": "Betjeningssiden",
+    "home_dash_desc": "Status, aktivitet og hændelser til daglig brug. Åbnes med dit login til betjeningssiden — ikke adgangskoden til opsætning.",
+    "home_dash_open": "Åbn betjeningssiden",
+    "home_cert_title": "Stol på certifikat",
+    "home_cert_desc": (
         "Download og installer dette certifikat én gang på hver enhed du bruger her. "
         "Når det er installeret, forsvinder browseradvarslen permanent — "
         "du behøver ikke gøre dette igen, medmindre du nulstiller enheden."
     ),
     "home_cert_download": "⬇ Download CA-certifikat",
-    "home_cert_toggle":   "Sådan installerer du på din enhed",
-    "home_cert_instructions": _CERT_INSTRUCTIONS_DA,   # HTML
-
+    "home_cert_toggle": "Sådan installerer du på din enhed",
+    "home_cert_instructions": _CERT_INSTRUCTIONS_DA,  # HTML
     # Status
-    "status_services":    "Tjenester",
-    "status_bluetooth":   "Bluetooth",
-    "status_adapter":     "Adapter",
-    "status_powered_on":  "tændt",
+    "status_services": "Tjenester",
+    "status_bluetooth": "Bluetooth",
+    "status_adapter": "Adapter",
+    "status_powered_on": "tændt",
     "status_powered_off": "slukket",
-    "status_active":      "aktiv",
-    "status_connected":   "forbundet",
-    "status_paired":      "parret, ikke forbundet",
+    "status_active": "aktiv",
+    "status_connected": "forbundet",
+    "status_paired": "parret, ikke forbundet",
     "status_paired_devs": "Parrede enheder",
-    "status_none":        "ingen",
-
+    "status_none": "ingen",
     # Wi-Fi
-    "wifi_title":        "Opret forbindelse til et Wi-Fi-netværk",
-    "wifi_desc":         (
+    "wifi_title": "Opret forbindelse til et Wi-Fi-netværk",
+    "wifi_desc": (
         "Valgfrit — gemmer loginoplysninger så Pi'en også kan nå internettet. "
         "Hotspottet forbliver aktivt; Pi'en forbinder til dette netværk efter genstart."
     ),
-    "wifi_network":      "Netværk",
-    "wifi_manual_ssid":  "…eller skriv netværkets navn (SSID)",
-    "wifi_ssid_unknown": ("<strong>{ssid}</strong> blev ikke set i den seneste netværkssøgning — kontrollér "
-                          "stavningen (store/små bogstaver). Sæt flueben for at gemme alligevel."),  # HTML
+    "wifi_network": "Netværk",
+    "wifi_manual_ssid": "…eller skriv netværkets navn (SSID)",
+    "wifi_ssid_unknown": (
+        "<strong>{ssid}</strong> blev ikke set i den seneste netværkssøgning — kontrollér "
+        "stavningen (store/små bogstaver). Sæt flueben for at gemme alligevel."
+    ),  # HTML
     "wifi_confirm_ssid": "Ja, gem netværksnavnet præcis som skrevet:",
     "wifi_manual_placeholder": "fx MitHjemmenet",
-    "wifi_manual_hint":  ("Mens hotspottet er tændt, kan enheden ikke søge efter netværk — "
-                          "skriv navnet præcis som på routeren (der skelnes mellem store og små bogstaver)."),
-    "wifi_security":     "Sikkerhed",
-    "wifi_sec_auto":     "Auto (WPA2)",
-    "wifi_sec_open":     "Åbent",
-    "wifi_password":     "Adgangskode",
-    "wifi_placeholder":  "Wi-Fi-adgangskode",
-    "wifi_show":         "Vis",
-    "wifi_save":         "Gem og forbind ved genstart",
-    "wifi_rescan":       "Søg efter netværk igen",
-    "wifi_saved":        "Wi-Fi-loginoplysninger gemt for <strong>{ssid}</strong> (præcis det gemte navn). Pi'en forbinder, når hotspottet slukkes (magnet 3 s) eller efter genstart.",  # HTML
-
+    "wifi_manual_hint": (
+        "Mens hotspottet er tændt, kan enheden ikke søge efter netværk — "
+        "skriv navnet præcis som på routeren (der skelnes mellem store og små bogstaver)."
+    ),
+    "wifi_security": "Sikkerhed",
+    "wifi_sec_auto": "Auto (WPA2)",
+    "wifi_sec_open": "Åbent",
+    "wifi_password": "Adgangskode",
+    "wifi_placeholder": "Wi-Fi-adgangskode",
+    "wifi_show": "Vis",
+    "wifi_save": "Gem og forbind ved genstart",
+    "wifi_rescan": "Søg efter netværk igen",
+    "wifi_saved": "Wi-Fi-loginoplysninger gemt for <strong>{ssid}</strong> (præcis det gemte navn). Pi'en forbinder, når hotspottet slukkes (magnet 3 s) eller efter genstart.",  # HTML
     # Logs
-    "logs_title":   "Logviser",
+    "logs_title": "Logviser",
     "logs_refresh": "Opdater",
-    "logs_device_time":  "Enhedens klokkeslæt",
-    "logs_lines_note":   "seneste 300 linjer pr. valg; tidsstempler er enhedens lokale tid",
+    "logs_device_time": "Enhedens klokkeslæt",
+    "logs_lines_note": "seneste 300 linjer pr. valg; tidsstempler er enhedens lokale tid",
     "logs_newest_first": "nyeste først",
-    "logs_follow":       "live (genindlæs hvert 4. sekund)",
-
+    "logs_follow": "live (genindlæs hvert 4. sekund)",
     # System — Certificate card
-    "sys_cert_title":          "Certifikat",
-    "sys_cert_expires":        "Udløber",
-    "sys_cert_trust":          "Tillidsarkiv",
-    "sys_cert_download":       "Download CA-certifikat",
-    "sys_cert_hint":           _SYS_CERT_HINT_DA,   # HTML
-    "sys_cert_renew_btn":      "Forny certifikat",
-    "sys_cert_renew_desc":     (
+    "sys_cert_title": "Certifikat",
+    "sys_cert_expires": "Udløber",
+    "sys_cert_trust": "Tillidsarkiv",
+    "sys_cert_download": "Download CA-certifikat",
+    "sys_cert_hint": _SYS_CERT_HINT_DA,  # HTML
+    "sys_cert_renew_btn": "Forny certifikat",
+    "sys_cert_renew_desc": (
         "Genererer et nyt 397-dages certifikat med den samme CA. "
         "Klienter der har installeret CA-certifikatet behøver ikke installere det igen. "
         "Automatisk fornyelse kører dagligt i baggrunden."
     ),
-    "sys_cert_renew_confirm":  "Forny certifikatet nu? Tjenesten genstarter et øjeblik.",
-
+    "sys_cert_renew_confirm": "Forny certifikatet nu? Tjenesten genstarter et øjeblik.",
     # System — Actions card
-    "sys_actions_title":      "Systemhandlinger",
-    "sys_actions_desc":       "Disse handlinger påvirker enheden øjeblikkeligt.",
-    "sys_reboot_btn":         "Genstart",
-    "sys_reboot_desc":        "Genstarter Pi'en. Forbind igen til hotspottet efter ~30 s.",
-    "sys_reboot_confirm":     "Genstart enheden nu?",
-    "sys_shutdown_btn":       "Sluk",
-    "sys_shutdown_desc":      "Slukker Pi'en sikkert. Fjern strømmen efter LED'en stopper.",
-    "sys_shutdown_confirm":   "Sluk enheden nu?",
-
+    "sys_actions_title": "Systemhandlinger",
+    "sys_actions_desc": "Disse handlinger påvirker enheden øjeblikkeligt.",
+    "sys_reboot_btn": "Genstart",
+    "sys_reboot_desc": "Genstarter Pi'en. Forbind igen til hotspottet efter ~30 s.",
+    "sys_reboot_confirm": "Genstart enheden nu?",
+    "sys_shutdown_btn": "Sluk",
+    "sys_shutdown_desc": "Slukker Pi'en sikkert. Fjern strømmen efter LED'en stopper.",
+    "sys_shutdown_confirm": "Sluk enheden nu?",
     # System — dynamic messages
-    "msg_reboot":    "Genstart igangsat. Forbind igen til hotspottet om ca. 30 sekunder.",
-    "msg_shutdown":  "Nedlukning igangsat. Fjern strømmen efter LED'en stopper.",
-    "msg_cert_ok":   "Certifikat fornyet. Tjenesten genstarter — denne side genindlæses om 10 sekunder.",
+    "msg_reboot": "Genstart igangsat. Forbind igen til hotspottet om ca. 30 sekunder.",
+    "msg_shutdown": "Nedlukning igangsat. Fjern strømmen efter LED'en stopper.",
+    "msg_cert_ok": "Certifikat fornyet. Tjenesten genstarter — denne side genindlæses om 10 sekunder.",
     "msg_cert_timeout": "Certifikatfornyelse fik timeout. Tjek loggen for detaljer.",
     "msg_cert_no_script": "Script til certifikatfornyelse er ikke installeret. Kør install_provision_service.sh først.",
 }

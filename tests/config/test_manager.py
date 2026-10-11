@@ -11,6 +11,7 @@ from ipr_keyboard.utils.helpers import save_json, load_json
 
 # AppConfig tests
 
+
 def test_appconfig_defaults():
     """Test default configuration values."""
     cfg = AppConfig()
@@ -29,8 +30,14 @@ def test_appconfig_oled_defaults_and_override():
     assert (cfg.OledI2cBus, cfg.OledI2cAddress) == (1, 0x3C)
     assert (cfg.OledContrast, cfg.OledRotate) == (128, 0)
     assert (cfg.OledSendHoldSeconds, cfg.OledMarqueeFps) == (10, 8)
-    cfg = AppConfig.from_dict({"OledEnabled": False, "OledI2cAddress": 61, "OledMarqueeFps": 6})
-    assert cfg.OledEnabled is False and cfg.OledI2cAddress == 0x3D and cfg.OledMarqueeFps == 6
+    cfg = AppConfig.from_dict(
+        {"OledEnabled": False, "OledI2cAddress": 61, "OledMarqueeFps": 6}
+    )
+    assert (
+        cfg.OledEnabled is False
+        and cfg.OledI2cAddress == 0x3D
+        and cfg.OledMarqueeFps == 6
+    )
 
 
 def test_appconfig_from_dict():
@@ -102,6 +109,7 @@ def test_appconfig_to_dict():
 
 
 # ConfigManager tests
+
 
 def test_config_load_and_update(tmp_path, monkeypatch):
     """Test configuration loading and updating."""

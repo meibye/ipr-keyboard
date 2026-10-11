@@ -77,7 +77,14 @@ def set_success() -> None:
         _state["explanation"] = "Last send completed"
         _state["last_success_at"] = ts
         _state["items_sent"] = _state["items_sent"] + 1
-        _history.append({"timestamp": ts, "state": "success", "label": "Sent", "explanation": "Send completed"})
+        _history.append(
+            {
+                "timestamp": ts,
+                "state": "success",
+                "label": "Sent",
+                "explanation": "Send completed",
+            }
+        )
         if len(_history) > _HISTORY_MAX:
             _history.pop(0)
 
@@ -89,7 +96,14 @@ def set_failed(reason: str = "") -> None:
         _state["state"] = "failed"
         _state["label"] = "Failed"
         _state["explanation"] = explanation
-        _history.append({"timestamp": time.time(), "state": "failed", "label": "Failed", "explanation": explanation})
+        _history.append(
+            {
+                "timestamp": time.time(),
+                "state": "failed",
+                "label": "Failed",
+                "explanation": explanation,
+            }
+        )
         if len(_history) > _HISTORY_MAX:
             _history.pop(0)
 

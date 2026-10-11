@@ -14,11 +14,15 @@ from typing import List, Optional
 _log = logging.getLogger(__name__)
 
 
-VERSION = '2026-04-12 19:41:04'
+VERSION = "2026-04-12 19:41:04"
+
 
 def log_version_info():
     import logging
-    logging.getLogger(__name__).info(f"==== ipr_keyboard.usb.detector VERSION: {VERSION} ====")
+
+    logging.getLogger(__name__).info(
+        f"==== ipr_keyboard.usb.detector VERSION: {VERSION} ===="
+    )
 
 
 # IrisPen USB ids (see provision/01_os_base.sh udev rule 69-irispen-mtp.rules)
@@ -46,7 +50,11 @@ def _pen_mounted() -> bool:
     """True when the MTP filesystem is mounted at the configured mountpoint."""
     try:
         with open("/proc/mounts", encoding="utf-8") as fh:
-            return any(line.split()[1] == _PEN_MOUNTPOINT for line in fh if len(line.split()) > 1)
+            return any(
+                line.split()[1] == _PEN_MOUNTPOINT
+                for line in fh
+                if len(line.split()) > 1
+            )
     except OSError:
         return False
 
@@ -58,7 +66,11 @@ def _usb_port_disabled() -> bool:
     anything plugged in; only a reboot brings it back."""
     try:
         for root, _dirs, files in os.walk("/sys/bus/usb/devices"):
-            if "disable" in files and os.path.basename(root).startswith("usb") and "-port" in root:
+            if (
+                "disable" in files
+                and os.path.basename(root).startswith("usb")
+                and "-port" in root
+            ):
                 with open(os.path.join(root, "disable"), encoding="utf-8") as fh:
                     if fh.read().strip() == "1":
                         return True
@@ -194,7 +206,9 @@ def wait_for_new_file(
         try:
             folder_exists = folder.exists()
         except OSError as exc:
-            _log.warning("wait_for_new_file: folder access failed for %s: %s", folder, exc)
+            _log.warning(
+                "wait_for_new_file: folder access failed for %s: %s", folder, exc
+            )
             time.sleep(interval)
             continue
 

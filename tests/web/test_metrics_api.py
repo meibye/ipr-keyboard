@@ -1,4 +1,5 @@
 """Tests for /api/metrics and the diagnostics.metrics_enabled config switch."""
+
 from __future__ import annotations
 
 import pytest
@@ -19,6 +20,7 @@ def _clean_metrics():
 # ---------------------------------------------------------------------------
 # /api/metrics
 # ---------------------------------------------------------------------------
+
 
 def test_metrics_disabled_by_default(flask_client, temp_config):
     r = flask_client.get("/api/metrics")
@@ -52,6 +54,7 @@ def test_metrics_requires_login(temp_config, monkeypatch, tmp_path):
     """Same rule as every other /api endpoint."""
     from ipr_keyboard.web import auth as auth_module
     from ipr_keyboard.web.server import create_app
+
     monkeypatch.setattr(auth_module, "users_path", lambda: tmp_path / "users.json")
     app = create_app()
     app.config["TESTING"] = True
@@ -72,29 +75,39 @@ def test_metrics_reset_clears(flask_client, temp_config):
 # Config switch round-trip
 # ---------------------------------------------------------------------------
 
+
 def test_config_exposes_metrics_enabled(flask_client, temp_config):
     data = flask_client.get("/api/config").get_json()
     assert data["diagnostics"]["metrics_enabled"] is False
 
 
 def test_config_post_enables_metrics(flask_client, temp_config):
-    r = flask_client.post("/api/config", json={"diagnostics": {"metrics_enabled": True}})
+    r = flask_client.post(
+        "/api/config", json={"diagnostics": {"metrics_enabled": True}}
+    )
     assert r.status_code == 200
     assert ConfigManager.instance().get().MetricsEnabled is True
-    assert metrics.is_enabled() is True   # applied at once in the web process
-    assert flask_client.get("/api/config").get_json()["diagnostics"]["metrics_enabled"] is True
+    assert metrics.is_enabled() is True  # applied at once in the web process
+    assert (
+        flask_client.get("/api/config").get_json()["diagnostics"]["metrics_enabled"]
+        is True
+    )
 
 
 def test_config_post_disables_metrics(flask_client, temp_config):
     flask_client.post("/api/config", json={"diagnostics": {"metrics_enabled": True}})
-    r = flask_client.post("/api/config", json={"diagnostics": {"metrics_enabled": False}})
+    r = flask_client.post(
+        "/api/config", json={"diagnostics": {"metrics_enabled": False}}
+    )
     assert r.status_code == 200
     assert ConfigManager.instance().get().MetricsEnabled is False
     assert metrics.is_enabled() is False
 
 
 def test_config_post_rejects_non_boolean(flask_client, temp_config):
-    r = flask_client.post("/api/config", json={"diagnostics": {"metrics_enabled": "yes"}})
+    r = flask_client.post(
+        "/api/config", json={"diagnostics": {"metrics_enabled": "yes"}}
+    )
     assert r.status_code == 400
     assert r.get_json()["error"]["code"] == "validation_error"
     assert ConfigManager.instance().get().MetricsEnabled is False

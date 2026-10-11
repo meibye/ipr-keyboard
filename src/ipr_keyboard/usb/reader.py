@@ -2,27 +2,32 @@
 
 Provides functions for reading text files from the IrisPen USB mount point.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
 
 
-VERSION = '2026-04-12 19:40:56'
+VERSION = "2026-04-12 19:40:56"
+
 
 def log_version_info():
     import logging
-    logging.getLogger(__name__).info(f"==== ipr_keyboard.usb.reader VERSION: {VERSION} ====")
+
+    logging.getLogger(__name__).info(
+        f"==== ipr_keyboard.usb.reader VERSION: {VERSION} ===="
+    )
 
 
 def read_file(path: Path, max_size: int) -> Optional[str]:
     """Read a text file with size limit.
-    
+
     Args:
         path: Path to the file to read.
         max_size: Maximum file size in bytes. Files larger than this
             will not be read.
-            
+
     Returns:
         File contents as a string, or None if the file doesn't exist,
         is not a regular file, or exceeds the size limit.
@@ -36,11 +41,11 @@ def read_file(path: Path, max_size: int) -> Optional[str]:
 
 def read_newest(folder: Path, max_size: int) -> Optional[str]:
     """Read the newest file in a folder.
-    
+
     Args:
         folder: Path to the folder containing files.
         max_size: Maximum file size in bytes.
-        
+
     Returns:
         Contents of the newest file, or None if no files exist or
         the newest file is too large.

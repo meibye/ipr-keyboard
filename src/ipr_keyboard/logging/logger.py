@@ -2,6 +2,7 @@
 
 Provides a centralized logger with rotating file handler and console output.
 """
+
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path

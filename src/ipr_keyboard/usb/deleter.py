@@ -2,25 +2,30 @@
 
 Provides functions for deleting files from the IrisPen USB mount point.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional, List
 
 
-VERSION = '2026-05-04 20:25:53'
+VERSION = "2026-05-04 20:25:53"
+
 
 def log_version_info():
     import logging
-    logging.getLogger(__name__).info(f"==== ipr_keyboard.usb.deleter VERSION: {VERSION} ====")
+
+    logging.getLogger(__name__).info(
+        f"==== ipr_keyboard.usb.deleter VERSION: {VERSION} ===="
+    )
 
 
 def delete_file(path: Path) -> bool:
     """Delete a single file.
-    
+
     Args:
         path: Path to the file to delete.
-        
+
     Returns:
         True if the file was deleted successfully or doesn't exist,
         False if an error occurred during deletion.
@@ -35,10 +40,10 @@ def delete_file(path: Path) -> bool:
 
 def delete_all(folder: Path) -> List[Path]:
     """Delete all files in a folder.
-    
+
     Args:
         folder: Path to the folder containing files to delete.
-        
+
     Returns:
         List of Path objects for successfully deleted files.
     """
@@ -58,10 +63,10 @@ def delete_all(folder: Path) -> List[Path]:
 
 def delete_newest(folder: Path) -> Optional[Path]:
     """Delete the newest file in a folder.
-    
+
     Args:
         folder: Path to the folder containing files.
-        
+
     Returns:
         Path to the deleted file if successful, or None if no files exist
         or deletion failed.

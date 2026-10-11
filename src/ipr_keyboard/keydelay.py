@@ -59,7 +59,7 @@ CHOICES: tuple[tuple[int, str, str], ...] = (
 
 
 def name_for(ms: int) -> str:
-    """"Normal", "Fast", ... or the bare value for a hand-tuned one.
+    """ "Normal", "Fast", ... or the bare value for a hand-tuned one.
 
     The dashboard shows this everywhere a speed is named -- the Settings list
     and the trial's results -- so the two cannot describe the same speed in

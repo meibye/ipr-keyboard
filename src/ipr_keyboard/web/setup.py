@@ -58,6 +58,7 @@ def _t() -> dict:
     """Return the current language's translation dict for use in route handlers."""
     return get_translations(session.get("setup_lang", "en"))
 
+
 _LOG_UNITS = [
     "ipr_keyboard.service",
     "ipr-provision.service",
@@ -96,6 +97,7 @@ def _check_rate(ip: str) -> bool:
 # Auth helpers
 # ---------------------------------------------------------------------------
 
+
 def _load_hotspot_password() -> str:
     try:
         if not _SECRET_FILE.exists():
@@ -119,6 +121,7 @@ def require_login(f):
         if session.get("username") and session.get("is_admin"):
             return f(*args, **kwargs)
         return redirect(url_for("setup.login_page", next=request.path))
+
     return decorated
 
 
@@ -126,10 +129,13 @@ def require_login(f):
 # System helpers
 # ---------------------------------------------------------------------------
 
+
 def _run(cmd: list[str]) -> str:
     try:
         return subprocess.check_output(
-            cmd, text=True, stderr=subprocess.STDOUT,
+            cmd,
+            text=True,
+            stderr=subprocess.STDOUT,
         ).strip()
     except subprocess.CalledProcessError as e:
         return e.output.strip() if e.output else f"(exit {e.returncode})"
@@ -143,7 +149,11 @@ _MODE_FILE = Path("/var/lib/ipr-keyboard/mode")
 def _device_mode() -> str:
     """'development' or 'production' (missing/unknown file = production)."""
     try:
-        return "development" if _MODE_FILE.read_text().strip() == "development" else "production"
+        return (
+            "development"
+            if _MODE_FILE.read_text().strip() == "development"
+            else "production"
+        )
     except OSError:
         return "production"
 
@@ -152,6 +162,7 @@ def _dashboard_url() -> str:
     """Address of the main dashboard on the home network (LogPort-aware)."""
     try:
         from ..config.manager import ConfigManager
+
         port = int(ConfigManager.instance().get().LogPort)
     except Exception:
         port = 443
@@ -159,7 +170,11 @@ def _dashboard_url() -> str:
     # visit to "/" from 10.42.0.x is redirected to the setup login by design
     # (server.py); point hotspot clients straight at the dashboard login.
     if (request.remote_addr or "").startswith("10.42.0."):
-        return "https://10.42.0.1/login" if port == 443 else f"https://10.42.0.1:{port}/login"
+        return (
+            "https://10.42.0.1/login"
+            if port == 443
+            else f"https://10.42.0.1:{port}/login"
+        )
     host = _device_hostname()
     return f"https://{host}.local/" if port == 443 else f"https://{host}.local:{port}/"
 
@@ -216,7 +231,8 @@ def _cert_expiry() -> str:
     try:
         out = subprocess.check_output(
             ["openssl", "x509", "-in", str(_SERVER_CERT_FILE), "-noout", "-enddate"],
-            text=True, stderr=subprocess.DEVNULL,
+            text=True,
+            stderr=subprocess.DEVNULL,
         ).strip()
         raw = out.split("=", 1)[-1].strip() if "=" in out else out
     except Exception:
@@ -238,7 +254,8 @@ def _service_status(name: str) -> str:
     try:
         rc = subprocess.call(
             ["systemctl", "is-active", "--quiet", name],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         return "active" if rc == 0 else "inactive"
     except Exception:
@@ -263,7 +280,9 @@ def _bt_info() -> dict:
     devices = []
     try:
         devs_out = subprocess.check_output(
-            ["bluetoothctl", "devices"], text=True, stderr=subprocess.DEVNULL,
+            ["bluetoothctl", "devices"],
+            text=True,
+            stderr=subprocess.DEVNULL,
         )
         for line in devs_out.splitlines():
             parts = line.split(None, 2)
@@ -293,7 +312,9 @@ _scan_in_progress = False
 
 def _sh(cmd: list[str]) -> str:
     return subprocess.check_output(
-        cmd, stderr=subprocess.STDOUT, text=True,
+        cmd,
+        stderr=subprocess.STDOUT,
+        text=True,
     ).strip()
 
 
@@ -307,9 +328,13 @@ def _hotspot_ssid() -> str:
                 break
         if not con_name or con_name == "--":
             return ""
-        return _sh(
-            ["nmcli", "-t", "-f", "802-11-wireless.ssid", "con", "show", con_name],
-        ).split(":", 1)[-1].strip()
+        return (
+            _sh(
+                ["nmcli", "-t", "-f", "802-11-wireless.ssid", "con", "show", con_name],
+            )
+            .split(":", 1)[-1]
+            .strip()
+        )
     except subprocess.CalledProcessError:
         return ""
 
@@ -333,9 +358,7 @@ def _do_scan() -> None:
             s = line.strip()
             if s and s not in ssids and s != own_ssid:
                 ssids.append(s)
-        result = ssids or [
-            "(no networks found — note: 2.4 GHz only)"
-        ]
+        result = ssids or ["(no networks found — note: 2.4 GHz only)"]
         # A hidden network is not in the scan and may not be in the list
         # even when the device is joined to it; typing it in by hand is
         # the only way, so say so rather than let it look like a fault.
@@ -377,6 +400,7 @@ def _save_wifi_profile(ssid: str, psk: str, sec: str) -> None:
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @bp_setup.get("/login")
 def login_page():
     if session.get(_SESSION_KEY):
@@ -411,7 +435,9 @@ def login_submit():
         if next_url and next_url.startswith("/setup/") and ".." not in next_url:
             return redirect(next_url)
         return redirect(url_for("setup.home"))
-    return render_template("setup/login.html", error="Invalid username or password."), 401
+    return render_template(
+        "setup/login.html", error="Invalid username or password."
+    ), 401
 
 
 @bp_setup.route("/logout")
@@ -456,7 +482,8 @@ def home():
     return render_template(
         "setup/home.html",
         page="home",
-        msg=msg, ok=ok,
+        msg=msg,
+        ok=ok,
         hostname=_device_hostname(),
         ssh_user=_ssh_user(),
         home_ip=_home_network_ip(),
@@ -472,16 +499,20 @@ def home():
 @require_login
 def status():
     services = [
-        {"label": "IPR Keyboard",   "status": _service_status("ipr_keyboard.service")},
-        {"label": "BT HID BLE",     "status": _service_status("bt_hid_ble.service")},
-        {"label": "BT HID Agent",   "status": _service_status("bt_hid_agent_unified.service")},
+        {"label": "IPR Keyboard", "status": _service_status("ipr_keyboard.service")},
+        {"label": "BT HID BLE", "status": _service_status("bt_hid_ble.service")},
+        {
+            "label": "BT HID Agent",
+            "status": _service_status("bt_hid_agent_unified.service"),
+        },
         {"label": "Hotspot (ipr-setup-xxxx)", "status": _hotspot_status()},
     ]
     bt = _bt_info()
     return render_template(
         "setup/status.html",
         page="status",
-        msg="", ok=False,
+        msg="",
+        ok=False,
         services=services,
         bt_powered=bt["powered"],
         bt_devices=bt["devices"],
@@ -497,7 +528,8 @@ def wifi():
     return render_template(
         "setup/wifi.html",
         page="wifi",
-        msg="", ok=False,
+        msg="",
+        ok=False,
         ssids=ssids,
     )
 
@@ -522,7 +554,9 @@ def rescan():
 def connect():
     # A typed SSID wins over the scan list: while the hotspot is up the radio
     # cannot scan, so the list is empty exactly when this page is needed most.
-    ssid = (request.form.get("ssid_manual") or "").strip() or (request.form.get("ssid") or "").strip()
+    ssid = (request.form.get("ssid_manual") or "").strip() or (
+        request.form.get("ssid") or ""
+    ).strip()
     psk = request.form.get("psk") or ""
     sec = request.form.get("security") or "auto"
 
@@ -530,8 +564,11 @@ def connect():
         with _scan_lock:
             ssids = list(_scan_cache)
         return render_template(
-            "setup/wifi.html", page="wifi",
-            ssids=ssids, msg="No SSID selected.", ok=False,
+            "setup/wifi.html",
+            page="wifi",
+            ssids=ssids,
+            msg="No SSID selected.",
+            ok=False,
         )
 
     # A typed SSID that is not in the last scan is most likely a typo (one
@@ -542,9 +579,14 @@ def connect():
     typed = bool((request.form.get("ssid_manual") or "").strip())
     if typed and known and ssid not in known and not request.form.get("confirm_ssid"):
         return render_template(
-            "setup/wifi.html", page="wifi", ssids=known,
-            msg=_t()["wifi_ssid_unknown"].format(ssid=ssid), ok=False,
-            pending_ssid=ssid, pending_psk=psk, pending_sec=sec,
+            "setup/wifi.html",
+            page="wifi",
+            ssids=known,
+            msg=_t()["wifi_ssid_unknown"].format(ssid=ssid),
+            ok=False,
+            pending_ssid=ssid,
+            pending_psk=psk,
+            pending_sec=sec,
         )
 
     try:
@@ -557,15 +599,20 @@ def connect():
             ssids = list(_scan_cache)
         msg = f"Could not save credentials: {e.output[-800:] if e.output else ''}"
         return render_template(
-            "setup/wifi.html", page="wifi",
-            ssids=ssids, msg=msg, ok=False,
+            "setup/wifi.html",
+            page="wifi",
+            ssids=ssids,
+            msg=msg,
+            ok=False,
         )
 
 
 @bp_setup.get("/logs")
 @require_login
 def logs():
-    selected = [u for u in request.args.getlist("unit") if u in _LOG_UNITS] or ["ipr_keyboard.service"]
+    selected = [u for u in request.args.getlist("unit") if u in _LOG_UNITS] or [
+        "ipr_keyboard.service"
+    ]
     newest_first = request.args.get("order", "desc") == "desc"
     follow = request.args.get("follow") == "1"
     cmd = ["journalctl", "-n", "300", "-o", "short-iso", "--no-pager"]
@@ -573,7 +620,9 @@ def logs():
         cmd += ["-k"] if u == "kernel" else ["-u", u]
     try:
         log_content = subprocess.check_output(
-            cmd, text=True, stderr=subprocess.STDOUT,
+            cmd,
+            text=True,
+            stderr=subprocess.STDOUT,
         )
     except subprocess.CalledProcessError as e:
         log_content = e.output or "(no output)"
@@ -582,10 +631,12 @@ def logs():
     if newest_first:
         log_content = "\n".join(reversed(log_content.splitlines()))
     from datetime import datetime as _dt
+
     return render_template(
         "setup/logs.html",
         page="logs",
-        msg="", ok=False,
+        msg="",
+        ok=False,
         all_units=_LOG_UNITS,
         selected_units=selected,
         newest_first=newest_first,
@@ -604,7 +655,8 @@ def system():
     return render_template(
         "setup/system.html",
         page="system",
-        msg=msg, ok=ok,
+        msg=msg,
+        ok=ok,
         cert_expiry=_cert_expiry(),
         cert_renew_available=_CERT_RENEW_SCRIPT.exists(),
     )
@@ -625,7 +677,9 @@ def renew_cert():
     try:
         subprocess.check_output(
             ["sudo", str(_CERT_RENEW_SCRIPT), "--force"],
-            text=True, stderr=subprocess.STDOUT, timeout=60,
+            text=True,
+            stderr=subprocess.STDOUT,
+            timeout=60,
         )
         # Service restart happens inside the renew script; give it a moment then
         # schedule a second restart in case the first one races with this response.

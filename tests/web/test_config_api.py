@@ -2,6 +2,7 @@
 
 Tests the Flask web API for viewing and updating configuration.
 """
+
 from ipr_keyboard.web.server import create_app
 from ipr_keyboard.config.manager import ConfigManager
 
@@ -67,10 +68,9 @@ def test_update_config(flask_client):
 
     Verifies that configuration can be updated via POST.
     """
-    response = flask_client.post("/config/", json={
-        "DeleteFiles": False,
-        "MaxFileSize": 5000
-    })
+    response = flask_client.post(
+        "/config/", json={"DeleteFiles": False, "MaxFileSize": 5000}
+    )
 
     assert response.status_code == 200
     data = response.get_json()
@@ -101,10 +101,9 @@ def test_update_config_invalid_keys(flask_client):
 
     Verifies that unknown keys don't cause errors.
     """
-    response = flask_client.post("/config/", json={
-        "UnknownKey": "value",
-        "DeleteFiles": False
-    })
+    response = flask_client.post(
+        "/config/", json={"UnknownKey": "value", "DeleteFiles": False}
+    )
 
     assert response.status_code == 200
     data = response.get_json()

@@ -24,6 +24,7 @@ It cannot see the keystrokes arrive at the PC.  ``e2e_latency_ms`` here is
 therefore *device-side* end-to-end.  The true pen-to-PC figure needs a probe
 on the receiving PC -- see ``scripts/perf/perf_keystroke_probe.py``.
 """
+
 from __future__ import annotations
 
 import platform
@@ -79,7 +80,9 @@ _counts: Dict[str, int] = {k: 0 for k in KPIS}
 # long the device took to get the application process running.  Read once;
 # costs nothing afterwards.
 try:
-    _boot_to_process_s: Optional[float] = float(Path("/proc/uptime").read_text().split()[0])
+    _boot_to_process_s: Optional[float] = float(
+        Path("/proc/uptime").read_text().split()[0]
+    )
     # Only the FIRST start after a boot measures "boot to app"; a service
     # restart hours later would otherwise report the uptime at that moment
     # (seen as 11287 s on a device).  The first start writes its figure to a
@@ -167,8 +170,8 @@ def record_poll_scan(duration_s: float) -> None:
 
 
 # Pen clock sanity window for record_file_pipeline (see there).
-_MTIME_SLACK_S = 5.0        # mtime slightly in the future: clock skew, accept
-_MTIME_MAX_AGE_S = 600.0    # older than this: pen clock wrong or file predates the app
+_MTIME_SLACK_S = 5.0  # mtime slightly in the future: clock skew, accept
+_MTIME_MAX_AGE_S = 600.0  # older than this: pen clock wrong or file predates the app
 
 
 def record_file_pipeline(
@@ -194,6 +197,7 @@ def record_file_pipeline(
     if delta < -_MTIME_SLACK_S or delta > _MTIME_MAX_AGE_S:
         file_mtime = detected_at
     with _lock:
+
         def _put(k: str, v: float) -> None:
             _samples[k].append(v)
             _counts[k] += 1
@@ -215,7 +219,9 @@ def _percentile(sorted_vals: list, pct: float) -> float:
     """Nearest-rank percentile on an already sorted list (len >= 1)."""
     if len(sorted_vals) == 1:
         return sorted_vals[0]
-    k = max(0, min(len(sorted_vals) - 1, int(round(pct / 100.0 * (len(sorted_vals) - 1)))))
+    k = max(
+        0, min(len(sorted_vals) - 1, int(round(pct / 100.0 * (len(sorted_vals) - 1))))
+    )
     return sorted_vals[k]
 
 
@@ -238,7 +244,9 @@ def platform_info() -> dict:
     """Which board and OS this is -- so numbers from three devices can be compared."""
     info: dict = {"machine": platform.machine(), "python": platform.python_version()}
     try:
-        info["model"] = Path("/proc/device-tree/model").read_text().rstrip("\x00").strip()
+        info["model"] = (
+            Path("/proc/device-tree/model").read_text().rstrip("\x00").strip()
+        )
     except Exception:
         info["model"] = platform.node()
     try:
@@ -269,7 +277,9 @@ def snapshot() -> dict:
         "enabled": _enabled,
         "platform": platform_info(),
         "boot": {
-            "boot_to_process_s": None if _boot_to_process_s is None else round(_boot_to_process_s, 2),
+            "boot_to_process_s": None
+            if _boot_to_process_s is None
+            else round(_boot_to_process_s, 2),
             "process_uptime_s": round(time.time() - _process_start, 1),
         },
         "kpis": kpis,

@@ -122,10 +122,10 @@ HOLD_SHUTDOWN_SECS: float = 6.0
 HOLD_MODE_SECS: float = 10.0
 HOLD_RESET_SECS: float = 15.0
 HOLD_CANCEL_SECS: float = 20.0
-PHASE_GAP_SECS: float = 0.3          # dark gap when a held phase changes
+PHASE_GAP_SECS: float = 0.3  # dark gap when a held phase changes
 MODE_CONFIRM_SECS: float = 3.0
-HOLD_MENU_SECS: float = 1.2          # open the menu (display present)
-MENU_SELECT_SECS: float = 1.0        # hold inside the menu = activate
+HOLD_MENU_SECS: float = 1.2  # open the menu (display present)
+MENU_SELECT_SECS: float = 1.0  # hold inside the menu = activate
 # The magnet is pressed against a glass panel by hand, and it wobbles.  At
 # 20 Hz a wobble shows up as the contact opening for a sample or two, which
 # taken literally ends the press: one deliberate hold arrived as two taps
@@ -133,8 +133,8 @@ MENU_SELECT_SECS: float = 1.0        # hold inside the menu = activate
 # whose release bounced arrived as a hold.  An open is only believed once it
 # has lasted this long.
 REED_OPEN_DEBOUNCE_SECS: float = 0.15
-ACK_BLINK_SECS: float = 0.6          # "magnet registered" blink after a press
-ACK_BLINK_HALF_SECS: float = 0.12    # 0.6 s / 0.12 s = on-off-on-off-on
+ACK_BLINK_SECS: float = 0.6  # "magnet registered" blink after a press
+ACK_BLINK_HALF_SECS: float = 0.12  # 0.6 s / 0.12 s = on-off-on-off-on
 LED_IDLE_TIMEOUT_SECS: int = 30
 
 HOTSPOT_REQUEST_TIMEOUT_SECS: float = 40.0  # nmcli con up on a Zero W can be slow
@@ -188,7 +188,9 @@ class _ReedFilter:
         """How long the press has lasted, frozen while the contact is open."""
         if not self.closed:
             return 0.0
-        return max(0.0, (self._open_since if self._open_since else now) - self.press_start)
+        return max(
+            0.0, (self._open_since if self._open_since else now) - self.press_start
+        )
 
     @property
     def settling(self) -> bool:
@@ -200,7 +202,11 @@ HOTSPOT_CTL = "/usr/local/bin/ipr_hotspot_ctl.sh"
 MODE_CTL = "/usr/local/bin/ipr_mode_ctl.sh"
 HOTSPOT_CONNECTION = "ipr-hotspot"
 MODE_FILE = "/var/lib/ipr-keyboard/mode"
-CORE_SERVICES = ("bluetooth.service", "bt_hid_ble.service", "bt_hid_agent_unified.service")
+CORE_SERVICES = (
+    "bluetooth.service",
+    "bt_hid_ble.service",
+    "bt_hid_agent_unified.service",
+)
 
 Color = tuple[int, int, int]
 OFF: Color = (0, 0, 0)
@@ -290,7 +296,9 @@ class SystemProbe:
             if not os.path.isdir(os.path.join(root, name, "wireless")):
                 continue
             try:
-                with open(os.path.join(root, name, "operstate"), encoding="utf-8") as fh:
+                with open(
+                    os.path.join(root, name, "operstate"), encoding="utf-8"
+                ) as fh:
                     links.append((name, fh.read().strip()))
             except OSError:
                 links.append((name, "?"))
@@ -302,7 +310,9 @@ class SystemProbe:
         try:
             out = subprocess.run(
                 ["systemctl", "is-active", *CORE_SERVICES],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             ).stdout.split()
             if len(out) != len(CORE_SERVICES):
                 return ()  # cannot tell — do not raise a false alarm
@@ -591,8 +601,10 @@ class LedLogic:
         # A threshold that fired while the magnet was still down has already
         # done its work; the release that follows must not also count.
         self._press_spent = False
-        self._armed: str | None = None  # None | "hotspot" | "shutdown" | "mode" | "reset" | "cancel"
-        self._armed_at = 0.0            # when the current held phase began (for the off gap)
+        self._armed: str | None = (
+            None  # None | "hotspot" | "shutdown" | "mode" | "reset" | "cancel"
+        )
+        self._armed_at = 0.0  # when the current held phase began (for the off gap)
         self._busy_target = False  # HOTSPOT_BUSY: expected hotspot_active
         self._ready = False
 
@@ -769,8 +781,10 @@ class LedLogic:
                 if self.phase in (Phase.STATUS, Phase.IDLE):
                     self._enter_status(now)
             elif armed == "shutdown":
-                logger.warning("Shutdown triggered via reed switch (hold ≥ %.0f s)",
-                               self._hold_shutdown)
+                logger.warning(
+                    "Shutdown triggered via reed switch (hold ≥ %.0f s)",
+                    self._hold_shutdown,
+                )
                 self.phase = Phase.SHUTTING_DOWN
                 self._actions.shutdown()
             elif armed == "reset":
@@ -884,9 +898,7 @@ class LedLogic:
             return
         self._probe_now()
         self._busy_target = not self._probe.hotspot_active
-        logger.info(
-            "Hotspot %s requested", "start" if self._busy_target else "stop"
-        )
+        logger.info("Hotspot %s requested", "start" if self._busy_target else "stop")
         self.phase = Phase.HOTSPOT_BUSY
         self._deadline = now + self._request_timeout
         self._next_probe = now + PROBE_INTERVAL_ACTIVE_SECS

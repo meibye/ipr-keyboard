@@ -51,7 +51,9 @@ def _wait_for_typing(queued_at: float, chars: int) -> float | None:
         logger.exception("Could not record typing metrics; the send itself was fine")
     return typed_at
 
-VERSION = '2026-04-12 19:41:16'
+
+VERSION = "2026-04-12 19:41:16"
+
 
 def log_version_info():
     logger.info(f"==== ipr_keyboard.bluetooth.keyboard VERSION: {VERSION} ====")
@@ -85,6 +87,7 @@ class BluetoothKeyboard:
             True if the helper script exists and is executable, False otherwise.
         """
         import os
+
         return os.path.isfile(self.helper_path) and os.access(self.helper_path, os.X_OK)
 
     def send_text(self, text: str) -> bool:

@@ -21,8 +21,14 @@ from ipr_keyboard.web import api
 @pytest.fixture
 def probe(monkeypatch):
     """Fake clock, sysfs links, bluetoothctl and systemctl; counts the calls."""
-    st = SimpleNamespace(now=1000.0, links=(), bluetoothctl=0, systemctl=0,
-                         host="Device AA:BB:CC:DD:EE:FF MSI", active="active\nactive\n")
+    st = SimpleNamespace(
+        now=1000.0,
+        links=(),
+        bluetoothctl=0,
+        systemctl=0,
+        host="Device AA:BB:CC:DD:EE:FF MSI",
+        active="active\nactive\n",
+    )
 
     def fake_run_cmd(cmd, timeout=5):
         assert cmd[0] == "bluetoothctl"
@@ -105,7 +111,9 @@ def test_the_kernel_link_list_is_read_from_sysfs(monkeypatch):
         "/sys/class/bluetooth": ["hci0", "rfkill0"],
         "/sys/class/bluetooth/hci0": ["power", "hci0:64", "subsystem"],
     }
-    monkeypatch.setattr(api.os, "listdir", lambda path: tree[str(path).replace("\\", "/")])
+    monkeypatch.setattr(
+        api.os, "listdir", lambda path: tree[str(path).replace("\\", "/")]
+    )
     assert api._bt_links() == ("hci0:64",)
 
 

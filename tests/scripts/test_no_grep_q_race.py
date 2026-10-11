@@ -26,7 +26,9 @@ PIPE_GREP_Q = re.compile(r"\|\s*grep\s+-[A-Za-z]*q")
 
 
 def _pipefail_scripts():
-    for p in sorted((ROOT / "scripts").rglob("*.sh")) + sorted((ROOT / "provision").rglob("*.sh")):
+    for p in sorted((ROOT / "scripts").rglob("*.sh")) + sorted(
+        (ROOT / "provision").rglob("*.sh")
+    ):
         text = p.read_text(encoding="utf-8", errors="replace")
         if "pipefail" in text:
             yield p, text

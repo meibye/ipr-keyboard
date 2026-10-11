@@ -323,7 +323,9 @@ class OledManager:
                 # empty message, and the panel simply froze on its last
                 # frame with nothing to say why.
                 logger.error(
-                    "OLED loop error: %s: %s", type(exc).__name__, exc,
+                    "OLED loop error: %s: %s",
+                    type(exc).__name__,
+                    exc,
                     exc_info=True,
                 )
                 rolling = False

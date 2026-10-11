@@ -2,6 +2,7 @@
 
 Provides REST API endpoints for viewing application logs.
 """
+
 from __future__ import annotations
 
 from flask import Blueprint, jsonify, request, Response
@@ -14,7 +15,7 @@ bp_logs = Blueprint("logs", __name__, url_prefix="/logs")
 @bp_logs.get("/")
 def get_log_whole() -> Response:
     """Get the entire log file contents.
-    
+
     Returns:
         JSON response with 'log' key containing the full log file text,
         or an empty string if the log file doesn't exist.
@@ -29,10 +30,10 @@ def get_log_whole() -> Response:
 @bp_logs.get("/tail")
 def get_log_tail() -> Response:
     """Get the last N lines of the log file.
-    
+
     Query Parameters:
         lines: Number of lines to return (default: 200).
-    
+
     Returns:
         JSON response with 'log' key containing the requested number of
         lines from the end of the log file, or an empty string if the

@@ -3,6 +3,7 @@
 The module's whole value is that it is cheap and bounded, so these tests
 check exactly those properties rather than just the happy path.
 """
+
 from __future__ import annotations
 
 import threading
@@ -24,6 +25,7 @@ def _clean():
 # ---------------------------------------------------------------------------
 # Off by default, and a no-op when off
 # ---------------------------------------------------------------------------
+
 
 def test_disabled_by_default():
     assert metrics.is_enabled() is False
@@ -71,6 +73,7 @@ def test_every_recorder_writes_only_registered_keys():
 # Recording and statistics
 # ---------------------------------------------------------------------------
 
+
 def test_record_unknown_kpi_is_ignored():
     metrics.set_enabled(True)
     metrics.record("not_a_kpi", 1.0)  # must not raise, must not appear
@@ -106,9 +109,9 @@ def test_ring_buffer_is_bounded_but_total_keeps_counting():
     for i in range(n):
         metrics.record("send_ms", float(i))
     st = metrics.snapshot()["kpis"]["send_ms"]
-    assert st["count"] == metrics._MAXLEN       # what the stats are over
-    assert st["total"] == n                      # lifetime
-    assert st["min"] == 50.0                     # oldest 50 evicted
+    assert st["count"] == metrics._MAXLEN  # what the stats are over
+    assert st["total"] == n  # lifetime
+    assert st["min"] == 50.0  # oldest 50 evicted
 
 
 def test_file_pipeline_records_every_stage():
@@ -173,6 +176,7 @@ def test_toggle_at_runtime():
 # Concurrency: the loop, the BT wrapper and the SSE thread all record
 # ---------------------------------------------------------------------------
 
+
 def test_concurrent_records_do_not_lose_or_corrupt():
     metrics.set_enabled(True)
     per_thread = 500
@@ -195,6 +199,7 @@ def test_concurrent_records_do_not_lose_or_corrupt():
 # Platform info: must never raise off-device
 # ---------------------------------------------------------------------------
 
+
 def test_platform_info_has_machine_and_python():
     info = metrics.platform_info()
     assert info["machine"]
@@ -209,8 +214,13 @@ def test_file_pipeline_ignores_implausible_pen_clock():
     m.set_enabled(True)
     m.reset()
     now = 1_800_000_000.0
-    m.record_file_pipeline(file_mtime=1_262_300_000.0, detected_at=now,
-                           read_done_at=now + 0.1, send_done_at=now + 0.6, chars=10)
+    m.record_file_pipeline(
+        file_mtime=1_262_300_000.0,
+        detected_at=now,
+        read_done_at=now + 0.1,
+        send_done_at=now + 0.6,
+        chars=10,
+    )
     snap = m.snapshot()["kpis"]
     assert snap["detect_latency_ms"]["p50"] == 0.0
     assert 590 <= snap["e2e_latency_ms"]["p50"] <= 610
@@ -222,7 +232,12 @@ def test_file_pipeline_keeps_plausible_pen_clock():
     m.set_enabled(True)
     m.reset()
     now = 1_800_000_000.0
-    m.record_file_pipeline(file_mtime=now - 2.0, detected_at=now,
-                           read_done_at=now + 0.1, send_done_at=now + 0.6, chars=10)
+    m.record_file_pipeline(
+        file_mtime=now - 2.0,
+        detected_at=now,
+        read_done_at=now + 0.1,
+        send_done_at=now + 0.6,
+        chars=10,
+    )
     snap = m.snapshot()["kpis"]
     assert 1990 <= snap["detect_latency_ms"]["p50"] <= 2010

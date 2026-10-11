@@ -1,4 +1,5 @@
 """Tests for the /setup/ blueprint (provisioning interface)."""
+
 import subprocess
 
 import pytest
@@ -131,7 +132,9 @@ def test_setup_protected_route_redirects_without_auth(anon_client):
     assert "login" in res.headers["Location"]
 
 
-def test_setup_accessible_via_dashboard_admin_session(temp_config, monkeypatch, tmp_path):
+def test_setup_accessible_via_dashboard_admin_session(
+    temp_config, monkeypatch, tmp_path
+):
     """GET /setup/ with a main-dashboard admin session returns 200 (no hotspot login)."""
     import ipr_keyboard.web.setup as setup_mod
     from ipr_keyboard.config.manager import ConfigManager
@@ -146,8 +149,12 @@ def test_setup_accessible_via_dashboard_admin_session(temp_config, monkeypatch, 
     app = create_app()
     app.config["TESTING"] = True
 
-    monkeypatch.setattr(setup_mod, "_read_hotspot_secret", lambda: ("TestSSID", _FAKE_HOTSPOT_PWD))
-    monkeypatch.setattr(setup_mod, "_bt_info", lambda: {"powered": False, "devices": []})
+    monkeypatch.setattr(
+        setup_mod, "_read_hotspot_secret", lambda: ("TestSSID", _FAKE_HOTSPOT_PWD)
+    )
+    monkeypatch.setattr(
+        setup_mod, "_bt_info", lambda: {"powered": False, "devices": []}
+    )
 
     def mock_check_output(cmd, **kwargs):
         return ""
@@ -203,7 +210,9 @@ def test_setup_home_renders(setup_client, monkeypatch):
     import ipr_keyboard.web.setup as setup_mod
 
     _mock_subprocess(monkeypatch)
-    monkeypatch.setattr(setup_mod, "_read_hotspot_secret", lambda: ("TestSSID", _FAKE_HOTSPOT_PWD))
+    monkeypatch.setattr(
+        setup_mod, "_read_hotspot_secret", lambda: ("TestSSID", _FAKE_HOTSPOT_PWD)
+    )
 
     res = setup_client.get("/setup/")
     assert res.status_code == 200
@@ -291,6 +300,7 @@ def test_setup_renew_cert_no_script(setup_client, monkeypatch, tmp_path):
     # script IS present, and without this the test renewed the certificate
     # and restarted ipr_keyboard.service mid test-run (sudo, no prompt).
     from ipr_keyboard.web import setup as setup_mod
+
     monkeypatch.setattr(setup_mod, "_CERT_RENEW_SCRIPT", tmp_path / "absent-renew.sh")
     res = setup_client.post("/setup/renew-cert")
     assert res.status_code == 200

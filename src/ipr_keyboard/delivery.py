@@ -139,7 +139,7 @@ class DeliveryLog:
         except (OSError, ValueError):
             return []
         out = []
-        for folder, keys in (raw.items() if isinstance(raw, dict) else ()):
+        for folder, keys in raw.items() if isinstance(raw, dict) else ():
             if not isinstance(keys, list):
                 continue
             for key in keys:
@@ -147,7 +147,12 @@ class DeliveryLog:
                 mtime, _, size = rest.partition("|")
                 try:
                     out.append(
-                        {"name": name, "folder": folder, "mtime": int(mtime), "size_bytes": int(size)}
+                        {
+                            "name": name,
+                            "folder": folder,
+                            "mtime": int(mtime),
+                            "size_bytes": int(size),
+                        }
                     )
                 except ValueError:
                     continue

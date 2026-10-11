@@ -2,6 +2,7 @@
 
 Provides path resolution and JSON file operations.
 """
+
 import json
 import shutil
 from pathlib import Path
@@ -10,12 +11,12 @@ from typing import Any, Dict
 
 def project_root() -> Path:
     """Get the project root directory.
-    
-    Returns:
-+        Path to the project root (repository root).
-+        Layout:
-+          <repo>/src/ipr_keyboard/utils/helpers.py
-+          -> project root is three levels up.
+
+        Returns:
+    +        Path to the project root (repository root).
+    +        Layout:
+    +          <repo>/src/ipr_keyboard/utils/helpers.py
+    +          -> project root is three levels up.
     """
     return Path(__file__).resolve().parents[3]
 
@@ -51,10 +52,10 @@ def seed_from_default(live: Path, default: Path) -> None:
 
 def load_json(path: Path) -> Dict[str, Any]:
     """Load JSON data from a file.
-    
+
     Args:
         path: Path to the JSON file.
-        
+
     Returns:
         Dictionary containing the JSON data, or an empty dictionary
         if the file doesn't exist.
@@ -67,10 +68,10 @@ def load_json(path: Path) -> Dict[str, Any]:
 
 def save_json(path: Path, data: Dict[str, Any]) -> None:
     """Save data to a JSON file.
-    
+
     Creates parent directories if they don't exist. The JSON is formatted
     with indentation and sorted keys for readability.
-    
+
     Args:
         path: Path to the JSON file to write.
         data: Dictionary to serialize as JSON.

@@ -122,6 +122,7 @@ _PEN_STATE_FILE = STATE_FILE
 
 def _pen_state_path() -> Path:
     from .utils.helpers import project_root
+
     return project_root() / _PEN_STATE_FILE
 
 
@@ -373,7 +374,9 @@ def main():
         display_timeout_minutes=cfg.OledDisplayTimeoutMinutes,
         send_hold_seconds=cfg.OledSendHoldSeconds,
         marquee_fps=cfg.OledMarqueeFps,
-        source=gpio_monitor if (gpio_monitor is not None and gpio_monitor.active) else None,
+        source=gpio_monitor
+        if (gpio_monitor is not None and gpio_monitor.active)
+        else None,
     )
     oled.start()
 

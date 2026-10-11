@@ -189,7 +189,7 @@ def test_the_daemon_does_not_register_the_gatt_service_itself(daemon):
         encoding="utf-8"
     )
     assert 'UUID_GATT_SERVICE = "1801"' not in src
-    assert 'UUID_SERVICE_CHANGED' not in src
+    assert "UUID_SERVICE_CHANGED" not in src
     assert "GattProfileService" not in src
 
     # And the services it does register are the ones BlueZ leaves to us.
@@ -213,4 +213,3 @@ def test_the_daemon_does_not_register_a_device_information_service(daemon):
     assert "DeviceInfoService" not in src
     assert not hasattr(daemon, "UUID_DIS_SERVICE")
     assert '"180a"' not in src.lower()
-

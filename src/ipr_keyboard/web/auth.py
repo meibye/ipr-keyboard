@@ -87,7 +87,9 @@ class UserStore:
                 pwd_file.write_text(pwd)
                 data["users"]["admin"] = {
                     "password_hash": generate_password_hash(pwd),
-                    "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "created_at": datetime.now(timezone.utc).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    ),
                     "is_admin": True,
                 }
                 dirty = True
@@ -95,7 +97,7 @@ class UserStore:
                 # Backfill is_admin on records created before the field existed.
                 for uname, udata in data["users"].items():
                     if "is_admin" not in udata:
-                        udata["is_admin"] = (uname == "admin")
+                        udata["is_admin"] = uname == "admin"
                         dirty = True
 
                 # Guarantee at least one admin account exists.
@@ -147,7 +149,9 @@ class UserStore:
                 "Username must be 3–32 characters: lowercase letters, digits, or underscores."
             )
         if len(password) < _MIN_PASSWORD_LEN:
-            raise ValueError(f"Password must be at least {_MIN_PASSWORD_LEN} characters.")
+            raise ValueError(
+                f"Password must be at least {_MIN_PASSWORD_LEN} characters."
+            )
         with self._lock:
             data = _load_raw()
             if username in data["users"]:
@@ -161,12 +165,16 @@ class UserStore:
 
     def change_password(self, username: str, new_password: str) -> None:
         if len(new_password) < _MIN_PASSWORD_LEN:
-            raise ValueError(f"Password must be at least {_MIN_PASSWORD_LEN} characters.")
+            raise ValueError(
+                f"Password must be at least {_MIN_PASSWORD_LEN} characters."
+            )
         with self._lock:
             data = _load_raw()
             if username not in data["users"]:
                 raise KeyError(f"User not found: {username}")
-            data["users"][username]["password_hash"] = generate_password_hash(new_password)
+            data["users"][username]["password_hash"] = generate_password_hash(
+                new_password
+            )
             _save_raw(data)
             if data["users"][username].get("is_admin"):
                 # The clear-text bootstrap password is no longer valid: drop it.
@@ -185,7 +193,9 @@ class UserStore:
                     1 for u in data["users"].values() if u.get("is_admin", False)
                 )
                 if admin_count <= 1:
-                    raise ValueError("Cannot remove admin status from the last admin account.")
+                    raise ValueError(
+                        "Cannot remove admin status from the last admin account."
+                    )
             data["users"][username]["is_admin"] = is_admin
             _save_raw(data)
 

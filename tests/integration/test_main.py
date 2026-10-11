@@ -2,6 +2,7 @@
 
 Tests the main application entry point and workflows.
 """
+
 import threading
 import time
 from unittest.mock import patch, MagicMock
@@ -11,22 +12,22 @@ import pytest
 
 def test_run_web_server_creates_app(temp_config, monkeypatch):
     """Test that run_web_server creates and runs Flask app.
-    
+
     Verifies that the web server is started with correct port.
     """
     from ipr_keyboard.config.manager import ConfigManager
     from ipr_keyboard.main import run_web_server
-    
+
     app_mock = MagicMock()
-    
+
     def mock_create_app():
         return app_mock
-    
+
     monkeypatch.setattr("ipr_keyboard.main.create_app", mock_create_app)
-    
+
     # Call directly; app.run is mocked so this does not block.
     run_web_server()
-    
+
     app_mock.run.assert_called_once()
     call_kwargs = app_mock.run.call_args[1]
     assert call_kwargs["host"] == "0.0.0.0"
@@ -35,37 +36,37 @@ def test_run_web_server_creates_app(temp_config, monkeypatch):
 
 def test_main_initializes_config(temp_config, monkeypatch):
     """Test that main() initializes ConfigManager.
-    
+
     Verifies that configuration is loaded at startup.
     """
     from ipr_keyboard.config.manager import ConfigManager
-    
+
     started = {"count": 0}
-    
+
     # Mock the threads to avoid actually running them
     def mock_thread_target(*args, **kwargs):
         started["count"] += 1
         return MagicMock()
-    
+
     # Mock threading.Thread
     original_thread = threading.Thread
-    
+
     def mock_thread(**kwargs):
         started["count"] += 1
         mock = MagicMock()
         mock.start = MagicMock()
         return mock
-    
+
     monkeypatch.setattr("threading.Thread", mock_thread)
-    
+
     # Mock time.sleep to exit immediately
     sleep_calls = {"count": 0}
-    
+
     def mock_sleep(duration):
         sleep_calls["count"] += 1
         if sleep_calls["count"] > 1:
             raise KeyboardInterrupt()
-    
+
     monkeypatch.setattr("time.sleep", mock_sleep)
 
     # Keep main() away from the hardware.  On a provisioned device the running
@@ -81,7 +82,7 @@ def test_main_initializes_config(temp_config, monkeypatch):
 
     # Run main - it should handle KeyboardInterrupt
     main()
-    
+
     # Verify ConfigManager was accessed
     cfg = ConfigManager.instance().get()
     assert cfg is not None
@@ -89,31 +90,31 @@ def test_main_initializes_config(temp_config, monkeypatch):
 
 def test_usb_bt_loop_handles_missing_folder(temp_config, monkeypatch):
     """Test that USB/BT loop handles missing IrisPenFolder.
-    
+
     Verifies graceful handling when the watched folder doesn't exist.
     """
     from ipr_keyboard.config.manager import ConfigManager
     from ipr_keyboard.main import run_usb_bt_loop
-    
+
     # Ensure IrisPenFolder doesn't exist
     cfg = ConfigManager.instance().get()
-    
+
     loop_count = {"count": 0}
-    
+
     # Mock time.sleep to limit iterations
     def mock_sleep(duration):
         loop_count["count"] += 1
         if loop_count["count"] >= 3:
             raise KeyboardInterrupt()
-    
+
     monkeypatch.setattr("time.sleep", mock_sleep)
-    
+
     # Should not raise an exception
     try:
         run_usb_bt_loop()
     except KeyboardInterrupt:
         pass
-    
+
     assert loop_count["count"] >= 2
 
 
@@ -152,8 +153,10 @@ def test_usb_bt_loop_processes_file(temp_config, usb_folder, monkeypatch):
 
     # After the file is processed and deleted the loop finds nothing and
     # calls time.sleep(); raise KeyboardInterrupt there to stop the loop.
-    monkeypatch.setattr("ipr_keyboard.main.time.sleep",
-                        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
+    monkeypatch.setattr(
+        "ipr_keyboard.main.time.sleep",
+        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()),
+    )
 
     try:
         run_usb_bt_loop()
@@ -190,8 +193,10 @@ def test_usb_bt_loop_bt_unavailable(temp_config, usb_folder, monkeypatch):
             return False
 
     monkeypatch.setattr("ipr_keyboard.main.BluetoothKeyboard", MockBT)
-    monkeypatch.setattr("ipr_keyboard.main.time.sleep",
-                        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
+    monkeypatch.setattr(
+        "ipr_keyboard.main.time.sleep",
+        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()),
+    )
 
     try:
         run_usb_bt_loop()
@@ -204,6 +209,7 @@ def test_usb_bt_loop_bt_unavailable(temp_config, usb_folder, monkeypatch):
 # ---------------------------------------------------------------------------
 # Performance metrics instrumentation in the loop
 # ---------------------------------------------------------------------------
+
 
 def _run_loop_once_with_file(usb_folder, monkeypatch, *, metrics_enabled, bt_ok=True):
     """Drive run_usb_bt_loop through exactly one file, then stop it."""
@@ -227,8 +233,10 @@ def _run_loop_once_with_file(usb_folder, monkeypatch, *, metrics_enabled, bt_ok=
             return bt_ok
 
     monkeypatch.setattr("ipr_keyboard.main.BluetoothKeyboard", MockBT)
-    monkeypatch.setattr("ipr_keyboard.main.time.sleep",
-                        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
+    monkeypatch.setattr(
+        "ipr_keyboard.main.time.sleep",
+        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()),
+    )
     try:
         run_usb_bt_loop()
     except KeyboardInterrupt:
@@ -260,16 +268,21 @@ def test_loop_records_nothing_when_disabled(temp_config, usb_folder, monkeypatch
 
 def test_loop_failed_send_records_no_send_kpis(temp_config, usb_folder, monkeypatch):
     """A failed BT send must not be counted as a successful end-to-end delivery."""
-    snap = _run_loop_once_with_file(usb_folder, monkeypatch, metrics_enabled=True, bt_ok=False)
+    snap = _run_loop_once_with_file(
+        usb_folder, monkeypatch, metrics_enabled=True, bt_ok=False
+    )
     k = snap["kpis"]
     assert k["detect_latency_ms"]["count"] == 1
     assert k["send_ms"]["count"] == 0
     assert k["e2e_latency_ms"]["count"] == 0
 
 
-def test_loop_applies_toggle_from_config_each_iteration(temp_config, usb_folder, monkeypatch):
+def test_loop_applies_toggle_from_config_each_iteration(
+    temp_config, usb_folder, monkeypatch
+):
     """Turning the flag on in config must take effect without a restart."""
     from ipr_keyboard import metrics
+
     metrics.set_enabled(False)
     _run_loop_once_with_file(usb_folder, monkeypatch, metrics_enabled=True)
     assert metrics.is_enabled() is True
@@ -296,8 +309,10 @@ def test_usb_bt_loop_keeps_file_when_send_fails(temp_config, usb_folder, monkeyp
             return False
 
     monkeypatch.setattr("ipr_keyboard.main.BluetoothKeyboard", FailingBT)
-    monkeypatch.setattr("ipr_keyboard.main.time.sleep",
-                        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
+    monkeypatch.setattr(
+        "ipr_keyboard.main.time.sleep",
+        lambda _: (_ for _ in ()).throw(KeyboardInterrupt()),
+    )
     try:
         run_usb_bt_loop()
     except KeyboardInterrupt:
@@ -307,8 +322,9 @@ def test_usb_bt_loop_keeps_file_when_send_fails(temp_config, usb_folder, monkeyp
     assert test_file.read_text() == "keep me"
 
 
-
-def test_usb_bt_loop_baselines_unknown_folder_and_persists_mark(temp_config, usb_folder, monkeypatch, tmp_path):
+def test_usb_bt_loop_baselines_unknown_folder_and_persists_mark(
+    temp_config, usb_folder, monkeypatch, tmp_path
+):
     """A folder seen for the first time is NOT replayed; afterwards new files are
     delivered once and the mark survives a restart (no double typing)."""
     import json
@@ -316,7 +332,7 @@ def test_usb_bt_loop_baselines_unknown_folder_and_persists_mark(temp_config, usb
     from ipr_keyboard.main import run_usb_bt_loop
 
     ConfigManager.instance().update(IrisPenFolders=[str(usb_folder)], DeleteFiles=False)
-    (tmp_path / "pen_state.json").unlink()          # never seen this folder
+    (tmp_path / "pen_state.json").unlink()  # never seen this folder
     old = usb_folder / "old.txt"
     old.write_text("already on the pen")
 
@@ -349,6 +365,7 @@ def test_usb_bt_loop_baselines_unknown_folder_and_persists_mark(temp_config, usb
 
     # A newer file is delivered; the persisted mark then blocks a second delivery
     import os as _os, time as _time
+
     new = usb_folder / "new.txt"
     new.write_text("fresh scan")
     _os.utime(new, (_time.time() + 5, _time.time() + 5))
@@ -360,7 +377,7 @@ def test_usb_bt_loop_baselines_unknown_folder_and_persists_mark(temp_config, usb
     assert sent == ["fresh scan"]
     ticks["n"] = 0
     try:
-        run_usb_bt_loop()   # "restart": state comes from the file
+        run_usb_bt_loop()  # "restart": state comes from the file
     except KeyboardInterrupt:
         pass
     assert sent == ["fresh scan"], "restart must not re-type the last scan"

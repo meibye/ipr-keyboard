@@ -119,7 +119,9 @@ def test_the_daemon_and_the_application_agree_on_path_and_range():
     import re
     from pathlib import Path
 
-    daemon = Path("scripts/service/bin/bt_hid_ble_daemon.py").read_text(encoding="utf-8")
+    daemon = Path("scripts/service/bin/bt_hid_ble_daemon.py").read_text(
+        encoding="utf-8"
+    )
     app = Path("src/ipr_keyboard/keydelay.py").read_text(encoding="utf-8")
 
     daemon_path = re.search(r'KEY_DELAY_PATH = "([^"]+)"', daemon).group(1)
@@ -158,7 +160,6 @@ def test_the_nominal_rate_is_still_available_for_comparison():
     assert keydelay.chars_per_second(4) > keydelay.floor_chars_per_second()
 
 
-
 # ---------------------------------------------------------------------------
 # Two writers, one file
 # ---------------------------------------------------------------------------
@@ -191,7 +192,9 @@ def test_the_main_loop_does_not_undo_a_trial(tmp_path, monkeypatch):
     assert keydelay.read() == 12
 
 
-def test_a_hold_expires_so_a_dead_request_cannot_strand_the_speed(tmp_path, monkeypatch):
+def test_a_hold_expires_so_a_dead_request_cannot_strand_the_speed(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr(keydelay, "HOLD_PATH", tmp_path / "hold")
     keydelay.hold(10.0, now=1000.0)
     assert keydelay.held(now=1005.0) is True
@@ -254,6 +257,8 @@ def test_a_failed_hold_is_reported_not_swallowed(monkeypatch, caplog):
     monkeypatch.setattr(type(keydelay.HOLD_PATH), "write_text", _boom, raising=False)
     with caplog.at_level(logging.WARNING, logger="ipr_keyboard"):
         assert keydelay.hold(60.0) is False
-    assert any("hold the typing delay" in r.message.lower() or
-               "hold the typing delay" in str(r.msg).lower() for r in caplog.records), \
-        caplog.records
+    assert any(
+        "hold the typing delay" in r.message.lower()
+        or "hold the typing delay" in str(r.msg).lower()
+        for r in caplog.records
+    ), caplog.records

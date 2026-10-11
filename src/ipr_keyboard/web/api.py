@@ -51,6 +51,7 @@ bp_api = Blueprint("api", __name__, url_prefix="/api")
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -58,7 +59,9 @@ def _now() -> str:
 # Times leave the device as instants (UTC "Z", or the journal's short-iso
 # with its offset) and are shown in the VIEWER's time zone by
 # static/localtime.js -- never preformatted in the device's own zone.
-_JOURNAL_STAMP = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\s+")
+_JOURNAL_STAMP = re.compile(
+    r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\s+"
+)
 
 
 def _journal_line_time(line: str) -> tuple[str | None, str]:
@@ -73,12 +76,14 @@ def _journal_line_time(line: str) -> tuple[str | None, str]:
         at = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
     except ValueError:
         return None, line
-    return at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), line[m.end():]
+    return at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), line[m.end() :]
 
 
 def _run(cmd: list[str], timeout: int = 5) -> str:
     try:
-        return subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=timeout)
+        return subprocess.check_output(
+            cmd, text=True, stderr=subprocess.STDOUT, timeout=timeout
+        )
     except Exception as exc:
         return f"ERROR: {exc}"
 
@@ -121,7 +126,11 @@ def _bt_links() -> tuple[str, ...]:
         links = []
         for hci in sorted(os.listdir(root)):
             if hci.startswith("hci"):
-                links += [e for e in os.listdir(os.path.join(root, hci)) if e.startswith(hci + ":")]
+                links += [
+                    e
+                    for e in os.listdir(os.path.join(root, hci))
+                    if e.startswith(hci + ":")
+                ]
         return tuple(sorted(links))
     except OSError:
         return ()
@@ -137,11 +146,16 @@ def _status_services() -> dict[str, bool]:
     try:
         out = subprocess.run(
             ["systemctl", "is-active", *_STATUS_SERVICES],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         ).stdout.split()
     except Exception:
         out = []
-    states = {name: (i < len(out) and out[i] == "active") for i, name in enumerate(_STATUS_SERVICES)}
+    states = {
+        name: (i < len(out) and out[i] == "active")
+        for i, name in enumerate(_STATUS_SERVICES)
+    }
     with _status_lock:
         _status_cache["services"] = (now, states)
     return states
@@ -203,19 +217,35 @@ def _build_pen_state() -> dict[str, Any]:
     """
     presence = pen_presence()
     if presence == "disabled":
-        return {"state": "error", "label": "USB port off",
-                "explanation": "The device's USB port was switched off after connection errors — restart the device, then check the pen's cable",
-                "device_name": "IR Pen Scanner"}
+        return {
+            "state": "error",
+            "label": "USB port off",
+            "explanation": "The device's USB port was switched off after connection errors — restart the device, then check the pen's cable",
+            "device_name": "IR Pen Scanner",
+        }
     if presence == "ready":
         state, label, explanation = "ready", "Ready", "Scanner connected"
     elif presence == "busy":
-        state, label, explanation = "busy", "Connecting", "Scanner found, mounting its files…"
+        state, label, explanation = (
+            "busy",
+            "Connecting",
+            "Scanner found, mounting its files…",
+        )
     elif presence == "stale":
         # stale FUSE mount after an unplug; irispen-mount.service clears it
         state, label, explanation = "missing", "Not detected", "Scanner unplugged"
     else:
-        state, label, explanation = "missing", "Not detected", "Attach the pen / scanner"
-    return {"state": state, "label": label, "explanation": explanation, "device_name": "IR Pen Scanner"}
+        state, label, explanation = (
+            "missing",
+            "Not detected",
+            "Attach the pen / scanner",
+        )
+    return {
+        "state": state,
+        "label": label,
+        "explanation": explanation,
+        "device_name": "IR Pen Scanner",
+    }
 
 
 def _build_transmission_state() -> dict[str, Any]:
@@ -227,7 +257,11 @@ def _build_system_state(bt: dict[str, Any]) -> dict[str, Any]:
     if all(services.values()):
         state, label, explanation = "healthy", "Healthy", "No current warnings"
     else:
-        state, label, explanation = "warning", "Warning", "One or more services are not running"
+        state, label, explanation = (
+            "warning",
+            "Warning",
+            "One or more services are not running",
+        )
     return {"state": state, "label": label, "explanation": explanation}
 
 
@@ -282,15 +316,28 @@ def _build_health_data() -> dict[str, Any]:
 def _build_overall_state(bt: dict, pen: dict, tx: dict, sys: dict) -> dict[str, Any]:
     states = [bt["state"], pen["state"], tx["state"], sys["state"]]
     if any(s == "error" for s in states) or tx["state"] == "failed":
-        return {"state": "error", "label": "Error", "explanation": "A problem needs attention"}
+        return {
+            "state": "error",
+            "label": "Error",
+            "explanation": "A problem needs attention",
+        }
     if any(s in ("warning", "retrying") for s in states) or sys["state"] == "warning":
-        return {"state": "warning", "label": "Warning", "explanation": "Something needs attention"}
+        return {
+            "state": "warning",
+            "label": "Warning",
+            "explanation": "Something needs attention",
+        }
     if bt["state"] == "connected" and pen["state"] == "ready":
         return {"state": "ready", "label": "Ready", "explanation": "Ready for use"}
     return {"state": "warning", "label": "Warning", "explanation": "Not fully ready"}
 
 
-def _parse_journalctl_events(lines: list[str], category_filter: str | None, severity_filter: str | None, limit: int) -> list[dict]:
+def _parse_journalctl_events(
+    lines: list[str],
+    category_filter: str | None,
+    severity_filter: str | None,
+    limit: int,
+) -> list[dict]:
     events: list[dict] = []
     for i, line in enumerate(reversed(lines)):
         if len(events) >= limit:
@@ -346,14 +393,16 @@ def _parse_journalctl_events(lines: list[str], category_filter: str | None, seve
             summary = line[:80] if len(line) > 80 else line
             details = line
 
-        events.append({
-            "id": f"evt_{i}",
-            "timestamp": at or _now(),
-            "category": category,
-            "severity": severity,
-            "summary": summary,
-            "details": details,
-        })
+        events.append(
+            {
+                "id": f"evt_{i}",
+                "timestamp": at or _now(),
+                "category": category,
+                "severity": severity,
+                "summary": summary,
+                "details": details,
+            }
+        )
 
     return events
 
@@ -361,6 +410,7 @@ def _parse_journalctl_events(lines: list[str], category_filter: str | None, seve
 # ---------------------------------------------------------------------------
 # Status endpoints
 # ---------------------------------------------------------------------------
+
 
 @bp_api.get("/status")
 def api_status():
@@ -374,19 +424,28 @@ def api_status():
         events = _fetch_recent_events(limit=1)
         last_event = events[0] if events else None
 
-        return jsonify({
-            "timestamp": _now(),
-            "overall": overall,
-            "bluetooth": bt,
-            "pen": pen,
-            "transmission": tx,
-            "system": sys,
-            "last_event": last_event,
-            "recent_activities": transmission.get_history(),
-        })
+        return jsonify(
+            {
+                "timestamp": _now(),
+                "overall": overall,
+                "bluetooth": bt,
+                "pen": pen,
+                "transmission": tx,
+                "system": sys,
+                "last_event": last_event,
+                "recent_activities": transmission.get_history(),
+            }
+        )
     except Exception:
         logger.exception("Error in /api/status")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.get("/status/bluetooth")
@@ -396,7 +455,15 @@ def api_status_bluetooth():
         bt["timestamp"] = _now()
         return jsonify(bt)
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.get("/status/pen")
@@ -406,7 +473,15 @@ def api_status_pen():
         pen["timestamp"] = _now()
         return jsonify(pen)
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.get("/status/transmission")
@@ -416,7 +491,15 @@ def api_status_transmission():
         tx["timestamp"] = _now()
         return jsonify(tx)
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.get("/status/system")
@@ -426,7 +509,15 @@ def api_status_system():
         sys["timestamp"] = _now()
         return jsonify(sys)
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.get("/status/health")
@@ -436,7 +527,15 @@ def api_status_health():
         data["timestamp"] = _now()
         return jsonify(data)
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +550,11 @@ _HOTSPOT_CTL = "/usr/local/bin/ipr_hotspot_ctl.sh"
 
 def _device_mode() -> str:
     try:
-        return "development" if _MODE_FILE.read_text().strip() == "development" else "production"
+        return (
+            "development"
+            if _MODE_FILE.read_text().strip() == "development"
+            else "production"
+        )
     except OSError:
         return "production"
 
@@ -522,7 +625,14 @@ def api_device():
         return jsonify(data)
     except Exception:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.post("/actions/hotspot")
@@ -534,34 +644,64 @@ def api_action_hotspot():
     data = request.get_json(force=True) or {}
     enabled = bool(data.get("enabled", True))
     if enabled and not data.get("confirm"):
-        return jsonify({"error": {"code": "confirmation_required",
-                                  "message": "Set confirm=true: while the hotspot is on, the device leaves the home network."}}), 400
+        return jsonify(
+            {
+                "error": {
+                    "code": "confirmation_required",
+                    "message": "Set confirm=true: while the hotspot is on, the device leaves the home network.",
+                }
+            }
+        ), 400
     try:
         result = subprocess.run(
             ["sudo", "-n", _HOTSPOT_CTL, "start" if enabled else "stop"],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         if result.returncode == 0:
-            msg = ("Hotspot started. Connect to it and open https://10.42.0.1/login."
-                   if enabled else "Hotspot stopped. The device rejoins the home network in a few seconds.")
+            msg = (
+                "Hotspot started. Connect to it and open https://10.42.0.1/login."
+                if enabled
+                else "Hotspot stopped. The device rejoins the home network in a few seconds."
+            )
             return jsonify({"ok": True, "message": msg})
         err = (result.stderr or result.stdout or "").strip()
-        return jsonify({"ok": False, "message": err or f"ipr_hotspot_ctl.sh exit {result.returncode}"}), 500
+        return jsonify(
+            {
+                "ok": False,
+                "message": err or f"ipr_hotspot_ctl.sh exit {result.returncode}",
+            }
+        ), 500
     except subprocess.TimeoutExpired:
-        return jsonify({"ok": False, "message": "Timed out waiting for the hotspot."}), 500
+        return jsonify(
+            {"ok": False, "message": "Timed out waiting for the hotspot."}
+        ), 500
     except Exception:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
 # Event endpoints
 # ---------------------------------------------------------------------------
 
-def _fetch_recent_events(limit: int = 50, category: str | None = None, severity: str | None = None) -> list[dict]:
+
+def _fetch_recent_events(
+    limit: int = 50, category: str | None = None, severity: str | None = None
+) -> list[dict]:
     try:
         cmd = ["journalctl", "-n", str(limit * 4), "-o", "short-iso", "--no-pager"]
-        out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=10)
+        out = subprocess.check_output(
+            cmd, text=True, stderr=subprocess.STDOUT, timeout=10
+        )
         lines = out.splitlines()
         return _parse_journalctl_events(lines, category, severity, limit)
     except Exception:
@@ -577,7 +717,15 @@ def api_events():
         events = _fetch_recent_events(limit=limit, category=category, severity=severity)
         return jsonify({"items": events})
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.get("/events/latest")
@@ -586,16 +734,26 @@ def api_events_latest():
         events = _fetch_recent_events(limit=1)
         if events:
             return jsonify(events[0])
-        return jsonify({
-            "id": "evt_0",
-            "timestamp": _now(),
-            "category": "system",
-            "severity": "info",
-            "summary": "No recent events",
-            "details": "",
-        })
+        return jsonify(
+            {
+                "id": "evt_0",
+                "timestamp": _now(),
+                "category": "system",
+                "severity": "info",
+                "summary": "No recent events",
+                "details": "",
+            }
+        )
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
@@ -638,7 +796,9 @@ def api_logs_raw():
         for u in units:
             cmd += ["-k"] if u == "kernel" else ["-u", u]
         try:
-            out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=10)
+            out = subprocess.check_output(
+                cmd, text=True, stderr=subprocess.STDOUT, timeout=10
+            )
         except Exception:
             out = ""
         items = []
@@ -649,63 +809,89 @@ def api_logs_raw():
             if contains and contains.lower() not in line.lower():
                 continue
             items.append({"line": line})
-        return jsonify({"items": items, "units": units or ["(all)"], "available_units": LOG_UNITS,
-                        "device_time": _device_local_time(), "device_epoch": time.time()})
+        return jsonify(
+            {
+                "items": items,
+                "units": units or ["(all)"],
+                "available_units": LOG_UNITS,
+                "device_time": _device_local_time(),
+                "device_epoch": time.time(),
+            }
+        )
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
 # Config endpoints
 # ---------------------------------------------------------------------------
 
+
 @bp_api.get("/config")
 def api_config_get():
     try:
         cfg = ConfigManager.instance().get()
         log_level = cfg.LogLevel if getattr(cfg, "Logging", True) else "OFF"
-        return jsonify({
-            "device_name": "IPR Pen Bridge",
-            "ui_title": "IPR Pen Bridge",
-            "bluetooth": {
-                "auto_reconnect": True,
-                "pairing_timeout_seconds": cfg.PairingTimeoutSeconds,
-            },
-            "pen": {
-                "auto_detect": True,
-                "read_timeout_seconds": cfg.ReadTimeoutSeconds,
-                "folders": list(cfg.IrisPenFolders or []),
-                "folder_options": FOLDER_OPTIONS,
-            },
-            "timing": {
-                "poll_interval_seconds": cfg.PollIntervalSeconds,
-                "status_interval_seconds": cfg.StatusIntervalSeconds,
-                # The typing speed is the largest single cost of a send, so it
-                # is a setting rather than something only the perf harness can
-                # reach.  "in_force" is what the daemon is actually using,
-                # which differs from the saved value until the next send.
-                "typing_delay_ms": int(getattr(cfg, "TypingDelayMs", 20)),
-                "typing_delay_in_force_ms": keydelay.read(),
-                "typing_chars_per_second": round(
-                    keydelay.chars_per_second(getattr(cfg, "TypingDelayMs", 20)), 1
-                ),
-                "typing_delay_options": [
-                    {
-                        "ms": ms,
-                        "name": keydelay.name_for(ms),
-                        "label": keydelay.label_for(ms),
-                        "chars_per_second": round(keydelay.chars_per_second(ms), 1),
-                    }
-                    for ms, _, _ in keydelay.CHOICES
-                ],
-            },
-            "diagnostics": {
-                "log_level": log_level,
-                "metrics_enabled": bool(getattr(cfg, "MetricsEnabled", False)),
-            },
-        })
+        return jsonify(
+            {
+                "device_name": "IPR Pen Bridge",
+                "ui_title": "IPR Pen Bridge",
+                "bluetooth": {
+                    "auto_reconnect": True,
+                    "pairing_timeout_seconds": cfg.PairingTimeoutSeconds,
+                },
+                "pen": {
+                    "auto_detect": True,
+                    "read_timeout_seconds": cfg.ReadTimeoutSeconds,
+                    "folders": list(cfg.IrisPenFolders or []),
+                    "folder_options": FOLDER_OPTIONS,
+                },
+                "timing": {
+                    "poll_interval_seconds": cfg.PollIntervalSeconds,
+                    "status_interval_seconds": cfg.StatusIntervalSeconds,
+                    # The typing speed is the largest single cost of a send, so it
+                    # is a setting rather than something only the perf harness can
+                    # reach.  "in_force" is what the daemon is actually using,
+                    # which differs from the saved value until the next send.
+                    "typing_delay_ms": int(getattr(cfg, "TypingDelayMs", 20)),
+                    "typing_delay_in_force_ms": keydelay.read(),
+                    "typing_chars_per_second": round(
+                        keydelay.chars_per_second(getattr(cfg, "TypingDelayMs", 20)), 1
+                    ),
+                    "typing_delay_options": [
+                        {
+                            "ms": ms,
+                            "name": keydelay.name_for(ms),
+                            "label": keydelay.label_for(ms),
+                            "chars_per_second": round(keydelay.chars_per_second(ms), 1),
+                        }
+                        for ms, _, _ in keydelay.CHOICES
+                    ],
+                },
+                "diagnostics": {
+                    "log_level": log_level,
+                    "metrics_enabled": bool(getattr(cfg, "MetricsEnabled", False)),
+                },
+            }
+        )
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.post("/config")
@@ -747,8 +933,14 @@ def api_config_post():
             if "typing_delay_ms" in t:
                 v = int(t["typing_delay_ms"])
                 if not (keydelay.MIN_MS <= v <= keydelay.MAX_MS):
-                    return jsonify({"error": {"code": "validation_error",
-                                              "message": f"timing.typing_delay_ms must be {keydelay.MIN_MS}-{keydelay.MAX_MS}."}}), 400
+                    return jsonify(
+                        {
+                            "error": {
+                                "code": "validation_error",
+                                "message": f"timing.typing_delay_ms must be {keydelay.MIN_MS}-{keydelay.MAX_MS}.",
+                            }
+                        }
+                    ), 400
                 update_kwargs["TypingDelayMs"] = v
                 # Put it in force now rather than waiting for the main loop:
                 # the trial on the Debug screen changes it between sends.
@@ -756,8 +948,14 @@ def api_config_post():
         if "diagnostics" in data and "metrics_enabled" in data["diagnostics"]:
             v = data["diagnostics"]["metrics_enabled"]
             if not isinstance(v, bool):
-                return jsonify({"error": {"code": "validation_error",
-                                          "message": "diagnostics.metrics_enabled must be a boolean."}}), 400
+                return jsonify(
+                    {
+                        "error": {
+                            "code": "validation_error",
+                            "message": "diagnostics.metrics_enabled must be a boolean.",
+                        }
+                    }
+                ), 400
             update_kwargs["MetricsEnabled"] = v
             # Apply at once for the web process; the main loop picks it up on
             # its next iteration from the saved config.
@@ -766,12 +964,21 @@ def api_config_post():
             cfg_mgr.update(**update_kwargs)
         return jsonify({"ok": True, "message": "Configuration updated."})
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
 # Performance metrics  (/api/metrics)
 # ---------------------------------------------------------------------------
+
 
 @bp_api.get("/metrics")
 def api_metrics():
@@ -785,10 +992,20 @@ def api_metrics():
         # Keep the web process's view of the switch in step with the saved
         # config: the main loop applies it each iteration, the web process only
         # when asked.
-        metrics.set_enabled(bool(getattr(ConfigManager.instance().get(), "MetricsEnabled", False)))
+        metrics.set_enabled(
+            bool(getattr(ConfigManager.instance().get(), "MetricsEnabled", False))
+        )
         return jsonify(metrics.snapshot())
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.post("/metrics/reset")
@@ -798,12 +1015,21 @@ def api_metrics_reset():
         metrics.reset()
         return jsonify({"ok": True, "message": "Metrics cleared."})
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
 # Network endpoints
 # ---------------------------------------------------------------------------
+
 
 def _get_current_ip() -> str:
     """The device's IPv4 address(es).
@@ -880,7 +1106,9 @@ def _apply_network(mode: str, ip: str, netmask: str, gateway: str) -> str:
     if result.returncode != 0:
         if "sudo:" in stderr or "password" in stderr:
             raise PermissionError(stderr or "sudo not permitted for ipr_net_apply.sh")
-        raise RuntimeError(stderr or f"ipr_net_apply.sh failed (rc={result.returncode})")
+        raise RuntimeError(
+            stderr or f"ipr_net_apply.sh failed (rc={result.returncode})"
+        )
     lines = [ln for ln in (result.stdout or "").splitlines() if ln.strip()]
     return lines[-1] if lines else "applied"
 
@@ -889,18 +1117,27 @@ def _apply_network(mode: str, ip: str, netmask: str, gateway: str) -> str:
 def api_network_get():
     try:
         cfg = ConfigManager.instance().get()
-        return jsonify({
-            "current_ip": _get_current_ip(),
-            "interface": _get_network_interface(),
-            "mode": cfg.NetworkMode,
-            "static_ip": cfg.StaticIP,
-            "static_netmask": cfg.StaticNetmask,
-            "static_gateway": cfg.StaticGateway,
-            "port": cfg.LogPort,
-        })
+        return jsonify(
+            {
+                "current_ip": _get_current_ip(),
+                "interface": _get_network_interface(),
+                "mode": cfg.NetworkMode,
+                "static_ip": cfg.StaticIP,
+                "static_netmask": cfg.StaticNetmask,
+                "static_gateway": cfg.StaticGateway,
+                "port": cfg.LogPort,
+            }
+        )
     except Exception:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.post("/network")
@@ -934,19 +1171,29 @@ def api_network_post():
         # and re-writing dhcpcd.conf (and telling the user about it) for an
         # unchanged mode was noise.
         before = cfg_mgr.get()
-        update_kwargs = {k: v for k, v in update_kwargs.items() if getattr(before, k, None) != v}
+        update_kwargs = {
+            k: v for k, v in update_kwargs.items() if getattr(before, k, None) != v
+        }
         if update_kwargs:
             cfg_mgr.update(**update_kwargs)
 
         # Apply to the NetworkManager home profile if mode or static fields changed.
         # Re-activation is immediate: if the address changes, the browser must
         # reconnect at the new one.
-        if any(k in update_kwargs for k in ("NetworkMode", "StaticIP", "StaticNetmask", "StaticGateway")):
+        if any(
+            k in update_kwargs
+            for k in ("NetworkMode", "StaticIP", "StaticNetmask", "StaticGateway")
+        ):
             cfg = cfg_mgr.get()
             try:
-                _apply_network(cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway)
-                dhcp_msg = ("Network settings applied. If the address changed, reconnect at the new one."
-                            if cfg.NetworkMode == "static" else "Network settings applied (DHCP).")
+                _apply_network(
+                    cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway
+                )
+                dhcp_msg = (
+                    "Network settings applied. If the address changed, reconnect at the new one."
+                    if cfg.NetworkMode == "static"
+                    else "Network settings applied (DHCP)."
+                )
             except PermissionError:
                 dhcp_msg = "Settings saved, but the device could not apply them (sudo not permitted for ipr_net_apply.sh)."
             except Exception as exc:
@@ -957,12 +1204,20 @@ def api_network_post():
         return jsonify({"ok": True, "message": dhcp_msg})
     except Exception:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
 # Action endpoints
 # ---------------------------------------------------------------------------
+
 
 @bp_api.post("/actions/pairing")
 def api_action_pairing():
@@ -980,7 +1235,15 @@ def api_action_pairing():
             _run(["bluetoothctl", "discoverable", "off"])
             return jsonify({"ok": True, "message": "Pairing mode disabled."})
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.post("/actions/rescan-pen")
@@ -1001,10 +1264,23 @@ def api_action_reconnect_bluetooth():
     try:
         ok, msg = _helper_service("restart", "bt_hid_ble")
         if ok:
-            return jsonify({"ok": True, "message": "Bluetooth daemon restarted. The PC reconnects when it sees the device again — on Windows press Connect if it does not."})
+            return jsonify(
+                {
+                    "ok": True,
+                    "message": "Bluetooth daemon restarted. The PC reconnects when it sees the device again — on Windows press Connect if it does not.",
+                }
+            )
         return jsonify({"ok": False, "message": msg}), 500
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 def _helper_service(action: str, unit: str) -> tuple[bool, str]:
@@ -1013,14 +1289,20 @@ def _helper_service(action: str, unit: str) -> tuple[bool, str]:
     try:
         result = subprocess.run(
             ["sudo", "-n", _HOTSPOT_CTL, "service", action, unit],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
     except subprocess.TimeoutExpired:
         return False, f"Timed out waiting for systemctl {action} {unit}."
     if result.returncode == 0:
         return True, ""
     err = (result.stderr or result.stdout or "").strip().splitlines()
-    return False, (err[-1] if err else f"systemctl {action} {unit} failed (exit {result.returncode}).")
+    return False, (
+        err[-1]
+        if err
+        else f"systemctl {action} {unit} failed (exit {result.returncode})."
+    )
 
 
 @bp_api.post("/actions/apply-network")
@@ -1031,47 +1313,96 @@ def api_action_apply_network():
         return denied
     data = request.get_json(force=True) or {}
     if not data.get("confirm"):
-        return jsonify({"error": {"code": "confirmation_required", "message": "Set confirm=true to proceed. The connection will drop briefly if the IP address changes."}}), 400
+        return jsonify(
+            {
+                "error": {
+                    "code": "confirmation_required",
+                    "message": "Set confirm=true to proceed. The connection will drop briefly if the IP address changes.",
+                }
+            }
+        ), 400
     try:
         cfg = ConfigManager.instance().get()
-        _apply_network(cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway)
-        return jsonify({"ok": True, "message": "Network settings applied. If the IP address changed, reconnect at the new address."})
+        _apply_network(
+            cfg.NetworkMode, cfg.StaticIP, cfg.StaticNetmask, cfg.StaticGateway
+        )
+        return jsonify(
+            {
+                "ok": True,
+                "message": "Network settings applied. If the IP address changed, reconnect at the new address.",
+            }
+        )
     except PermissionError as exc:
         return jsonify({"ok": False, "message": str(exc)}), 500
     except subprocess.TimeoutExpired:
-        return jsonify({"ok": False, "message": "Timed out waiting for NetworkManager."}), 500
+        return jsonify(
+            {"ok": False, "message": "Timed out waiting for NetworkManager."}
+        ), 500
     except Exception as exc:
         logger.exception("API error")
-        return jsonify({"ok": False, "message": f"Applying network settings failed: {exc}"}), 500
+        return jsonify(
+            {"ok": False, "message": f"Applying network settings failed: {exc}"}
+        ), 500
 
 
 @bp_api.post("/actions/reboot")
 def api_action_reboot():
     data = request.get_json(force=True) or {}
     if not data.get("confirm"):
-        return jsonify({"error": {"code": "confirmation_required", "message": "Set confirm=true to proceed."}}), 400
+        return jsonify(
+            {
+                "error": {
+                    "code": "confirmation_required",
+                    "message": "Set confirm=true to proceed.",
+                }
+            }
+        ), 400
     try:
         subprocess.Popen(["sudo", "reboot"])
         return jsonify({"ok": True, "message": "Reboot initiated."})
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.post("/actions/shutdown")
 def api_action_shutdown():
     data = request.get_json(force=True) or {}
     if not data.get("confirm"):
-        return jsonify({"error": {"code": "confirmation_required", "message": "Set confirm=true to proceed."}}), 400
+        return jsonify(
+            {
+                "error": {
+                    "code": "confirmation_required",
+                    "message": "Set confirm=true to proceed.",
+                }
+            }
+        ), 400
     try:
         subprocess.Popen(["sudo", "shutdown", "-h", "now"])
         return jsonify({"ok": True, "message": "Shutdown initiated."})
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
 # Version endpoint
 # ---------------------------------------------------------------------------
+
 
 @bp_api.get("/version")
 def api_version():
@@ -1082,31 +1413,44 @@ def api_version():
         from ..bluetooth import keyboard as bt_mod
         from ..usb import detector as det_mod, reader as rdr_mod, deleter as del_mod
         from ..web import server as srv_mod
-        return jsonify({
-            "package": pkg_ver,
-            "python": sys.version,
-            "modules": {
-                "main":         main_ver,
-                "config":       cfg_mod.VERSION,
-                "bluetooth":    bt_mod.VERSION,
-                "usb.detector": det_mod.VERSION,
-                "usb.reader":   rdr_mod.VERSION,
-                "usb.deleter":  del_mod.VERSION,
-                "web.server":   srv_mod.VERSION,
-            },
-        })
+
+        return jsonify(
+            {
+                "package": pkg_ver,
+                "python": sys.version,
+                "modules": {
+                    "main": main_ver,
+                    "config": cfg_mod.VERSION,
+                    "bluetooth": bt_mod.VERSION,
+                    "usb.detector": det_mod.VERSION,
+                    "usb.reader": rdr_mod.VERSION,
+                    "usb.deleter": del_mod.VERSION,
+                    "web.server": srv_mod.VERSION,
+                },
+            }
+        )
     except Exception:
-        logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        logger.exception("API error")
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
 # SSE stream endpoint
 # ---------------------------------------------------------------------------
 
+
 @bp_api.get("/stream")
 def api_stream():
     def generate():
         import time
+
         while True:
             try:
                 _t0 = time.time()
@@ -1117,18 +1461,20 @@ def api_stream():
                 overall = _build_overall_state(bt, pen, tx, sys)
                 # How much the dashboard costs the device per update; no-op when off.
                 metrics.record("sse_build_ms", (time.time() - _t0) * 1000.0)
-                payload = json.dumps({
-                    "type": "status_update",
-                    "data": {
-                        "timestamp": _now(),
-                        "overall": overall,
-                        "bluetooth": bt,
-                        "pen": pen,
-                        "transmission": tx,
-                        "system": sys,
-                        "recent_activities": transmission.get_history(),
-                    },
-                })
+                payload = json.dumps(
+                    {
+                        "type": "status_update",
+                        "data": {
+                            "timestamp": _now(),
+                            "overall": overall,
+                            "bluetooth": bt,
+                            "pen": pen,
+                            "transmission": tx,
+                            "system": sys,
+                            "recent_activities": transmission.get_history(),
+                        },
+                    }
+                )
                 yield f"data: {payload}\n\n"
             except Exception:
                 yield "data: {}\n\n"
@@ -1216,31 +1562,56 @@ def api_debug_services():
     try:
         services = []
         for svc in _SERVICES:
-            services.append({
-                "name": svc["name"],
-                "label": svc["label"],
-                "description": svc["description"],
-                "active": _service_active(svc["name"]),
-                "enabled": _service_enabled(svc["name"]),
-            })
+            services.append(
+                {
+                    "name": svc["name"],
+                    "label": svc["label"],
+                    "description": svc["description"],
+                    "active": _service_active(svc["name"]),
+                    "enabled": _service_enabled(svc["name"]),
+                }
+            )
         return jsonify({"services": services})
     except Exception:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 @bp_api.post("/debug/services/<name>/<action>")
 def api_debug_service_action(name: str, action: str):
     if name not in _SERVICE_NAMES:
-        return jsonify({"error": {"code": "bad_request", "message": f"Unknown service: {name}"}}), 400
+        return jsonify(
+            {"error": {"code": "bad_request", "message": f"Unknown service: {name}"}}
+        ), 400
     if action not in _ALLOWED_ACTIONS:
-        return jsonify({"error": {"code": "bad_request", "message": f"Unknown action: {action}. Allowed: {sorted(_ALLOWED_ACTIONS)}"}}), 400
+        return jsonify(
+            {
+                "error": {
+                    "code": "bad_request",
+                    "message": f"Unknown action: {action}. Allowed: {sorted(_ALLOWED_ACTIONS)}",
+                }
+            }
+        ), 400
     if name not in _HELPER_CONTROLLABLE:
-        return jsonify({"ok": False, "message": f"{name} can only be inspected here, not controlled (system service)."}), 400
+        return jsonify(
+            {
+                "ok": False,
+                "message": f"{name} can only be inspected here, not controlled (system service).",
+            }
+        ), 400
     try:
         ok, msg = _helper_service(action, name)
         if ok:
-            return jsonify({"ok": True, "message": f"Service {name} {action} succeeded."})
+            return jsonify(
+                {"ok": True, "message": f"Service {name} {action} succeeded."}
+            )
         return jsonify({"ok": False, "message": msg})
     except Exception as exc:
         logger.exception("Service action error")
@@ -1253,7 +1624,14 @@ def api_debug_send_text():
         data = request.get_json(force=True) or {}
         text = data.get("text", "")
         if not text:
-            return jsonify({"error": {"code": "bad_request", "message": "text is required and must not be empty."}}), 400
+            return jsonify(
+                {
+                    "error": {
+                        "code": "bad_request",
+                        "message": "text is required and must not be empty.",
+                    }
+                }
+            ), 400
         nowait = bool(data.get("nowait", False))
         cmd = [_BT_SEND_HELPER]
         if nowait:
@@ -1266,7 +1644,9 @@ def api_debug_send_text():
             return jsonify({"ok": True, "message": "Text sent."})
         except FileNotFoundError:
             transmission.set_failed("bt_kb_send helper not found")
-            return jsonify({"ok": False, "message": f"Send helper not found: {_BT_SEND_HELPER}"}), 500
+            return jsonify(
+                {"ok": False, "message": f"Send helper not found: {_BT_SEND_HELPER}"}
+            ), 500
         except subprocess.CalledProcessError as exc:
             reason = (exc.stderr or "").strip() or f"exit {exc.returncode}"
             transmission.set_failed(reason)
@@ -1276,7 +1656,14 @@ def api_debug_send_text():
             return jsonify({"ok": False, "message": "Send timed out."}), 500
     except Exception:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # The trial sends this once per candidate speed.  Known text, so the user can
@@ -1322,19 +1709,37 @@ def api_debug_typing_trial():
         try:
             delays = [int(d) for d in delays][:TYPING_TRIAL_MAX_DELAYS]
         except (TypeError, ValueError):
-            return jsonify({"error": {"code": "bad_request",
-                                      "message": "delays must be a list of whole milliseconds."}}), 400
+            return jsonify(
+                {
+                    "error": {
+                        "code": "bad_request",
+                        "message": "delays must be a list of whole milliseconds.",
+                    }
+                }
+            ), 400
         bad = [d for d in delays if not (keydelay.MIN_MS <= d <= keydelay.MAX_MS)]
         if bad:
-            return jsonify({"error": {"code": "validation_error",
-                                      "message": f"delays must each be {keydelay.MIN_MS}-{keydelay.MAX_MS} ms; got {bad}."}}), 400
+            return jsonify(
+                {
+                    "error": {
+                        "code": "validation_error",
+                        "message": f"delays must each be {keydelay.MIN_MS}-{keydelay.MAX_MS} ms; got {bad}.",
+                    }
+                }
+            ), 400
         if not delays:
-            return jsonify({"error": {"code": "bad_request", "message": "No delays to try."}}), 400
+            return jsonify(
+                {"error": {"code": "bad_request", "message": "No delays to try."}}
+            ), 400
 
         if keydelay.read() is None:
-            return jsonify({"ok": False, "message":
-                            "The Bluetooth daemon is not accepting a typing speed at runtime. "
-                            "Install the current bt_hid_ble daemon and restart it, then try again."}), 409
+            return jsonify(
+                {
+                    "ok": False,
+                    "message": "The Bluetooth daemon is not accepting a typing speed at runtime. "
+                    "Install the current bt_hid_ble daemon and restart it, then try again.",
+                }
+            ), 409
 
         body = str(data.get("text") or TYPING_TRIAL_TEXT)
         saved = int(getattr(ConfigManager.instance().get(), "TypingDelayMs", 20))
@@ -1353,12 +1758,14 @@ def api_debug_typing_trial():
             # speed four times is worse than no trial, and that is exactly
             # what happened while the hold was failing unnoticed.
             if not keydelay.hold(60.0 * len(delays) + 120.0):
-                return jsonify({
-                    "ok": False,
-                    "message": "Could not reserve the typing speed for the trial, so "
-                               "the results would all be at the current setting. "
-                               f"Check that {keydelay.HOLD_PATH} is writable.",
-                }), 409
+                return jsonify(
+                    {
+                        "ok": False,
+                        "message": "Could not reserve the typing speed for the trial, so "
+                        "the results would all be at the current setting. "
+                        f"Check that {keydelay.HOLD_PATH} is writable.",
+                    }
+                ), 409
             _warm_up_link()
             for ms in delays:
                 keydelay.apply(ms)
@@ -1371,17 +1778,26 @@ def api_debug_typing_trial():
 
         done = [r for r in results if r.get("ms_per_char")]
         best = min(done, key=lambda r: r["ms_per_char"]) if done else None
-        return jsonify({
-            "ok": True,
-            "restored_delay_ms": saved,
-            "results": results,
-            "fastest_ms": best["delay_ms"] if best else None,
-            "message": "Now read the text on the PC. Keep the lowest speed that came "
-                       "through perfectly, then choose it in Settings.",
-        })
+        return jsonify(
+            {
+                "ok": True,
+                "restored_delay_ms": saved,
+                "results": results,
+                "fastest_ms": best["delay_ms"] if best else None,
+                "message": "Now read the text on the PC. Keep the lowest speed that came "
+                "through perfectly, then choose it in Settings.",
+            }
+        )
     except Exception:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 def _warm_up_link() -> None:
@@ -1389,8 +1805,13 @@ def _warm_up_link() -> None:
     from .. import bt_progress
 
     try:
-        subprocess.run([_BT_SEND_HELPER, chr(10) * 2], check=False,
-                       capture_output=True, text=True, timeout=30)
+        subprocess.run(
+            [_BT_SEND_HELPER, chr(10) * 2],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
         bt_progress.wait_until_idle(timeout_s=30.0)
     except (OSError, subprocess.SubprocessError):
         pass  # a warm-up that fails must not stop the trial
@@ -1414,19 +1835,32 @@ def _run_typing_trial(ms: int, text: str) -> dict[str, Any]:
     transmission.set_sending("debug/typing-trial", chars=chars)
     queued_at = time.monotonic()
     try:
-        subprocess.run([_BT_SEND_HELPER, text], check=True,
-                       capture_output=True, text=True, timeout=120)
+        subprocess.run(
+            [_BT_SEND_HELPER, text],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
     except (OSError, subprocess.SubprocessError) as exc:
         transmission.set_failed(str(exc))
-        return {"delay_ms": ms, "name": keydelay.name_for(ms),
-                "chars": chars, "error": str(exc)}
+        return {
+            "delay_ms": ms,
+            "name": keydelay.name_for(ms),
+            "chars": chars,
+            "error": str(exc),
+        }
 
     final = bt_progress.wait_until_idle(on_progress=_saw, timeout_s=180.0)
     transmission.set_success()
     if not final.known or watch.started_at is None:
-        return {"delay_ms": ms, "name": keydelay.name_for(ms), "chars": chars,
-                "error": "The text was sent, but the daemon reported no progress, "
-                         "so it could not be timed."}
+        return {
+            "delay_ms": ms,
+            "name": keydelay.name_for(ms),
+            "chars": chars,
+            "error": "The text was sent, but the daemon reported no progress, "
+            "so it could not be timed.",
+        }
     started = watch.started_at
     type_ms = watch.type_seconds() * 1000.0
     # A trial IS a measurement, so it belongs in the KPI store: otherwise the
@@ -1465,7 +1899,14 @@ def api_debug_send_file():
     try:
         file_obj = request.files.get("file")
         if file_obj is None:
-            return jsonify({"error": {"code": "bad_request", "message": "Multipart 'file' field is required."}}), 400
+            return jsonify(
+                {
+                    "error": {
+                        "code": "bad_request",
+                        "message": "Multipart 'file' field is required.",
+                    }
+                }
+            ), 400
 
         suffix = os.path.splitext(file_obj.filename or "")[1] or ".txt"
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix="ipr_debug_")
@@ -1476,12 +1917,19 @@ def api_debug_send_file():
             cmd = [_BT_SEND_FILE_HELPER, "--file", tmp_path, "--newline-mode", "cr"]
             transmission.set_sending("debug/send-file")
             try:
-                subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=30)
+                subprocess.run(
+                    cmd, check=True, capture_output=True, text=True, timeout=30
+                )
                 transmission.set_success()
                 return jsonify({"ok": True, "message": "File sent."})
             except FileNotFoundError:
                 transmission.set_failed("bt_kb_send_file helper not found")
-                return jsonify({"ok": False, "message": f"Send helper not found: {_BT_SEND_FILE_HELPER}"}), 500
+                return jsonify(
+                    {
+                        "ok": False,
+                        "message": f"Send helper not found: {_BT_SEND_FILE_HELPER}",
+                    }
+                ), 500
             except subprocess.CalledProcessError as exc:
                 reason = (exc.stderr or "").strip() or f"exit {exc.returncode}"
                 transmission.set_failed(reason)
@@ -1496,7 +1944,14 @@ def api_debug_send_file():
                 pass
     except Exception:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 def _pen_state_path() -> Path:
@@ -1518,17 +1973,23 @@ def api_debug_pen_files():
                 try:
                     stat = p.stat()
                     raw = p.read_bytes()
-                    content = raw[:_PEN_FILES_CONTENT_CAP].decode("utf-8", errors="replace")
+                    content = raw[:_PEN_FILES_CONTENT_CAP].decode(
+                        "utf-8", errors="replace"
+                    )
                     truncated = len(raw) > _PEN_FILES_CONTENT_CAP
-                    files_result.append({
-                        "name": p.name,
-                        "path": str(p),
-                        "folder": folder_str,
-                        "size_bytes": stat.st_size,
-                        "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        "content": content,
-                        "truncated": truncated,
-                    })
+                    files_result.append(
+                        {
+                            "name": p.name,
+                            "path": str(p),
+                            "folder": folder_str,
+                            "size_bytes": stat.st_size,
+                            "modified_at": datetime.fromtimestamp(
+                                stat.st_mtime, tz=timezone.utc
+                            ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "content": content,
+                            "truncated": truncated,
+                        }
+                    )
                 except OSError:
                     pass
         from ..delivery import DeliveryLog
@@ -1537,28 +1998,40 @@ def api_debug_pen_files():
             {
                 "name": e["name"],
                 "size_bytes": e["size_bytes"],
-                "modified_at": datetime.fromtimestamp(e["mtime"], tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "modified_at": datetime.fromtimestamp(
+                    e["mtime"], tz=timezone.utc
+                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
             for e in DeliveryLog.recent(_pen_state_path())
         ]
         folders = list(cfg.IrisPenFolders or [])
-        return jsonify({
-            "folders": folders,
-            "found_folders": [str(f) for f in expand_folders(cfg.IrisPenFolders)],
-            "files": files_result,
-            # An empty list is the normal state: a scan is deleted from the
-            # pen once typed.  Say so, and show what was handled.
-            "delete_after_send": bool(cfg.DeleteFiles),
-            "handled": handled,
-        })
+        return jsonify(
+            {
+                "folders": folders,
+                "found_folders": [str(f) for f in expand_folders(cfg.IrisPenFolders)],
+                "files": files_result,
+                # An empty list is the normal state: a scan is deleted from the
+                # pen once typed.  Say so, and show what was handled.
+                "delete_after_send": bool(cfg.DeleteFiles),
+                "handled": handled,
+            }
+        )
     except Exception:
         logger.exception("API error")
-        return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
+        return jsonify(
+            {
+                "error": {
+                    "code": "internal_error",
+                    "message": "An internal error occurred.",
+                }
+            }
+        ), 500
 
 
 # ---------------------------------------------------------------------------
 # Auth endpoints  (/api/auth/*)
 # ---------------------------------------------------------------------------
+
 
 def _err(code: str, message: str, status: int):
     return jsonify({"error": {"code": code, "message": message}}), status
@@ -1642,7 +2115,9 @@ def api_auth_users_update(username: str):
 
     if "is_admin" in body:
         if not caller_is_admin:
-            return _err("forbidden", "Admin access required to change admin status.", 403)
+            return _err(
+                "forbidden", "Admin access required to change admin status.", 403
+            )
         if caller == username and not bool(body["is_admin"]):
             return _err("bad_request", "You cannot remove your own admin status.", 400)
         try:

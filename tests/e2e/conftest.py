@@ -130,7 +130,9 @@ def base_url(request, local_mode) -> str:
 def setup_url(request, local_mode) -> str:
     if local_mode:
         return request.getfixturevalue("_local_server")
-    url = (os.environ.get("IPR_SETUP_URL") or os.environ.get("IPR_BASE_URL") or "").rstrip("/")
+    url = (
+        os.environ.get("IPR_SETUP_URL") or os.environ.get("IPR_BASE_URL") or ""
+    ).rstrip("/")
     if not url:
         _fail_or_skip(request, "IPR_SETUP_URL (or IPR_BASE_URL) not set")
     return url

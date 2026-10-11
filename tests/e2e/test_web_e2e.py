@@ -23,7 +23,9 @@ def test_health(base_url):
 
 def test_login_page_reachable(base_url):
     """GET /login returns the login HTML page."""
-    res = requests.get(f"{base_url}/login", verify=False, timeout=10, allow_redirects=True)
+    res = requests.get(
+        f"{base_url}/login", verify=False, timeout=10, allow_redirects=True
+    )
     assert res.status_code == 200
     assert b"login" in res.content.lower()
 

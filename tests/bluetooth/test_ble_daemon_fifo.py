@@ -50,6 +50,7 @@ def _write_fifo(path: str, text: str, timeout: float) -> bool:
 # FIFO worker
 # ---------------------------------------------------------------------------
 
+
 @requires_fifo
 def test_fifo_worker_keeps_reading_when_no_host_subscribed(tmp_path):
     """A send that cannot be delivered must not block later senders.
@@ -120,6 +121,7 @@ def test_fifo_worker_creates_fifo_with_owner_only_permissions(tmp_path):
 # Adapter selection
 # ---------------------------------------------------------------------------
 
+
 class _FakeObjectManager:
     def __init__(self, objects):
         self._objects = objects
@@ -163,9 +165,7 @@ def test_find_adapter_path_logs_when_falling_back(monkeypatch):
     errors = []
     monkeypatch.setattr(mod, "log_err", errors.append)
 
-    bus = _patch_bus(
-        mod, monkeypatch, {"/org/bluez/hci0": {mod.ADAPTER_IFACE: {}}}
-    )
+    bus = _patch_bus(mod, monkeypatch, {"/org/bluez/hci0": {mod.ADAPTER_IFACE: {}}})
 
     assert mod.find_adapter_path(bus, "${BT_HCI:-hci0}") == "/org/bluez/hci0"
     assert len(errors) == 1
