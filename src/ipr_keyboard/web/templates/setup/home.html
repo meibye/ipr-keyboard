@@ -82,8 +82,12 @@
   </p>
   {# The setup portal is reached over the hotspot, where the dashboard is on
      the same device at the same address.  Without this link the only way
-     across was to retype the URL. #}
-  <a href="/" class="btn btn-secondary btn-sm"
+     across was to retype the URL.  It goes to the dashboard's own login
+     unless that session exists: "/" without one sends a hotspot client back
+     to the setup login, which -- already signed in there -- returns here, so
+     a link to "/" did nothing at all. #}
+  <a href="{{ url_for('index') if session.get('username') else url_for('login') }}"
+     class="btn btn-secondary btn-sm"
      style="text-decoration:none;display:inline-block">
     {{ t['home_dash_open'] }}
   </a>

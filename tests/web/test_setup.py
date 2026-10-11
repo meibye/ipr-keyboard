@@ -328,3 +328,47 @@ def test_setup_shutdown_post(setup_client, monkeypatch):
 
     assert res.status_code == 200
     assert any("shutdown" in " ".join(c) for c in popen_calls)
+
+
+# ---------------------------------------------------------------------------
+# The "Open the dashboard" button on the setup home page
+# ---------------------------------------------------------------------------
+
+
+def _dashboard_button(html: str) -> str:
+    import re
+
+    m = re.search(
+        r'<a href="([^"]+)"\s+class="btn btn-secondary btn-sm"[^>]*>\s*Open the dashboard',
+        html,
+    )
+    assert m, "no Open the dashboard button"
+    return m.group(1)
+
+
+def test_dashboard_button_leads_to_the_dashboard_login_from_the_hotspot(
+    setup_client, monkeypatch
+):
+    """Signed in to the setup portal only: "/" would bounce a hotspot client
+    back to the setup login and from there to this page -- the button did
+    nothing.  It must open the dashboard's own login."""
+    _mock_subprocess(monkeypatch)
+    hotspot = {"REMOTE_ADDR": "10.42.0.23"}
+    html = setup_client.get("/setup/", environ_base=hotspot).get_data(as_text=True)
+    href = _dashboard_button(html)
+    assert href == "/login"
+    res = setup_client.get(href, environ_base=hotspot)
+    assert res.status_code == 200 and b"password" in res.data.lower()
+
+
+def test_dashboard_button_goes_straight_in_when_signed_in_to_the_dashboard(
+    setup_client, monkeypatch
+):
+    _mock_subprocess(monkeypatch)
+    with setup_client.session_transaction() as sess:
+        sess["username"] = "admin"
+        sess["is_admin"] = True
+    html = setup_client.get(
+        "/setup/", environ_base={"REMOTE_ADDR": "10.42.0.23"}
+    ).get_data(as_text=True)
+    assert _dashboard_button(html) == "/"
