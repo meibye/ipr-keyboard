@@ -1,7 +1,7 @@
 /* =========================================================
    ipr.css — shared stylesheet for IPR Pen Bridge web UI
-   Covers: dashboard, login, logs_select (no body class needed)
-           index, status, config, logs, pairing  (body.legacy-page)
+   Covers: dashboard, login                   (no body class needed)
+           status, pairing                        (body.legacy-page)
            pairing_wizard                         (body.pairing-wizard)
    ========================================================= */
 
@@ -608,11 +608,10 @@ body.login-page {
   .btn-login:active { opacity: 0.75; }
 
 
-/* ---- Logs / log-select page ---- */
-.back-link {
-      display: inline-block; margin-bottom: 14px;
-      font-size: 14px; color: var(--color-primary); text-decoration: none;
-    }
+/* ---- Shared page rules ----
+   Global h1 and .card.  They came with the old log-select page and sit
+   after the dashboard's own .card, so they are what the dashboard renders
+   with: keep them unless the dashboard's look is reviewed too. */
     h1 { font-size: 20px; font-weight: 700; margin-bottom: 14px; }
 
     .card {
@@ -622,54 +621,8 @@ body.login-page {
       padding: 16px;
       margin-bottom: 16px;
     }
-    .section-label {
-      font-size: 12px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.06em; color: var(--color-text-muted); margin-bottom: 10px;
-    }
-    .checkbox-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 2px 16px;
-      margin-bottom: 14px;
-    }
-    @media (min-width: 480px) {
-      .checkbox-grid { grid-template-columns: 1fr 1fr; }
-    }
-    .checkbox-grid label {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 14px; cursor: pointer; padding: 6px 0;
-      min-width: 0;
-    }
-    .checkbox-grid label span {
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .checkbox-grid input[type="checkbox"] { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
-    .submit-btn {
-      padding: 10px 22px; border-radius: 8px;
-      background: var(--color-primary); color: #fff;
-      border: none; font-size: 14px; font-weight: 600; cursor: pointer;
-    }
-    .submit-btn:hover { opacity: 0.88; }
 
-    .log-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; }
-    .log-card-header {
-      font-size: 12px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.06em; color: var(--color-text-muted);
-      padding: 10px 16px; border-bottom: 1px solid var(--color-border);
-    }
-    .log-content {
-      display: block;
-      background: #1e272e; color: #dfe6e9;
-      font-family: monospace; font-size: 12px; line-height: 1.5;
-      white-space: pre-wrap; word-break: break-all;
-      padding: 12px 14px;
-      overflow-y: auto;
-      max-height: 60vh;
-      min-height: 120px;
-    }
-
-
-/* ---- Legacy admin pages (index, status, config, logs, pairing) ---- */
+/* ---- Legacy admin pages (status, pairing) ---- */
 /* Scoped to body.legacy-page so these rules don't bleed into the dashboard. */
 body.legacy-page {
   margin: 2em;
@@ -692,13 +645,6 @@ body.legacy-page .btn {
 body.legacy-page .btn:disabled { background: #aaa; }
 body.legacy-page .result { margin-top: 1em; color: var(--color-ready); }
 body.legacy-page .error { color: var(--color-error); }
-body.legacy-page .log-container {
-  border: 1px solid #ccc; background: #f8f8f8;
-  padding: 1em; height: 500px;
-  overflow-y: scroll; font-family: monospace; white-space: pre-wrap;
-}
-body.legacy-page .desc { color: #555; font-size: 0.95em; }
-body.legacy-page .endpoint { font-family: monospace; color: var(--color-primary); }
 
 
 /* ---- Pairing wizard page ---- */
@@ -721,9 +667,6 @@ body.pairing-wizard pre {
   background: #000; padding: 8px 10px; border-radius: 6px;
   font-size: 0.8rem; max-height: 260px; overflow: auto;
 }
-
-/* ---- Config page action buttons ---- */
-.config-actions { display: flex; gap: 1em; }
 
 /* Live send progress on the Transmission card.  A bar rather than a number
    alone: a send of a few hundred characters runs for tens of seconds, and the

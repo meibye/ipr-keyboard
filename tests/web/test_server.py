@@ -207,9 +207,8 @@ def test_a_missing_asset_still_produces_a_usable_url(temp_config):
 
 def test_the_old_pages_accept_a_post(flask_client, monkeypatch):
     """POST to /pairing/ used `flask.request` without importing flask, so it
-    raised NameError (500) -- only GET was ever tested.  (server.py's /config/
-    page had the same bug, but the `config` blueprint answers /config/ first,
-    so that page is unreachable; the POST below reaches the blueprint.)"""
+    raised NameError (500) -- only GET was ever tested.  /config/ is the
+    `config` blueprint's JSON endpoint; its POST takes a partial update."""
     from ipr_keyboard.web import server
 
     ran = []

@@ -18,6 +18,4 @@ The application's logger and a small blueprint that serves its file.
 - `GET /logs/`: the whole log file as text
 - `GET /logs/tail?lines=<n>`: the last lines (default 200)
 
-The blueprint is registered before `server.py`'s own `/logs/` route, so it
-is the one that answers `/logs/`; the journal viewer is the dashboard's
-Debug ▸ Logs (`/api/logs/raw`).
+The journal viewer is the dashboard's Debug ▸ Logs (`/api/logs/raw`).

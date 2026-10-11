@@ -36,7 +36,7 @@ Python application package for `ipr-keyboard`.
 | `web/setup.py` | The setup portal served on the hotspot |
 | `web/auth.py` | Dashboard accounts (`users.json`), hashed |
 | `web/templates/dashboard.html` | Image-first SPA dashboard (primary UI) |
-| `web/templates/` | Legacy HTML templates (status, config, logs, pairing) and the setup portal |
+| `web/templates/` | `login.html`, the legacy status and pairing pages, and the setup portal (`setup/`) |
 | `web/static/` | SVG icons, the device-flow illustration, `ipr.css`, and `localtime.js` (times in the viewer's zone) |
 
 ## Runtime Model

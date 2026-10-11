@@ -15,7 +15,6 @@ from urllib.parse import urlparse
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
-from ..config.manager import ConfigManager
 from ..config.web import bp_config
 from ..logging.logger import get_logger
 from ..logging.web import bp_logs
@@ -214,42 +213,6 @@ def create_app() -> Flask:
             bluetooth={"adapter": adapter_info, "devices": devices},
         )
 
-    @app.route("/logs/")
-    def logs():
-        # Supported units from svc_tail_all_logs.sh
-        units = [
-            "ipr_keyboard.service",
-            "ipr-provision.service",
-            "ipr-firewall.service",
-            "irispen-mount.service",
-            "ipr-led-boot.service",
-            "bt_hid_ble.service",
-            "bt_hid_agent_unified.service",
-            "bluetooth.service",
-            "NetworkManager.service",
-            "dbus.service",
-            "systemd-udevd.service",
-        ]
-        selected_units = request.args.getlist("unit")
-        if not selected_units:
-            selected_units = ["ipr_keyboard.service"]
-        # Build journalctl command
-        cmd = ["journalctl", "-n", "1000", "-o", "short-iso"]
-        for u in selected_units:
-            cmd += ["-u", u]
-        try:
-            log_content = subprocess.check_output(
-                cmd, text=True, stderr=subprocess.STDOUT
-            )
-        except Exception as exc:
-            log_content = f"Could not read logs: {exc}"
-        return render_template(
-            "logs_select.html",
-            log_content=log_content,
-            units=units,
-            selected_units=selected_units,
-        )
-
     @app.route("/pairing/", methods=["GET", "POST"])
     def pairing():
         result = error = None
@@ -279,51 +242,6 @@ def create_app() -> Flask:
             devices.append({"error": f"failed to query devices: {exc}"})
         return render_template(
             "pairing.html", result=result, error=error, devices=devices
-        )
-
-    @app.route("/config/", methods=["GET", "POST"])
-    def config():
-        result = error = None
-        config_mgr = ConfigManager.instance()
-        config_obj = config_mgr.get()
-        config_dict = config_obj.to_dict()
-        if request.method == "POST":
-            if "restart" in request.form:
-                try:
-                    subprocess.Popen(["sudo", "reboot"])
-                    result = "Restarting machine..."
-                except Exception as exc:
-                    error = f"Failed to restart: {exc}"
-            elif "shutdown" in request.form:
-                try:
-                    subprocess.Popen(["sudo", "shutdown", "-h", "now"])
-                    result = "Shutting down machine..."
-                except Exception as exc:
-                    error = f"Failed to shutdown: {exc}"
-            else:
-                update_kwargs = {}
-                for key, value in request.form.items():
-                    if key in config_dict:
-                        # Type conversion
-                        field_type = type(getattr(config_obj, key))
-                        if field_type is bool:
-                            update_kwargs[key] = value == "on"
-                        elif field_type is int:
-                            try:
-                                update_kwargs[key] = int(value)
-                            except Exception:
-                                update_kwargs[key] = config_dict[key]
-                        else:
-                            update_kwargs[key] = value
-                try:
-                    config_mgr.update(**update_kwargs)
-                    result = "Configuration updated."
-                except Exception as exc:
-                    error = f"Failed to update config: {exc}"
-                config_obj = config_mgr.get()
-                config_dict = config_obj.to_dict()
-        return render_template(
-            "config.html", config=config_dict, result=result, error=error
         )
 
     logger.info("Web server created")

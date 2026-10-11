@@ -15,8 +15,7 @@ hotspot, and a few legacy pages.
 - `templates/dashboard.html`: the image-first single-page dashboard (primary UI)
 - `templates/login.html`: dashboard login
 - `templates/setup/`: the setup portal's pages
-- `templates/index.html`, `status.html`, `config.html`, `logs.html`,
-  `logs_select.html`, `pairing.html`: legacy pages
+- `templates/status.html`, `pairing.html`: legacy pages
 - `static/`: SVG icons and the device-flow illustration, `ipr.css`,
   `setup.css`, and `localtime.js` (shows every time in the viewer's time zone)
 
@@ -26,10 +25,10 @@ hotspot, and a few legacy pages.
 - `/api/...` — see `docs/ui/api-contract.md`
 - `/setup/...` — the setup portal
 - `/status`, `/pairing/` — legacy HTML pages
-- `/config/` and `/logs/` — answered by the `config` and `logs`
-  blueprints (JSON config; the log file as text).  `server.py` also defines
-  HTML pages at those two paths, but the blueprints are registered first and
-  win, so those pages are not reachable.
+- `/config/` and `/logs/` — the `config` and `logs` blueprints: the
+  configuration as JSON, and the application log file as text.  (Their old
+  HTML pages in `server.py` were unreachable behind the blueprints and were
+  removed in 2026-10; the dashboard covers both.)
 
 Every route except `/health`, `/login`, `/logout`, `/api/auth/login` and
 `/setup` needs a signed-in session.
