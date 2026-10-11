@@ -101,7 +101,11 @@ done
 # Never fatal: an unwritable location (a non-root run, a read-only /opt) costs
 # the report, not the audit.
 if [ -n "$REPORT_FILE" ]; then
-    if mkdir -p "$(dirname "$REPORT_FILE")" 2>/dev/null && : > "$REPORT_FILE" 2>/dev/null; then
+    # umask 077: the report describes the device's security setup; root-only,
+    # like the install log (and it must never carry a password -- see H.4/J.3).
+    if mkdir -p "$(dirname "$REPORT_FILE")" 2>/dev/null \
+        && ( umask 077; : > "$REPORT_FILE" ) 2>/dev/null \
+        && chmod 0600 "$REPORT_FILE" 2>/dev/null; then
         exec > >(tee >(sed -u 's/\x1b\[[0-9;]*m//g' > "$REPORT_FILE")) 2>&1
         _REPORT_ACTIVE=1
     else
@@ -353,7 +357,10 @@ check G.6 "ipr-provision.service enabled"    "systemctl is-enabled ipr-provision
 info "Live service status:"
 for unit in bluetooth.service bt_hid_agent_unified.service bt_hid_ble.service \
             ipr_keyboard.service ipr-provision.service; do
-    state=$(systemctl is-active "$unit" 2>/dev/null || echo "unknown")
+    # is-active prints the state AND exits non-zero for anything but active,
+    # so "|| echo unknown" printed "inactive" and "unknown" both.
+    state=$(systemctl is-active "$unit" 2>/dev/null)
+    state=${state:-unknown}
     printf "    %-42s %s\n" "$unit" "$state"
 done
 
@@ -395,9 +402,10 @@ check H.4 "admin_initial_password.txt written"        \
           "[ -f '$PROJECT_DIR/admin_initial_password.txt' ]"
 
 if [ -f "$PROJECT_DIR/admin_initial_password.txt" ]; then
-    _INITIAL_PWD=$(cat "$PROJECT_DIR/admin_initial_password.txt")
-    info "Initial admin password: $_INITIAL_PWD"
-    info "(change this after first login)"
+    # Never the password itself: this output goes to the report file and,
+    # under the provisioning wizard, its log and the journal.
+    info "Initial admin password: in /opt/ipr_state/credentials.txt (sudo cat it)"
+    info "(change it after the first login; the file then disappears)"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -470,7 +478,7 @@ if [ "$_MODE" = "development" ]; then
     check L.9 "development mode: ssh + dashboard rule present" \
               "nft list table inet ipr_fw 2>/dev/null | grep 'dport { 22, 443 } accept'"
     warn "Device is in DEVELOPMENT mode — switch to production when commissioning is done:"
-    warn "  sudo ipr_mode_ctl.sh production   (or hold the magnet 6 s)"
+    warn "  sudo ipr_mode_ctl.sh production   (or magnet menu: System > Mode; 10 s hold without a display)"
 else
     check L.9 "production mode: ssh/dashboard closed (reset for open sessions, drop for new)" \
               "nft list table inet ipr_fw 2>/dev/null | grep 'dport { 22, 443 } reject with tcp reset'"
@@ -514,9 +522,13 @@ if [ -e "$_WIZ_LOG" ]; then
     _adm_pwd=$(tr -d '\r\n' < "$PROJECT_DIR/admin_initial_password.txt" 2>/dev/null || true)
     [ -n "$_adm_pwd" ] && _secrets+=("$_adm_pwd")
     _leaked=0
-    for _s in "${_secrets[@]}"; do grep -qF -- "$_s" "$_WIZ_LOG" && _leaked=1; done
-    check M.11 "no password in the provisioning log"   "[ $_leaked -eq 0 ]"
-    unset _s _secrets _hs_pass _adm_pwd _leaked
+    for _s in "${_secrets[@]}"; do
+        for _f in "$_WIZ_LOG" /opt/ipr_state/provision_verify.log; do
+            [ -f "$_f" ] && grep -qF -- "$_s" "$_f" && _leaked=1
+        done
+    done
+    check M.11 "no password in the provisioning or audit log" "[ $_leaked -eq 0 ]"
+    unset _s _f _secrets _hs_pass _adm_pwd _leaked
 else
     record_skip M.10 "provisioning log (not present)"
 fi
@@ -572,8 +584,22 @@ check O.2 "installed BLE daemon reads the runtime typing speed"     "grep -q 'KE
 check O.3 "installed BLE daemon publishes typing progress"     "grep -q 'PROGRESS_FILE' /usr/local/bin/bt_hid_ble_daemon.py"
 check O.4 "installed BLE daemon publishes the bond state"     "grep -q 'LINK_FILE' /usr/local/bin/bt_hid_ble_daemon.py"
 check O.5 "installed BLE daemon does NOT register GATT 0x1801"     "! grep -q 'UUID_GATT_SERVICE' /usr/local/bin/bt_hid_ble_daemon.py"
-check O.6 "BLE daemon registered its GATT application"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grepq 'GATT application registered'"
-check O.7 "BLE daemon is advertising, with an interval it chose"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grepq -E 'Registered GATT\+ADV.*(fast|medium|slow)'"
+# O.6/O.7 read the daemon's start-up lines.  If the journal was rotated or
+# vacuumed after the daemon started, those lines are gone though nothing is
+# wrong (O.8 still checks the live advertisement): skip instead of failing.
+_ble_started=$(systemctl show bt_hid_ble.service -p ActiveEnterTimestampMonotonic --value 2>/dev/null)
+_journal_from=$(journalctl -b 0 --no-pager -o export 2>/dev/null \
+    | sed -n 's/^__MONOTONIC_TIMESTAMP=//p' | head -1)
+if [ -n "$_ble_started" ] && [ -n "$_journal_from" ] && [ "$_ble_started" -gt 0 ] \
+    && [ "$_journal_from" -gt "$_ble_started" ] \
+    && ! journalctl -u bt_hid_ble.service -b 0 --no-pager -q 2>/dev/null | grepq .; then
+    record_skip O.6 "BLE daemon start-up not in the journal (rotated since it started) — see O.8"
+    record_skip O.7 "BLE daemon start-up not in the journal (rotated since it started) — see O.8"
+else
+    check O.6 "BLE daemon registered its GATT application"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grepq 'GATT application registered'"
+    check O.7 "BLE daemon is advertising, with an interval it chose"     "journalctl -u bt_hid_ble.service -b 0 --no-pager | grepq -E 'Registered GATT\+ADV.*(fast|medium|slow)'"
+fi
+unset _ble_started _journal_from
 check O.8 "an advertising instance is actually active"     "busctl --system get-property org.bluez /org/bluez/hci0 org.bluez.LEAdvertisingManager1 ActiveInstances | grepq -v ' 0$'"
 
 # The runtime files: the daemon creates two at startup, the application writes
@@ -641,10 +667,14 @@ section "J — Manual / interactive checks  (skipped with --auto)"
 # These steps cannot be automated from SSH — they require a phone, browser, or
 # physical interaction with the device.
 
+# The hotspot takes the device's only Wi-Fi radio: starting it takes the device
+# off the home network, and an SSH session running this audit is cut -- the
+# terminal just freezes.  Say so before anyone tries it from here.
 if manual_step \
+    "NOTE: starting the hotspot takes the device off the home network -- an SSH session running this audit is cut.  Over SSH, run --auto and do J.1-J.4 by hand from a phone (docs/user/hotspot-setup.md)." \
     "Open Wi-Fi settings on a phone or laptop." \
     "The hotspot SSID 'ipr-setup-XXXX' should be visible." \
-    "(If not visible, trigger it: hold reed switch ≥ 3 s or triple power-cycle)"; then
+    "(If not visible, start it: magnet menu > Hotspot: to on, a 3 s hold without a display, or a triple power-cycle)"; then
     record_pass J.1 "Hotspot SSID visible on client device"
 else
     record_skip J.1 "Hotspot SSID visible on client device"
@@ -659,19 +689,18 @@ else
     record_skip J.2 "Setup portal reachable at https://10.42.0.1/setup/"
 fi
 
-if [ -f "$PROJECT_DIR/admin_initial_password.txt" ]; then
-    _HOTSPOT_CRED=$(grep '^PASS=' /etc/ipr-hotspot.secret 2>/dev/null | cut -d= -f2 || echo "<see /etc/ipr-hotspot.secret>")
+if [ -f /etc/ipr-hotspot.secret ]; then
     if manual_step \
         "In the setup portal, log in with:" \
         "  Username: ipr" \
-        "  Password: $_HOTSPOT_CRED  (from /etc/ipr-hotspot.secret)" \
+        "  Password: the hotspot password (sudo cat /opt/ipr_state/credentials.txt)" \
         "Expected: setup home page loads after login."; then
         record_pass J.3 "Setup portal login succeeds"
     else
         record_skip J.3 "Setup portal login succeeds"
     fi
 else
-    record_skip J.3 "Setup portal login succeeds — admin_initial_password.txt not found"
+    record_skip J.3 "Setup portal login succeeds — /etc/ipr-hotspot.secret not found"
 fi
 
 if manual_step \
@@ -686,7 +715,7 @@ fi
 if manual_step \
     "Open the main dashboard on the local network:" \
     "  https://$(hostname -s).local/" \
-    "Log in as admin (password in $PROJECT_DIR/admin_initial_password.txt)." \
+    "Log in as admin (first password: sudo cat /opt/ipr_state/credentials.txt)." \
     "Expected: dashboard renders with correct WiFi/BT status."; then
     record_pass J.5 "Main dashboard accessible and renders"
 else
@@ -695,7 +724,7 @@ fi
 
 if manual_step \
     "Bluetooth pairing: open Bluetooth settings on a host (PC/phone)." \
-    "The device should appear as 'IPR Keyboard (Dev)' or similar." \
+    "The device should appear under its BT_DEVICE_NAME (e.g. 'IPR Keyboard')." \
     "Pair and confirm the pairing code." \
     "Expected: paired device listed in dashboard Bluetooth status."; then
     record_pass J.6 "BT pairing completes successfully"
@@ -703,8 +732,12 @@ else
     record_skip J.6 "BT pairing completes successfully"
 fi
 
-if manual_step     "Status LED: power-cycle the device and watch the LED."     "Expected: solid white (power) -> white blink (booting) -> status colour for 30 s -> off.  In development mode there is no periodic blip: the mode is on the OLED badge."     "Tap the magnet: LED shows status again."     "Hold the magnet: three quick white blinks (magnet registered), then dark, then solid blue at 3 s; release -> hotspot comes up, LED stays solid blue."     "Hold 3 s again: hotspot stops and the LED returns to the status colour." \
-    "Hold on to 6 s: solid white; release -> white while shutting down, then OFF = safe to unplug."; then
+if manual_step \
+    "Status LED: power-cycle the device and watch the LED." \
+    "Expected: solid white (power) -> white blink (booting) -> status colour for 30 s -> off.  In development mode there is no periodic blip: the mode is on the OLED badge." \
+    "Tap the magnet: three quick white blinks, then the status colour again." \
+    "With a display: hold ~1 s -> the menu opens; Hotspot: to on -> LED solid blue; Hotspot: to off -> status colour.  Power > Shut down -> white, then OFF = safe to unplug." \
+    "Without a display (OledEnabled false or no panel): hold 3 s -> blue, release -> hotspot; 6 s -> white, release -> shutdown, then OFF."; then
     record_pass J.7 "Status LED boot sequence and magnet gestures"
 else
     record_skip J.7 "Status LED boot sequence and magnet gestures"
@@ -715,9 +748,9 @@ if manual_step \
     "Expected: STARTING… with a checklist a few seconds after power-on (ipr-oled-boot.service), continuing into the application's own checklist -> READY (or PROBLEM) with PC, pen and Wi-Fi lines -> blank after 30 s." \
     "The mode badge (DEV / PROD) sits in the top right corner of every screen." \
     "Tap the magnet: the LED blinks white to acknowledge it and the status page comes back." \
-    "Hold the magnet: the activity list shows one activity per line, the selected one in bold with a marker; activities already passed disappear and the rest roll up." \
+    "Hold the magnet: HOLD… with a progress bar, then MENU.  Taps step through Hotspot, Display, Recovery info, Power, System, Exit; a hold chooses the instant the bar fills." \
     "Long lines (a long network name or IP) roll slowly instead of being cut." \
-    "Hold 6 s and release: SHUTTING DOWN stays until the LED goes off, then the panel is dark too."; then
+    "Power > Shut down: SHUTTING DOWN stays until the LED goes off, then the panel is dark too."; then
     record_pass J.8 "OLED display boot, status, gestures and blanking"
 else
     record_skip J.8 "OLED display boot, status, gestures and blanking"
