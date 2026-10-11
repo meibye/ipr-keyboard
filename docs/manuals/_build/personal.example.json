@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy to personal.json (git-ignored) and fill in. build_admin_manual.py then also writes Administratormanual_IPR_Pen_Bridge_personal.docx with these values in place of the generic placeholders.",
+  "user": "pi",
+  "email": "admin@example.org",
+  "full_name": "Fornavn Efternavn",
+  "home_ssid": "MitHjemmenet"
+}

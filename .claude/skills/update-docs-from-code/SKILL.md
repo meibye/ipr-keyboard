@@ -23,7 +23,14 @@ description: Update developer, operational, API, and user-facing documentation a
 3. Update only the affected sections.
 4. Ensure claims match actual code paths, commands, flags, defaults, and behavior.
 5. Update examples and usage notes as needed.
-6. Report which docs were updated and why.
+6. If the Word manuals are affected, edit their sources in
+   `docs/manuals/_build/` and rebuild (see `docs/manuals/README.md`).  Build
+   the administrator manual with `--variant both`, so the generic file in
+   git and the personal copy (from the git-ignored `personal.json`) stay in
+   step; without `personal.json`, build `--variant generic` and say so.
+   Never put a real user name, email, full name or network name into a build
+   script — use the placeholders.
+7. Report which docs were updated and why.
 
 # Quality bar
 - No invented behavior

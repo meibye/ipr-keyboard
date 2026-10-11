@@ -74,3 +74,6 @@ fp-info-cache
 IprSense.bak
 # VS Code Local History extension
 .history/
+# Personal values for the administrator manual, and the manual built from them
+docs/manuals/_build/personal.json
+docs/manuals/*_personal.docx

@@ -26,18 +26,46 @@ uv run --with python-docx --no-project python build_user_manual.py
 uv run --with python-docx --no-project python build_admin_manual.py
 ```
 
+### Two variants of the administrator manual
+
+| File | Contents | In git |
+|---|---|---|
+| `Administratormanual_IPR_Pen_Bridge.docx` | generic: `<bruger>`, `<hjemme-SSID>`, `<e-mail>`, `<fulde navn>` | yes |
+| `Administratormanual_IPR_Pen_Bridge_personal.docx` | the real user name, home SSID, email and full name | **no** (ignored) |
+
+The source (`build_admin_manual.py`) only ever contains the placeholders.
+The personal values live in `_build/personal.json`, which is git-ignored;
+copy `_build/personal.example.json` to create it.  The placeholders are
+swapped run by run when the personal copy is saved (`Manual.save(...,
+replacements=...)`), so every paragraph, table, code block and footer gets
+them.
+
+```bash
+python build_admin_manual.py                     # both if personal.json exists, else generic
+python build_admin_manual.py --variant both      # both; fails without personal.json
+python build_admin_manual.py --variant generic   # only the file in git
+python build_admin_manual.py --variant personal  # only the personal copy
+```
+
+(each with `uv run --with python-docx --no-project` as above).  Never write a
+real name, address or network name into the build scripts: add a placeholder
+to `PLACEHOLDERS` in `build_admin_manual.py` and a key to `personal.json`
+instead.
+
 ## Layout
 
 ```
 docs/manuals/
   Brugermanual_IPR_Pen_Bridge.docx
   Administratormanual_IPR_Pen_Bridge.docx
+  Administratormanual_IPR_Pen_Bridge_personal.docx   (git-ignored)
   figures/            generated PNG diagrams (fig01…fig12)
   _build/
     make_figures.py       diagram generator (Pillow)
     docx_helpers.py       shared Word styling, tables, captions, notes
     build_user_manual.py  user manual content
-    build_admin_manual.py administrator manual content
+    build_admin_manual.py administrator manual content (--variant generic|personal|both)
+    personal.example.json template for personal.json (git-ignored)
 ```
 
 ## Photos and screenshots

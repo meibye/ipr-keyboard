@@ -8,7 +8,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from docx import Document
-from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 from docx.oxml import OxmlElement
@@ -360,7 +359,44 @@ class Manual:
         self.fig_no += 1
         self._caption(f"Figur {self.fig_no}. {caption}")
 
-    def save(self, path: Path) -> None:
+    def save(self, path: Path, replacements: dict[str, str] | None = None) -> None:
+        """Write the document; `replacements` swaps text in every run first.
+
+        Used for the personal variant of a manual: the source says
+        "<bruger>", and the personal copy says the real user name.  A
+        placeholder is always written inside one run (one string passed to
+        p/code/table/...), so replacing run by run cannot miss half of one.
+        The replacement changes the document in place: save the generic
+        variant first.
+        """
+        if replacements:
+            for run in self._runs():
+                text = run.text
+                for old, new in replacements.items():
+                    text = text.replace(old, new)
+                if text != run.text:
+                    run.text = text
         path.parent.mkdir(parents=True, exist_ok=True)
         self.doc.save(str(path))
         print(f"  wrote {path.name}  ({self.fig_no} figurer, {self.tbl_no} tabeller)")
+
+    def _runs(self):
+        """Every text run: body, tables (nested), headers and footers."""
+
+        def from_paragraphs(paragraphs):
+            for par in paragraphs:
+                yield from par.runs
+
+        def from_tables(tables):
+            for table in tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        yield from from_paragraphs(cell.paragraphs)
+                        yield from from_tables(cell.tables)
+
+        yield from from_paragraphs(self.doc.paragraphs)
+        yield from from_tables(self.doc.tables)
+        for section in self.doc.sections:
+            for part in (section.header, section.footer):
+                yield from from_paragraphs(part.paragraphs)
+                yield from from_tables(part.tables)

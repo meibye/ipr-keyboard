@@ -1,8 +1,11 @@
 """Build the Danish administrator manual (Administratormanual) as a Word document."""
 from __future__ import annotations
 
+import argparse
+import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 from docx_helpers import Manual
@@ -78,7 +81,7 @@ def payload_rows() -> list[list[str]]:
     ]
 
 
-def build() -> None:
+def build() -> Manual:
     m = Manual(
         title="Administratormanual",
         subtitle="IPR Pen Bridge — opsætning, konfiguration, drift og fejlfinding",
@@ -339,12 +342,12 @@ def build() -> None:
             ["Værtsnavn", "ipr-prod-zero2, ipr-prod-zero eller ipr-dev-pi4",
              "Zero 2 W, Zero W henholdsvis udviklingsenheden. Skal være identisk med "
              "HOSTNAME i /opt/ipr_common.env."],
-            ["Brugernavn", "meibye",
+            ["Brugernavn", "<bruger>",
              "Applikations- og administrationskontoen. Alle stier i manualen tager "
              "udgangspunkt i denne bruger."],
             ["Adgangskode", "(den aftalte adgangskode)",
              "Angives ikke i manualen. Se organisationens adgangskodeopbevaring."],
-            ["Konfigurér trådløst LAN", "SSID: DPbUFEKqA",
+            ["Konfigurér trådløst LAN", "SSID: <hjemme-SSID>",
              "Hjemmenettet. Adgangskoden er den aftalte og angives ikke her."],
             ["Land for trådløst LAN", "DK",
              "Skal sættes. Uden landekode blokeres wlan0 af rfkill, og enheden kommer "
@@ -378,7 +381,7 @@ def build() -> None:
     ], numbered=True)
     m.code(
         "ping ipr-prod-zero2.local\n"
-        "ssh meibye@ipr-prod-zero2.local     # adgangskode fra Imager-opsætningen"
+        "ssh <bruger>@ipr-prod-zero2.local     # adgangskode fra Imager-opsætningen"
     )
     m.p("Svarer enheden ikke, så kontrollér SSID og Wi-Fi-adgangskode ved at sætte kortet "
         "i PC'en igen og gennemse firstrun-filerne på boot-partitionen. Alternativt "
@@ -400,8 +403,8 @@ def build() -> None:
         "mange gange kortet skrives:")
     m.code(
         "nmcli connection show                       # find profilens navn, fx netplan-wlan0-<SSID>\n"
-        "sudo nmcli connection modify \"netplan-wlan0-DPbUFEKqA\" ipv4.dhcp-client-id mac\n"
-        "sudo nmcli connection up     \"netplan-wlan0-DPbUFEKqA\""
+        "sudo nmcli connection modify \"netplan-wlan0-<hjemme-SSID>\" ipv4.dhcp-client-id mac\n"
+        "sudo nmcli connection up     \"netplan-wlan0-<hjemme-SSID>\""
     )
     m.p("Kommandoerne køres med tastatur og skærm på enheden eller over hotspottet, da "
         "den netop ikke kan nås over nettet. Diagnosen bekræftes i NetworkManagers log:")
@@ -447,11 +450,11 @@ def build() -> None:
     m.table(
         ["Enhed", "Værtsnavn", "Konto", "Anvendelse"],
         [
-            ["Produktionsenhed (Zero 2 W)", "ipr-prod-zero2", "meibye",
+            ["Produktionsenhed (Zero 2 W)", "ipr-prod-zero2", "<bruger>",
              "Provisionering, udrulning og drift."],
-            ["Produktionsenhed (Zero W)", "ipr-prod-zero", "meibye",
+            ["Produktionsenhed (Zero W)", "ipr-prod-zero", "<bruger>",
              "Som ovenfor, 32-bit."],
-            ["Udviklingsenhed (Pi 4)", "ipr-dev-pi4", "meibye",
+            ["Udviklingsenhed (Pi 4)", "ipr-dev-pi4", "<bruger>",
              "Udvikling og test."],
             ["Alle", "(samme)", "copilotdiag",
              "Afgrænset fejlsøgning. Oprettes af trin 05 og bruger sin egen nøgle."],
@@ -469,21 +472,21 @@ def build() -> None:
         "ssh-keygen -t ed25519 -C \"admin@ipr\" -f ~/.ssh/ipr_rpi\n"
         "\n"
         "# Linux og macOS — kopiér nøglen til enheden\n"
-        "ssh-copy-id -i ~/.ssh/ipr_rpi.pub meibye@ipr-prod-zero2.local\n"
+        "ssh-copy-id -i ~/.ssh/ipr_rpi.pub <bruger>@ipr-prod-zero2.local\n"
         "\n"
         "# Windows PowerShell — ssh-copy-id findes ikke; brug i stedet\n"
         "Get-Content $env:USERPROFILE\\.ssh\\ipr_rpi.pub |\n"
-        "  ssh meibye@ipr-prod-zero2.local \"mkdir -p ~/.ssh && chmod 700 ~/.ssh &&\n"
+        "  ssh <bruger>@ipr-prod-zero2.local \"mkdir -p ~/.ssh && chmod 700 ~/.ssh &&\n"
         "  cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys\""
     )
 
     m.p("Forbind til enheden", bold=True)
     m.code(
         "# Over hjemmenettet, via mDNS\n"
-        "ssh -i ~/.ssh/ipr_rpi meibye@ipr-prod-zero2.local\n"
+        "ssh -i ~/.ssh/ipr_rpi <bruger>@ipr-prod-zero2.local\n"
         "\n"
         "# Over opsætningshotspottet — fast adresse, virker uden netværk\n"
-        "ssh -i ~/.ssh/ipr_rpi meibye@10.42.0.1\n"
+        "ssh -i ~/.ssh/ipr_rpi <bruger>@10.42.0.1\n"
         "\n"
         "# Fejlsøgningskontoen\n"
         "ssh -i ~/.ssh/copilotdiag_rpi copilotdiag@ipr-prod-zero2.local"
@@ -496,13 +499,13 @@ def build() -> None:
     m.code(
         "Host ipr-prod-zero2 ipr-prod-zero2.local\n"
         "    HostName ipr-prod-zero2.local\n"
-        "    User meibye\n"
+        "    User <bruger>\n"
         "    IdentityFile ~/.ssh/ipr_rpi\n"
         "    ServerAliveInterval 30\n"
         "\n"
         "Host ipr-prod-zero ipr-prod-zero.local\n"
         "    HostName ipr-prod-zero.local\n"
-        "    User meibye\n"
+        "    User <bruger>\n"
         "    IdentityFile ~/.ssh/ipr_rpi\n"
         "    ServerAliveInterval 30"
     )
@@ -592,7 +595,7 @@ def build() -> None:
     m.table(
         ["Hvad", "Hvorhen på enheden", "Hvorfor"],
         [
-            ["Projektmappen", "$REPO_DIR — typisk /home/meibye/dev/ipr-keyboard",
+            ["Projektmappen", "$REPO_DIR — typisk /home/<bruger>/dev/ipr-keyboard",
              "Kildekode, skripts og provisioneringstrin."],
             ["provision/common.env — lokal kopi, som du selv opretter",
              "/opt/ipr_common.env",
@@ -668,7 +671,7 @@ def build() -> None:
         "nøglen afvises. Kommandoen, der retter fejlen, står med. En slukket enhed giver "
         "altid FAIL og kan ignoreres.")
     m.p("Skal nøglen lægges på enheden fra WSL, så brug aliasset og ikke IP-adressen. "
-        "Aliasset bærer User meibye; en bar adresse logger ind som WSL-brugeren og "
+        "Aliasset bærer User <bruger>; en bar adresse logger ind som WSL-brugeren og "
         "afvises med Permission denied, selv når nøglen er i orden.")
     m.code(
         "ssh-copy-id -i ~/.ssh/ipr_rpi.pub ipr-prod-zero2     # rigtigt\n"
@@ -771,7 +774,7 @@ def build() -> None:
         "# 2. På PC'en — kør fra mappen OVER repositoriet, og navngiv mappen.\n"
         "#    Så opretter scp selv ipr-keyboard i målet.\n"
         "cd D:\\sandbox\n"
-        "scp -r ipr-keyboard ipr-prod-zero2:/home/meibye/dev/\n"
+        "scp -r ipr-keyboard ipr-prod-zero2:/home/<bruger>/dev/\n"
         "\n"
         "# 3. Ryd op på enheden bagefter\n"
         "ssh ipr-prod-zero2 \"cd ~/dev/ipr-keyboard && rm -rf .venv .git logs && rm -f secret_key.txt admin_initial_password.txt\""
@@ -822,13 +825,13 @@ def build() -> None:
         "\n"
         "# Selve overførslen — skrives på én linje, fordi den kaldes fra PowerShell.\n"
         "# Bemærk filtrene: de holder hemmeligheder og enhedsspecifikke filer tilbage.\n"
-        "wsl -d Ubuntu -- rsync -avz --delete --chmod=D755,F644 --exclude '.git' --exclude '.venv' --exclude '__pycache__' --exclude 'docs' --exclude 'tests' --exclude 'logs' --exclude 'config.json' --exclude 'users.json' --exclude 'secret_key.txt' --exclude 'admin_initial_password.txt' /mnt/d/sandbox/ipr-keyboard/ ipr-prod-zero2:/home/meibye/dev/ipr-keyboard/\n"
+        "wsl -d Ubuntu -- rsync -avz --delete --chmod=D755,F644 --exclude '.git' --exclude '.venv' --exclude '__pycache__' --exclude 'docs' --exclude 'tests' --exclude 'logs' --exclude 'config.json' --exclude 'users.json' --exclude 'secret_key.txt' --exclude 'admin_initial_password.txt' /mnt/d/sandbox/ipr-keyboard/ ipr-prod-zero2:/home/<bruger>/dev/ipr-keyboard/\n"
         "\n"
         "# Gendan eksekverbar-flaget, som --chmod har fjernet\n"
         "wsl -d Ubuntu -- ssh ipr-prod-zero2 \"find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\\( -name '*.sh' -o -name '*.py' \\\\) -exec chmod +x {} +\""
     )
     m.note("Brug værtsaliasset ipr-prod-zero2 — ikke det fulde navn "
-           "meibye@ipr-prod-zero2.local. WSL2 kan ikke slå .local-navne op, og "
+           "<bruger>@ipr-prod-zero2.local. WSL2 kan ikke slå .local-navne op, og "
            "kommandoen fejler med Could not resolve hostname. Aliasset peger på en "
            "IP-adresse, som wsl_setup_ssh.sh har indsat.", "warn")
     m.note("--chmod=D755,F644 er nødvendig. Filer på Windows-drevet fremstår med "
@@ -848,7 +851,7 @@ def build() -> None:
         "  --exclude 'docs' --exclude 'tests' --exclude 'logs' \\\n"
         "  --exclude 'config.json' --exclude 'users.json' \\\n"
         "  --exclude 'secret_key.txt' --exclude 'admin_initial_password.txt' \\\n"
-        "  ./ ipr-prod-zero2:/home/meibye/dev/ipr-keyboard/\n"
+        "  ./ ipr-prod-zero2:/home/<bruger>/dev/ipr-keyboard/\n"
         "\n"
         "ssh ipr-prod-zero2 \"find ~/dev/ipr-keyboard/scripts ~/dev/ipr-keyboard/provision \\\\\n"
         "  \\\\( -name '*.sh' -o -name '*.py' \\\\) -exec chmod +x {} +\""
@@ -869,7 +872,7 @@ def build() -> None:
         "# På PC'en, i repositoriets rod\n"
         "cd D:\\sandbox\\ipr-keyboard\n"
         "git bundle create ipr-keyboard.bundle --all\n"
-        "scp ipr-keyboard.bundle meibye@ipr-prod-zero2.local:/tmp/\n"
+        "scp ipr-keyboard.bundle <bruger>@ipr-prod-zero2.local:/tmp/\n"
         "\n"
         "# På enheden — første gang\n"
         "git clone /tmp/ipr-keyboard.bundle ~/dev/ipr-keyboard\n"
@@ -894,8 +897,8 @@ def build() -> None:
     m.p("Kontrollér overførslen", bold=True)
     m.code(
         "# På PC'en — mappen er uden betydning her\n"
-        "ssh meibye@ipr-prod-zero2.local \"ls -l ~/dev/ipr-keyboard/provision/*.sh\"\n"
-        "ssh meibye@ipr-prod-zero2.local \"sudo -S test -r /opt/ipr_common.env && echo env ok\""
+        "ssh <bruger>@ipr-prod-zero2.local \"ls -l ~/dev/ipr-keyboard/provision/*.sh\"\n"
+        "ssh <bruger>@ipr-prod-zero2.local \"sudo -S test -r /opt/ipr_common.env && echo env ok\""
     )
 
     m.h2("3.4 Forbered miljøfilen")
@@ -921,6 +924,47 @@ def build() -> None:
         "sudo ~/dev/ipr-keyboard/scripts/deploy/device_bootstrap.sh --check-only\n"
         "sudo ~/dev/ipr-keyboard/scripts/deploy/device_bootstrap.sh"
     )
+    m.p("Uden tastatur: --unattended", bold=True)
+    m.p("Med --unattended kører hele installationen uden at spørge om noget. Alle svar "
+        "tages fra /opt/ipr_common.env eller deres dokumenterede standardværdi, og "
+        "genstarterne kædes sammen af sig selv: guiden aktiverer engangstjenesten "
+        "ipr-provision-resume.service, genstarter, og tjenesten kører guiden videre med "
+        "--unattended --resume, når enheden er oppe igen — tre genstarter på et nyt "
+        "billede. En kørsel, der fejler, aktiverer den ikke igen, så den kan ikke køre i "
+        "ring. --unattended indebærer --yes (scriptets egen bekræftelse).")
+    m.code(
+        "# Fra administrator-pc'en (Git Bash eller WSL), i repositoriets rod\n"
+        "bash ./scripts/deploy/host_push_to_device.sh ipr-prod-zero2\n"
+        "ssh -t ipr-prod-zero2 'sudo mv /tmp/ipr_common.env /opt/ipr_common.env \\\n"
+        "  && sudo chmod 0600 /opt/ipr_common.env \\\n"
+        "  && sudo ~/dev/ipr-keyboard/scripts/deploy/device_bootstrap.sh --unattended'\n"
+        "\n"
+        "# Eller direkte på enheden\n"
+        "sudo ~/dev/ipr-keyboard/scripts/deploy/device_bootstrap.sh --unattended\n"
+        "sudo ./provision/provision_wizard.sh --unattended"
+    )
+    m.bullets([
+        ("Forudsætning — ", "en tilrettet enhedskonfiguration: /opt/ipr_common.env eller "
+                           "provision/common.env, ikke den urørte common.env.example. "
+                           "Ellers nægter kørslen at starte, så to enheder ikke får samme "
+                           "værtsnavn og Bluetooth-navn. Editoren åbnes aldrig."),
+        ("Svarene på forhånd — ", "INSTALL_COPILOT_TOOLS, RECLONE_REPO, SKIP_GITHUB_SSH, "
+                                 "AUTO_REBOOT, FINAL_VERIFY og INSTALL_TMUX i "
+                                 "/opt/ipr_common.env (se provision/README.md)."),
+        ("Følg med — ", "journalctl -u ipr-provision-resume.service -f, eller læs "
+                       "/opt/ipr_state/provision_wizard.log bagefter."),
+        ("Resultatet — ", "guidens slutstatus er antallet af fejlede kontroller i "
+                         "afslutningsauditten (trin 13), så exit 0 betyder, at alt "
+                         "lykkedes. Rapporten gemmes i /opt/ipr_state/provision_verify.log. "
+                         "Notér de genererede adgangskoder fra opsummeringen i trin 14 — "
+                         "de laves på ny ved hver installation."),
+        ("Andre tilvalg — ", "--resume (fortsæt fra det registrerede trin), --from-step N, "
+                            "--no-reboot (stop ved hvert genstartspunkt) og --check-only "
+                            "(kun forhåndskontrollen)."),
+    ])
+    m.note("Fjern først “IPR Keyboard” fra pc'ens Bluetooth-indstillinger. Installationen "
+           "sletter enhedens halvdel af parringen, men ikke pc'ens, og en pc med en gammel "
+           "parring forbinder og afbryder i ring.", "warn")
     m.note("Skriptet advarer, hvis HOSTNAME i miljøfilen afviger fra enhedens nuværende "
            "navn. Navnet skifter under trin 02, og den igangværende SSH-forbindelse mister "
            "sit navneopslag — genopret forbindelsen som <nyt navn>.local bagefter.", "warn")
@@ -1795,7 +1839,7 @@ def build() -> None:
         "rsync -avz --delete --chmod=D755,F644 \\\n"
         "  --exclude '.git' --exclude '.venv' --exclude '__pycache__' \\\n"
         "  --exclude 'config.json' --exclude 'users.json' \\\n"
-        "  ./ ipr-prod-zero2:/home/meibye/dev/ipr-keyboard/\n"
+        "  ./ ipr-prod-zero2:/home/<bruger>/dev/ipr-keyboard/\n"
         "\n"
         "# 4. Rul ud på enheden\n"
         "ssh ipr-prod-zero2 \"cd ~/dev/ipr-keyboard && sudo ./scripts/deploy/deploy_full_update.sh\"\n"
@@ -2433,9 +2477,9 @@ def build() -> None:
 
     m.h2("Forbindelse og filoverførsel")
     m.code(
-        "ssh -i ~/.ssh/ipr_rpi meibye@ipr-prod-zero2.local   # over hjemmenettet\n"
-        "ssh -i ~/.ssh/ipr_rpi meibye@10.42.0.1              # over hotspottet\n"
-        "ssh-copy-id -i ~/.ssh/ipr_rpi.pub meibye@ipr-prod-zero2.local\n"
+        "ssh -i ~/.ssh/ipr_rpi <bruger>@ipr-prod-zero2.local   # over hjemmenettet\n"
+        "ssh -i ~/.ssh/ipr_rpi <bruger>@10.42.0.1              # over hotspottet\n"
+        "ssh-copy-id -i ~/.ssh/ipr_rpi.pub <bruger>@ipr-prod-zero2.local\n"
         "ssh-keygen -R <adresse>                             # ryd gammel værtsnøgle (ssh -G viser adressen)\n"
         "./scripts/deploy/make_payload.sh                     # pak kun det nodvendige\n"
         "scp /tmp/ipr-deploy.tgz ipr-prod-zero2:/tmp/\n"
@@ -2443,7 +2487,7 @@ def build() -> None:
         "  tar xzf /tmp/ipr-deploy.tgz -C ~/dev/ipr-keyboard\"\n"
         "scp <fil> ipr-prod-zero2:/tmp/                            # enkelt fil\n"
         "wsl -d Ubuntu -- rsync -avz --chmod=D755,F644 --exclude '.git' \\\n"
-        "  /mnt/d/sandbox/ipr-keyboard/ ipr-prod-zero2:/home/meibye/dev/ipr-keyboard/\n"
+        "  /mnt/d/sandbox/ipr-keyboard/ ipr-prod-zero2:/home/<bruger>/dev/ipr-keyboard/\n"
         "git bundle create ipr-keyboard.bundle --all         # historik uden netværk"
     )
 
@@ -2627,11 +2671,69 @@ def build() -> None:
         "uv run --with python-docx --no-project python build_user_manual.py\n"
         "uv run --with python-docx --no-project python build_admin_manual.py"
     )
+    m.p("Administratormanualen findes i to udgaver. Den almindelige, "
+        "Administratormanual_IPR_Pen_Bridge.docx, har pladsholdere i vinkelparenteser for "
+        "brugernavnet på enheden, hjemmenettets navn (SSID), e-mailadresse og fulde navn. "
+        "Den personlige, Administratormanual_IPR_Pen_Bridge_personal.docx, "
+        "har de rigtige værdier fra docs/manuals/_build/personal.json (kopiér "
+        "personal.example.json). Begge filer er udeladt fra git, så personlige oplysninger "
+        "ikke deles. Uden tilvalg bygges begge, når personal.json findes; "
+        "--variant generic, personal eller both vælger.")
     m.p("Indholdsfortegnelsen udfyldes først, når dokumentet åbnes i Word: markér alt med "
         "Ctrl+A og tryk F9, eller højreklik i indholdsfortegnelsen og vælg Opdatér felt.")
 
-    m.save(OUT / "Administratormanual_IPR_Pen_Bridge.docx")
+    return m
+
+
+GENERIC_NAME = "Administratormanual_IPR_Pen_Bridge.docx"
+PERSONAL_NAME = "Administratormanual_IPR_Pen_Bridge_personal.docx"
+PERSONAL_FILE = Path(__file__).resolve().with_name("personal.json")
+
+# The generic placeholders the source uses, and the personal.json key that
+# fills each one in the personal variant.
+PLACEHOLDERS = {
+    "<bruger>": "user",
+    "<hjemme-SSID>": "home_ssid",
+    "<e-mail>": "email",
+    "<fulde navn>": "full_name",
+}
+
+
+def personal_values(path: Path = PERSONAL_FILE) -> dict[str, str]:
+    """Placeholder -> real value, from the git-ignored personal.json."""
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    missing = [key for key in PLACEHOLDERS.values() if not str(raw.get(key, "")).strip()]
+    if missing:
+        raise SystemExit(f"{path.name}: missing {', '.join(missing)}")
+    return {ph: str(raw[key]).strip() for ph, key in PLACEHOLDERS.items()}
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Build the administrator manual.")
+    ap.add_argument(
+        "--variant",
+        choices=("generic", "personal", "both"),
+        help="generic: placeholders (the file name in git); personal: the real "
+        "values from personal.json, saved as *_personal.docx; both.  Default: "
+        "both when personal.json exists, else generic.",
+    )
+    args = ap.parse_args(argv)
+    variant = args.variant or ("both" if PERSONAL_FILE.exists() else "generic")
+    if variant in ("personal", "both") and not PERSONAL_FILE.exists():
+        print(f"{PERSONAL_FILE.name} not found: copy personal.example.json and fill it in",
+              file=sys.stderr)
+        return 2
+    values = personal_values() if variant in ("personal", "both") else {}
+    m = build()
+    if variant in ("generic", "both"):
+        m.save(OUT / GENERIC_NAME)
+    if variant in ("personal", "both"):
+        # Changes the document in place, so after the generic save.
+        m.save(OUT / PERSONAL_NAME, replacements=values)
+    if variant == "generic" and not args.variant:
+        print(f"  ({PERSONAL_FILE.name} not found: personal variant not built)")
+    return 0
 
 
 if __name__ == "__main__":
-    build()
+    raise SystemExit(main())
