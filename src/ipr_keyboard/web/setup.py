@@ -206,15 +206,32 @@ def _home_network_ip() -> str:
 
 
 def _cert_expiry() -> str:
-    """Return the server cert expiry date as a plain string, or '' if unreadable."""
+    """The server cert's expiry as UTC ISO ("...Z"), or '' if unreadable.
+
+    An instant, not text in the device's zone: the page shows it in the
+    viewer's time zone (static/localtime.js).  openssl prints e.g.
+    "notAfter=Oct  5 19:39:00 2036 GMT"; anything unparseable is passed on
+    as it came, which the page leaves unchanged.
+    """
     try:
         out = subprocess.check_output(
             ["openssl", "x509", "-in", str(_SERVER_CERT_FILE), "-noout", "-enddate"],
             text=True, stderr=subprocess.DEVNULL,
         ).strip()
-        return out.split("=", 1)[-1].strip() if "=" in out else out
+        raw = out.split("=", 1)[-1].strip() if "=" in out else out
     except Exception:
         return ""
+    return _openssl_date_to_iso(raw)
+
+
+def _openssl_date_to_iso(raw: str) -> str:
+    from datetime import datetime as _dt, timezone as _tz
+
+    try:
+        at = _dt.strptime(" ".join(raw.split()), "%b %d %H:%M:%S %Y GMT")
+    except ValueError:
+        return raw
+    return at.replace(tzinfo=_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _service_status(name: str) -> str:
@@ -551,7 +568,7 @@ def logs():
     selected = [u for u in request.args.getlist("unit") if u in _LOG_UNITS] or ["ipr_keyboard.service"]
     newest_first = request.args.get("order", "desc") == "desc"
     follow = request.args.get("follow") == "1"
-    cmd = ["journalctl", "-n", "300", "-o", "short", "--no-pager"]
+    cmd = ["journalctl", "-n", "300", "-o", "short-iso", "--no-pager"]
     for u in selected:
         cmd += ["-k"] if u == "kernel" else ["-u", u]
     try:
@@ -574,6 +591,7 @@ def logs():
         newest_first=newest_first,
         follow=follow,
         device_time=_dt.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z"),
+        device_epoch=time.time(),
         log_content=log_content,
     )
 

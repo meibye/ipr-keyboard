@@ -296,6 +296,15 @@ Technical detail should be placed behind:
 Reboot and shutdown must require confirmation.
 The UI must explain what happens after shutdown.
 
+### Rule 6: show times in the viewer's time zone
+
+Every date and time on a page -- clocks, events, log lines, pen files,
+certificate expiry -- is shown in the time zone of the device presenting
+the page, not the Pi's.  The server sends instants (see the API contract);
+`static/localtime.js` formats them, as `YYYY-MM-DD HH:MM:SS`, with the zone
+name on clocks.  Never format a time for display on the server.  The OLED
+is the exception: it is on the device, so it shows the device's time.
+
 ---
 
 ## Navigation

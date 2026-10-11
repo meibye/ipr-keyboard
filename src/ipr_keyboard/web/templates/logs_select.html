@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Logs - IPR Pen Bridge</title>
   <link rel="stylesheet" href="{{ asset_url('ipr.css') }}">
+  <script src="{{ asset_url('localtime.js') }}"></script>
 </head>
 <body>
   <a href="/" class="back-link">← Back to Dashboard</a>
@@ -28,7 +29,7 @@
 
   <div class="log-card">
     <div class="log-card-header">Log output</div>
-    <pre class="log-content">{{ log_content }}</pre>
+    <pre class="log-content" data-ipr-log>{{ log_content }}</pre>
   </div>
 </body>
 </html>

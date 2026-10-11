@@ -8,7 +8,7 @@
   <h2>{{ t['sys_cert_title'] }}</h2>
   <div class="row">
     <span class="lbl">{{ t['sys_cert_expires'] }}</span>
-    <span class="val">{{ cert_expiry if cert_expiry else '—' }}</span>
+    <span class="val">{% if cert_expiry %}<time data-ipr-time datetime="{{ cert_expiry }}">{{ cert_expiry }}</time>{% else %}—{% endif %}</span>
   </div>
   <div class="row">
     <span class="lbl">{{ t['sys_cert_trust'] }}</span>

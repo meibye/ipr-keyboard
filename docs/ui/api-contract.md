@@ -15,6 +15,12 @@ The backend may have additional internal endpoints, but the frontend should depe
 - dangerous actions require explicit POST requests
 - no frontend direct shell execution
 - all timestamps should be ISO 8601
+- times are sent as instants -- UTC ISO 8601 with `Z`, epoch seconds, or
+  journal lines in `journalctl -o short-iso` form (with their UTC offset) --
+  and never preformatted in the device's own time zone.  The page shows every
+  date and time in the **viewer's** time zone, through
+  `static/localtime.js` (`iprTime.format`, `iprTime.localizeLines`,
+  `iprTime.startClock`).
 
 ## Existing server baseline
 
@@ -268,7 +274,9 @@ between runs. Returns `{"ok": true, "message": "Metrics cleared."}`.
 ### Event endpoints
 #### GET /api/events
 
-Returns translated UI events.
+Returns translated UI events.  `timestamp` is when the event happened (the
+journal entry's time, in UTC), not when it was requested; the event text
+does not repeat the time.
 
 #### Query parameters
 - limit optional
@@ -327,6 +335,13 @@ Example response
 Returns raw log lines for diagnostics.
 
 This endpoint is for advanced use and should not be the default UI source for the Events page.
+
+Each `line` is a journal line in `short-iso` form, so it starts with its own
+instant ("2026-04-17T16:22:09+02:00 ..."); the page rewrites that stamp into
+the viewer's time zone.  `device_epoch` is the device clock (epoch seconds)
+when the response was built, shown as a ticking clock in the viewer's zone;
+`device_time` is the same moment as text in the device's zone, kept for
+older pages.
 
 #### Query parameters
 - limit optional
@@ -777,9 +792,15 @@ Device-level facts for the home page's *Device* card (session required):
   "reachability": "SSH and dashboard open on the home network",
   "incidents_count": 0,
   "last_incident": "",
+  "device_time": "2026-09-13 14:00:00 CEST",
+  "device_epoch": 1789308000.0,
   "timestamp": "2026-09-13T12:00:00Z"
 }
 ```
+
+The top-bar clock is the device's clock (`device_epoch`), ticked locally and
+shown in the viewer's time zone.  `last_incident` starts with a short-iso
+stamp, which the page also shows in the viewer's zone.
 
 ## `POST /api/actions/hotspot`  (admin)
 

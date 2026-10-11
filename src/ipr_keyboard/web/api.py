@@ -8,6 +8,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -51,6 +52,27 @@ bp_api = Blueprint("api", __name__, url_prefix="/api")
 
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# Times leave the device as instants (UTC "Z", or the journal's short-iso
+# with its offset) and are shown in the VIEWER's time zone by
+# static/localtime.js -- never preformatted in the device's own zone.
+_JOURNAL_STAMP = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\s+")
+
+
+def _journal_line_time(line: str) -> tuple[str | None, str]:
+    """Split a `journalctl -o short-iso` line into (UTC ISO "Z", the rest)."""
+    m = _JOURNAL_STAMP.match(line)
+    if not m:
+        return None, line
+    stamp = m.group(1)
+    if stamp[-5] in "+-" and stamp[-3] != ":":  # +0200 -> +02:00 for fromisoformat
+        stamp = stamp[:-2] + ":" + stamp[-2:]
+    try:
+        at = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return None, line
+    return at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), line[m.end():]
 
 
 def _run(cmd: list[str], timeout: int = 5) -> str:
@@ -219,6 +241,9 @@ def _parse_journalctl_events(lines: list[str], category_filter: str | None, seve
         line = line.strip()
         if not line:
             continue
+        # The event's own time, not the request's; the text loses the stamp
+        # so no time in it is in the device's zone (see _JOURNAL_STAMP).
+        at, line = _journal_line_time(line)
 
         # Determine category from unit name hints
         lline = line.lower()
@@ -266,7 +291,7 @@ def _parse_journalctl_events(lines: list[str], category_filter: str | None, seve
 
         events.append({
             "id": f"evt_{i}",
-            "timestamp": _now(),
+            "timestamp": at or _now(),
             "category": category,
             "severity": severity,
             "summary": summary,
@@ -428,6 +453,7 @@ def _build_device_data() -> dict[str, Any]:
         "incidents_count": count,
         "last_incident": last,
         "device_time": _device_local_time(),
+        "device_epoch": time.time(),
     }
 
 
@@ -477,7 +503,7 @@ def api_action_hotspot():
 
 def _fetch_recent_events(limit: int = 50, category: str | None = None, severity: str | None = None) -> list[dict]:
     try:
-        cmd = ["journalctl", "-n", str(limit * 4), "-o", "short", "--no-pager"]
+        cmd = ["journalctl", "-n", str(limit * 4), "-o", "short-iso", "--no-pager"]
         out = subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT, timeout=10)
         lines = out.splitlines()
         return _parse_journalctl_events(lines, category, severity, limit)
@@ -543,14 +569,15 @@ def api_logs_raw():
     """Tail of the journal, oldest first (newest at the bottom, like `tail`).
 
     ?unit=<name> may repeat (see LOG_UNITS; "kernel" = -k); ?limit=N (<=1000);
-    ?contains=text filters lines.  The response carries the device's local
-    time so the reader can relate the timestamps to "now" on the device.
+    ?contains=text filters lines.  Lines are `short-iso`, so each carries its
+    instant and the page shows it in the viewer's zone; `device_epoch` is the
+    device clock, so the reader can relate the lines to "now" on the device.
     """
     try:
         limit = min(int(request.args.get("limit", 200)), 1000)
         contains = request.args.get("contains") or None
         units = [u for u in request.args.getlist("unit") if u in LOG_UNITS]
-        cmd = ["journalctl", "-n", str(limit), "-o", "short", "--no-pager"]
+        cmd = ["journalctl", "-n", str(limit), "-o", "short-iso", "--no-pager"]
         for u in units:
             cmd += ["-k"] if u == "kernel" else ["-u", u]
         try:
@@ -566,7 +593,7 @@ def api_logs_raw():
                 continue
             items.append({"line": line})
         return jsonify({"items": items, "units": units or ["(all)"], "available_units": LOG_UNITS,
-                        "device_time": _device_local_time()})
+                        "device_time": _device_local_time(), "device_epoch": time.time()})
     except Exception:
         logger.exception("API error"); return jsonify({"error": {"code": "internal_error", "message": "An internal error occurred."}}), 500
 

@@ -3,7 +3,7 @@
 <div class="card">
   <h2>{{ t['logs_title'] }}</h2>
   <p style="color:#666;font-size:.85rem;margin:0 0 .6rem">
-    {{ t['logs_device_time'] }}: <code id="device-time">{{ device_time }}</code>
+    {{ t['logs_device_time'] }}: <code id="device-time" data-ipr-clock="{{ device_epoch }}">{{ device_time }}</code>
     &nbsp;·&nbsp; {{ t['logs_lines_note'] }}
   </p>
   <form method="get" action="{{ url_for('setup.logs') }}" id="logs-form">
@@ -23,7 +23,7 @@
     <button type="submit" class="btn btn-secondary btn-sm"
             style="display:inline-block;margin:.5rem 0">{{ t['logs_refresh'] }}</button>
   </form>
-  <pre id="log-pre">{{ log_content }}</pre>
+  <pre id="log-pre" data-ipr-log>{{ log_content }}</pre>
 </div>
 <script>
 (function () {
@@ -35,19 +35,8 @@
   // journal read cheap on a Zero; the form state is in the URL so it survives.
   setTimeout(function () { window.location.reload(); }, 4000);
   {% endif %}
-  // Tick the device clock between reloads.
-  var el = document.getElementById('device-time');
-  var start = Date.now(), base = el.textContent;
-  var m = base.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2}):(\d{2}) (.*)$/);
-  if (m) {
-    var d = new Date(m[1] + 'T' + m[2] + ':' + m[3] + ':' + m[4]);
-    setInterval(function () {
-      var t = new Date(d.getTime() + (Date.now() - start));
-      var p = function (n) { return String(n).padStart(2, '0'); };
-      el.textContent = t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()) + ' ' +
-        p(t.getHours()) + ':' + p(t.getMinutes()) + ':' + p(t.getSeconds()) + ' ' + m[5];
-    }, 1000);
-  }
+  // The device clock and the log lines are shown in the viewer's time zone
+  // by localtime.js (data-ipr-clock / data-ipr-log), which ticks the clock.
 })();
 </script>
 {% endblock %}

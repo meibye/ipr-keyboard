@@ -226,7 +226,7 @@ def create_app() -> Flask:
         if not selected_units:
             selected_units = ["ipr_keyboard.service"]
         # Build journalctl command
-        cmd = ["journalctl", "-n", "1000", "-o", "short"]
+        cmd = ["journalctl", "-n", "1000", "-o", "short-iso"]
         for u in selected_units:
             cmd += ["-u", u]
         try:
