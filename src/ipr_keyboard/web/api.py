@@ -25,6 +25,7 @@ from ..logging.logger import get_logger, set_log_level
 from .. import transmission
 from .. import keydelay
 from .. import metrics
+from .. import incidents as incident_log
 from ..usb.detector import expand_folders, list_files, pen_presence
 from .auth import UserStore
 
@@ -542,7 +543,7 @@ def api_status_health():
 # ---------------------------------------------------------------------------
 
 _MODE_FILE = Path("/var/lib/ipr-keyboard/mode")
-_INCIDENTS_FILE = Path("/var/lib/ipr-keyboard/incidents.log")
+_INCIDENTS_FILE = incident_log.INCIDENTS_FILE
 _HOTSPOT_SECRET = Path("/etc/ipr-hotspot.secret")
 _HOTSPOT_CTL = "/usr/local/bin/ipr_hotspot_ctl.sh"
 
@@ -582,19 +583,26 @@ def _hotspot_ssid() -> str:
     return ""
 
 
-def _incidents() -> tuple[int, str]:
-    try:
-        lines = [ln for ln in _INCIDENTS_FILE.read_text().splitlines() if ln.strip()]
-        return len(lines), (lines[-1] if lines else "")
-    except OSError:
-        return 0, ""
+def _incidents_handled_path() -> Path:
+    """Beside the app's other state (pen_state.json); the log itself is root's."""
+    from ..utils.helpers import project_root
+
+    return project_root() / incident_log.HANDLED_FILE
+
+
+def _incidents() -> tuple[int, int, str]:
+    """(open, handled, the latest open line) -- see incidents.py."""
+    return incident_log.summary(
+        incident_log.read(_INCIDENTS_FILE),
+        incident_log.handled(_incidents_handled_path()),
+    )
 
 
 def _build_device_data() -> dict[str, Any]:
     mode = _device_mode()
     hotspot = _hotspot_active()
     home = _home_wifi_active()
-    count, last = _incidents()
+    count, handled_count, last = _incidents()
     if hotspot:
         reach = "Reachable only via the hotspot (10.42.0.1) while it is on"
     elif mode == "development":
@@ -610,10 +618,126 @@ def _build_device_data() -> dict[str, Any]:
         "hostname": _run(["hostname"]).strip(),
         "reachability": reach,
         "incidents_count": count,
+        "incidents_handled": handled_count,
         "last_incident": last,
         "device_time": _device_local_time(),
         "device_epoch": time.time(),
     }
+
+
+@bp_api.get("/incidents")
+def api_incidents():
+    """Every recorded failure, newest first, explained (see incidents.py)."""
+    try:
+        items = incident_log.read(_INCIDENTS_FILE)
+        done = incident_log.handled(_incidents_handled_path())
+        states = incident_log.unit_states([i.unit for i in items if i.id not in done])
+        out = [
+            incident_log.explain(i, states.get(i.unit, "unknown"), i.id in done)
+            for i in reversed(items)
+        ]
+        return jsonify(
+            {
+                "items": out,
+                "open_count": sum(1 for i in out if not i["handled"]),
+                "handled_count": sum(1 for i in out if i["handled"]),
+            }
+        )
+    except Exception:
+        logger.exception("API error")
+        return _err("internal_error", "An internal error occurred.", 500)
+
+
+@bp_api.get("/incidents/log")
+def api_incident_log():
+    """The failed unit's journal around the moment it failed: from three
+    minutes before to one minute after, short-iso like /api/logs/raw."""
+    try:
+        wanted = request.args.get("id", "")
+        incident = next(
+            (i for i in incident_log.read(_INCIDENTS_FILE) if i.id == wanted), None
+        )
+        if incident is None:
+            return _err("not_found", "No such incident.", 404)
+        cmd = ["journalctl", "-o", "short-iso", "--no-pager", "-n", "400"]
+        if incident.unit != "unknown":
+            cmd += ["-u", incident.unit + ".service"]
+        if incident.at:
+            at = datetime.strptime(incident.at, "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
+            cmd += [
+                "--since",
+                f"@{int(at.timestamp()) - 180}",
+                "--until",
+                f"@{int(at.timestamp()) + 60}",
+            ]
+        try:
+            out = subprocess.check_output(
+                cmd, text=True, stderr=subprocess.STDOUT, timeout=10
+            )
+        except Exception:
+            out = ""
+        lines = [ln for ln in out.splitlines() if ln.strip()]
+        return jsonify({"id": incident.id, "unit": incident.unit, "lines": lines})
+    except Exception:
+        logger.exception("API error")
+        return _err("internal_error", "An internal error occurred.", 500)
+
+
+@bp_api.post("/incidents/handled")
+def api_incidents_handled():
+    """Mark incidents as handled (admin).  Body: {"ids": [...]} or {"all": true}.
+    The log is kept as it is; handled ones stop counting on the Home card."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    try:
+        body = request.get_json(silent=True) or {}
+        items = incident_log.read(_INCIDENTS_FILE)
+        ids = (
+            [i.id for i in items]
+            if body.get("all")
+            else [str(x) for x in (body.get("ids") or [])]
+        )
+        if not ids:
+            return _err("bad_request", "Say which incidents: ids, or all.", 400)
+        n = incident_log.mark_handled(_incidents_handled_path(), ids, items)
+        return jsonify({"ok": True, "marked": n})
+    except OSError as exc:
+        logger.exception("Could not record handled incidents")
+        return _err("io_error", f"Could not save: {exc}", 500)
+    except Exception:
+        logger.exception("API error")
+        return _err("internal_error", "An internal error occurred.", 500)
+
+
+@bp_api.post("/incidents/restart")
+def api_incident_restart():
+    """Restart the unit behind an incident, when the root helper allows it."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    try:
+        wanted = (request.get_json(silent=True) or {}).get("id", "")
+        incident = next(
+            (i for i in incident_log.read(_INCIDENTS_FILE) if i.id == wanted), None
+        )
+        if incident is None:
+            return _err("not_found", "No such incident.", 404)
+        if not incident.info.restartable or incident.unit not in _HELPER_CONTROLLABLE:
+            return _err(
+                "bad_request",
+                f"{incident.info.label} cannot be restarted from here.",
+                400,
+            )
+        ok, msg = _helper_service("restart", incident.unit)
+        if ok:
+            return jsonify({"ok": True, "message": f"{incident.info.label} restarted."})
+        return jsonify({"ok": False, "message": msg}), 500
+    except Exception:
+        logger.exception("API error")
+        return _err("internal_error", "An internal error occurred.", 500)
 
 
 @bp_api.get("/device")

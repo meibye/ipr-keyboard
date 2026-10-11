@@ -63,6 +63,7 @@ tests/data/reports/
 # Word lock files
 ~$*
 pen_state.json
+incidents_handled.json
 
 # KiCad — editor lock files, autosaves and local project state
 *.lck

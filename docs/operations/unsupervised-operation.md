@@ -48,6 +48,16 @@ Installed by `scripts/headless/install_observability.sh` (provisioning and
 
 ## What to do after an incident
 
+**On the dashboard** (Home ▸ Device ▸ *Incidents*): the count is the number
+of open incidents; selecting it lists each one with what failed, whether it
+is running again, and what to do.  *Show log* gives that service's journal
+around the moment it failed, *Restart* restarts the Bluetooth services, and
+*Mark as handled* takes an incident out of the count.  The log file itself is
+never changed -- "handled" is kept in `incidents_handled.json` next to the
+application's state.
+
+**On the device**:
+
 ```
 cat /var/lib/ipr-keyboard/incidents.log
 journalctl -u <unit> --since "<timestamp>" --no-pager

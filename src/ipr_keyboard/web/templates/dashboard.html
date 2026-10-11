@@ -116,13 +116,28 @@
         </div>
         <div class="health-metric">
           <div class="hm-label">Incidents</div>
-          <div class="hm-value" id="dv-incidents">—</div>
+          <button type="button" class="hm-value inc-count" id="dv-incidents" onclick="toggleIncidents()" aria-controls="home-incidents" aria-expanded="false">—</button>
         </div>
       </div>
       <div class="card-explanation" id="dv-reach" style="margin-top:6px"></div>
       <div class="action-row" id="dv-actions" style="margin-top:10px" hidden>
         <button class="btn btn-secondary btn-sm" id="dv-hotspot-on" onclick="hotspotAction(true)">📶 Start hotspot</button>
         <button class="btn btn-secondary btn-sm" id="dv-hotspot-off" onclick="hotspotAction(false)">⏹ Stop hotspot</button>
+      </div>
+    </div>
+
+    <!-- Incidents: what failed, whether it still is, what to do (/api/incidents) -->
+    <div class="card" style="margin-top:4px" id="home-incidents" hidden>
+      <div class="home-health-title">Incidents</div>
+      <p class="card-explanation" style="margin-bottom:8px">
+        An incident is recorded each time one of the device's services stops
+        unexpectedly. Most recover by themselves; each one below says whether
+        it is running again and what to do.
+      </p>
+      <ul class="inc-list" id="inc-list"></ul>
+      <div class="action-row" id="inc-actions" style="margin-top:8px">
+        <button class="btn btn-secondary btn-sm" id="inc-all-handled" onclick="markIncidentsHandled(null)" hidden>✓ Mark all as handled</button>
+        <button class="raw-logs-toggle" id="inc-show-handled" onclick="toggleHandledIncidents()" hidden></button>
       </div>
     </div>
 
@@ -847,9 +862,12 @@ async function loadHomeDevice() {
     const netEl = document.getElementById('dv-network');
     netEl.textContent = (d.home_network ? 'Home network' : (d.hotspot_active ? 'Hotspot only' : 'Not connected')) + (d.ip ? ' · ' + d.ip : '');
     const incEl = document.getElementById('dv-incidents');
-    incEl.textContent = d.incidents_count ? String(d.incidents_count) : 'None';
-    incEl.className = 'hm-value ' + (d.incidents_count ? 'state-error' : 'state-ready');
-    incEl.title = iprTime.localizeLines(d.last_incident || '');
+    incEl.textContent = d.incidents_count
+      ? d.incidents_count + ' open ›'
+      : (d.incidents_handled ? 'None open ›' : 'None');
+    incEl.className = 'hm-value inc-count ' + (d.incidents_count ? 'state-error' : 'state-ready');
+    incEl.disabled = !d.incidents_count && !d.incidents_handled;
+    incEl.title = d.incidents_count ? 'Show what happened and what to do' : '';
     document.getElementById('dv-reach').textContent = d.reachability || '';
     if (d.device_epoch) iprTime.startClock(document.getElementById('topbar-clock'), d.device_epoch);
     const acts = document.getElementById('dv-actions');
@@ -857,6 +875,130 @@ async function loadHomeDevice() {
     document.getElementById('dv-hotspot-on').hidden = !!d.hotspot_active;
     document.getElementById('dv-hotspot-off').hidden = !d.hotspot_active;
   } catch (_) {}
+}
+
+// ---- Incidents (Home) ----
+// Each line of the device's incident log, explained by /api/incidents: what
+// failed, whether it is running again, and what to do.  "Handled" only takes
+// it out of the count; the log itself is kept.
+let _incidents = [], _showHandledIncidents = false;
+
+async function toggleIncidents() {
+  const card = document.getElementById('home-incidents');
+  const open = card.hidden;
+  card.hidden = !open;
+  document.getElementById('dv-incidents').setAttribute('aria-expanded', String(open));
+  if (open) {
+    await loadIncidents();
+    card.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  }
+}
+
+async function loadIncidents() {
+  const list = document.getElementById('inc-list');
+  try {
+    const d = await apiFetch('/api/incidents');
+    _incidents = d.items || [];
+    renderIncidents(d);
+  } catch (e) {
+    list.innerHTML = '<li class="inc-item">Could not read the incidents: ' + escapeHtml(e.message) + '</li>';
+  }
+}
+
+function incidentHtml(i, n) {
+  const buttons = ['<button class="btn btn-secondary btn-sm" onclick="showIncidentLog(' + n + ', this)">📄 Show log</button>'];
+  if (!i.handled && i.can_restart && _currentIsAdmin) {
+    buttons.push('<button class="btn btn-secondary btn-sm" onclick="restartIncidentUnit(' + n + ', this)">↻ Restart ' + escapeHtml(i.label.toLowerCase()) + '</button>');
+  }
+  if (!i.handled && _currentIsAdmin) {
+    buttons.push('<button class="btn btn-secondary btn-sm" onclick="markIncidentsHandled(' + n + ')">✓ Mark as handled</button>');
+  }
+  return '<li class="inc-item' + (i.handled ? ' inc-handled' : '') + '">'
+    + '<div class="inc-head"><span class="inc-title">' + escapeHtml(i.title) + '</span>'
+    + '<span class="inc-now state-' + escapeHtml(i.handled ? 'muted' : i.now_state) + '">'
+    + escapeHtml(i.handled ? 'Handled' : i.now) + '</span></div>'
+    + '<div class="inc-time">' + escapeHtml(i.at ? iprTime.format(i.at, true) : i.line) + '</div>'
+    + '<div class="inc-section"><b>What happened</b>' + escapeHtml(i.what) + '</div>'
+    + (i.handled ? '' : '<div class="inc-section"><b>What to do</b>' + escapeHtml(i.advice) + '</div>')
+    + '<div class="action-row inc-buttons">' + buttons.join('') + '</div>'
+    + '<pre class="pen-file-content inc-log" id="inc-log-' + n + '"></pre>'
+    + '</li>';
+}
+
+function renderIncidents(d) {
+  const list = document.getElementById('inc-list');
+  const rows = [];
+  _incidents.forEach((i, n) => { if (_showHandledIncidents || !i.handled) rows.push(incidentHtml(i, n)); });
+  list.innerHTML = rows.length
+    ? rows.join('')
+    : '<li class="inc-item inc-none">No open incidents. Everything recorded has been handled.</li>';
+  const open = d.open_count || 0, handled = d.handled_count || 0;
+  document.getElementById('inc-all-handled').hidden = !(_currentIsAdmin && open > 1);
+  const sh = document.getElementById('inc-show-handled');
+  sh.hidden = !handled;
+  sh.textContent = _showHandledIncidents
+    ? 'Hide handled incidents'
+    : 'Show ' + handled + ' handled incident' + (handled === 1 ? '' : 's');
+}
+
+function toggleHandledIncidents() {
+  _showHandledIncidents = !_showHandledIncidents;
+  loadIncidents();
+}
+
+// The failed service's own log, from three minutes before to one after.
+async function showIncidentLog(n, btn) {
+  const pre = document.getElementById('inc-log-' + n);
+  if (pre.style.display === 'block') {
+    pre.style.display = 'none';
+    btn.textContent = '📄 Show log';
+    return;
+  }
+  pre.style.display = 'block';
+  pre.textContent = 'Loading…';
+  btn.textContent = '📄 Hide log';
+  try {
+    const d = await apiFetch('/api/incidents/log?id=' + encodeURIComponent(_incidents[n].id));
+    pre.textContent = d.lines && d.lines.length
+      ? iprTime.localizeLines(d.lines.join('\n'))
+      : 'The journal has nothing for this service around that time (it may have been rotated away).';
+  } catch (e) {
+    pre.textContent = 'Could not read the log: ' + e.message;
+  }
+}
+
+async function restartIncidentUnit(n, btn) {
+  const i = _incidents[n];
+  if (!confirm('Restart the ' + i.label.toLowerCase() + '?')) return;
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/incidents/restart', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: i.id}),
+    });
+    const d = await res.json().catch(() => ({}));
+    showToast(d.message || (d.error && d.error.message) || (res.ok ? 'Restarted.' : 'Restart failed.'), 4000);
+  } catch (e) {
+    showToast('Restart failed: ' + e.message);
+  }
+  setTimeout(() => { loadIncidents(); loadHomeDevice(); }, 3000);
+}
+
+// n = one incident's index, or null for every open one.
+async function markIncidentsHandled(n) {
+  if (n === null && !confirm('Mark every open incident as handled? They stay in the log and can be shown again.')) return;
+  const body = n === null ? {all: true} : {ids: [_incidents[n].id]};
+  try {
+    await apiFetch('/api/incidents/handled', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    showToast('Marked as handled.');
+  } catch (e) {
+    showToast('Could not mark it: ' + e.message);
+  }
+  await loadIncidents();
+  loadHomeDevice();
 }
 
 async function hotspotAction(enable) {

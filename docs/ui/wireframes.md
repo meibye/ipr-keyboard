@@ -76,6 +76,18 @@ The default screen for normal users.
 | Last event: Pen connected 2 min ago                                              |
 | [View Activity]                                           [Open Settings]        |
 +----------------------------------------------------------------------------------+
+| Device   Mode  Production   Hotspot  Off   Network  Home · 192.168.1.97          |
+|          Incidents  [1 open ›]                                                   |
++----------------------------------------------------------------------------------+
+| Incidents  (opens from the count)                                                |
+|  Pen connection stopped                                      Running again       |
+|  2026-10-10 19:18:42 CEST                                                        |
+|  What happened  The pen connection makes the pen's files readable over USB ...   |
+|                 It was stopped forcibly -- by another program, a person, or ...  |
+|  What to do     It recovered by itself.  Check that the device works ...         |
+|  [Show log]  [Restart ...] (when it can)  [Mark as handled]                      |
+|  Show 2 handled incidents                                                        |
++----------------------------------------------------------------------------------+
 ```
 ### Notes
 - The main hero area should contain a very simple visual flow from pen to Pi to PC.

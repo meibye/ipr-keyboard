@@ -803,6 +803,7 @@ Device-level facts for the home page's *Device* card (session required):
   "hostname": "ipr-prod-zero2",
   "reachability": "SSH and dashboard open on the home network",
   "incidents_count": 0,
+  "incidents_handled": 0,
   "last_incident": "",
   "device_time": "2026-09-13 14:00:00 CEST",
   "device_epoch": 1789308000.0,
@@ -811,8 +812,65 @@ Device-level facts for the home page's *Device* card (session required):
 ```
 
 The top-bar clock is the device's clock (`device_epoch`), ticked locally and
-shown in the viewer's time zone.  `last_incident` starts with a short-iso
-stamp, which the page also shows in the viewer's zone.
+shown in the viewer's time zone.  `incidents_count` counts the **open**
+incidents (not yet marked handled) and `last_incident` is the newest open
+line; `incidents_handled` counts the ones marked handled.  The count opens
+the incident panel, fed by `/api/incidents`.
+
+## `GET /api/incidents`
+
+Every line of `/var/lib/ipr-keyboard/incidents.log` (one per failure of a
+core unit, written by its `OnFailure=` handler), newest first, explained for
+a person -- see `src/ipr_keyboard/incidents.py`:
+
+```json
+{
+  "items": [
+    {
+      "id": "2026-10-10T19:18:42+02:00  irispen-mount.service failed (result=signal)",
+      "at": "2026-10-10T17:18:42Z",
+      "unit": "irispen-mount",
+      "label": "Pen connection",
+      "title": "Pen connection stopped",
+      "what": "The pen connection makes the pen's files readable over USB; ...  It was stopped forcibly ...",
+      "result": "signal",
+      "now": "Running again",
+      "now_state": "ready",
+      "advice": "It recovered by itself.  Check that the device works ...",
+      "can_restart": false,
+      "handled": false,
+      "line": "2026-10-10T19:18:42+02:00  irispen-mount.service failed (result=signal)"
+    }
+  ],
+  "open_count": 1,
+  "handled_count": 0
+}
+```
+
+`now` comes from one `systemctl is-active` call for the units of the open
+incidents: `Running again`, `Starting`, `Not running` (or `Finished` for the
+one-shot installation).  `advice` follows from it.  The `id` is the log line
+itself, so it stays the same however often the log is read.
+
+## `GET /api/incidents/log?id=<id>`
+
+The failed unit's journal (`short-iso`) from three minutes before the
+failure to one minute after: `{"id", "unit", "lines": [...]}`.  404 for an
+unknown id.
+
+## `POST /api/incidents/handled`  (admin)
+
+Body `{"ids": [<id>, ...]}` or `{"all": true}`.  Records them as handled in
+`incidents_handled.json` beside the application's other state; the log
+itself is never changed.  Returns `{"ok": true, "marked": <new>}`.  Only
+lines still in the log are kept, so a reinstall's fresh log starts with
+nothing handled.
+
+## `POST /api/incidents/restart`  (admin)
+
+Body `{"id": <id>}`.  Restarts the incident's unit through the root helper,
+for the units it controls (`bt_hid_ble`, `bt_hid_agent_unified`); 400 for
+the others, whose `advice` says what to do instead.
 
 ## `POST /api/actions/hotspot`  (admin)
 
