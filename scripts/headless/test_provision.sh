@@ -501,6 +501,28 @@ fi
 check M.7 "journal is persistent (journald.conf.d/ipr.conf)" "grep 'Storage=persistent' /etc/systemd/journald.conf.d/ipr.conf"
 check M.8 "OnFailure incident handler installed"      "[ -f /etc/systemd/system/ipr-failure@.service ]"
 check M.9 "core units carry OnFailure drop-in"        "grep OnFailure /etc/systemd/system/bt_hid_ble.service.d/20-onfailure.conf"
+# The device's passwords live in credentials.txt (root only) and nowhere a
+# user can read.  An install once teed its summary -- hotspot key, first
+# dashboard login -- into a world-readable log, and from there the journal.
+_WIZ_LOG=/opt/ipr_state/provision_wizard.log
+_CRED_FILE=/opt/ipr_state/credentials.txt
+if [ -e "$_WIZ_LOG" ]; then
+    check M.10 "provisioning log is root-only (0600)"  "[ \"\$(stat -c %a '$_WIZ_LOG')\" = 600 ]"
+    _secrets=()
+    _hs_pass=$(grep '^PASS=' /etc/ipr-hotspot.secret 2>/dev/null | cut -d= -f2-)
+    [ -n "$_hs_pass" ] && _secrets+=("$_hs_pass")
+    _adm_pwd=$(tr -d '\r\n' < "$PROJECT_DIR/admin_initial_password.txt" 2>/dev/null || true)
+    [ -n "$_adm_pwd" ] && _secrets+=("$_adm_pwd")
+    _leaked=0
+    for _s in "${_secrets[@]}"; do grep -qF -- "$_s" "$_WIZ_LOG" && _leaked=1; done
+    check M.11 "no password in the provisioning log"   "[ $_leaked -eq 0 ]"
+    unset _s _secrets _hs_pass _adm_pwd _leaked
+else
+    record_skip M.10 "provisioning log (not present)"
+fi
+if [ -e "$_CRED_FILE" ]; then
+    check M.12 "credentials.txt is root-only (0600)"   "[ \"\$(stat -c %a '$_CRED_FILE')\" = 600 ]"
+fi
 if [ -s /var/lib/ipr-keyboard/incidents.log ]; then
     warn "incidents.log is not empty — review it:"
     tail -5 /var/lib/ipr-keyboard/incidents.log | sed 's/^/    /'

@@ -44,7 +44,17 @@ re-runs the wizard with `--unattended --resume` once the system is back, then
 disarms itself.  A run that fails does not re-arm, so it cannot loop.
 
 Follow it with `journalctl -u ipr-provision-resume.service -f`, or read
-`/opt/ipr_state/provision_wizard.log` afterwards — every run appends to it.
+`/opt/ipr_state/provision_wizard.log` afterwards with `sudo` — every run
+appends to it, and it is root-only (0600).
+
+The device's passwords — the hotspot key (also the setup-portal login) and
+the first dashboard password — are never written to that log or the journal:
+`07_show_info.sh` prints them only to a terminal and otherwise points at
+`/opt/ipr_state/credentials.txt` (root only), which always has them.  An
+interactive run shows the step-14 summary on the terminal, past the log; an
+unattended one leaves them in `credentials.txt` alone.  Show them again with
+`sudo ./provision/07_show_info.sh` or `sudo cat /opt/ipr_state/credentials.txt`.
+The audit checks this (M.10–M.12).
 
 ### Choosing the answers in advance
 
@@ -113,7 +123,8 @@ walked through those.
 - `/opt/ipr_common.env` (input config)
 - `/opt/ipr_state/*` (state and verification outputs)
 - Installed services and binaries under `/etc/systemd/system` and `/usr/local/bin`
-- `/opt/ipr_state/provision_wizard.log` (every run, appended)
+- `/opt/ipr_state/provision_wizard.log` (every run, appended; root-only, no passwords)
+- `/opt/ipr_state/credentials.txt` (the device's passwords; root-only)
 - `/opt/ipr_state/provision_verify.log` (output of the closing audit)
 - `/etc/systemd/system/ipr-provision-resume.service` while a reboot is pending;
   removed when provisioning completes

@@ -952,7 +952,13 @@ def build() -> Manual:
                                  "AUTO_REBOOT, FINAL_VERIFY og INSTALL_TMUX i "
                                  "/opt/ipr_common.env (se provision/README.md)."),
         ("Følg med — ", "journalctl -u ipr-provision-resume.service -f, eller læs "
-                       "/opt/ipr_state/provision_wizard.log bagefter."),
+                       "/opt/ipr_state/provision_wizard.log bagefter med sudo (kun "
+                       "root kan læse den)."),
+        ("Adgangskoderne — ", "hotspot-nøglen (også login til opsætningsportalen) og den "
+                             "første adgangskode til dashboardet skrives aldrig i loggen "
+                             "eller journalen. De står i /opt/ipr_state/credentials.txt "
+                             "(kun root) og vises igen med "
+                             "sudo ./provision/07_show_info.sh."),
         ("Resultatet — ", "guidens slutstatus er antallet af fejlede kontroller i "
                          "afslutningsauditten (trin 13), så exit 0 betyder, at alt "
                          "lykkedes. Rapporten gemmes i /opt/ipr_state/provision_verify.log. "

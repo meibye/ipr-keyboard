@@ -386,7 +386,11 @@ STATE_DIR="$(dirname "$STATE_FILE")"
 mkdir -p "$STATE_DIR"
 
 # Everything from here is also written to the log, so an unattended run can be
-# read back afterwards (and followed live with tail -f).
+# read back afterwards (and followed live with sudo tail -f).  Root-only: it
+# records a whole install, and one once carried the device's passwords in a
+# file any user could read.  chmod on every run also closes an older log.
+( umask 077; touch "$LOG_FILE" )
+chmod 0600 "$LOG_FILE"
 exec > >(tee -a "$LOG_FILE") 2>&1
 echo "=== provisioning run started $(date -Is) (unattended=$UNATTENDED resume=$RESUME) ==="
 
@@ -840,9 +844,28 @@ if [[ "$wizard_step" -le 13 ]]; then
 fi
 
 # Step 14: Show post-provisioning info (credentials, URLs, SSH)
+#
+# The summary holds the hotspot and first dashboard passwords.  Everything
+# this wizard prints goes into its log, and after a reboot it runs as a
+# service whose output also lands in the journal -- so 07_show_info.sh prints
+# them only to a terminal, and keeps them in credentials.txt (root only)
+# either way.  An admin at the keyboard gets the full summary on the screen,
+# past the log; an unattended run gets it with pointers instead.
 if [[ "$wizard_step" -le 14 ]]; then
     ensure_project_dir
-    run_step "./provision/07_show_info.sh" "[Step 14/14] Device info: Post-provisioning summary" 15
+    if (( ! UNATTENDED )) && ( : > /dev/tty ) 2>/dev/null; then
+        step "[Step 14/14] Device info: Post-provisioning summary"
+        echo "(shown on the terminal only, not written to this log: it holds passwords)"
+        if bash ./provision/07_show_info.sh --show-secrets > /dev/tty 2>&1; then
+            success "[Step 14/14] Device info: Post-provisioning summary completed successfully."
+        else
+            fail "[Step 14/14] Device info: Post-provisioning summary failed!"
+            exit 1
+        fi
+        echo "wizard_step=15" > "$STATE_FILE"
+    else
+        run_step "./provision/07_show_info.sh" "[Step 14/14] Device info: Post-provisioning summary" 15
+    fi
 fi
 
 # Every .deb downloaded on the way here is still in /var/cache/apt/archives,
