@@ -740,6 +740,122 @@ def api_incident_restart():
         return _err("internal_error", "An internal error occurred.", 500)
 
 
+# ---------------------------------------------------------------------------
+# Date and time  (Settings > Date and time)
+# ---------------------------------------------------------------------------
+# The device sets its clock from the internet (systemd-timesyncd).  It has no
+# battery-backed clock, so without internet -- on the hotspot, say -- it can
+# come up wrong after being switched off.  Pages show every time in the
+# viewer's zone; the device's own zone is used on its display and in its logs.
+# Changing either needs root: through the root helper (`time ...`).
+
+_EPOCH_MIN = 1704067200  # 2024-01-01: anything earlier is a wrong clock
+_EPOCH_MAX = 4102444800  # 2100-01-01
+_time_zones: list[str] = []
+
+
+def _time_state() -> dict[str, Any]:
+    props: dict[str, str] = {}
+    for line in _run(
+        ["timedatectl", "show", "-p", "Timezone", "-p", "NTP", "-p", "NTPSynchronized"]
+    ).splitlines():
+        key, sep, value = line.partition("=")
+        if sep:
+            props[key.strip()] = value.strip()
+    server = _run(
+        ["timedatectl", "show-timesync", "-p", "ServerName", "--value"]
+    ).strip()
+    return {
+        "device_epoch": time.time(),
+        "time_zone": props.get("Timezone", ""),
+        "ntp_enabled": props.get("NTP") == "yes",
+        "synchronized": props.get("NTPSynchronized") == "yes",
+        "time_server": "" if server.startswith("ERROR") else server,
+    }
+
+
+def _known_time_zones() -> list[str]:
+    if not _time_zones:
+        out = _run(["timedatectl", "list-timezones"], timeout=10)
+        if not out.startswith("ERROR"):
+            _time_zones.extend(z.strip() for z in out.splitlines() if z.strip())
+    return _time_zones
+
+
+def _helper_time(*args: str) -> tuple[bool, str]:
+    """ipr_hotspot_ctl.sh time <args> (sudoers); (ok, message)."""
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", _HOTSPOT_CTL, "time", *args],
+            capture_output=True,
+            text=True,
+            timeout=40,
+        )
+    except subprocess.TimeoutExpired:
+        return False, "The device did not answer in time."
+    if result.returncode == 0:
+        return True, ""
+    err = (result.stderr or result.stdout or "").strip().splitlines()
+    return False, (err[-1] if err else f"Failed (exit {result.returncode}).")
+
+
+@bp_api.get("/time")
+def api_time():
+    try:
+        data = _time_state()
+        data["timestamp"] = _now()
+        return jsonify(data)
+    except Exception:
+        logger.exception("API error")
+        return _err("internal_error", "An internal error occurred.", 500)
+
+
+@bp_api.get("/time/zones")
+def api_time_zones():
+    return jsonify({"items": _known_time_zones()})
+
+
+@bp_api.post("/time")
+def api_time_change():
+    """Admin.  {"action": "sync"} | {"action": "set", "epoch": <UTC seconds>}
+    | {"action": "zone", "zone": "Europe/Copenhagen"}."""
+    denied = _require_admin()
+    if denied:
+        return denied
+    try:
+        body = request.get_json(silent=True) or {}
+        action = body.get("action")
+        if action == "sync":
+            ok, msg = _helper_time("sync")
+            done = "The clock is set from the internet."
+        elif action == "set":
+            try:
+                epoch = int(float(body.get("epoch")))
+            except (TypeError, ValueError):
+                return _err("bad_request", "epoch must be a number of seconds.", 400)
+            if not _EPOCH_MIN <= epoch < _EPOCH_MAX:
+                return _err("bad_request", "That time is not plausible.", 400)
+            ok, msg = _helper_time("set", str(epoch))
+            done = "The clock is set."
+        elif action == "zone":
+            zone = str(body.get("zone") or "")
+            if zone not in _known_time_zones():
+                return _err("bad_request", f"Unknown time zone: {zone}", 400)
+            ok, msg = _helper_time("zone", zone)
+            if ok:
+                # this process follows /etc/localtime from now on (no tzset on Windows)
+                getattr(time, "tzset", lambda: None)()
+            done = f"The device's time zone is {zone}."
+        else:
+            return _err("bad_request", "action must be sync, set or zone.", 400)
+        data = _time_state()
+        data.update({"ok": ok, "message": done if ok else msg})
+        return jsonify(data), (200 if ok else 500)
+    except Exception:
+        logger.exception("API error")
+        return _err("internal_error", "An internal error occurred.", 500)
+
+
 @bp_api.get("/device")
 def api_device():
     try:

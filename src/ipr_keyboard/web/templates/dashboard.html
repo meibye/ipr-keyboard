@@ -324,6 +324,39 @@
       </div>
     </div>
 
+    <!-- Date and time: the device's clock and zone (/api/time) -->
+    <div class="settings-section card" id="time-section">
+      <h2>Date and time</h2>
+      <div class="settings-row">
+        <label>Device clock</label>
+        <span class="setting-value" id="time-device">—</span>
+      </div>
+      <div class="settings-row">
+        <label>Compared with this computer</label>
+        <span class="setting-value" id="time-offset">—</span>
+      </div>
+      <div class="settings-row">
+        <label>Set from the internet</label>
+        <span class="setting-value" id="time-sync">—</span>
+      </div>
+      <div class="settings-row">
+        <label for="time-zone">Device time zone</label>
+        <select id="time-zone" disabled><option>—</option></select>
+      </div>
+      <div class="card-explanation" style="margin-top:-4px">
+        The device sets its clock from the internet by itself. Without internet
+        (on the hotspot, for example) it can be wrong after it has been switched
+        off for a while: then set it from this computer. Pages always show times
+        in this computer's time zone; the device's own time zone is used on its
+        display and in its log files.
+      </div>
+      <div class="action-row" id="time-actions" style="margin-top:10px" hidden>
+        <button class="btn btn-secondary btn-sm" onclick="timeAction('sync', this)">🌐 Sync with internet time</button>
+        <button class="btn btn-secondary btn-sm" onclick="timeAction('set', this)">🖥 Set to this computer's time</button>
+        <button class="btn btn-secondary btn-sm" onclick="timeAction('zone', this)">💾 Save time zone</button>
+      </div>
+    </div>
+
     <!-- Software version info -->
     <div class="settings-section card" id="software-info-section">
       <h2>Software</h2>
@@ -685,7 +718,7 @@ function navigate(screen, pushState) {
 
   if (screen === 'events') loadEvents();
   if (screen === 'activity') updateActivity();
-  if (screen === 'settings') loadSettings();
+  if (screen === 'settings') { loadSettings(); loadTimeSettings(); }
   if (screen === 'connections') updateConnections();
   if (screen === 'debug') { loadDebugServices(); loadPenFiles(); }
   if (screen === 'home') loadHomeHealth();
@@ -1311,6 +1344,90 @@ function _initNetworkModeToggle() {
         document.getElementById('net-mode-static').checked ? '' : 'none';
     });
   });
+}
+
+// ---- Date and time (Settings) ----
+// How far the device's clock is from this computer's, in words.
+function describeOffset(seconds) {
+  const a = Math.abs(seconds);
+  if (a < 3) return {text: 'The same', cls: 'state-ready'};
+  const m = Math.floor(a / 60), sec = Math.round(a % 60);
+  const span = a >= 86400 ? Math.round(a / 86400) + ' days'
+    : a >= 3600 ? Math.round(a / 3600) + ' h ' + Math.round((a % 3600) / 60) + ' min'
+    : (m ? m + ' min ' : '') + sec + ' s';
+  return {
+    text: 'Device is ' + span + (seconds < 0 ? ' behind' : ' ahead'),
+    cls: a >= 60 ? 'state-error' : 'state-warning',
+  };
+}
+
+function showTimeState(d, sentAt) {
+  // The device read its clock half-way through the request, near enough.
+  const now = (sentAt + Date.now()) / 2;
+  iprTime.startClock(document.getElementById('time-device'), d.device_epoch);
+  const off = describeOffset(d.device_epoch - now / 1000);
+  const offEl = document.getElementById('time-offset');
+  offEl.textContent = off.text;
+  offEl.className = 'setting-value ' + off.cls;
+  const syncEl = document.getElementById('time-sync');
+  syncEl.textContent = d.synchronized
+    ? 'Yes' + (d.time_server ? ' · ' + d.time_server : '')
+    : (d.ntp_enabled ? 'On, but no time server reached yet' : 'Off');
+  syncEl.className = 'setting-value ' + (d.synchronized ? 'state-ready' : 'state-warning');
+  const sel = document.getElementById('time-zone');
+  if (d.time_zone && sel.dataset.loaded !== '1') {
+    sel.innerHTML = '<option>' + escapeHtml(d.time_zone) + '</option>';
+  }
+  if (d.time_zone) sel.value = d.time_zone;
+}
+
+async function loadTimeSettings() {
+  const sentAt = Date.now();
+  try {
+    showTimeState(await apiFetch('/api/time'), sentAt);
+  } catch (e) {
+    document.getElementById('time-sync').textContent = 'Could not read: ' + e.message;
+  }
+  document.getElementById('time-actions').hidden = !_currentIsAdmin;
+  const sel = document.getElementById('time-zone');
+  sel.disabled = !_currentIsAdmin;
+  if (_currentIsAdmin && sel.dataset.loaded !== '1') {
+    try {
+      const z = await apiFetch('/api/time/zones');
+      if (z.items && z.items.length) {
+        const current = sel.value;
+        sel.innerHTML = z.items.map(n => '<option>' + escapeHtml(n) + '</option>').join('');
+        sel.value = current;
+        sel.dataset.loaded = '1';
+      }
+    } catch (_) {}
+  }
+}
+
+async function timeAction(action, btn) {
+  const body = {action: action};
+  if (action === 'set') {
+    if (!confirm("Set the device's clock to this computer's time?\n\nOnly needed when the device has no internet; with internet it corrects itself.")) return;
+    body.epoch = Date.now() / 1000;
+  } else if (action === 'zone') {
+    body.zone = document.getElementById('time-zone').value;
+    if (!confirm('Set the device\'s time zone to ' + body.zone + '?')) return;
+  }
+  btn.disabled = true;
+  showToast(action === 'sync' ? 'Asking the internet time servers…' : 'Setting…', 3000);
+  const sentAt = Date.now();
+  try {
+    const res = await fetch('/api/time', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (d.device_epoch) showTimeState(d, sentAt);
+    showToast(d.message || (d.error && d.error.message) || (res.ok ? 'Done.' : 'Failed.'), 5000);
+  } catch (e) {
+    showToast('Failed: ' + e.message);
+  }
+  btn.disabled = false;
 }
 
 async function loadSettings() {

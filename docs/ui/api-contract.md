@@ -817,6 +817,39 @@ incidents (not yet marked handled) and `last_incident` is the newest open
 line; `incidents_handled` counts the ones marked handled.  The count opens
 the incident panel, fed by `/api/incidents`.
 
+## `GET /api/time`
+
+The device's clock and how it is set (Settings > Date and time):
+
+```json
+{
+  "device_epoch": 1791723585.5,
+  "time_zone": "Europe/Copenhagen",
+  "ntp_enabled": true,
+  "synchronized": true,
+  "time_server": "0.debian.pool.ntp.org",
+  "timestamp": "2026-10-11T12:59:45Z"
+}
+```
+
+The page compares `device_epoch` with its own clock and says how far apart
+they are.  `GET /api/time/zones` lists the zones the device knows
+(`timedatectl list-timezones`).
+
+## `POST /api/time`  (admin)
+
+- `{"action": "sync"}` -- set the clock from the internet now (NTP; waits
+  up to 15 s for a time server).
+- `{"action": "set", "epoch": <UTC seconds>}` -- set the clock, from the
+  viewer's computer, for a device without internet.  2024..2099 only.  With
+  internet, NTP corrects it again.
+- `{"action": "zone", "zone": "Europe/Copenhagen"}` -- the device's own
+  zone (its display and log files); must be one of `/api/time/zones`.
+
+All go through the root helper (`ipr_hotspot_ctl.sh time ...`) and return
+the new `/api/time` state plus `ok` and `message`; 500 with the helper's
+reason when it fails.
+
 ## `GET /api/incidents`
 
 Every line of `/var/lib/ipr-keyboard/incidents.log` (one per failure of a

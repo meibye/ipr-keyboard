@@ -21,6 +21,13 @@
 #                                     # (dashboard "Reconnect Bluetooth" and the Debug
 #                                     # page; the app has no polkit session, so a bare
 #                                     # systemctl gets "Interactive authentication required")
+#   ipr_hotspot_ctl.sh time sync      # set the clock from the internet now (NTP)
+#   ipr_hotspot_ctl.sh time set <epoch>
+#                                     # set the clock (UTC seconds) -- for a device
+#                                     # without internet, from the dashboard viewer's clock
+#   ipr_hotspot_ctl.sh time zone <Area/City>
+#                                     # the device's own time zone (OLED, log files)
+#                                     # (dashboard Settings > Date and time)
 #
 # "start" works at any time, not only at boot: it writes the request file
 # that /usr/local/sbin/ipr-provision.sh treats as a trigger, then restarts
@@ -130,8 +137,50 @@ case "${1:-}" in
     log "systemctl ${action} ${unit}.service"
     systemctl "${action}" "${unit}.service"
     ;;
+  time)
+    case "${2:-}" in
+      sync)
+        timedatectl set-ntp true
+        systemctl restart systemd-timesyncd.service
+        for _ in $(seq 1 15); do
+          if [[ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" == "yes" ]]; then
+            log "clock synchronised: $(date -Is)"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "No time server answered within 15 s. Is the device on a network with internet access?" >&2
+        exit 1
+        ;;
+      set)
+        epoch="${3:-}"
+        if ! [[ "${epoch}" =~ ^[0-9]{10}$ ]] || (( epoch < 1704067200 || epoch >= 4102444800 )); then
+          echo "bad time: ${epoch} (UTC seconds, 2024..2099)" >&2
+          exit 2
+        fi
+        date -u -s "@${epoch}" >/dev/null
+        # timesyncd never starts the clock earlier than this file's time, so
+        # a reboot without a time server keeps (at least) the time just set.
+        touch /var/lib/systemd/timesync/clock 2>/dev/null || true
+        log "clock set to $(date -Is)"
+        ;;
+      zone)
+        zone="${3:-}"
+        if [[ -z "${zone}" ]] || ! timedatectl list-timezones | grepq -xF -- "${zone}"; then
+          echo "unknown time zone: ${zone}" >&2
+          exit 2
+        fi
+        timedatectl set-timezone "${zone}"
+        log "time zone set to ${zone}"
+        ;;
+      *)
+        echo "usage: $0 time {sync|set <epoch>|zone <Area/City>}" >&2
+        exit 2
+        ;;
+    esac
+    ;;
   *)
-    echo "usage: $0 {start|stop|status|factory-reset|poweroff|service <start|stop|restart> <unit>}" >&2
+    echo "usage: $0 {start|stop|status|factory-reset|poweroff|service <start|stop|restart> <unit>|time ...}" >&2
     exit 2
     ;;
 esac
